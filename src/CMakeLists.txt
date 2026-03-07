@@ -77,7 +77,6 @@ target_link_libraries(RTRLabCore PUBLIC
     glad
     glm
     stb
-    imgui
     OpenGL::GL
 )
 
