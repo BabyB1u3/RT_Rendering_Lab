@@ -1,2 +1,0 @@
-F:/Solution/MyProject/Include/glm/out/build/x64-Debug/CMakeFiles/edit_cache.dir
-F:/Solution/MyProject/Include/glm/out/build/x64-Debug/CMakeFiles/rebuild_cache.dir
