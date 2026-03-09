@@ -3,36 +3,33 @@
 #include <glad/glad.h>
 
 // Helper functon that cast the vertex datatype to opengl base tyep
-static GLenum VertexDataTypetoOpenGLBaseType(VertexDataType type)
+static GLenum ShaderDataTypeToOpenGLBaseType(ShaderDataType type)
 {
-	switch (type)
-	{
-	case Illusion::VertexDataType::Float:
-		return GL_FLOAT;
-	case Illusion::VertexDataType::Float2:
-		return GL_FLOAT;
-	case Illusion::VertexDataType::Float3:
-		return GL_FLOAT;
-	case Illusion::VertexDataType::Float4:
-		return GL_FLOAT;
-	case Illusion::VertexDataType::Mat3:
-		return GL_FLOAT;
-	case Illusion::VertexDataType::Mat4:
-		return GL_FLOAT;
-	case Illusion::VertexDataType::Int:
-		return GL_INT;
-	case Illusion::VertexDataType::Int2:
-		return GL_INT;
-	case Illusion::VertexDataType::Int3:
-		return GL_INT;
-	case Illusion::VertexDataType::Int4:
-		return GL_INT;
-	case Illusion::VertexDataType::Bool:
-		return GL_BOOL;
-	}
+    switch (type)
+    {
+    case ShaderDataType::Float:
+    case ShaderDataType::Float2:
+    case ShaderDataType::Float3:
+    case ShaderDataType::Float4:
+    case ShaderDataType::Mat3:
+    case ShaderDataType::Mat4:
+        return GL_FLOAT;
 
-	ILLUSION_CORE_ASSERT(false, "Unknown Shader Data Type!");
-	return 0;
+    case ShaderDataType::Int:
+    case ShaderDataType::Int2:
+    case ShaderDataType::Int3:
+    case ShaderDataType::Int4:
+        return GL_INT;
+
+    case ShaderDataType::Bool:
+        return GL_BOOL;
+
+    case ShaderDataType::None:
+        return 0;
+    }
+
+    assert(false && "Unknown ShaderDataType");
+    return 0;
 }
 
 // Constructor

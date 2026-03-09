@@ -1,36 +1,40 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
+#include <vector>
+
 #include "Buffers.h"
 
-// VAO class
-// Holds the reference to VBOs and IBO
-class VAO
+// TODO: Implement functions
+
+class VertexArray
 {
 public:
-	VAO();
+    VertexArray();
+    ~VertexArray();
 
-	~VAO();
+    VertexArray(const VertexArray&) = delete;
+    VertexArray& operator=(const VertexArray&) = delete;
 
-	void Bind() const;
+    VertexArray(VertexArray&& other) noexcept;
+    VertexArray& operator=(VertexArray&& other) noexcept;
 
-	void Unbind() const;
+    void Bind() const;
+    void Unbind() const;
 
-	// Add VBOs to VAO and set vertex attribute pointer according to their layouts
-	void AddVBO(const Ref<VBO> &VBO);
+    void AddVertexBuffer(const std::shared_ptr<VertexBuffer>& vertexBuffer);
+    void SetIndexBuffer(const std::shared_ptr<IndexBuffer>& indexBuffer);
 
-	// Add IBO to VAO
-	void SetIBO(const Ref<IBO> &IBO);
+    const std::vector<std::shared_ptr<VertexBuffer>>& GetVertexBuffers() const { return m_VertexBuffers; }
+    const std::shared_ptr<IndexBuffer>& GetIndexBuffer() const { return m_IndexBuffer; }
 
-	const std::vector<Ref<VBO>> &GetVBOs() const { return m_VBOs; }
-	const Ref<IBO> &GetIBO() const { return m_IBO; }
+    uint32_t GetRendererID() const { return m_RendererID; }
 
 private:
-	std::vector<Ref<VBO>> m_VBOs;
+    uint32_t m_RendererID = 0;
+    uint32_t m_VertexAttribIndex = 0;
 
-	Ref<IBO> m_IBO;
-
-	uint32_t m_VAO;
-
-	uint32_t m_VBOIndexOffset = 0;
+    std::vector<std::shared_ptr<VertexBuffer>> m_VertexBuffers;
+    std::shared_ptr<IndexBuffer> m_IndexBuffer;
 };
