@@ -36,6 +36,3 @@ add_library(stb STATIC
 target_include_directories(stb PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/stb
 )
-
-# macOS / Linux, need OpenGL headers
-find_package(OpenGL REQUIRED)
