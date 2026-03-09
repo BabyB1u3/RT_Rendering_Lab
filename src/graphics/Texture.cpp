@@ -1,60 +1,95 @@
-
 #include "Texture.h"
-// The standard C++ libs
-#include <iostream>
 
+#include <stb_image.h>
 
-Texture2D::Texture2D()
-    : Width(0), Height(0), Wrap_S(GL_REPEAT), Wrap_T(GL_REPEAT), Filter_Min(GL_LINEAR_MIPMAP_LINEAR), Filter_Max(GL_LINEAR)
+#include <glad/glad.h>
+
+// Generate the 2D texture from the source file
+Texture2D::Texture2D(const std::string &path)
+	: m_Path(path)
 {
-    // Create Texture
-    glGenTextures(1, &this->ID);
+	int width, height, channels;
+
+	// Reverse the texture so the stbi axis directions would max with opengl axis directions
+	stbi_set_flip_vertically_on_load(1);
+
+	if (path != "test")
+	{
+		// Read the texture from the file
+		stbi_uc *data = stbi_load(m_Path.c_str(), &width, &height, &channels, 0);
+		ILLUSION_CORE_ASSERT(data, "Failed to load texture !");
+		m_Width = width;
+		m_Height = height;
+
+		GLenum internalFormat = 0, dataFormat = 0;
+		// Check whether the texture support alpha channel
+		if (channels == 4)
+		{
+			internalFormat = GL_RGBA8;
+			dataFormat = GL_RGBA;
+		}
+		else if (channels == 3)
+		{
+			internalFormat = GL_RGB8;
+			dataFormat = GL_RGB;
+		}
+
+		ILLUSION_CORE_ASSERT(internalFormat & dataFormat, "Format do not support!");
+
+		// Create the teture
+		glCreateTextures(GL_TEXTURE_2D, 1, &m_RendererID);
+		glTextureStorage2D(m_RendererID, 1, internalFormat, m_Width, m_Height);
+
+		// Set the filter mode of the texture when it is scaled
+		glTextureParameteri(m_RendererID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTextureParameteri(m_RendererID, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+		glTextureParameteri(m_RendererID, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTextureParameteri(m_RendererID, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+		glTextureSubImage2D(m_RendererID, 0, 0, 0, m_Width, m_Height, dataFormat, GL_UNSIGNED_BYTE, data);
+
+		// Free the data when it is no longer used
+		stbi_image_free(data);
+	}
 }
 
-void Texture2D::Generate(GLuint width, GLuint height, GLenum format, unsigned char* data)
+// Generate the 2D texture in GPU
+Texture2D::Texture2D(uint32_t width, uint32_t height)
+	: m_Width(width), m_Height(height)
 {
-    this->Width = width;
-    this->Height = height;
-    // Bind Texture
-    glBindTexture(GL_TEXTURE_2D, this->ID);
-    glTexImage2D(GL_TEXTURE_2D, 0, format, this->Width, this->Height, 0, format, GL_UNSIGNED_BYTE, data);
-    glGenerateMipmap(GL_TEXTURE_2D);
-    // Set Texture wrap and filter modes
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, this->Wrap_S);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, this->Wrap_T);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, this->Filter_Min);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, this->Filter_Max);
-    // Unbind Texture
-    glBindTexture(GL_TEXTURE_2D, 0);
+	GLenum internalFormat = GL_RGBA8, dataFormat = GL_RGBA;
+
+	// Create the teture
+	glCreateTextures(GL_TEXTURE_2D, 1, &m_RendererID);
+	glTextureStorage2D(m_RendererID, 1, internalFormat, m_Width, m_Height);
+
+	// Set the filter mode of the texture when it is scaled
+	glTextureParameteri(m_RendererID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTextureParameteri(m_RendererID, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+	glTextureParameteri(m_RendererID, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTextureParameteri(m_RendererID, GL_TEXTURE_WRAP_T, GL_REPEAT);
 }
 
-void Texture2D::Create(GLuint width, GLuint height, GLenum format)
+void Texture2D::SetData(const void *data, uint32_t size)
 {
-    this->Width = width;
-    this->Height = height;
-    if (format == GL_DEPTH_COMPONENT)
-    {
-        // Bind Texture
-        glBindTexture(GL_TEXTURE_2D, this->ID);
-        glTexImage2D(GL_TEXTURE_2D, 0, format, this->Width, this->Height, 0, format, GL_FLOAT, NULL);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    }
-    else
-    {
-        // Bind Texture
-        glBindTexture(GL_TEXTURE_2D, this->ID);
-        glTexImage2D(GL_TEXTURE_2D, 0, format, this->Width, this->Height, 0, format, GL_UNSIGNED_BYTE, NULL);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-
-    // Unbind Texture
-    glBindTexture(GL_TEXTURE_2D, 0);
+	glTextureSubImage2D(m_RendererID, 0, 0, 0, m_Width, m_Height, GL_RGBA, GL_UNSIGNED_BYTE, data);
 }
 
-void Texture2D::Bind() const
+// Free the data when it is no longer used
+Texture2D::~Texture2D()
 {
-    // Bind Texture
-    glBindTexture(GL_TEXTURE_2D, this->ID);
+	glDeleteTextures(1, &m_RendererID);
+}
+
+// Bind the texture to the texture unit
+void Texture2D::Bind(uint32_t slot) const
+{
+	glBindTextureUnit(slot, m_RendererID);
+}
+
+void Texture2D::Unbind() const
+{
+	glBindTexture(GL_TEXTURE_2D, 0);
 }

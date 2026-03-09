@@ -1,143 +1,184 @@
-
 #include "Shader.h"
-// The standard part libs
-#include <iostream>
 
-Shader& Shader::Use()
-{
-    glUseProgram(this->ID);
-    return *this;
-}
+#include "Engine/Core/Utils/Resource/FileReader.h"
 
-void Shader::Compile(const GLchar* vertexSource, const GLchar* fragmentSource, const GLchar* geometrySource)
+#include <glad/glad.h>
+
+#include <glm/gtc/type_ptr.hpp>
+
+static GLenum ShaderTypeFromString(const std::string &type)
 {
-    GLuint sVertex, sFragment, sGeometry;
-    // Vertex Shader
-    sVertex = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(sVertex, 1, &vertexSource, NULL);
-    glCompileShader(sVertex);
-    checkCompileErrors(sVertex, "VERTEX");
-    // Fragment Shader
-    sFragment = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(sFragment, 1, &fragmentSource, NULL);
-    glCompileShader(sFragment);
-    checkCompileErrors(sFragment, "FRAGMENT");
-    // If geometry shader source code is given, also compile geometry shader
-    if (geometrySource != nullptr)
-    {
-        sGeometry = glCreateShader(GL_GEOMETRY_SHADER);
-        glShaderSource(sGeometry, 1, &geometrySource, NULL);
-        glCompileShader(sGeometry);
-        checkCompileErrors(sGeometry, "GEOMETRY");
-    }
-    // Shader Program
-    this->ID = glCreateProgram();
-    glAttachShader(this->ID, sVertex);
-    glAttachShader(this->ID, sFragment);
-    if (geometrySource != nullptr)
-        glAttachShader(this->ID, sGeometry);
-    glLinkProgram(this->ID);
-    checkCompileErrors(this->ID, "PROGRAM");
-    // Delete the shaders as they're linked into our program now and no longer necessery
-    glDeleteShader(sVertex);
-    glDeleteShader(sFragment);
-    if (geometrySource != nullptr)
-        glDeleteShader(sGeometry);
+	if (type == "vertex")
+		return GL_VERTEX_SHADER;
+	else if (type == "fragment")
+		return GL_FRAGMENT_SHADER;
+	else
+		return 0;
 }
 
-void Shader::SetFloat(const GLchar* name, GLfloat value, GLboolean useShader)
-{
-    if (useShader)
-        this->Use();
-    glUniform1f(glGetUniformLocation(this->ID, name), value);
-}
-void Shader::SetInteger(const GLchar* name, GLint value, GLboolean useShader)
-{
-    if (useShader)
-        this->Use();
-    glUniform1i(glGetUniformLocation(this->ID, name), value);
-}
-void Shader::SetBoolean(const GLchar* name, GLboolean value, GLboolean useShader)
-{
-    if (useShader)
-        this->Use();
-    glUniform1i(glGetUniformLocation(this->ID, name), value);
-}
-void Shader::SetVector2f(const GLchar* name, GLfloat x, GLfloat y, GLboolean useShader)
-{
-    if (useShader)
-        this->Use();
-    glUniform2f(glGetUniformLocation(this->ID, name), x, y);
-}
-void Shader::SetVector2f(const GLchar* name, const glm::vec2& value, GLboolean useShader)
-{
-    if (useShader)
-        this->Use();
-    glUniform2f(glGetUniformLocation(this->ID, name), value.x, value.y);
-}
-void Shader::SetVector3f(const GLchar* name, GLfloat x, GLfloat y, GLfloat z, GLboolean useShader)
-{
-    if (useShader)
-        this->Use();
-    glUniform3f(glGetUniformLocation(this->ID, name), x, y, z);
-}
-void Shader::SetVector3f(const GLchar* name, const glm::vec3& value, GLboolean useShader)
-{
-    if (useShader)
-        this->Use();
-    glUniform3f(glGetUniformLocation(this->ID, name), value.x, value.y, value.z);
-}
-void Shader::SetVector4f(const GLchar* name, GLfloat x, GLfloat y, GLfloat z, GLfloat w, GLboolean useShader)
-{
-    if (useShader)
-        this->Use();
-    glUniform4f(glGetUniformLocation(this->ID, name), x, y, z, w);
-}
-void Shader::SetVector4f(const GLchar* name, const glm::vec4& value, GLboolean useShader)
-{
-    if (useShader)
-        this->Use();
-    glUniform4f(glGetUniformLocation(this->ID, name), value.x, value.y, value.z, value.w);
-}
-void Shader::SetMatrix3(const GLchar* name, const glm::mat3& matrix, GLboolean useShader)
-{
-    if (useShader)
-        this->Use();
-    glUniformMatrix3fv(glGetUniformLocation(this->ID, name), 1, GL_FALSE, glm::value_ptr(matrix));
-}
-void Shader::SetMatrix4(const GLchar* name, const glm::mat4& matrix, GLboolean useShader)
-{
-    if (useShader)
-        this->Use();
-    glUniformMatrix4fv(glGetUniformLocation(this->ID, name), 1, GL_FALSE, glm::value_ptr(matrix));
-}
-
-
-void Shader::checkCompileErrors(GLuint object, std::string type)
+// Generate the shader program from the source code
+Shader::Shader(const std::string &filepath, const std::string &name)
+	: m_Name(name)
 {
 
-    GLint success;
-    GLchar infoLog[1024];
-    if (type != "PROGRAM")
-    {
-        glGetShaderiv(object, GL_COMPILE_STATUS, &success);
-        if (!success)
-        {
-            glGetShaderInfoLog(object, 1024, NULL, infoLog);
-            std::cout << "| ERROR::SHADER: Compile-time error: Type: " << type << "\n"
-                << infoLog << "\n -- --------------------------------------------------- -- "
-                << std::endl;
-        }
-    }
-    else
-    {
-        glGetProgramiv(object, GL_LINK_STATUS, &success);
-        if (!success)
-        {
-            glGetProgramInfoLog(object, 1024, NULL, infoLog);
-            std::cout << "| ERROR::SHADER: Link-time error: Type: " << type << "\n"
-                << infoLog << "\n -- --------------------------------------------------- -- "
-                << std::endl;
-        }
-    }
+	// Read the source code from the source file
+	std::string rawSource = FileReader::ReadFileBin(filepath);
+
+	std::unordered_map<GLenum, std::string> sourceCodes;
+
+	// Preprocessing the source code
+	const char *typeToken = "#type";
+	size_t typeTokenLength = strlen(typeToken);
+	size_t pos = rawSource.find(typeToken, 0); // start of shader type declaration
+	while (pos != std::string::npos)
+	{
+		size_t eol = rawSource.find_first_of("\r\n", pos); // end of shader type declaration
+		ILLUSION_CORE_ASSERT(eol != std::string::npos, "Syntax error");
+		size_t begin = pos + typeTokenLength + 1; // start of shader type name (after "#type " keyword)
+		std::string type = rawSource.substr(begin, eol - begin);
+		ILLUSION_CORE_ASSERT(type == "vertex" || type == "fragment", "Invalid shader type specified!");
+
+		size_t nextLinePos = rawSource.find_first_of("\r\n", eol); // start of shader code after shader type declaration
+		ILLUSION_CORE_ASSERT(eol != std::string::npos, "Syntax error");
+		pos = rawSource.find(typeToken, nextLinePos); // start of next shader type declaration
+		sourceCodes[ShaderTypeFromString(type)] = rawSource.substr(nextLinePos, pos - (nextLinePos == std::string::npos ? rawSource.size() - 1 : nextLinePos));
+	}
+
+	// Get a program object.
+	m_Program = glCreateProgram();
+
+	// Only two shaders for now
+	std::array<GLenum, 2> glShaderIDs;
+	int glShaderIDIndex = 0;
+
+	for (auto &kv : sourceCodes)
+	{
+		GLenum type = kv.first;
+		std::string &code = kv.second;
+
+		// Create an empty vertex shader handle
+		GLuint shader = glCreateShader(type);
+
+		// Send the vertex shader source code to GL
+		// Note that std::string's .c_str is NULL character terminated.
+		const GLchar *source = code.c_str();
+		glShaderSource(shader, 1, &source, 0);
+
+		// Compile the vertex shader
+		glCompileShader(shader);
+
+		// Check if the shader compiled
+		GLint isCompiled = 0;
+		glGetShaderiv(shader, GL_COMPILE_STATUS, &isCompiled);
+		if (isCompiled == GL_FALSE)
+		{
+			GLint maxLength = 0;
+			glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &maxLength);
+
+			// The maxLength includes the NULL character
+			std::vector<GLchar> infoLog(maxLength);
+			glGetShaderInfoLog(shader, maxLength, &maxLength, &infoLog[0]);
+
+			// We don't need the shader anymore.
+			glDeleteShader(shader);
+
+			ENGINE_CORE_ERROR("Shader Compilation Failure!:\n {0}", infoLog.data());
+			break;
+		}
+
+		// Attach our shaders to our program
+		glAttachShader(m_Program, shader);
+		glShaderIDs[glShaderIDIndex++] = shader;
+	}
+
+	// Link our program
+	glLinkProgram(m_Program);
+
+	// Note the different functions here: glGetProgram* instead of glGetShader*.
+	GLint isLinked = 0;
+	glGetProgramiv(m_Program, GL_LINK_STATUS, (int *)&isLinked);
+	if (isLinked == GL_FALSE)
+	{
+		GLint maxLength = 0;
+		glGetProgramiv(m_Program, GL_INFO_LOG_LENGTH, &maxLength);
+
+		// The maxLength includes the NULL character
+		std::vector<GLchar> infoLog(maxLength);
+		glGetProgramInfoLog(m_Program, maxLength, &maxLength, &infoLog[0]);
+
+		// We don't need the program anymore.
+		glDeleteProgram(m_Program);
+		// Don't leak shaders either.
+		for (auto id : glShaderIDs)
+			glDeleteShader(id);
+
+		ENGINE_CORE_ERROR("Shaders Link Failure!:\n {0}", infoLog.data());
+	}
+
+	// Always detach shaders after a successful link.
+	for (auto id : glShaderIDs)
+	{
+		glDetachShader(m_Program, id);
+		glDeleteShader(id);
+	}
+}
+
+Shader::~Shader()
+{
+	glDeleteProgram(m_Program);
+}
+
+void Shader::Bind() const
+{
+	glUseProgram(m_Program);
+}
+
+void Shader::Unbind() const
+{
+	glUseProgram(0);
+}
+
+const std::string &Shader::GetName() const
+{
+	return m_Name;
+}
+
+// TODO: should be caching uniform location
+void Shader::UploadUniformMat4(const std::string &name, const glm::mat4 &value)
+{
+	glUniformMatrix4fv(glGetUniformLocation(m_Program, name.c_str()), 1, GL_FALSE, glm::value_ptr(value));
+}
+void Shader::UploadUniformMat3(const std::string &name, const glm::mat3 &value)
+{
+	glUniformMatrix3fv(glGetUniformLocation(m_Program, name.c_str()), 1, GL_FALSE, glm::value_ptr(value));
+}
+
+void Shader::UploadUniformFloat2(const std::string &name, const glm::vec2 &value)
+{
+	glUniform2f(glGetUniformLocation(m_Program, name.c_str()), value.x, value.y);
+}
+void Shader::UploadUniformFloat3(const std::string &name, const glm::vec3 &value)
+{
+	glUniform3f(glGetUniformLocation(m_Program, name.c_str()), value.x, value.y, value.z);
+}
+void Shader::UploadUniformFloat4(const std::string &name, const glm::vec4 &value)
+{
+	glUniform4f(glGetUniformLocation(m_Program, name.c_str()), value.x, value.y, value.z, value.w);
+}
+
+void Shader::UploadUniformInt(const std::string &name, const int value)
+{
+	glUniform1i(glGetUniformLocation(m_Program, name.c_str()), value);
+}
+void Shader::UploadUniformIntArray(const std::string &name, const int *values, const uint32_t count)
+{
+	glUniform1iv(glGetUniformLocation(m_Program, name.c_str()), count, values);
+}
+void Shader::UploadUniformBool(const std::string &name, const bool value)
+{
+	glUniform1i(glGetUniformLocation(m_Program, name.c_str()), value);
+}
+void Shader::UploadUniformFloat(const std::string &name, const float value)
+{
+	glUniform1f(glGetUniformLocation(m_Program, name.c_str()), value);
 }
