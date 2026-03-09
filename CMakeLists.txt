@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.20)
 project(RTRLab
     VERSION 0.1.0
     DESCRIPTION "A C++ OpenGL rendering playground"
-    LANGUAGES CXX
+    LANGUAGES C CXX
 )
 
 set(CMAKE_CXX_STANDARD 20)

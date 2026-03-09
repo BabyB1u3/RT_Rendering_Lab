@@ -1,43 +1,69 @@
+#pragma once
 
-#ifndef SHADER_H
-#define SHADER_H
-// The standard C++ libs
+#include <cstdint>
+#include <memory>
 #include <string>
-// The third part libs
-#include <glad/glad.h>
+#include <unordered_map>
+
 #include <glm/glm.hpp>
-#include <glm/gtc/type_ptr.hpp>
 
-
-// General purpsoe shader object. Compiles from file, generates
-// compile/link-time error messages and hosts several utility 
-// functions for easy management.
 class Shader
 {
 public:
-    // State
-    GLuint ID;
-    // Constructor
-    Shader() { }
-    // Sets the current shader as active
-    Shader& Use();
-    // Compiles the shader from given source code
-    void    Compile(const GLchar* vertexSource, const GLchar* fragmentSource, const GLchar* geometrySource = nullptr); // Note: geometry source code is optional 
-    // Utility functions
-    void    SetFloat(const GLchar* name, GLfloat value, GLboolean useShader = false);
-    void    SetInteger(const GLchar* name, GLint value, GLboolean useShader = false);
-    void    SetBoolean(const GLchar* name, GLboolean value, GLboolean useShader = false);
-    void    SetVector2f(const GLchar* name, GLfloat x, GLfloat y, GLboolean useShader = false);
-    void    SetVector2f(const GLchar* name, const glm::vec2& value, GLboolean useShader = false);
-    void    SetVector3f(const GLchar* name, GLfloat x, GLfloat y, GLfloat z, GLboolean useShader = false);
-    void    SetVector3f(const GLchar* name, const glm::vec3& value, GLboolean useShader = false);
-    void    SetVector4f(const GLchar* name, GLfloat x, GLfloat y, GLfloat z, GLfloat w, GLboolean useShader = false);
-    void    SetVector4f(const GLchar* name, const glm::vec4& value, GLboolean useShader = false);
-    void    SetMatrix3(const GLchar* name, const glm::mat3& matrix, GLboolean useShader = false);
-    void    SetMatrix4(const GLchar* name, const glm::mat4& matrix, GLboolean useShader = false);
-private:
-    // Checks if compilation or linking failed and if so, print the error logs
-    void    checkCompileErrors(GLuint object, std::string type);
-};
+	Shader() = default;
+	~Shader();
 
-#endif
+	Shader(const Shader &) = delete;
+	Shader &operator=(const Shader &) = delete;
+
+	Shader(Shader &&other) noexcept;
+	Shader &operator=(Shader &&other) noexcept;
+
+	static std::shared_ptr<Shader> CreateFromSource(
+		const std::string &name,
+		const std::string &vertexSource,
+		const std::string &fragmentSource,
+		const std::string &geometrySource = "");
+
+	static std::shared_ptr<Shader> CreateFromFiles(
+		const std::string &name,
+		const std::string &vertexPath,
+		const std::string &fragmentPath,
+		const std::string &geometryPath = "");
+
+	static std::shared_ptr<Shader> CreateFromSingleFile(
+		const std::string &filepath,
+		const std::string &name = "");
+
+	void Bind() const;
+	void Unbind() const;
+
+	const std::string &GetName() const { return m_Name; }
+	uint32_t GetRendererID() const { return m_RendererID; }
+
+	void SetInt(const std::string &name, int value);
+	void SetIntArray(const std::string &name, const int *values, uint32_t count);
+	void SetBool(const std::string &name, bool value);
+	void SetFloat(const std::string &name, float value);
+	void SetFloat2(const std::string &name, const glm::vec2 &value);
+	void SetFloat3(const std::string &name, const glm::vec3 &value);
+	void SetFloat4(const std::string &name, const glm::vec4 &value);
+	void SetMat3(const std::string &name, const glm::mat3 &value);
+	void SetMat4(const std::string &name, const glm::mat4 &value);
+
+private:
+	Shader(uint32_t program, std::string name);
+
+	static std::string ReadTextFile(const std::string &filepath);
+	static std::unordered_map<uint32_t, std::string> PreProcessSingleFile(const std::string &source);
+
+	static uint32_t CompileStage(uint32_t stage, const std::string &source, const std::string &debugName);
+	static uint32_t LinkProgram(const std::string &name, const std::vector<uint32_t> &shaderIDs);
+
+	int GetUniformLocation(const std::string &name);
+
+private:
+	uint32_t m_RendererID = 0;
+	std::string m_Name;
+	std::unordered_map<std::string, int> m_UniformLocationCache;
+};

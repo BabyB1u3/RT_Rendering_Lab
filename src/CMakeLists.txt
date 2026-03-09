@@ -1,66 +1,64 @@
 set(GLAB_CORE_SOURCES
     core/Application.cpp
-    core/Window.cpp
     core/Input.cpp
     core/Time.cpp
-    core/FileSystem.cpp
-    core/Logger.cpp
+    core/Window.cpp
 
-    graphics/Renderer.cpp
-    graphics/Shader.cpp
-    graphics/Texture.cpp
-    graphics/Cubemap.cpp
+    graphics/Buffers.cpp
+    graphics/FrameBuffer.cpp
     graphics/Material.cpp
     graphics/Mesh.cpp
-    graphics/Model.cpp
-    graphics/Camera.cpp
-    graphics/Framebuffer.cpp
-    graphics/Renderbuffer.cpp
+    graphics/MeshFactory.cpp
+    graphics/RenderCommand.cpp
+    graphics/RenderTarget.cpp
+    graphics/Shader.cpp
+    graphics/Texture.cpp
     graphics/VertexArray.cpp
-    graphics/VertexBuffer.cpp
-    graphics/IndexBuffer.cpp
-    graphics/UniformBuffer.cpp
-    graphics/GBuffer.cpp
 
-    gui/ImGuiLayer.cpp
-    gui/DebugPanel.cpp
-    gui/DemoSelectorPanel.cpp
+    renderer/SceneRenderer.cpp
 
-    demos/DemoRegistry.cpp
-    demos/forward_lighting/ForwardLightingDemo.cpp
+    renderer/passes/ForwardPass.cpp
+    renderer/passes/ShadowPass.cpp
+    renderer/passes/TexturePreviewPass.cpp
+
+    scene/Camera.cpp
+    scene/DebugCameraController.cpp
+
+    demos/ShadowMappingLab.cpp
 )
 
 set(GLAB_CORE_HEADERS
     core/Application.h
-    core/Window.h
     core/Input.h
     core/Time.h
-    core/FileSystem.h
-    core/Logger.h
+    core/Window.h
 
-    graphics/Renderer.h
-    graphics/Shader.h
-    graphics/Texture.h
-    graphics/Cubemap.h
+    graphics/Buffers.h
+    graphics/FrameBuffer.h
     graphics/Material.h
     graphics/Mesh.h
-    graphics/Model.h
-    graphics/Camera.h
-    graphics/Framebuffer.h
-    graphics/Renderbuffer.h
+    graphics/MeshFactory.h
+    graphics/RenderCommand.h
+    graphics/RenderTarget.h
+    graphics/Shader.h
+    graphics/Texture.h
     graphics/VertexArray.h
-    graphics/VertexBuffer.h
-    graphics/IndexBuffer.h
-    graphics/UniformBuffer.h
-    graphics/GBuffer.h
 
-    gui/ImGuiLayer.h
-    gui/DebugPanel.h
-    gui/DemoSelectorPanel.h
+    renderer/RenderItem.h
+    renderer/SceneRenderer.h
 
-    demos/DemoBase.h
-    demos/DemoRegistry.h
-    demos/forward_lighting/ForwardLightingDemo.h
+    renderer/passes/ForwardPass.h
+    renderer/passes/RenderPass.h
+    renderer/passes/ShadowPass.h
+    renderer/passes/TexturePreviewPass.h
+
+    scene/Camera.h
+    scene/DebugCameraController.h
+    scene/Light.h
+    scene/SceneData.h
+    scene/Transform.h
+
+    demos/ShadowMappingLab.h
 )
 
 add_library(RTRLabCore STATIC
