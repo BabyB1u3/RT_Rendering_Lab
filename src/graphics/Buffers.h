@@ -1,260 +1,204 @@
 #pragma once
 
-// Type of the vertex data
-enum class VertexDataType
+#include <cstdint>
+#include <cstddef>
+#include <string>
+#include <vector>
+#include <initializer_list>
+#include <cassert>
+
+#include <glad/glad.h>
+
+// TODO: Implement functions
+
+// Type of the vertex/shader data
+enum class ShaderDataType
 {
-	None = 0,
-	Float,
-	Float2,
-	Float3,
-	Float4,
-	Mat3,
-	Mat4,
-	Int,
-	Int2,
-	Int3,
-	Int4,
-	Bool
+    None = 0,
+    Float,
+    Float2,
+    Float3,
+    Float4,
+    Mat3,
+    Mat4,
+    Int,
+    Int2,
+    Int3,
+    Int4,
+    Bool
 };
 
-// Get the size of each vertex data
-static uint32_t VertexDataTypeSize(VertexDataType type)
+// Get the size in bytes of each shader data type
+inline uint32_t ShaderDataTypeSize(ShaderDataType type)
 {
-	switch (type)
-	{
-	case VertexDataType::Float:
-		return 4;
-	case VertexDataType::Float2:
-		return 4 * 2;
-	case VertexDataType::Float3:
-		return 4 * 3;
-	case VertexDataType::Float4:
-		return 4 * 4;
-	case VertexDataType::Mat3:
-		return 4 * 3 * 3;
-	case VertexDataType::Mat4:
-		return 4 * 4 * 4;
-	case VertexDataType::Int:
-		return 4;
-	case VertexDataType::Int2:
-		return 4 * 2;
-	case VertexDataType::Int3:
-		return 4 * 3;
-	case VertexDataType::Int4:
-		return 4 * 4;
-	case VertexDataType::Bool:
-		return 1;
-	}
+    switch (type)
+    {
+    case ShaderDataType::Float:  return 4;
+    case ShaderDataType::Float2: return 4 * 2;
+    case ShaderDataType::Float3: return 4 * 3;
+    case ShaderDataType::Float4: return 4 * 4;
+    case ShaderDataType::Mat3:   return 4 * 3 * 3;
+    case ShaderDataType::Mat4:   return 4 * 4 * 4;
+    case ShaderDataType::Int:    return 4;
+    case ShaderDataType::Int2:   return 4 * 2;
+    case ShaderDataType::Int3:   return 4 * 3;
+    case ShaderDataType::Int4:   return 4 * 4;
+    case ShaderDataType::Bool:   return 1;
+    case ShaderDataType::None:   return 0;
+    }
 
-	ILLUSION_CORE_ASSERT(false, "Unknown Shader Data Type!");
-	return 0;
+    assert(false && "Unknown ShaderDataType");
+    return 0;
 }
 
-// Vertex Data
-struct VertexData
+// A single element/attribute in a vertex buffer layout
+struct BufferElement
 {
-	std::string Name;
-	VertexDataType Type;
-	size_t Offset;
-	uint32_t Size;
-	bool Normalized;
+    std::string Name;
+    ShaderDataType Type = ShaderDataType::None;
+    size_t Offset = 0;
+    uint32_t Size = 0;
+    bool Normalized = false;
 
-	VertexData() = default;
+    BufferElement() = default;
 
-	VertexData(VertexDataType type, const std::string &name, bool normalized = false)
-		: Name(name), Type(type), Size(VertexDataTypeSize(type)), Offset(0), Normalized(normalized)
-	{
-	}
+    BufferElement(ShaderDataType type, const std::string& name, bool normalized = false)
+        : Name(name), Type(type), Offset(0), Size(ShaderDataTypeSize(type)), Normalized(normalized)
+    {
+    }
 
-	// Get the number number of components of each vertex data
-	uint32_t GetComponentCount() const
-	{
-		switch (Type)
-		{
-		case VertexDataType::Float:
-			return 1;
-		case VertexDataType::Float2:
-			return 2;
-		case VertexDataType::Float3:
-			return 3;
-		case VertexDataType::Float4:
-			return 4;
-		case VertexDataType::Mat3:
-			return 3; // 3 * float3
-		case VertexDataType::Mat4:
-			return 4; // 4 * float4
-		case VertexDataType::Int:
-			return 1;
-		case VertexDataType::Int2:
-			return 2;
-		case VertexDataType::Int3:
-			return 3;
-		case VertexDataType::Int4:
-			return 4;
-		case VertexDataType::Bool:
-			return 1;
-		}
+    uint32_t GetComponentCount() const
+    {
+        switch (Type)
+        {
+        case ShaderDataType::Float:  return 1;
+        case ShaderDataType::Float2: return 2;
+        case ShaderDataType::Float3: return 3;
+        case ShaderDataType::Float4: return 4;
+        case ShaderDataType::Mat3:   return 3;
+        case ShaderDataType::Mat4:   return 4;
+        case ShaderDataType::Int:    return 1;
+        case ShaderDataType::Int2:   return 2;
+        case ShaderDataType::Int3:   return 3;
+        case ShaderDataType::Int4:   return 4;
+        case ShaderDataType::Bool:   return 1;
+        case ShaderDataType::None:   return 0;
+        }
 
-		ILLUSION_CORE_ASSERT(false, "Unknown Shader Data Type!");
-		return 0;
-	}
+        assert(false && "Unknown ShaderDataType");
+        return 0;
+    }
 };
 
-// The layout of vertex buffer data
-class VBODataLayout
+// Describes the layout of vertex data in a vertex buffer
+class BufferLayout
 {
 public:
-	VBODataLayout() = default;
+    BufferLayout() = default;
 
-	VBODataLayout(const std::initializer_list<VertexData> &vbodata)
-		: m_VBOData(vbodata)
-	{
-		CalculateOffsetAndStride();
-	}
+    BufferLayout(const std::initializer_list<BufferElement>& elements)
+        : m_Elements(elements)
+    {
+        CalculateOffsetsAndStride();
+    }
 
-	uint32_t GetStride() const { return m_Stride; }
-	std::vector<VertexData> GetVertexData() const { return m_VBOData; }
+    uint32_t GetStride() const { return m_Stride; }
+    const std::vector<BufferElement>& GetElements() const { return m_Elements; }
 
-	// Discard temporarily
-	// std::vector<VertexData>::iterator begin() { return m_VBOData.begin(); }
-	// std::vector<VertexData>::iterator end() { return m_VBOData.end(); }
-	std::vector<VertexData>::const_iterator begin() const { return m_VBOData.begin(); }
-	std::vector<VertexData>::const_iterator end() const { return m_VBOData.end(); }
-
-private:
-	// Get the offset and stride for each vertex data
-	void CalculateOffsetAndStride()
-	{
-		size_t offset = 0;
-		m_Stride = 0;
-		for (auto &vertexdata : m_VBOData)
-		{
-			vertexdata.Offset = offset;
-			offset += vertexdata.Size;
-			m_Stride += vertexdata.Size;
-		}
-	}
+    std::vector<BufferElement>::iterator begin() { return m_Elements.begin(); }
+    std::vector<BufferElement>::iterator end() { return m_Elements.end(); }
+    std::vector<BufferElement>::const_iterator begin() const { return m_Elements.begin(); }
+    std::vector<BufferElement>::const_iterator end() const { return m_Elements.end(); }
 
 private:
-	std::vector<VertexData> m_VBOData;
-	uint32_t m_Stride = 0;
+    void CalculateOffsetsAndStride()
+    {
+        size_t offset = 0;
+        m_Stride = 0;
+
+        for (auto& element : m_Elements)
+        {
+            element.Offset = offset;
+            offset += element.Size;
+            m_Stride += element.Size;
+        }
+    }
+
+private:
+    std::vector<BufferElement> m_Elements;
+    uint32_t m_Stride = 0;
 };
 
-//--------------------Vertex Buffer--------------------
-//------------------------ VBO ------------------------
-class VBO
+enum class BufferUsage
+{
+    StaticDraw,
+    DynamicDraw,
+    StreamDraw
+};
+
+inline GLenum ToOpenGLBufferUsage(BufferUsage usage)
+{
+    switch (usage)
+    {
+    case BufferUsage::StaticDraw:  return GL_STATIC_DRAW;
+    case BufferUsage::DynamicDraw: return GL_DYNAMIC_DRAW;
+    case BufferUsage::StreamDraw:  return GL_STREAM_DRAW;
+    }
+
+    return GL_STATIC_DRAW;
+}
+
+//-------------------- Vertex Buffer --------------------
+class VertexBuffer
 {
 public:
-	VBO(float *vertices, uint32_t size);
-	VBO(uint32_t size);
+    VertexBuffer(uint32_t size, BufferUsage usage = BufferUsage::DynamicDraw);
+    VertexBuffer(const void* data, uint32_t size, BufferUsage usage = BufferUsage::StaticDraw);
+    ~VertexBuffer();
 
-	~VBO();
+    VertexBuffer(const VertexBuffer&) = delete;
+    VertexBuffer& operator=(const VertexBuffer&) = delete;
 
-	void Bind() const;
+    VertexBuffer(VertexBuffer&& other) noexcept;
+    VertexBuffer& operator=(VertexBuffer&& other) noexcept;
 
-	void Unbind() const;
+    void Bind() const;
+    void Unbind() const;
 
-	void SetDataLayout(const VBODataLayout &layout) { m_Layout = layout; }
+    void SetData(const void* data, uint32_t size, uint32_t offset = 0);
 
-	void SendData(const void *data, uint32_t size = 0);
+    void SetLayout(const BufferLayout& layout) { m_Layout = layout; }
+    const BufferLayout& GetLayout() const { return m_Layout; }
 
-	const VBODataLayout &GetDataLayout() const { return m_Layout; }
+    uint32_t GetRendererID() const { return m_RendererID; }
 
 private:
-	VBODataLayout m_Layout;
-
-	uint32_t m_VBO;
+    uint32_t m_RendererID = 0;
+    BufferLayout m_Layout;
+    BufferUsage m_Usage = BufferUsage::StaticDraw;
 };
 
-//--------------------Index Buffer---------------------
-//------------------------ IBO ------------------------
-class IBO
+//-------------------- Index Buffer ---------------------
+
+class IndexBuffer
 {
 public:
-	IBO(uint32_t *indices, uint32_t count);
+    IndexBuffer(const uint32_t* indices, uint32_t count);
+    ~IndexBuffer();
 
-	~IBO();
+    IndexBuffer(const IndexBuffer&) = delete;
+    IndexBuffer& operator=(const IndexBuffer&) = delete;
 
-	void Bind() const;
+    IndexBuffer(IndexBuffer&& other) noexcept;
+    IndexBuffer& operator=(IndexBuffer&& other) noexcept;
 
-	uint32_t GetCount() { return m_Count; }
+    void Bind() const;
+    void Unbind() const;
 
-	void Unbind() const;
-
-private:
-	uint32_t m_IBO;
-
-	uint32_t m_Count;
-};
-
-enum class FBOTextureFormat
-{
-	None = 0,
-	// Color
-	RGBA8,
-
-	// Depth/stencil
-	DEPTH24STENCIL8,
-
-	// Defaults
-
-	Depth = DEPTH24STENCIL8
-
-};
-
-struct FBOTextureSpecification
-{
-	FBOTextureSpecification() = default;
-	FBOTextureSpecification(FBOTextureFormat format)
-		: TextureFormat(format) {};
-
-	FBOTextureFormat TextureFormat = FBOTextureFormat::None;
-};
-
-struct FBOTextureAttachmentSpecification
-{
-	FBOTextureAttachmentSpecification() = default;
-	FBOTextureAttachmentSpecification(std::initializer_list<FBOTextureSpecification> attachments)
-		: Attachments(attachments) {};
-
-	std::vector<FBOTextureSpecification> Attachments;
-};
-
-struct FBOSpecification
-{
-	uint32_t Samples = 1;
-	uint32_t Width = 0, Height = 0;
-	FBOTextureAttachmentSpecification Attachments;
-};
-
-//--------------------Frame Buffer---------------------
-//------------------------ FBO ------------------------
-class FBO
-{
-public:
-	FBO(const FBOSpecification &spec);
-
-	~FBO();
-
-	void Bind() const;
-
-	void Unbind() const;
-
-	uint32_t GetColorAttachment(uint32_t index = 0) const { return m_ColorAttachments[index]; }
-
-	void Resize(uint32_t width, uint32_t height);
+    uint32_t GetCount() const { return m_Count; }
+    uint32_t GetRendererID() const { return m_RendererID; }
 
 private:
-	uint32_t m_FBO;
-
-	FBOSpecification m_Specification;
-
-	std::vector<FBOTextureSpecification> m_ColorAttachmentSpecifications;
-	FBOTextureSpecification m_DepthAttachmentSpecification;
-
-	std::vector<uint32_t> m_ColorAttachments;
-	uint32_t m_DepthAttachment;
-
-private:
-	void Create();
+    uint32_t m_RendererID = 0;
+    uint32_t m_Count = 0;
 };
