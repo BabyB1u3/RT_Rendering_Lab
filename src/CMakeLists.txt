@@ -9,7 +9,7 @@ set(GLAB_CORE_SOURCES
     graphics/Mesh.cpp
     graphics/MeshFactory.cpp
     graphics/RenderCommand.cpp
-    graphics/RendeTarget.cpp
+    graphics/RenderTarget.cpp
     graphics/Shader.cpp
     graphics/SubTexture.cpp
     graphics/Texture.cpp
@@ -18,7 +18,6 @@ set(GLAB_CORE_SOURCES
     renderer/SceneRenderer.cpp
 
     renderer/passes/ForwardPass.cpp
-    renderer/passes/RenderPass.cpp
     renderer/passes/ShadowPass.cpp
     renderer/passes/TexturePreviewPass.cpp
 
@@ -39,7 +38,7 @@ set(GLAB_CORE_HEADERS
     graphics/Mesh.h
     graphics/MeshFactory.h
     graphics/RenderCommand.h
-    graphics/RendeTarget.h
+    graphics/RenderTarget.h
     graphics/Shader.h
     graphics/SubTexture.h
     graphics/Texture.h
