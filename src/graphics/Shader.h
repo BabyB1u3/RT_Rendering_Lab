@@ -7,8 +7,6 @@
 
 #include <glm/glm.hpp>
 
-// TODO: Implement functions
-
 class Shader
 {
 public:

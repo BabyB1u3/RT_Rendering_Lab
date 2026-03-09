@@ -1,131 +1,164 @@
 #include "VertexArray.h"
 
-#include <glad/glad.h>
+#include <cassert>
+#include <utility>
 
-// Helper functon that cast the vertex datatype to opengl base tyep
 static GLenum ShaderDataTypeToOpenGLBaseType(ShaderDataType type)
 {
-    switch (type)
-    {
-    case ShaderDataType::Float:
-    case ShaderDataType::Float2:
-    case ShaderDataType::Float3:
-    case ShaderDataType::Float4:
-    case ShaderDataType::Mat3:
-    case ShaderDataType::Mat4:
-        return GL_FLOAT;
+	switch (type)
+	{
+	case ShaderDataType::Float:
+	case ShaderDataType::Float2:
+	case ShaderDataType::Float3:
+	case ShaderDataType::Float4:
+	case ShaderDataType::Mat3:
+	case ShaderDataType::Mat4:
+		return GL_FLOAT;
 
-    case ShaderDataType::Int:
-    case ShaderDataType::Int2:
-    case ShaderDataType::Int3:
-    case ShaderDataType::Int4:
-        return GL_INT;
+	case ShaderDataType::Int:
+	case ShaderDataType::Int2:
+	case ShaderDataType::Int3:
+	case ShaderDataType::Int4:
+		return GL_INT;
 
-    case ShaderDataType::Bool:
-        return GL_BOOL;
+	case ShaderDataType::Bool:
+		return GL_BOOL;
 
-    case ShaderDataType::None:
-        return 0;
-    }
+	case ShaderDataType::None:
+		return 0;
+	}
 
-    assert(false && "Unknown ShaderDataType");
-    return 0;
+	assert(false && "Unknown ShaderDataType");
+	return 0;
 }
 
-// Constructor
-VAO::VAO()
+VertexArray::VertexArray()
 {
-	glCreateVertexArrays(1, &m_VAO);
+	glCreateVertexArrays(1, &m_RendererID);
 }
 
-VAO::~VAO()
+VertexArray::~VertexArray()
 {
-	glDeleteVertexArrays(1, &m_VAO);
+	if (m_RendererID != 0)
+		glDeleteVertexArrays(1, &m_RendererID);
 }
 
-void VAO::Bind() const
+VertexArray::VertexArray(VertexArray &&other) noexcept
+	: m_RendererID(other.m_RendererID),
+	  m_VertexAttribIndex(other.m_VertexAttribIndex),
+	  m_VertexBuffers(std::move(other.m_VertexBuffers)),
+	  m_IndexBuffer(std::move(other.m_IndexBuffer))
 {
-	glBindVertexArray(m_VAO);
+	other.m_RendererID = 0;
+	other.m_VertexAttribIndex = 0;
 }
 
-void VAO::Unbind() const
+VertexArray &VertexArray::operator=(VertexArray &&other) noexcept
+{
+	if (this == &other)
+		return *this;
+
+	if (m_RendererID != 0)
+		glDeleteVertexArrays(1, &m_RendererID);
+
+	m_RendererID = other.m_RendererID;
+	m_VertexAttribIndex = other.m_VertexAttribIndex;
+	m_VertexBuffers = std::move(other.m_VertexBuffers);
+	m_IndexBuffer = std::move(other.m_IndexBuffer);
+
+	other.m_RendererID = 0;
+	other.m_VertexAttribIndex = 0;
+	return *this;
+}
+
+void VertexArray::Bind() const
+{
+	glBindVertexArray(m_RendererID);
+}
+
+void VertexArray::Unbind() const
 {
 	glBindVertexArray(0);
 }
 
-// Add VBOs to VAO and set vertex attribute pointer according to their layouts
-void VAO::AddVBO(const Ref<VBO> &VBO)
+void VertexArray::AddVertexBuffer(const std::shared_ptr<VertexBuffer> &vertexBuffer)
 {
-	ILLUSION_CORE_ASSERT(VBO->GetDataLayout().GetVertexData().size(), "VBO has no layout!");
+	const auto &layout = vertexBuffer->GetLayout();
+	assert(!layout.GetElements().empty() && "VertexBuffer has no layout!");
 
-	glBindVertexArray(m_VAO);
-	VBO->Bind();
+	Bind();
+	vertexBuffer->Bind();
 
-	// TODO: use glvertexAttribIPointer for integer values
-	// Set up the Vertex Attribute Pointer for each element in the vertices data of VBO
-	uint32_t index = 0;
-	const auto &layout = VBO->GetDataLayout();
-	for (const auto &vertexdata : layout)
+	for (const auto &element : layout)
 	{
-		switch (vertexdata.Type)
+		switch (element.Type)
 		{
-		case VertexDataType::Float:
-		case VertexDataType::Float2:
-		case VertexDataType::Float3:
-		case VertexDataType::Float4:
-		case VertexDataType::Int:
-		case VertexDataType::Int2:
-		case VertexDataType::Int3:
-		case VertexDataType::Int4:
-		case VertexDataType::Bool:
+		case ShaderDataType::Float:
+		case ShaderDataType::Float2:
+		case ShaderDataType::Float3:
+		case ShaderDataType::Float4:
 		{
-			glEnableVertexAttribArray(index + m_VBOIndexOffset);
-			glVertexAttribPointer(index + m_VBOIndexOffset,
-								  vertexdata.GetComponentCount(),
-								  VertexDataTypetoOpenGLBaseType(vertexdata.Type),
-								  vertexdata.Normalized ? GL_TRUE : GL_FALSE,
-								  layout.GetStride(),
-								  (const void *)vertexdata.Offset);
-			index++;
+			glEnableVertexAttribArray(m_VertexAttribIndex);
+			glVertexAttribPointer(
+				m_VertexAttribIndex,
+				element.GetComponentCount(),
+				ShaderDataTypeToOpenGLBaseType(element.Type),
+				element.Normalized ? GL_TRUE : GL_FALSE,
+				layout.GetStride(),
+				reinterpret_cast<const void *>(element.Offset));
+			++m_VertexAttribIndex;
 			break;
 		}
-		case VertexDataType::Mat3:
-		case VertexDataType::Mat4:
+
+		case ShaderDataType::Int:
+		case ShaderDataType::Int2:
+		case ShaderDataType::Int3:
+		case ShaderDataType::Int4:
+		case ShaderDataType::Bool:
 		{
-			uint8_t count = vertexdata.GetComponentCount();
-			for (uint8_t i = 0; i < count; i++)
+			glEnableVertexAttribArray(m_VertexAttribIndex);
+			glVertexAttribIPointer(
+				m_VertexAttribIndex,
+				element.GetComponentCount(),
+				ShaderDataTypeToOpenGLBaseType(element.Type),
+				layout.GetStride(),
+				reinterpret_cast<const void *>(element.Offset));
+			++m_VertexAttribIndex;
+			break;
+		}
+
+		case ShaderDataType::Mat3:
+		case ShaderDataType::Mat4:
+		{
+			uint32_t count = element.GetComponentCount(); // 3 or 4
+			for (uint32_t i = 0; i < count; ++i)
 			{
-				// TODO: Fix the offset using
-				// glEnableVertexAttribArray is using offset
-				// but glVertexAttribDivisor is not using it
-				// might cause attribute divisor bugs when using
-				// multiple VBOs
-				glEnableVertexAttribArray(index + m_VBOIndexOffset);
-				glVertexAttribPointer(index + m_VBOIndexOffset,
-									  count,
-									  VertexDataTypetoOpenGLBaseType(vertexdata.Type),
-									  vertexdata.Normalized ? GL_TRUE : GL_FALSE,
-									  layout.GetStride(),
-									  (const void *)(sizeof(float) * count * i));
-				glVertexAttribDivisor(index, 1);
-				index++;
+				glEnableVertexAttribArray(m_VertexAttribIndex);
+				glVertexAttribPointer(
+					m_VertexAttribIndex,
+					count,
+					ShaderDataTypeToOpenGLBaseType(element.Type),
+					element.Normalized ? GL_TRUE : GL_FALSE,
+					layout.GetStride(),
+					reinterpret_cast<const void *>(element.Offset + sizeof(float) * count * i));
+				glVertexAttribDivisor(m_VertexAttribIndex, 1);
+				++m_VertexAttribIndex;
 			}
 			break;
 		}
+
+		case ShaderDataType::None:
 		default:
-			ILLUSION_CORE_ASSERT(false, "Unknown Shader Data Type!");
+			assert(false && "Unknown ShaderDataType in VertexArray::AddVertexBuffer");
 		}
 	}
 
-	m_VBOs.push_back(VBO);
-	m_VBOIndexOffset += (uint32_t)layout.GetVertexData().size();
+	m_VertexBuffers.push_back(vertexBuffer);
 }
 
-// Add IBO to VAO
-void VAO::SetIBO(const Ref<IBO> &IBO)
+void VertexArray::SetIndexBuffer(const std::shared_ptr<IndexBuffer> &indexBuffer)
 {
-	glBindVertexArray(m_VAO);
-	IBO->Bind();
-
-	m_IBO = IBO;
+	Bind();
+	indexBuffer->Bind();
+	m_IndexBuffer = indexBuffer;
 }

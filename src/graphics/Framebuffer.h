@@ -6,8 +6,6 @@
 
 #include "Texture.h"
 
-// TODO: Implement functions
-
 // Framebuffer attachment specification
 struct FramebufferTextureSpecification
 {

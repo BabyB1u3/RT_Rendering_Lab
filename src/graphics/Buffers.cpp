@@ -1,66 +1,117 @@
 #include "Buffers.h"
 
-#include <glad/glad.h>
+#include <utility>
 
-//--------------------Vertex Buffer--------------------
-//------------------------ VBO ------------------------
-VBO::VBO(float *vertices, uint32_t size)
+// -------------------- VertexBuffer --------------------
+
+VertexBuffer::VertexBuffer(uint32_t size, BufferUsage usage)
+	: m_Usage(usage)
 {
-	glCreateBuffers(1, &m_VBO);
-	glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
-	glBufferData(GL_ARRAY_BUFFER, size, vertices, GL_STATIC_DRAW);
+	glCreateBuffers(1, &m_RendererID);
+	glBindBuffer(GL_ARRAY_BUFFER, m_RendererID);
+	glBufferData(GL_ARRAY_BUFFER, size, nullptr, ToOpenGLBufferUsage(m_Usage));
 }
 
-VBO::VBO(uint32_t size)
+VertexBuffer::VertexBuffer(const void *data, uint32_t size, BufferUsage usage)
+	: m_Usage(usage)
 {
-	glCreateBuffers(1, &m_VBO);
-	glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
-	glBufferData(GL_ARRAY_BUFFER, size, nullptr, GL_DYNAMIC_DRAW);
+	glCreateBuffers(1, &m_RendererID);
+	glBindBuffer(GL_ARRAY_BUFFER, m_RendererID);
+	glBufferData(GL_ARRAY_BUFFER, size, data, ToOpenGLBufferUsage(m_Usage));
 }
 
-VBO::~VBO()
+VertexBuffer::~VertexBuffer()
 {
-	glDeleteBuffers(1, &m_VBO);
+	if (m_RendererID != 0)
+		glDeleteBuffers(1, &m_RendererID);
 }
 
-void VBO::Bind() const
+VertexBuffer::VertexBuffer(VertexBuffer &&other) noexcept
+	: m_RendererID(other.m_RendererID),
+	  m_Layout(std::move(other.m_Layout)),
+	  m_Usage(other.m_Usage)
 {
-	glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
+	other.m_RendererID = 0;
 }
 
-void VBO::Unbind() const
+VertexBuffer &VertexBuffer::operator=(VertexBuffer &&other) noexcept
+{
+	if (this == &other)
+		return *this;
+
+	if (m_RendererID != 0)
+		glDeleteBuffers(1, &m_RendererID);
+
+	m_RendererID = other.m_RendererID;
+	m_Layout = std::move(other.m_Layout);
+	m_Usage = other.m_Usage;
+
+	other.m_RendererID = 0;
+	return *this;
+}
+
+void VertexBuffer::Bind() const
+{
+	glBindBuffer(GL_ARRAY_BUFFER, m_RendererID);
+}
+
+void VertexBuffer::Unbind() const
 {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-void VBO::SendData(const void *data, uint32_t size)
+void VertexBuffer::SetData(const void *data, uint32_t size, uint32_t offset)
 {
-	glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, size, data);
+	glBindBuffer(GL_ARRAY_BUFFER, m_RendererID);
+	glBufferSubData(GL_ARRAY_BUFFER, offset, size, data);
 }
 
-//--------------------Index Buffer---------------------
-//------------------------ IBO ------------------------
+// -------------------- IndexBuffer --------------------
 
-IBO::IBO(uint32_t *indices, uint32_t count)
+IndexBuffer::IndexBuffer(const uint32_t *indices, uint32_t count)
 	: m_Count(count)
 {
-	glCreateBuffers(1, &m_IBO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_IBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, count * sizeof(unsigned int), indices, GL_STATIC_DRAW);
+	glCreateBuffers(1, &m_RendererID);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_RendererID);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, count * sizeof(uint32_t), indices, GL_STATIC_DRAW);
 }
 
-IBO::~IBO()
+IndexBuffer::~IndexBuffer()
 {
-	glDeleteBuffers(1, &m_IBO);
+	if (m_RendererID != 0)
+		glDeleteBuffers(1, &m_RendererID);
 }
 
-void IBO::Bind() const
+IndexBuffer::IndexBuffer(IndexBuffer &&other) noexcept
+	: m_RendererID(other.m_RendererID),
+	  m_Count(other.m_Count)
 {
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_IBO);
+	other.m_RendererID = 0;
+	other.m_Count = 0;
 }
 
-void IBO::Unbind() const
+IndexBuffer &IndexBuffer::operator=(IndexBuffer &&other) noexcept
+{
+	if (this == &other)
+		return *this;
+
+	if (m_RendererID != 0)
+		glDeleteBuffers(1, &m_RendererID);
+
+	m_RendererID = other.m_RendererID;
+	m_Count = other.m_Count;
+
+	other.m_RendererID = 0;
+	other.m_Count = 0;
+	return *this;
+}
+
+void IndexBuffer::Bind() const
+{
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_RendererID);
+}
+
+void IndexBuffer::Unbind() const
 {
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }

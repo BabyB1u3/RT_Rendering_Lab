@@ -6,8 +6,6 @@
 
 #include <glad/glad.h>
 
-// TODO: Implement functions
-
 // Texture format
 enum class TextureFormat
 {

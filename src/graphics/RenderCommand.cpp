@@ -12,27 +12,62 @@ void RenderCommand::Init()
 	// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 }
 
-void RenderCommand::SetClearColor(const glm::vec4& color)
+void RenderCommand::SetClearColor(const glm::vec4 &color)
 {
 	glClearColor(color.r, color.g, color.b, color.a);
 }
 
-// Set the clear color and clear the color buffer with it
-// Clear the depth buffer at the same time
-void RenderCommand::Clear(bool color = true, bool depth = true, bool stencil = false);
+void RenderCommand::Clear(bool color, bool depth, bool stencil)
 {
-	glClearColor(color.r, color.g, color.b, color.a);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}
+	GLbitfield mask = 0;
+	if (color)
+		mask |= GL_COLOR_BUFFER_BIT;
+	if (depth)
+		mask |= GL_DEPTH_BUFFER_BIT;
+	if (stencil)
+		mask |= GL_STENCIL_BUFFER_BIT;
 
-// Draw stuffs with VBO and IBO
-void RenderCommand::DrawIndexed(const Ref<VAO> &vao, uint32_t indexCount)
-{
-	uint32_t count = indexCount ? indexCount : vao->GetIBO()->GetCount();
-	glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, nullptr);
+	glClear(mask);
 }
 
 void RenderCommand::SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
 {
-	glViewport(x, y, width, height);
+	glViewport(static_cast<GLint>(x), static_cast<GLint>(y),
+			   static_cast<GLsizei>(width), static_cast<GLsizei>(height));
+}
+
+void RenderCommand::EnableDepthTest(bool enabled)
+{
+	if (enabled)
+		glEnable(GL_DEPTH_TEST);
+	else
+		glDisable(GL_DEPTH_TEST);
+}
+
+void RenderCommand::EnableBlend(bool enabled)
+{
+	if (enabled)
+		glEnable(GL_BLEND);
+	else
+		glDisable(GL_BLEND);
+}
+
+void RenderCommand::EnableCullFace(bool enabled)
+{
+	if (enabled)
+		glEnable(GL_CULL_FACE);
+	else
+		glDisable(GL_CULL_FACE);
+}
+
+void RenderCommand::DrawIndexed(const std::shared_ptr<VertexArray> &vao, uint32_t indexCount)
+{
+	vao->Bind();
+	uint32_t count = indexCount ? indexCount : vao->GetIndexBuffer()->GetCount();
+	glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(count), GL_UNSIGNED_INT, nullptr);
+}
+
+void RenderCommand::DrawArrays(uint32_t mode, uint32_t first, uint32_t count)
+{
+	glDrawArrays(mode, static_cast<GLint>(first), static_cast<GLsizei>(count));
 }
