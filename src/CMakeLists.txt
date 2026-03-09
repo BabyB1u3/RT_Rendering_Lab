@@ -12,7 +12,6 @@ set(GLAB_CORE_SOURCES
     graphics/RenderCommand.cpp
     graphics/RenderTarget.cpp
     graphics/Shader.cpp
-    graphics/SubTexture.cpp
     graphics/Texture.cpp
     graphics/VertexArray.cpp
 
@@ -42,7 +41,6 @@ set(GLAB_CORE_HEADERS
     graphics/RenderCommand.h
     graphics/RenderTarget.h
     graphics/Shader.h
-    graphics/SubTexture.h
     graphics/Texture.h
     graphics/VertexArray.h
 
