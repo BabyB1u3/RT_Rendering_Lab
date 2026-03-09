@@ -1,71 +1,83 @@
-enum class FBOTextureFormat
+#pragma once
+
+#include <cstdint>
+#include <memory>
+#include <vector>
+
+#include "Texture.h"
+
+// TODO: Implement functions
+
+// Framebuffer attachment specification
+struct FramebufferTextureSpecification
 {
-	None = 0,
-	// Color
-	RGBA8,
+	TextureFormat Format = TextureFormat::None;
 
-	// Depth/stencil
-	DEPTH24STENCIL8,
-
-	// Defaults
-
-	Depth = DEPTH24STENCIL8
-
+	FramebufferTextureSpecification() = default;
+	FramebufferTextureSpecification(TextureFormat format)
+		: Format(format) {}
 };
 
-struct FBOTextureSpecification
+struct FramebufferAttachmentSpecification
 {
-	FBOTextureSpecification() = default;
-	FBOTextureSpecification(FBOTextureFormat format)
-		: TextureFormat(format) {};
+	std::vector<FramebufferTextureSpecification> Attachments;
 
-	FBOTextureFormat TextureFormat = FBOTextureFormat::None;
+	FramebufferAttachmentSpecification() = default;
+	FramebufferAttachmentSpecification(
+		std::initializer_list<FramebufferTextureSpecification> attachments)
+		: Attachments(attachments) {}
 };
 
-struct FBOTextureAttachmentSpecification
+// Framebuffer specification
+struct FramebufferSpecification
 {
-	FBOTextureAttachmentSpecification() = default;
-	FBOTextureAttachmentSpecification(std::initializer_list<FBOTextureSpecification> attachments)
-		: Attachments(attachments) {};
+	uint32_t Width = 0;
+	uint32_t Height = 0;
 
-	std::vector<FBOTextureSpecification> Attachments;
-};
+	FramebufferAttachmentSpecification Attachments;
 
-struct FBOSpecification
-{
 	uint32_t Samples = 1;
-	uint32_t Width = 0, Height = 0;
-	FBOTextureAttachmentSpecification Attachments;
+	bool SwapChainTarget = false;
 };
 
-//--------------------Frame Buffer---------------------
-//------------------------ FBO ------------------------
-class FBO
+// Framebuffer
+class Framebuffer
 {
 public:
-	FBO(const FBOSpecification &spec);
+	explicit Framebuffer(const FramebufferSpecification &spec);
+	~Framebuffer();
 
-	~FBO();
+	Framebuffer(const Framebuffer &) = delete;
+	Framebuffer &operator=(const Framebuffer &) = delete;
+
+	Framebuffer(Framebuffer &&other) noexcept;
+	Framebuffer &operator=(Framebuffer &&other) noexcept;
 
 	void Bind() const;
-
 	void Unbind() const;
-
-	uint32_t GetColorAttachment(uint32_t index = 0) const { return m_ColorAttachments[index]; }
 
 	void Resize(uint32_t width, uint32_t height);
 
+	int ReadPixel(uint32_t attachmentIndex, int x, int y) const;
+	void ClearAttachment(uint32_t attachmentIndex, int value);
+
+	uint32_t GetRendererID() const { return m_RendererID; }
+
+	const FramebufferSpecification &GetSpecification() const { return m_Specification; }
+
+	std::shared_ptr<Texture2D> GetColorAttachment(uint32_t index = 0) const;
+	std::shared_ptr<Texture2D> GetDepthAttachment() const;
+
 private:
-	uint32_t m_FBO;
-
-	FBOSpecification m_Specification;
-
-	std::vector<FBOTextureSpecification> m_ColorAttachmentSpecifications;
-	FBOTextureSpecification m_DepthAttachmentSpecification;
-
-	std::vector<uint32_t> m_ColorAttachments;
-	uint32_t m_DepthAttachment;
+	void Invalidate();
 
 private:
-	void Create();
+	uint32_t m_RendererID = 0;
+	FramebufferSpecification m_Specification;
+
+	std::vector<FramebufferTextureSpecification> m_ColorAttachmentSpecifications;
+	FramebufferTextureSpecification m_DepthAttachmentSpecification;
+
+	std::vector<std::shared_ptr<Texture2D>> m_ColorAttachments;
+	std::shared_ptr<Texture2D> m_DepthAttachment;
 };
