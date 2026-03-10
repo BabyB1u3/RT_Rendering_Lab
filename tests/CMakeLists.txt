@@ -2,6 +2,7 @@ include(GoogleTest)
 
 add_executable(rtrlab_tests
     unit/TestTime.cpp
+    unit/TestLayerStack.cpp
 )
 
 target_link_libraries(rtrlab_tests
