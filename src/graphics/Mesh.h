@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 
+#include "core/Base.h"
 #include "Buffers.h"
 #include "VertexArray.h"
 
@@ -28,14 +29,14 @@ public:
     void Bind() const;
     void Unbind() const;
 
-    const std::shared_ptr<VertexArray> &GetVertexArray() const { return m_VertexArray; }
-    const std::shared_ptr<IndexBuffer> &GetIndexBuffer() const { return m_IndexBuffer; }
+    const Ref<VertexArray> &GetVertexArray() const { return m_VertexArray; }
+    const Ref<IndexBuffer> &GetIndexBuffer() const { return m_IndexBuffer; }
 
     uint32_t GetIndexCount() const { return m_IndexCount; }
 
 private:
-    std::shared_ptr<VertexArray> m_VertexArray;
-    std::vector<std::shared_ptr<VertexBuffer>> m_VertexBuffers;
-    std::shared_ptr<IndexBuffer> m_IndexBuffer;
+    Ref<VertexArray> m_VertexArray;
+    std::vector<Ref<VertexBuffer>> m_VertexBuffers;
+    Ref<IndexBuffer> m_IndexBuffer;
     uint32_t m_IndexCount = 0;
 };

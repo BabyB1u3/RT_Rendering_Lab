@@ -6,6 +6,8 @@
 
 #include "Buffers.h"
 
+#include "core/Base.h"
+
 class VertexArray
 {
 public:
@@ -21,11 +23,11 @@ public:
     void Bind() const;
     void Unbind() const;
 
-    void AddVertexBuffer(const std::shared_ptr<VertexBuffer> &vertexBuffer);
-    void SetIndexBuffer(const std::shared_ptr<IndexBuffer> &indexBuffer);
+    void AddVertexBuffer(const Ref<VertexBuffer> &vertexBuffer);
+    void SetIndexBuffer(const Ref<IndexBuffer> &indexBuffer);
 
-    const std::vector<std::shared_ptr<VertexBuffer>> &GetVertexBuffers() const { return m_VertexBuffers; }
-    const std::shared_ptr<IndexBuffer> &GetIndexBuffer() const { return m_IndexBuffer; }
+    const std::vector<Ref<VertexBuffer>> &GetVertexBuffers() const { return m_VertexBuffers; }
+    const Ref<IndexBuffer> &GetIndexBuffer() const { return m_IndexBuffer; }
 
     uint32_t GetRendererID() const { return m_RendererID; }
 
@@ -33,6 +35,6 @@ private:
     uint32_t m_RendererID = 0;
     uint32_t m_VertexAttribIndex = 0;
 
-    std::vector<std::shared_ptr<VertexBuffer>> m_VertexBuffers;
-    std::shared_ptr<IndexBuffer> m_IndexBuffer;
+    std::vector<Ref<VertexBuffer>> m_VertexBuffers;
+    Ref<IndexBuffer> m_IndexBuffer;
 };

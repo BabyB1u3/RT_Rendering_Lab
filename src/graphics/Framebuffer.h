@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 
+#include "core/Base.h"
 #include "Texture.h"
 
 // Framebuffer attachment specification
@@ -63,8 +64,8 @@ public:
 
 	const FramebufferSpecification &GetSpecification() const { return m_Specification; }
 
-	std::shared_ptr<Texture2D> GetColorAttachment(uint32_t index = 0) const;
-	std::shared_ptr<Texture2D> GetDepthAttachment() const;
+	Ref<Texture2D> GetColorAttachment(uint32_t index = 0) const;
+	Ref<Texture2D> GetDepthAttachment() const;
 
 private:
 	void Invalidate();
@@ -76,6 +77,6 @@ private:
 	std::vector<FramebufferTextureSpecification> m_ColorAttachmentSpecifications;
 	FramebufferTextureSpecification m_DepthAttachmentSpecification;
 
-	std::vector<std::shared_ptr<Texture2D>> m_ColorAttachments;
-	std::shared_ptr<Texture2D> m_DepthAttachment;
+	std::vector<Ref<Texture2D>> m_ColorAttachments;
+	Ref<Texture2D> m_DepthAttachment;
 };

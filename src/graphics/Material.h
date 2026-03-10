@@ -4,6 +4,7 @@
 #include <memory>
 #include <unordered_map>
 
+#include "core/Base.h"
 #include "Shader.h"
 #include "Texture.h"
 
@@ -11,7 +12,7 @@ class Material
 {
 public:
     Material() = default;
-    explicit Material(const std::shared_ptr<Shader> &shader);
+    explicit Material(const Ref<Shader> &shader);
 
     ~Material() = default;
 
@@ -21,15 +22,15 @@ public:
     Material(Material &&) noexcept = default;
     Material &operator=(Material &&) noexcept = default;
 
-    void SetShader(const std::shared_ptr<Shader> &shader);
-    const std::shared_ptr<Shader> &GetShader() const { return m_Shader; }
+    void SetShader(const Ref<Shader> &shader);
+    const Ref<Shader> &GetShader() const { return m_Shader; }
 
-    void SetTexture(uint32_t slot, const std::shared_ptr<Texture2D> &texture);
-    std::shared_ptr<Texture2D> GetTexture(uint32_t slot) const;
+    void SetTexture(uint32_t slot, const Ref<Texture2D> &texture);
+    Ref<Texture2D> GetTexture(uint32_t slot) const;
 
     void Bind() const;
 
 private:
-    std::shared_ptr<Shader> m_Shader;
-    std::unordered_map<uint32_t, std::shared_ptr<Texture2D>> m_Textures;
+    Ref<Shader> m_Shader;
+    std::unordered_map<uint32_t, Ref<Texture2D>> m_Textures;
 };
