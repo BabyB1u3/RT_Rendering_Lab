@@ -100,7 +100,6 @@ void ShadowMapping::OnRender()
 
 void ShadowMapping::OnImGuiRender()
 {
-    // 你后面接 ImGui 的时候可以把这些放进去：
     // - output mode toggle
     // - light direction
     // - camera values
