@@ -60,7 +60,7 @@ void RenderCommand::EnableCullFace(bool enabled)
 		glDisable(GL_CULL_FACE);
 }
 
-void RenderCommand::DrawIndexed(const std::shared_ptr<VertexArray> &vao, uint32_t indexCount)
+void RenderCommand::DrawIndexed(const Ref<VertexArray> &vao, uint32_t indexCount)
 {
 	vao->Bind();
 	uint32_t count = indexCount ? indexCount : vao->GetIndexBuffer()->GetCount();

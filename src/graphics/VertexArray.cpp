@@ -81,7 +81,7 @@ void VertexArray::Unbind() const
 	glBindVertexArray(0);
 }
 
-void VertexArray::AddVertexBuffer(const std::shared_ptr<VertexBuffer> &vertexBuffer)
+void VertexArray::AddVertexBuffer(const Ref<VertexBuffer> &vertexBuffer)
 {
 	const auto &layout = vertexBuffer->GetLayout();
 	assert(!layout.GetElements().empty() && "VertexBuffer has no layout!");
@@ -156,7 +156,7 @@ void VertexArray::AddVertexBuffer(const std::shared_ptr<VertexBuffer> &vertexBuf
 	m_VertexBuffers.push_back(vertexBuffer);
 }
 
-void VertexArray::SetIndexBuffer(const std::shared_ptr<IndexBuffer> &indexBuffer)
+void VertexArray::SetIndexBuffer(const Ref<IndexBuffer> &indexBuffer)
 {
 	Bind();
 	indexBuffer->Bind();

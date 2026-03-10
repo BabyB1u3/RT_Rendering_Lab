@@ -2,17 +2,17 @@
 
 #include <cassert>
 
-Material::Material(const std::shared_ptr<Shader> &shader)
+Material::Material(const Ref<Shader> &shader)
     : m_Shader(shader)
 {
 }
 
-void Material::SetShader(const std::shared_ptr<Shader> &shader)
+void Material::SetShader(const Ref<Shader> &shader)
 {
     m_Shader = shader;
 }
 
-void Material::SetTexture(uint32_t slot, const std::shared_ptr<Texture2D> &texture)
+void Material::SetTexture(uint32_t slot, const Ref<Texture2D> &texture)
 {
     if (texture)
         m_Textures[slot] = texture;
@@ -20,7 +20,7 @@ void Material::SetTexture(uint32_t slot, const std::shared_ptr<Texture2D> &textu
         m_Textures.erase(slot);
 }
 
-std::shared_ptr<Texture2D> Material::GetTexture(uint32_t slot) const
+Ref<Texture2D> Material::GetTexture(uint32_t slot) const
 {
     auto it = m_Textures.find(slot);
     if (it == m_Textures.end())

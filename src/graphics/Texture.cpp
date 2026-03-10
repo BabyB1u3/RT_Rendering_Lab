@@ -99,7 +99,7 @@ Texture2D &Texture2D::operator=(Texture2D &&other) noexcept
 	return *this;
 }
 
-std::shared_ptr<Texture2D> Texture2D::Create(const TextureSpecification &spec)
+Ref<Texture2D> Texture2D::Create(const TextureSpecification &spec)
 {
 	uint32_t rendererID = 0;
 	glCreateTextures(GL_TEXTURE_2D, 1, &rendererID);
@@ -124,10 +124,10 @@ std::shared_ptr<Texture2D> Texture2D::Create(const TextureSpecification &spec)
 		glTextureSubImage2D(rendererID, 0, 0, 0, spec.Width, spec.Height, dataFormat, dataType, nullptr);
 	}
 
-	return std::shared_ptr<Texture2D>(new Texture2D(rendererID, spec));
+	return Ref<Texture2D>(new Texture2D(rendererID, spec));
 }
 
-std::shared_ptr<Texture2D> Texture2D::CreateFromFile(const std::string &path, bool flipVertically)
+Ref<Texture2D> Texture2D::CreateFromFile(const std::string &path, bool flipVertically)
 {
 	stbi_set_flip_vertically_on_load(flipVertically ? 1 : 0);
 
@@ -177,7 +177,7 @@ std::shared_ptr<Texture2D> Texture2D::CreateFromFile(const std::string &path, bo
 
 	stbi_image_free(data);
 
-	return std::shared_ptr<Texture2D>(new Texture2D(rendererID, spec, path));
+	return Ref<Texture2D>(new Texture2D(rendererID, spec, path));
 }
 
 void Texture2D::SetData(const void *data, uint32_t size)
