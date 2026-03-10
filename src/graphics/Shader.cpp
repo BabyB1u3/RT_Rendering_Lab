@@ -156,7 +156,7 @@ uint32_t Shader::LinkProgram(const std::string &name, const std::vector<uint32_t
 	return program;
 }
 
-std::shared_ptr<Shader> Shader::CreateFromSource(
+Ref<Shader> Shader::CreateFromSource(
 	const std::string &name,
 	const std::string &vertexSource,
 	const std::string &fragmentSource,
@@ -170,10 +170,10 @@ std::shared_ptr<Shader> Shader::CreateFromSource(
 		shaderIDs.push_back(CompileStage(GL_GEOMETRY_SHADER, geometrySource, name + " [geometry]"));
 
 	uint32_t program = LinkProgram(name, shaderIDs);
-	return std::shared_ptr<Shader>(new Shader(program, name));
+	return Ref<Shader>(new Shader(program, name));
 }
 
-std::shared_ptr<Shader> Shader::CreateFromFiles(
+Ref<Shader> Shader::CreateFromFiles(
 	const std::string &name,
 	const std::string &vertexPath,
 	const std::string &fragmentPath,
@@ -186,7 +186,7 @@ std::shared_ptr<Shader> Shader::CreateFromFiles(
 	return CreateFromSource(name, vertexSource, fragmentSource, geometrySource);
 }
 
-std::shared_ptr<Shader> Shader::CreateFromSingleFile(const std::string &filepath, const std::string &name)
+Ref<Shader> Shader::CreateFromSingleFile(const std::string &filepath, const std::string &name)
 {
 	std::string source = ReadTextFile(filepath);
 	auto sources = PreProcessSingleFile(source);

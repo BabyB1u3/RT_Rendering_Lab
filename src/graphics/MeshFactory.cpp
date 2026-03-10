@@ -18,7 +18,7 @@ namespace
     }
 }
 
-std::shared_ptr<Mesh> MeshFactory::CreatePlane()
+Ref<Mesh> MeshFactory::CreatePlane()
 {
     static const PrimitiveVertex vertices[] =
         {
@@ -32,15 +32,15 @@ std::shared_ptr<Mesh> MeshFactory::CreatePlane()
             0, 1, 2,
             2, 3, 0};
 
-    return std::make_shared<Mesh>(
+    return CreateRef<Mesh>(
         vertices,
-        sizeof(vertices),
+        static_cast<uint32_t>(sizeof(vertices)),
         GetPrimitiveLayout(),
         indices,
         static_cast<uint32_t>(sizeof(indices) / sizeof(uint32_t)));
 }
 
-std::shared_ptr<Mesh> MeshFactory::CreateFullscreenQuad()
+Ref<Mesh> MeshFactory::CreateFullscreenQuad()
 {
     static const PrimitiveVertex vertices[] =
         {
@@ -54,15 +54,15 @@ std::shared_ptr<Mesh> MeshFactory::CreateFullscreenQuad()
             0, 1, 2,
             2, 3, 0};
 
-    return std::make_shared<Mesh>(
+    return CreateRef<Mesh>(
         vertices,
-        sizeof(vertices),
+        static_cast<uint32_t>(sizeof(vertices)),
         GetPrimitiveLayout(),
         indices,
         static_cast<uint32_t>(sizeof(indices) / sizeof(uint32_t)));
 }
 
-std::shared_ptr<Mesh> MeshFactory::CreateCube()
+Ref<Mesh> MeshFactory::CreateCube()
 {
     static const PrimitiveVertex vertices[] =
         {
@@ -112,9 +112,9 @@ std::shared_ptr<Mesh> MeshFactory::CreateCube()
             20, 21, 22, 22, 23, 20  // Top
         };
 
-    return std::make_shared<Mesh>(
+    return CreateRef<Mesh>(
         vertices,
-        sizeof(vertices),
+        static_cast<uint32_t>(sizeof(vertices)),
         GetPrimitiveLayout(),
         indices,
         static_cast<uint32_t>(sizeof(indices) / sizeof(uint32_t)));
