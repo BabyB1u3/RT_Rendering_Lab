@@ -2,6 +2,7 @@
 
 #include <glm/glm.hpp>
 
+#include "core/Base.h"
 #include "VertexArray.h"
 
 class RenderCommand
@@ -18,6 +19,6 @@ public:
     static void EnableBlend(bool enabled);
     static void EnableCullFace(bool enabled);
 
-    static void DrawIndexed(const std::shared_ptr<VertexArray> &vao, uint32_t indexCount = 0);
+    static void DrawIndexed(const Ref<VertexArray> &vao, uint32_t indexCount = 0);
     static void DrawArrays(uint32_t mode, uint32_t first, uint32_t count);
 };

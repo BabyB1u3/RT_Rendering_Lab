@@ -16,14 +16,14 @@ Mesh::Mesh(const void *vertexData,
     assert(indexCount > 0 && "Mesh index count must be > 0");
     assert(!layout.GetElements().empty() && "Mesh layout is empty");
 
-    m_VertexArray = std::make_shared<VertexArray>();
+    m_VertexArray = CreateRef<VertexArray>();
 
-    auto vertexBuffer = std::make_shared<VertexBuffer>(vertexData, vertexBufferSize, vertexUsage);
+    auto vertexBuffer = CreateRef<VertexBuffer>(vertexData, vertexBufferSize, vertexUsage);
     vertexBuffer->SetLayout(layout);
 
     m_VertexArray->AddVertexBuffer(vertexBuffer);
 
-    m_IndexBuffer = std::make_shared<IndexBuffer>(indices, indexCount);
+    m_IndexBuffer = CreateRef<IndexBuffer>(indices, indexCount);
     m_VertexArray->SetIndexBuffer(m_IndexBuffer);
 
     m_VertexBuffers.push_back(vertexBuffer);

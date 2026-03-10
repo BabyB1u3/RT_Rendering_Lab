@@ -6,6 +6,8 @@
 
 #include <glad/glad.h>
 
+#include "core/Base.h"
+
 // Texture format
 enum class TextureFormat
 {
@@ -62,12 +64,12 @@ public:
 	Texture2D &operator=(Texture2D &&other) noexcept;
 
 	// Create from image file
-	static std::shared_ptr<Texture2D> CreateFromFile(
+	static Ref<Texture2D> CreateFromFile(
 		const std::string &path,
 		bool flipVertically = true);
 
 	// Create an empty GPU texture from specification
-	static std::shared_ptr<Texture2D> Create(
+	static Ref<Texture2D> Create(
 		const TextureSpecification &spec);
 
 	// Upload data to the whole texture
