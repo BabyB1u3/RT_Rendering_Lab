@@ -2,7 +2,7 @@
 
 #include <memory>
 
-#include "Mesh.h"
+#include "graphics/Mesh.h"
 
 class MeshFactory
 {

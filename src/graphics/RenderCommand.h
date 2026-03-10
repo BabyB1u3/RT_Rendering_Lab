@@ -3,7 +3,7 @@
 #include <glm/glm.hpp>
 
 #include "core/Base.h"
-#include "VertexArray.h"
+#include "graphics/VertexArray.h"
 
 class RenderCommand
 {

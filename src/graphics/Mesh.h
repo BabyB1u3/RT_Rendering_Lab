@@ -5,8 +5,8 @@
 #include <vector>
 
 #include "core/Base.h"
-#include "Buffers.h"
-#include "VertexArray.h"
+#include "graphics/Buffers.h"
+#include "graphics/VertexArray.h"
 
 class Mesh
 {

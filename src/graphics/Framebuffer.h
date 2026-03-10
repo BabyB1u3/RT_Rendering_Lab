@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "core/Base.h"
-#include "Texture.h"
+#include "graphics/Texture.h"
 
 // Framebuffer attachment specification
 struct FramebufferTextureSpecification

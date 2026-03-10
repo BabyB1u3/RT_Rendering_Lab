@@ -2,8 +2,8 @@
 
 #include <vector>
 
-#include "Scene/Light.h"
-#include "Renderer/RenderItem.h"
+#include "scene/Light.h"
+#include "renderer/RenderItem.h"
 
 class Camera;
 

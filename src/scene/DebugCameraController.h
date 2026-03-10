@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Camera.h"
+#include "scene/Camera.h"
 
 class DebugCameraController
 {
