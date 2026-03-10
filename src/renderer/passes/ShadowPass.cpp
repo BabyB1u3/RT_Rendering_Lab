@@ -1,4 +1,4 @@
-#include "renderer/passes/ShadowPass.h"
+#include "ShadowPass.h"
 
 #include <cassert>
 #include <memory>

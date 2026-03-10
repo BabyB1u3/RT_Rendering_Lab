@@ -5,8 +5,8 @@
 #include <unordered_map>
 
 #include "core/Base.h"
-#include "graphics/Shader.h"
-#include "graphics/Texture.h"
+#include "Shader.h"
+#include "Texture.h"
 
 class Material
 {

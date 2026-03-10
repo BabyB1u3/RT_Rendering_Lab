@@ -5,7 +5,6 @@
 #include <vector>
 
 #include "Buffers.h"
-
 #include "core/Base.h"
 
 class VertexArray

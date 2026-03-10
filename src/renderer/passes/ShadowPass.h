@@ -6,7 +6,7 @@
 #include <glm/glm.hpp>
 
 #include "core/Base.h"
-#include "renderer/passes/RenderPass.h"
+#include "RenderPass.h"
 
 class Framebuffer;
 class Shader;

@@ -1,12 +1,12 @@
-#include "core/Application.h"
+#include "Application.h"
 
 #include <stdexcept>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-#include "core/Input.h"
-#include "core/Time.h"
+#include "Input.h"
+#include "Time.h"
 
 Application *Application::s_Instance = nullptr;
 
