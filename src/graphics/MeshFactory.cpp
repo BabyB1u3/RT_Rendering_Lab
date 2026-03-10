@@ -34,7 +34,7 @@ std::shared_ptr<Mesh> MeshFactory::CreatePlane()
 
     return std::make_shared<Mesh>(
         vertices,
-        sizeof(vertices),
+        static_cast<uint32_t>(sizeof(vertices)),
         GetPrimitiveLayout(),
         indices,
         static_cast<uint32_t>(sizeof(indices) / sizeof(uint32_t)));
@@ -56,7 +56,7 @@ std::shared_ptr<Mesh> MeshFactory::CreateFullscreenQuad()
 
     return std::make_shared<Mesh>(
         vertices,
-        sizeof(vertices),
+        static_cast<uint32_t>(sizeof(vertices)),
         GetPrimitiveLayout(),
         indices,
         static_cast<uint32_t>(sizeof(indices) / sizeof(uint32_t)));
@@ -114,7 +114,7 @@ std::shared_ptr<Mesh> MeshFactory::CreateCube()
 
     return std::make_shared<Mesh>(
         vertices,
-        sizeof(vertices),
+        static_cast<uint32_t>(sizeof(vertices)),
         GetPrimitiveLayout(),
         indices,
         static_cast<uint32_t>(sizeof(indices) / sizeof(uint32_t)));

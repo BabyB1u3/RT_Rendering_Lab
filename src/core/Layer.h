@@ -12,10 +12,10 @@ public:
     virtual void OnAttach() {}
     virtual void OnDetach() {}
 
-    virtual void OnUpdate(float dt) {}
+    virtual void OnUpdate(float) {}
     virtual void OnRender() {}
     virtual void OnImGuiRender() {}
-    virtual void OnResize(uint32_t width, uint32_t height) {}
+    virtual void OnResize(uint32_t, uint32_t) {}
 
     const std::string &GetName() const { return m_Name; }
 
