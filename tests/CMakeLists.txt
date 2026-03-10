@@ -5,6 +5,7 @@ add_executable(rtrlab_tests
     unit/TestLayerStack.cpp
     unit/TestTransform.cpp
     unit/TestCamera.cpp
+    unit/TestBuffers.cpp
 )
 
 target_link_libraries(rtrlab_tests
