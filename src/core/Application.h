@@ -39,6 +39,7 @@ private:
     void OnWindowResize(uint32_t width, uint32_t height);
 
 private:
+    // Non-owning singleton-style pointer. Lifetime is managed externally by the actual Application object.
     static Application *s_Instance;
 
     Scope<Window> m_Window;

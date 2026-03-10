@@ -34,6 +34,7 @@ public:
     void OnMouseScroll(float deltaScroll);
 
 private:
+    // Non-owning pointer. The controller does not manage camera lifetime.
     Camera *m_Camera = nullptr;
 
     float m_MoveSpeed = 5.0f;
