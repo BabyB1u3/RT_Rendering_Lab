@@ -25,7 +25,7 @@ foreach(OUTPUTCONFIG Debug Release RelWithDebInfo MinSizeRel)
     set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${OUTPUTCONFIG_UPPER} ${CMAKE_BINARY_DIR}/lib/${OUTPUTCONFIG})
 endforeach()
 
-option(GLAB_BUILD_TESTS "Build tests" OFF)
+option(GLAB_BUILD_TESTS "Build tests" ON)
 option(GLAB_ENABLE_WARNINGS "Enable warnings" ON)
 option(GLAB_ENABLE_ASAN "Enable AddressSanitizer" OFF)
 
@@ -53,5 +53,21 @@ add_subdirectory(src)
 
 if(GLAB_BUILD_TESTS)
     enable_testing()
+
+    include(FetchContent)
+
+    set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+    set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
+
+    FetchContent_Declare(
+        googletest
+        URL https://github.com/google/googletest/archive/refs/tags/v1.17.0.zip
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    )
+
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+
+    FetchContent_MakeAvailable(googletest)
+
     add_subdirectory(tests)
 endif()
