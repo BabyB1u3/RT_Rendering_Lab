@@ -1,0 +1,36 @@
+#pragma once
+
+#include <vector>
+#include <cstddef>
+
+#include "core/Layer.h"
+#include "core/Base.h"
+
+class LayerStack
+{
+public:
+    LayerStack() = default;
+    ~LayerStack();
+
+    Layer *PushLayer(Scope<Layer> layer);
+    Layer *PushOverlay(Scope<Layer> overlay);
+
+    void PopLayer(Layer *layer);
+    void PopOverlay(Layer *overlay);
+
+    auto begin() { return m_Layers.begin(); }
+    auto end() { return m_Layers.end(); }
+
+    auto begin() const { return m_Layers.begin(); }
+    auto end() const { return m_Layers.end(); }
+
+    auto rbegin() { return m_Layers.rbegin(); }
+    auto rend() { return m_Layers.rend(); }
+
+    auto rbegin() const { return m_Layers.rbegin(); }
+    auto rend() const { return m_Layers.rend(); }
+
+private:
+    std::vector<Scope<Layer>> m_Layers;
+    std::size_t m_LayerInsertIndex = 0;
+};

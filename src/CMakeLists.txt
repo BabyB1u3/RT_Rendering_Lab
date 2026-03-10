@@ -1,6 +1,10 @@
 set(GLAB_CORE_SOURCES
     core/Application.cpp
+    core/FileSystem.cpp
     core/Input.cpp
+    core/Layer.cpp
+    core/LayerStack.cpp
+    core/Logger.cpp
     core/Time.cpp
     core/Window.cpp
 
@@ -24,12 +28,23 @@ set(GLAB_CORE_SOURCES
     scene/Camera.cpp
     scene/DebugCameraController.cpp
 
-    demos/ShadowMappingLab.cpp
+    demos/LabLayer.cpp
+    demos/DemoRegistry.cpp
+    demos/ShadowMapping/ShadowMapping.cpp
+
+    gui/ImGuiLayer.cpp
+    gui/Panels/DebugPanel.cpp
+    gui/Panels/DemoSelectorPanel.cpp
 )
 
 set(GLAB_CORE_HEADERS
     core/Application.h
+    core/Base.h
+    core/FileSystem.h
     core/Input.h
+    core/Layer.h
+    core/LayerStack.h
+    core/Logger.h
     core/Time.h
     core/Window.h
 
@@ -58,7 +73,14 @@ set(GLAB_CORE_HEADERS
     scene/SceneData.h
     scene/Transform.h
 
-    demos/ShadowMappingLab.h
+    demos/DemoBase.h
+    demos/DemoRegistry.h
+    demos/LabLayer.h
+    demos/ShadowMapping/ShadowMapping.h
+
+    gui/ImGuiLayer.h
+    gui/Panels/DebugPanel.h
+    gui/Panels/DemoSelectorPanel.h
 )
 
 add_library(RTRLabCore STATIC
