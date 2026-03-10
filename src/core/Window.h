@@ -44,7 +44,10 @@ private:
     void Shutdown();
 
 private:
+    // Opaque native handle. Lifetime managed manually.
     GLFWwindow *m_Handle = nullptr;
+    // Must use custom deleter if using unique_ptr for GLFWwindow:
+    // std::unique_ptr<GLFWwindow, GLFWwindowDeleter>
     uint32_t m_Width = 0;
     uint32_t m_Height = 0;
     bool m_VSync = true;

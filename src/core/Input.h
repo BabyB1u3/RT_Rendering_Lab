@@ -19,6 +19,7 @@ public:
     static float GetMouseY();
 
 private:
+    // Non-owning pointer. Input does not manage GLFWWindow lifetime.
     static GLFWwindow *s_Window;
     static float s_LastMouseX;
     static float s_LastMouseY;
