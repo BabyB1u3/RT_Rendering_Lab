@@ -7,6 +7,8 @@
 
 #include <glm/glm.hpp>
 
+#include "core/Base.h"
+
 class Shader
 {
 public:
@@ -19,19 +21,19 @@ public:
 	Shader(Shader &&other) noexcept;
 	Shader &operator=(Shader &&other) noexcept;
 
-	static std::shared_ptr<Shader> CreateFromSource(
+	static Ref<Shader> CreateFromSource(
 		const std::string &name,
 		const std::string &vertexSource,
 		const std::string &fragmentSource,
 		const std::string &geometrySource = "");
 
-	static std::shared_ptr<Shader> CreateFromFiles(
+	static Ref<Shader> CreateFromFiles(
 		const std::string &name,
 		const std::string &vertexPath,
 		const std::string &fragmentPath,
 		const std::string &geometryPath = "");
 
-	static std::shared_ptr<Shader> CreateFromSingleFile(
+	static Ref<Shader> CreateFromSingleFile(
 		const std::string &filepath,
 		const std::string &name = "");
 

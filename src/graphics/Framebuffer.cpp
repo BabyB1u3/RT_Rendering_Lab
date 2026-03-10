@@ -87,13 +87,13 @@ void Framebuffer::Resize(uint32_t width, uint32_t height)
 	Invalidate();
 }
 
-std::shared_ptr<Texture2D> Framebuffer::GetColorAttachment(uint32_t index) const
+Ref<Texture2D> Framebuffer::GetColorAttachment(uint32_t index) const
 {
 	assert(index < m_ColorAttachments.size() && "Color attachment index out of range");
 	return m_ColorAttachments[index];
 }
 
-std::shared_ptr<Texture2D> Framebuffer::GetDepthAttachment() const
+Ref<Texture2D> Framebuffer::GetDepthAttachment() const
 {
 	return m_DepthAttachment;
 }
