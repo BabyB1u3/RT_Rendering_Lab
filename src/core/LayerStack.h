@@ -3,8 +3,8 @@
 #include <vector>
 #include <cstddef>
 
-#include "core/Layer.h"
-#include "core/Base.h"
+#include "Layer.h"
+#include "Base.h"
 
 class LayerStack
 {

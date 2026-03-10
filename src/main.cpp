@@ -1,7 +1,7 @@
+#include <glad/glad.h>
+
 #include "core/Application.h"
 #include "core/Layer.h"
-
-#include <glad/glad.h>
 
 class ClearColorLayer : public Layer
 {

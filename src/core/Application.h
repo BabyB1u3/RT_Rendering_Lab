@@ -3,9 +3,9 @@
 #include <string>
 #include <cstdint>
 
-#include "core/Base.h"
-#include "core/Window.h"
-#include "core/LayerStack.h"
+#include "Base.h"
+#include "Window.h"
+#include "LayerStack.h"
 
 struct ApplicationSpecification
 {
