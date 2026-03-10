@@ -1,4 +1,4 @@
-set(GLAB_CORE_SOURCES
+﻿set(GLAB_CORE_SOURCES
     core/Application.cpp
     core/FileSystem.cpp
     core/Input.cpp
@@ -143,7 +143,7 @@ add_custom_command(TARGET RTRLab POST_BUILD
 )
 
 set_target_properties(RTRLab PROPERTIES
-    VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:RTRLab>"
+    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES
