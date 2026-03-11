@@ -215,7 +215,7 @@ void Texture2D::Bind(uint32_t slot) const
 	glBindTextureUnit(slot, m_RendererID);
 }
 
-void Texture2D::Unbind() const
+void Texture2D::Unbind(uint32_t slot) const
 {
-	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindTextureUnit(slot, 0);
 }

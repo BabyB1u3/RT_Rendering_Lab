@@ -46,7 +46,7 @@ public:
 	virtual TextureFormat GetFormat() const = 0;
 
 	virtual void Bind(uint32_t slot = 0) const = 0;
-	virtual void Unbind() const = 0;
+	virtual void Unbind(uint32_t slot = 0) const = 0;
 
 	virtual bool operator==(const Texture &other) const = 0;
 };
@@ -85,7 +85,7 @@ public:
 	const std::string &GetPath() const { return m_Path; }
 
 	void Bind(uint32_t slot = 0) const override;
-	void Unbind() const override;
+	void Unbind(uint32_t slot = 0) const override;
 
 	bool operator==(const Texture &other) const override
 	{
