@@ -12,6 +12,11 @@ namespace
 		return format == TextureFormat::Depth ||
 			   format == TextureFormat::Depth24Stencil8;
 	}
+
+	bool IsIntegerFormat(TextureFormat format)
+	{
+		return format == TextureFormat::RedInteger;
+	}
 }
 
 Framebuffer::Framebuffer(const FramebufferSpecification &spec)
@@ -101,6 +106,9 @@ Ref<Texture2D> Framebuffer::GetDepthAttachment() const
 int Framebuffer::ReadPixel(uint32_t attachmentIndex, int x, int y) const
 {
 	assert(attachmentIndex < m_ColorAttachments.size() && "Attachment index out of range");
+	assert(IsIntegerFormat(m_ColorAttachmentSpecifications[attachmentIndex].Format) &&
+		   "ReadPixel requires an integer-format attachment");
+
 	glReadBuffer(GL_COLOR_ATTACHMENT0 + attachmentIndex);
 
 	int pixelData = 0;
@@ -111,6 +119,9 @@ int Framebuffer::ReadPixel(uint32_t attachmentIndex, int x, int y) const
 void Framebuffer::ClearAttachment(uint32_t attachmentIndex, int value)
 {
 	assert(attachmentIndex < m_ColorAttachments.size() && "Attachment index out of range");
+	assert(IsIntegerFormat(m_ColorAttachmentSpecifications[attachmentIndex].Format) &&
+		   "ClearAttachment requires an integer-format attachment");
+
 	glClearTexImage(
 		m_ColorAttachments[attachmentIndex]->GetRendererID(),
 		0,

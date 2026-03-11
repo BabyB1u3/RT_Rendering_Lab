@@ -16,6 +16,8 @@ static GLenum TextureFormatToGLInternalFormat(TextureFormat format)
 		return GL_RGB8;
 	case TextureFormat::RGBA8:
 		return GL_RGBA8;
+	case TextureFormat::RedInteger:
+		return GL_R32I;
 	case TextureFormat::Depth:
 		return GL_DEPTH_COMPONENT24;
 	case TextureFormat::Depth24Stencil8:
@@ -36,6 +38,8 @@ static GLenum TextureFormatToGLDataFormat(TextureFormat format)
 		return GL_RGB;
 	case TextureFormat::RGBA8:
 		return GL_RGBA;
+	case TextureFormat::RedInteger:
+		return GL_RED_INTEGER;
 	case TextureFormat::Depth:
 		return GL_DEPTH_COMPONENT;
 	case TextureFormat::Depth24Stencil8:
@@ -54,6 +58,8 @@ static GLenum TextureFormatToGLDataType(TextureFormat format)
 	case TextureFormat::RGB8:
 	case TextureFormat::RGBA8:
 		return GL_UNSIGNED_BYTE;
+	case TextureFormat::RedInteger:
+		return GL_INT;
 	case TextureFormat::Depth:
 		return GL_FLOAT;
 	case TextureFormat::Depth24Stencil8:
