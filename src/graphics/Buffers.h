@@ -68,12 +68,13 @@ struct BufferElement
     ShaderDataType Type = ShaderDataType::None;
     size_t Offset = 0;
     uint32_t Size = 0;
+    uint32_t Divisor = 0;
     bool Normalized = false;
 
     BufferElement() = default;
 
-    BufferElement(ShaderDataType type, const std::string &name, bool normalized = false)
-        : Name(name), Type(type), Offset(0), Size(ShaderDataTypeSize(type)), Normalized(normalized)
+    BufferElement(ShaderDataType type, const std::string &name, bool normalized = false, uint32_t divisor = 0)
+        : Name(name), Type(type), Offset(0), Size(ShaderDataTypeSize(type)), Divisor(divisor), Normalized(normalized)
     {
     }
 
@@ -187,9 +188,6 @@ public:
     VertexBuffer(VertexBuffer &&other) noexcept;
     VertexBuffer &operator=(VertexBuffer &&other) noexcept;
 
-    void Bind() const;
-    void Unbind() const;
-
     void SetData(const void *data, uint32_t size, uint32_t offset = 0);
 
     void SetLayout(const BufferLayout &layout) { m_Layout = layout; }
@@ -216,9 +214,6 @@ public:
 
     IndexBuffer(IndexBuffer &&other) noexcept;
     IndexBuffer &operator=(IndexBuffer &&other) noexcept;
-
-    void Bind() const;
-    void Unbind() const;
 
     uint32_t GetCount() const { return m_Count; }
     uint32_t GetRendererID() const { return m_RendererID; }

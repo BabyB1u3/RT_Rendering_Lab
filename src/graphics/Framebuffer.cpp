@@ -7,10 +7,15 @@ namespace
 {
 	constexpr uint32_t s_MaxFramebufferSize = 8192;
 
-	static bool IsDepthFormat(TextureFormat format)
+	bool IsDepthFormat(TextureFormat format)
 	{
 		return format == TextureFormat::Depth ||
 			   format == TextureFormat::Depth24Stencil8;
+	}
+
+	bool IsIntegerFormat(TextureFormat format)
+	{
+		return format == TextureFormat::RedInteger;
 	}
 }
 
@@ -101,16 +106,23 @@ Ref<Texture2D> Framebuffer::GetDepthAttachment() const
 int Framebuffer::ReadPixel(uint32_t attachmentIndex, int x, int y) const
 {
 	assert(attachmentIndex < m_ColorAttachments.size() && "Attachment index out of range");
-	glReadBuffer(GL_COLOR_ATTACHMENT0 + attachmentIndex);
+	assert(IsIntegerFormat(m_ColorAttachmentSpecifications[attachmentIndex].Format) &&
+		   "ReadPixel requires an integer-format attachment");
 
+	glNamedFramebufferReadBuffer(m_RendererID, GL_COLOR_ATTACHMENT0 + attachmentIndex);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, m_RendererID);
 	int pixelData = 0;
 	glReadPixels(x, y, 1, 1, GL_RED_INTEGER, GL_INT, &pixelData);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 	return pixelData;
 }
 
 void Framebuffer::ClearAttachment(uint32_t attachmentIndex, int value)
 {
 	assert(attachmentIndex < m_ColorAttachments.size() && "Attachment index out of range");
+	assert(IsIntegerFormat(m_ColorAttachmentSpecifications[attachmentIndex].Format) &&
+		   "ClearAttachment requires an integer-format attachment");
+
 	glClearTexImage(
 		m_ColorAttachments[attachmentIndex]->GetRendererID(),
 		0,
@@ -131,7 +143,6 @@ void Framebuffer::Invalidate()
 	}
 
 	glCreateFramebuffers(1, &m_RendererID);
-	glBindFramebuffer(GL_FRAMEBUFFER, m_RendererID);
 
 	// Color attachments
 	for (uint32_t i = 0; i < m_ColorAttachmentSpecifications.size(); ++i)
@@ -148,10 +159,9 @@ void Framebuffer::Invalidate()
 		auto texture = Texture2D::Create(spec);
 		m_ColorAttachments.push_back(texture);
 
-		glFramebufferTexture2D(
-			GL_FRAMEBUFFER,
+		glNamedFramebufferTexture(
+			m_RendererID,
 			GL_COLOR_ATTACHMENT0 + i,
-			GL_TEXTURE_2D,
 			texture->GetRendererID(),
 			0);
 	}
@@ -175,10 +185,9 @@ void Framebuffer::Invalidate()
 				? GL_DEPTH_STENCIL_ATTACHMENT
 				: GL_DEPTH_ATTACHMENT;
 
-		glFramebufferTexture2D(
-			GL_FRAMEBUFFER,
+		glNamedFramebufferTexture(
+			m_RendererID,
 			attachmentType,
-			GL_TEXTURE_2D,
 			m_DepthAttachment->GetRendererID(),
 			0);
 	}
@@ -192,16 +201,14 @@ void Framebuffer::Invalidate()
 			GL_COLOR_ATTACHMENT1,
 			GL_COLOR_ATTACHMENT2,
 			GL_COLOR_ATTACHMENT3};
-		glDrawBuffers(static_cast<GLsizei>(m_ColorAttachments.size()), buffers);
+		glNamedFramebufferDrawBuffers(m_RendererID, static_cast<GLsizei>(m_ColorAttachments.size()), buffers);
 	}
 	else if (m_ColorAttachments.empty())
 	{
-		glDrawBuffer(GL_NONE);
-		glReadBuffer(GL_NONE);
+		glNamedFramebufferDrawBuffer(m_RendererID, GL_NONE);
+		glNamedFramebufferReadBuffer(m_RendererID, GL_NONE);
 	}
 
-	assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE &&
+	assert(glCheckNamedFramebufferStatus(m_RendererID, GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE &&
 		   "Framebuffer is incomplete");
-
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }

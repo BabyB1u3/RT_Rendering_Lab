@@ -16,6 +16,8 @@ static GLenum TextureFormatToGLInternalFormat(TextureFormat format)
 		return GL_RGB8;
 	case TextureFormat::RGBA8:
 		return GL_RGBA8;
+	case TextureFormat::RedInteger:
+		return GL_R32I;
 	case TextureFormat::Depth:
 		return GL_DEPTH_COMPONENT24;
 	case TextureFormat::Depth24Stencil8:
@@ -36,6 +38,8 @@ static GLenum TextureFormatToGLDataFormat(TextureFormat format)
 		return GL_RGB;
 	case TextureFormat::RGBA8:
 		return GL_RGBA;
+	case TextureFormat::RedInteger:
+		return GL_RED_INTEGER;
 	case TextureFormat::Depth:
 		return GL_DEPTH_COMPONENT;
 	case TextureFormat::Depth24Stencil8:
@@ -54,6 +58,8 @@ static GLenum TextureFormatToGLDataType(TextureFormat format)
 	case TextureFormat::RGB8:
 	case TextureFormat::RGBA8:
 		return GL_UNSIGNED_BYTE;
+	case TextureFormat::RedInteger:
+		return GL_INT;
 	case TextureFormat::Depth:
 		return GL_FLOAT;
 	case TextureFormat::Depth24Stencil8:
@@ -110,7 +116,14 @@ Ref<Texture2D> Texture2D::Create(const TextureSpecification &spec)
 
 	assert(internalFormat != 0 && "Unsupported texture format");
 
-	glTextureStorage2D(rendererID, 1, internalFormat, spec.Width, spec.Height);
+	uint32_t mipLevels = 1;
+	if (spec.GenerateMips)
+	{
+		uint32_t size = spec.Width > spec.Height ? spec.Width : spec.Height;
+		while (size > 1) { size >>= 1; ++mipLevels; }
+	}
+
+	glTextureStorage2D(rendererID, mipLevels, internalFormat, spec.Width, spec.Height);
 
 	glTextureParameteri(rendererID, GL_TEXTURE_WRAP_S, spec.WrapS);
 	glTextureParameteri(rendererID, GL_TEXTURE_WRAP_T, spec.WrapT);
@@ -123,6 +136,9 @@ Ref<Texture2D> Texture2D::Create(const TextureSpecification &spec)
 	{
 		glTextureSubImage2D(rendererID, 0, 0, 0, spec.Width, spec.Height, dataFormat, dataType, nullptr);
 	}
+
+	if (spec.GenerateMips)
+		glGenerateTextureMipmap(rendererID);
 
 	return Ref<Texture2D>(new Texture2D(rendererID, spec));
 }
@@ -215,7 +231,7 @@ void Texture2D::Bind(uint32_t slot) const
 	glBindTextureUnit(slot, m_RendererID);
 }
 
-void Texture2D::Unbind() const
+void Texture2D::Unbind(uint32_t slot) const
 {
-	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindTextureUnit(slot, 0);
 }

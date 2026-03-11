@@ -1,7 +1,6 @@
 #include "Shader.h"
 
 #include <array>
-#include <cassert>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -78,12 +77,14 @@ std::unordered_map<uint32_t, std::string> Shader::PreProcessSingleFile(const std
 	while (pos != std::string::npos)
 	{
 		size_t eol = source.find_first_of("\r\n", pos);
-		assert(eol != std::string::npos && "Shader syntax error");
+		if (eol == std::string::npos)
+			throw std::runtime_error("Shader syntax error: missing newline after #type directive");
 
 		size_t begin = pos + typeTokenLength + 1;
 		std::string type = source.substr(begin, eol - begin);
 		GLenum shaderType = ShaderTypeFromString(type);
-		assert(shaderType != 0 && "Invalid shader type");
+		if (shaderType == 0)
+			throw std::runtime_error("Shader syntax error: unknown shader type '" + type + "'");
 
 		size_t nextLinePos = source.find_first_not_of("\r\n", eol);
 		pos = source.find(typeToken, nextLinePos);
@@ -191,8 +192,10 @@ Ref<Shader> Shader::CreateFromSingleFile(const std::string &filepath, const std:
 	std::string source = ReadTextFile(filepath);
 	auto sources = PreProcessSingleFile(source);
 
-	assert(sources.count(GL_VERTEX_SHADER) && "Missing vertex shader in single-file shader");
-	assert(sources.count(GL_FRAGMENT_SHADER) && "Missing fragment shader in single-file shader");
+	if (!sources.count(GL_VERTEX_SHADER))
+		throw std::runtime_error("Shader file '" + filepath + "' is missing a #type vertex section");
+	if (!sources.count(GL_FRAGMENT_SHADER))
+		throw std::runtime_error("Shader file '" + filepath + "' is missing a #type fragment section");
 
 	std::string shaderName = name.empty() ? filepath : name;
 	std::string geometrySource = sources.count(GL_GEOMETRY_SHADER) ? sources[GL_GEOMETRY_SHADER] : "";
@@ -227,45 +230,45 @@ int Shader::GetUniformLocation(const std::string &name)
 
 void Shader::SetInt(const std::string &name, int value)
 {
-	glUniform1i(GetUniformLocation(name), value);
+	glProgramUniform1i(m_RendererID, GetUniformLocation(name), value);
 }
 
 void Shader::SetIntArray(const std::string &name, const int *values, uint32_t count)
 {
-	glUniform1iv(GetUniformLocation(name), static_cast<GLsizei>(count), values);
+	glProgramUniform1iv(m_RendererID, GetUniformLocation(name), static_cast<GLsizei>(count), values);
 }
 
 void Shader::SetBool(const std::string &name, bool value)
 {
-	glUniform1i(GetUniformLocation(name), value ? 1 : 0);
+	glProgramUniform1i(m_RendererID, GetUniformLocation(name), value ? 1 : 0);
 }
 
 void Shader::SetFloat(const std::string &name, float value)
 {
-	glUniform1f(GetUniformLocation(name), value);
+	glProgramUniform1f(m_RendererID, GetUniformLocation(name), value);
 }
 
 void Shader::SetFloat2(const std::string &name, const glm::vec2 &value)
 {
-	glUniform2f(GetUniformLocation(name), value.x, value.y);
+	glProgramUniform2f(m_RendererID, GetUniformLocation(name), value.x, value.y);
 }
 
 void Shader::SetFloat3(const std::string &name, const glm::vec3 &value)
 {
-	glUniform3f(GetUniformLocation(name), value.x, value.y, value.z);
+	glProgramUniform3f(m_RendererID, GetUniformLocation(name), value.x, value.y, value.z);
 }
 
 void Shader::SetFloat4(const std::string &name, const glm::vec4 &value)
 {
-	glUniform4f(GetUniformLocation(name), value.x, value.y, value.z, value.w);
+	glProgramUniform4f(m_RendererID, GetUniformLocation(name), value.x, value.y, value.z, value.w);
 }
 
 void Shader::SetMat3(const std::string &name, const glm::mat3 &value)
 {
-	glUniformMatrix3fv(GetUniformLocation(name), 1, GL_FALSE, glm::value_ptr(value));
+	glProgramUniformMatrix3fv(m_RendererID, GetUniformLocation(name), 1, GL_FALSE, glm::value_ptr(value));
 }
 
 void Shader::SetMat4(const std::string &name, const glm::mat4 &value)
 {
-	glUniformMatrix4fv(GetUniformLocation(name), 1, GL_FALSE, glm::value_ptr(value));
+	glProgramUniformMatrix4fv(m_RendererID, GetUniformLocation(name), 1, GL_FALSE, glm::value_ptr(value));
 }
