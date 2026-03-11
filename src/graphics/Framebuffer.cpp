@@ -7,7 +7,7 @@ namespace
 {
 	constexpr uint32_t s_MaxFramebufferSize = 8192;
 
-	static bool IsDepthFormat(TextureFormat format)
+	bool IsDepthFormat(TextureFormat format)
 	{
 		return format == TextureFormat::Depth ||
 			   format == TextureFormat::Depth24Stencil8;
