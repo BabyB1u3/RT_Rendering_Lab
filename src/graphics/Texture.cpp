@@ -116,7 +116,14 @@ Ref<Texture2D> Texture2D::Create(const TextureSpecification &spec)
 
 	assert(internalFormat != 0 && "Unsupported texture format");
 
-	glTextureStorage2D(rendererID, 1, internalFormat, spec.Width, spec.Height);
+	uint32_t mipLevels = 1;
+	if (spec.GenerateMips)
+	{
+		uint32_t size = spec.Width > spec.Height ? spec.Width : spec.Height;
+		while (size > 1) { size >>= 1; ++mipLevels; }
+	}
+
+	glTextureStorage2D(rendererID, mipLevels, internalFormat, spec.Width, spec.Height);
 
 	glTextureParameteri(rendererID, GL_TEXTURE_WRAP_S, spec.WrapS);
 	glTextureParameteri(rendererID, GL_TEXTURE_WRAP_T, spec.WrapT);
@@ -129,6 +136,9 @@ Ref<Texture2D> Texture2D::Create(const TextureSpecification &spec)
 	{
 		glTextureSubImage2D(rendererID, 0, 0, 0, spec.Width, spec.Height, dataFormat, dataType, nullptr);
 	}
+
+	if (spec.GenerateMips)
+		glGenerateTextureMipmap(rendererID);
 
 	return Ref<Texture2D>(new Texture2D(rendererID, spec));
 }
