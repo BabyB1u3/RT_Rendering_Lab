@@ -230,45 +230,45 @@ int Shader::GetUniformLocation(const std::string &name)
 
 void Shader::SetInt(const std::string &name, int value)
 {
-	glUniform1i(GetUniformLocation(name), value);
+	glProgramUniform1i(m_RendererID, GetUniformLocation(name), value);
 }
 
 void Shader::SetIntArray(const std::string &name, const int *values, uint32_t count)
 {
-	glUniform1iv(GetUniformLocation(name), static_cast<GLsizei>(count), values);
+	glProgramUniform1iv(m_RendererID, GetUniformLocation(name), static_cast<GLsizei>(count), values);
 }
 
 void Shader::SetBool(const std::string &name, bool value)
 {
-	glUniform1i(GetUniformLocation(name), value ? 1 : 0);
+	glProgramUniform1i(m_RendererID, GetUniformLocation(name), value ? 1 : 0);
 }
 
 void Shader::SetFloat(const std::string &name, float value)
 {
-	glUniform1f(GetUniformLocation(name), value);
+	glProgramUniform1f(m_RendererID, GetUniformLocation(name), value);
 }
 
 void Shader::SetFloat2(const std::string &name, const glm::vec2 &value)
 {
-	glUniform2f(GetUniformLocation(name), value.x, value.y);
+	glProgramUniform2f(m_RendererID, GetUniformLocation(name), value.x, value.y);
 }
 
 void Shader::SetFloat3(const std::string &name, const glm::vec3 &value)
 {
-	glUniform3f(GetUniformLocation(name), value.x, value.y, value.z);
+	glProgramUniform3f(m_RendererID, GetUniformLocation(name), value.x, value.y, value.z);
 }
 
 void Shader::SetFloat4(const std::string &name, const glm::vec4 &value)
 {
-	glUniform4f(GetUniformLocation(name), value.x, value.y, value.z, value.w);
+	glProgramUniform4f(m_RendererID, GetUniformLocation(name), value.x, value.y, value.z, value.w);
 }
 
 void Shader::SetMat3(const std::string &name, const glm::mat3 &value)
 {
-	glUniformMatrix3fv(GetUniformLocation(name), 1, GL_FALSE, glm::value_ptr(value));
+	glProgramUniformMatrix3fv(m_RendererID, GetUniformLocation(name), 1, GL_FALSE, glm::value_ptr(value));
 }
 
 void Shader::SetMat4(const std::string &name, const glm::mat4 &value)
 {
-	glUniformMatrix4fv(GetUniformLocation(name), 1, GL_FALSE, glm::value_ptr(value));
+	glProgramUniformMatrix4fv(m_RendererID, GetUniformLocation(name), 1, GL_FALSE, glm::value_ptr(value));
 }
