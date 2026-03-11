@@ -36,6 +36,8 @@ public:
 
 private:
     Ref<VertexArray> m_VertexArray;
+    // Could have multiple vertexbuffers in the future:
+    // Main vertex buffer + intance buffer + secondary stream
     std::vector<Ref<VertexBuffer>> m_VertexBuffers;
     Ref<IndexBuffer> m_IndexBuffer;
     uint32_t m_IndexCount = 0;
