@@ -106,6 +106,7 @@ void VertexArray::AddVertexBuffer(const Ref<VertexBuffer> &vertexBuffer)
 				element.Normalized ? GL_TRUE : GL_FALSE,
 				layout.GetStride(),
 				reinterpret_cast<const void *>(element.Offset));
+			glVertexAttribDivisor(m_VertexAttribIndex, element.Divisor);
 			++m_VertexAttribIndex;
 			break;
 		}
@@ -123,6 +124,7 @@ void VertexArray::AddVertexBuffer(const Ref<VertexBuffer> &vertexBuffer)
 				ShaderDataTypeToOpenGLBaseType(element.Type),
 				layout.GetStride(),
 				reinterpret_cast<const void *>(element.Offset));
+			glVertexAttribDivisor(m_VertexAttribIndex, element.Divisor);
 			++m_VertexAttribIndex;
 			break;
 		}
@@ -141,7 +143,7 @@ void VertexArray::AddVertexBuffer(const Ref<VertexBuffer> &vertexBuffer)
 					element.Normalized ? GL_TRUE : GL_FALSE,
 					layout.GetStride(),
 					reinterpret_cast<const void *>(element.Offset + sizeof(float) * count * i));
-				glVertexAttribDivisor(m_VertexAttribIndex, 1);
+				glVertexAttribDivisor(m_VertexAttribIndex, element.Divisor);
 				++m_VertexAttribIndex;
 			}
 			break;

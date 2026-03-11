@@ -68,12 +68,13 @@ struct BufferElement
     ShaderDataType Type = ShaderDataType::None;
     size_t Offset = 0;
     uint32_t Size = 0;
+    uint32_t Divisor = 0;
     bool Normalized = false;
 
     BufferElement() = default;
 
-    BufferElement(ShaderDataType type, const std::string &name, bool normalized = false)
-        : Name(name), Type(type), Offset(0), Size(ShaderDataTypeSize(type)), Normalized(normalized)
+    BufferElement(ShaderDataType type, const std::string &name, bool normalized = false, uint32_t divisor = 0)
+        : Name(name), Type(type), Offset(0), Size(ShaderDataTypeSize(type)), Divisor(divisor), Normalized(normalized)
     {
     }
 
