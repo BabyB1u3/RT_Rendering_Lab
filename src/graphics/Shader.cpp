@@ -1,7 +1,6 @@
 #include "Shader.h"
 
 #include <array>
-#include <cassert>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -78,12 +77,14 @@ std::unordered_map<uint32_t, std::string> Shader::PreProcessSingleFile(const std
 	while (pos != std::string::npos)
 	{
 		size_t eol = source.find_first_of("\r\n", pos);
-		assert(eol != std::string::npos && "Shader syntax error");
+		if (eol == std::string::npos)
+			throw std::runtime_error("Shader syntax error: missing newline after #type directive");
 
 		size_t begin = pos + typeTokenLength + 1;
 		std::string type = source.substr(begin, eol - begin);
 		GLenum shaderType = ShaderTypeFromString(type);
-		assert(shaderType != 0 && "Invalid shader type");
+		if (shaderType == 0)
+			throw std::runtime_error("Shader syntax error: unknown shader type '" + type + "'");
 
 		size_t nextLinePos = source.find_first_not_of("\r\n", eol);
 		pos = source.find(typeToken, nextLinePos);
@@ -191,8 +192,10 @@ Ref<Shader> Shader::CreateFromSingleFile(const std::string &filepath, const std:
 	std::string source = ReadTextFile(filepath);
 	auto sources = PreProcessSingleFile(source);
 
-	assert(sources.count(GL_VERTEX_SHADER) && "Missing vertex shader in single-file shader");
-	assert(sources.count(GL_FRAGMENT_SHADER) && "Missing fragment shader in single-file shader");
+	if (!sources.count(GL_VERTEX_SHADER))
+		throw std::runtime_error("Shader file '" + filepath + "' is missing a #type vertex section");
+	if (!sources.count(GL_FRAGMENT_SHADER))
+		throw std::runtime_error("Shader file '" + filepath + "' is missing a #type fragment section");
 
 	std::string shaderName = name.empty() ? filepath : name;
 	std::string geometrySource = sources.count(GL_GEOMETRY_SHADER) ? sources[GL_GEOMETRY_SHADER] : "";
