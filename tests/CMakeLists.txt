@@ -24,6 +24,7 @@ target_include_directories(rtrlab_unit_tests
 
 add_executable(rtrlab_integration_tests
     integration/TestShader.cpp
+    integration/TestTexture.cpp
 
     support/GLTestContext.cpp
 )
