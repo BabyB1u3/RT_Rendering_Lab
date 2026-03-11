@@ -50,7 +50,11 @@ void Camera::SetPosition(const glm::vec3 &position)
 void Camera::SetRotation(float yawDegrees, float pitchDegrees)
 {
     m_Yaw = yawDegrees;
-    m_Pitch = std::clamp(pitchDegrees, -89.0f, 89.0f);
+    // Camera could have a lot of purposes:
+    // Player controller, orbit camera, light camera ... etc.
+    // Some controller may don't want to clamp this value
+    // m_Pitch = std::clamp(pitchDegrees, -89.0f, 89.0f);
+    m_Pitch = pitchDegrees;
 
     RecalculateBasis();
     RecalculateView();

@@ -24,13 +24,16 @@ public:
     void MoveBackward(float deltaTime);
     void MoveLeft(float deltaTime);
     void MoveRight(float deltaTime);
+    // Along world's Y axis
     void MoveUp(float deltaTime);
     void MoveDown(float deltaTime);
 
     // Mouse delta
+    // clamp to [-89, 89] when constrainPitch == true
     void OnMouseDelta(float deltaX, float deltaY, bool constrainPitch = true);
 
     // Scroll delta (typically y offset)
+    // Revise verticalFov and clamp to [1, 90]
     void OnMouseScroll(float deltaScroll);
 
 private:
