@@ -9,7 +9,9 @@ void RenderCommand::Init()
 
 	glEnable(GL_DEPTH_TEST);
 
-	// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+#if 0
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+#endif
 }
 
 void RenderCommand::SetClearColor(const glm::vec4 &color)

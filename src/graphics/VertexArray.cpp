@@ -86,8 +86,8 @@ void VertexArray::AddVertexBuffer(const Ref<VertexBuffer> &vertexBuffer)
 	const auto &layout = vertexBuffer->GetLayout();
 	assert(!layout.GetElements().empty() && "VertexBuffer has no layout!");
 
-	Bind();
-	vertexBuffer->Bind();
+	GLuint bindingIndex = static_cast<GLuint>(m_VertexBuffers.size());
+	glVertexArrayVertexBuffer(m_RendererID, bindingIndex, vertexBuffer->GetRendererID(), 0, layout.GetStride());
 
 	for (const auto &element : layout)
 	{
@@ -98,14 +98,16 @@ void VertexArray::AddVertexBuffer(const Ref<VertexBuffer> &vertexBuffer)
 		case ShaderDataType::Float3:
 		case ShaderDataType::Float4:
 		{
-			glEnableVertexAttribArray(m_VertexAttribIndex);
-			glVertexAttribPointer(
+			glEnableVertexArrayAttrib(m_RendererID, m_VertexAttribIndex);
+			glVertexArrayAttribFormat(
+				m_RendererID,
 				m_VertexAttribIndex,
 				element.GetComponentCount(),
-				ShaderDataTypeToOpenGLBaseType(element.Type),
+				GL_FLOAT,
 				element.Normalized ? GL_TRUE : GL_FALSE,
-				layout.GetStride(),
-				reinterpret_cast<const void *>(element.Offset));
+				element.Offset);
+			glVertexArrayAttribBinding(m_RendererID, m_VertexAttribIndex, bindingIndex);
+			glVertexArrayBindingDivisor(m_RendererID, bindingIndex, element.Divisor);
 			++m_VertexAttribIndex;
 			break;
 		}
@@ -116,13 +118,15 @@ void VertexArray::AddVertexBuffer(const Ref<VertexBuffer> &vertexBuffer)
 		case ShaderDataType::Int4:
 		case ShaderDataType::Bool:
 		{
-			glEnableVertexAttribArray(m_VertexAttribIndex);
-			glVertexAttribIPointer(
+			glEnableVertexArrayAttrib(m_RendererID, m_VertexAttribIndex);
+			glVertexArrayAttribIFormat(
+				m_RendererID,
 				m_VertexAttribIndex,
 				element.GetComponentCount(),
 				ShaderDataTypeToOpenGLBaseType(element.Type),
-				layout.GetStride(),
-				reinterpret_cast<const void *>(element.Offset));
+				element.Offset);
+			glVertexArrayAttribBinding(m_RendererID, m_VertexAttribIndex, bindingIndex);
+			glVertexArrayBindingDivisor(m_RendererID, bindingIndex, element.Divisor);
 			++m_VertexAttribIndex;
 			break;
 		}
@@ -133,15 +137,16 @@ void VertexArray::AddVertexBuffer(const Ref<VertexBuffer> &vertexBuffer)
 			uint32_t count = element.GetComponentCount(); // 3 or 4
 			for (uint32_t i = 0; i < count; ++i)
 			{
-				glEnableVertexAttribArray(m_VertexAttribIndex);
-				glVertexAttribPointer(
+				glEnableVertexArrayAttrib(m_RendererID, m_VertexAttribIndex);
+				glVertexArrayAttribFormat(
+					m_RendererID,
 					m_VertexAttribIndex,
 					count,
-					ShaderDataTypeToOpenGLBaseType(element.Type),
+					GL_FLOAT,
 					element.Normalized ? GL_TRUE : GL_FALSE,
-					layout.GetStride(),
-					reinterpret_cast<const void *>(element.Offset + sizeof(float) * count * i));
-				glVertexAttribDivisor(m_VertexAttribIndex, 1);
+					element.Offset + sizeof(float) * count * i);
+				glVertexArrayAttribBinding(m_RendererID, m_VertexAttribIndex, bindingIndex);
+				glVertexArrayBindingDivisor(m_RendererID, bindingIndex, element.Divisor);
 				++m_VertexAttribIndex;
 			}
 			break;
@@ -158,7 +163,6 @@ void VertexArray::AddVertexBuffer(const Ref<VertexBuffer> &vertexBuffer)
 
 void VertexArray::SetIndexBuffer(const Ref<IndexBuffer> &indexBuffer)
 {
-	Bind();
-	indexBuffer->Bind();
+	glVertexArrayElementBuffer(m_RendererID, indexBuffer->GetRendererID());
 	m_IndexBuffer = indexBuffer;
 }
