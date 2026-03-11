@@ -109,10 +109,11 @@ int Framebuffer::ReadPixel(uint32_t attachmentIndex, int x, int y) const
 	assert(IsIntegerFormat(m_ColorAttachmentSpecifications[attachmentIndex].Format) &&
 		   "ReadPixel requires an integer-format attachment");
 
-	glReadBuffer(GL_COLOR_ATTACHMENT0 + attachmentIndex);
-
+	glNamedFramebufferReadBuffer(m_RendererID, GL_COLOR_ATTACHMENT0 + attachmentIndex);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, m_RendererID);
 	int pixelData = 0;
 	glReadPixels(x, y, 1, 1, GL_RED_INTEGER, GL_INT, &pixelData);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 	return pixelData;
 }
 
