@@ -192,7 +192,7 @@ void Framebuffer::Invalidate()
 			0);
 	}
 
-	if (m_ColorAttachments.size() > 1)
+	if (!m_ColorAttachments.empty())
 	{
 		assert(m_ColorAttachments.size() <= 4 && "Too many color attachments");
 
@@ -203,7 +203,7 @@ void Framebuffer::Invalidate()
 			GL_COLOR_ATTACHMENT3};
 		glNamedFramebufferDrawBuffers(m_RendererID, static_cast<GLsizei>(m_ColorAttachments.size()), buffers);
 	}
-	else if (m_ColorAttachments.empty())
+	else
 	{
 		glNamedFramebufferDrawBuffer(m_RendererID, GL_NONE);
 		glNamedFramebufferReadBuffer(m_RendererID, GL_NONE);
