@@ -105,8 +105,6 @@ Ref<Texture2D> Texture2D::Create(const TextureSpecification &spec)
 	glCreateTextures(GL_TEXTURE_2D, 1, &rendererID);
 
 	GLenum internalFormat = TextureFormatToGLInternalFormat(spec.Format);
-	GLenum dataFormat = TextureFormatToGLDataFormat(spec.Format);
-	GLenum dataType = TextureFormatToGLDataType(spec.Format);
 
 	assert(internalFormat != 0 && "Unsupported texture format");
 
@@ -116,13 +114,6 @@ Ref<Texture2D> Texture2D::Create(const TextureSpecification &spec)
 	glTextureParameteri(rendererID, GL_TEXTURE_WRAP_T, spec.WrapT);
 	glTextureParameteri(rendererID, GL_TEXTURE_MIN_FILTER, spec.MinFilter);
 	glTextureParameteri(rendererID, GL_TEXTURE_MAG_FILTER, spec.MagFilter);
-
-	// Optional initialization for depth/depth-stencil/color textures
-	if (dataFormat != 0 && dataType != 0 &&
-		(spec.Format == TextureFormat::Depth || spec.Format == TextureFormat::Depth24Stencil8))
-	{
-		glTextureSubImage2D(rendererID, 0, 0, 0, spec.Width, spec.Height, dataFormat, dataType, nullptr);
-	}
 
 	return Ref<Texture2D>(new Texture2D(rendererID, spec));
 }

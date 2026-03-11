@@ -130,7 +130,7 @@ void Framebuffer::Invalidate()
 		m_DepthAttachment.reset();
 	}
 
-	glCreateFramebuffers(1, &m_RendererID);
+	glGenFramebuffers(1, &m_RendererID);
 	glBindFramebuffer(GL_FRAMEBUFFER, m_RendererID);
 
 	// Color attachments
@@ -183,7 +183,7 @@ void Framebuffer::Invalidate()
 			0);
 	}
 
-	if (m_ColorAttachments.size() > 1)
+	if (!m_ColorAttachments.empty())
 	{
 		assert(m_ColorAttachments.size() <= 4 && "Too many color attachments");
 
@@ -194,7 +194,7 @@ void Framebuffer::Invalidate()
 			GL_COLOR_ATTACHMENT3};
 		glDrawBuffers(static_cast<GLsizei>(m_ColorAttachments.size()), buffers);
 	}
-	else if (m_ColorAttachments.empty())
+	else
 	{
 		glDrawBuffer(GL_NONE);
 		glReadBuffer(GL_NONE);
