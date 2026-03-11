@@ -7,7 +7,8 @@ add_executable(rtrlab_tests
     unit/TestCamera.cpp
     unit/TestBuffers.cpp
     unit/TestDefaultCameraController.cpp
-)
+    unit/TestSpecifications.cpp
+ "unit/TestSpecifications.cpp")
 
 target_link_libraries(rtrlab_tests
     PRIVATE

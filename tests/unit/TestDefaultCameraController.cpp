@@ -128,7 +128,7 @@ TEST(DebugCameraControllerTests, MoveUpUsesWorldUpAxis)
 {
     Camera camera;
     camera.SetPosition({1.0f, 2.0f, 3.0f});
-    camera.SetRotation(-30.0f, 25.0f); // 故意让 camera up != world up
+    camera.SetRotation(-30.0f, 25.0f); // Intentionally make camera up != world up
 
     DebugCameraController controller(&camera);
     controller.SetMoveSpeed(5.0f);
