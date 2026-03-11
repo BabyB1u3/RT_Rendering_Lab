@@ -48,16 +48,6 @@ VertexBuffer &VertexBuffer::operator=(VertexBuffer &&other) noexcept
 	return *this;
 }
 
-void VertexBuffer::Bind() const
-{
-	glBindBuffer(GL_ARRAY_BUFFER, m_RendererID);
-}
-
-void VertexBuffer::Unbind() const
-{
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-}
-
 void VertexBuffer::SetData(const void *data, uint32_t size, uint32_t offset)
 {
 	glNamedBufferSubData(m_RendererID, offset, size, data);
@@ -102,12 +92,3 @@ IndexBuffer &IndexBuffer::operator=(IndexBuffer &&other) noexcept
 	return *this;
 }
 
-void IndexBuffer::Bind() const
-{
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_RendererID);
-}
-
-void IndexBuffer::Unbind() const
-{
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-}

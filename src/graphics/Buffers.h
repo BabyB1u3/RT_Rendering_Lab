@@ -188,9 +188,6 @@ public:
     VertexBuffer(VertexBuffer &&other) noexcept;
     VertexBuffer &operator=(VertexBuffer &&other) noexcept;
 
-    void Bind() const;
-    void Unbind() const;
-
     void SetData(const void *data, uint32_t size, uint32_t offset = 0);
 
     void SetLayout(const BufferLayout &layout) { m_Layout = layout; }
@@ -217,9 +214,6 @@ public:
 
     IndexBuffer(IndexBuffer &&other) noexcept;
     IndexBuffer &operator=(IndexBuffer &&other) noexcept;
-
-    void Bind() const;
-    void Unbind() const;
 
     uint32_t GetCount() const { return m_Count; }
     uint32_t GetRendererID() const { return m_RendererID; }
