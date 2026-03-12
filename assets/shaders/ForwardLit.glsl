@@ -55,7 +55,7 @@ float ComputeShadow(vec4 lightSpacePosition, vec3 normal, vec3 lightDir)
         return 0.0;
 
     float currentDepth = projCoords.z;
-    float bias = max(0.0005, 0.005 * (1.0 - dot(normalize(normal), normalize(-lightDir))));
+    float bias = max(0.0001, 0.002 * (1.0 - dot(normalize(normal), normalize(-lightDir))));
 
     // 3x3 PCF for soft shadow edges
     float shadow = 0.0;
