@@ -41,7 +41,7 @@ endfunction()
 
 function(glab_enable_sanitizers target_name)
     if(MSVC)
-        message(STATUS "ASAN is not configured for MSVC in this project.")
+        target_compile_options(${target_name} PRIVATE /fsanitize=address)
     else()
         target_compile_options(${target_name} PRIVATE -fsanitize=address -fno-omit-frame-pointer)
         target_link_options(${target_name} PRIVATE -fsanitize=address)
