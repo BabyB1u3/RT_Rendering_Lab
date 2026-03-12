@@ -88,5 +88,11 @@ void main()
     vec3 ambient = 0.15 * albedo;
     vec3 diffuse = (1.0 - shadow) * NdotL * albedo * u_LightColor * u_LightIntensity;
 
-    FragColor = vec4(ambient + diffuse, 1.0);
+    // Blinn-Phong specular
+    vec3 viewDir = normalize(u_CameraPosition - v_WorldPosition);
+    vec3 halfDir = normalize(viewDir + (-lightDir));
+    float spec = pow(max(dot(normal, halfDir), 0.0), 32.0);
+    vec3 specular = (1.0 - shadow) * spec * u_LightColor * u_LightIntensity;
+
+    FragColor = vec4(ambient + diffuse + specular, 1.0);
 }
