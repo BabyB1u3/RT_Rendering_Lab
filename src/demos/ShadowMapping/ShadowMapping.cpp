@@ -62,7 +62,7 @@ void ShadowMapping::OnAttach()
     // Currently ForwardPass is using the uniform pass shader
     // so material here is used as a texture resource container
     m_DefaultMaterial = CreateRef<Material>();
-    m_DefaultMaterial->SetTexture(1, m_WhiteTexture);
+    m_DefaultMaterial->SetTexture(TextureSlot::Albedo, m_WhiteTexture);
 
     BuildScene();
 }

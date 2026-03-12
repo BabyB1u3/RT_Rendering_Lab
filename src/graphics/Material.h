@@ -8,6 +8,12 @@
 #include "Shader.h"
 #include "Texture.h"
 
+enum class TextureSlot : uint32_t
+{
+    ShadowMap = 0,
+    Albedo    = 1,
+};
+
 class Material
 {
 public:
@@ -25,8 +31,8 @@ public:
     void SetShader(const Ref<Shader> &shader);
     const Ref<Shader> &GetShader() const { return m_Shader; }
 
-    void SetTexture(uint32_t slot, const Ref<Texture2D> &texture);
-    Ref<Texture2D> GetTexture(uint32_t slot) const;
+    void SetTexture(TextureSlot slot, const Ref<Texture2D> &texture);
+    Ref<Texture2D> GetTexture(TextureSlot slot) const;
 
     void Bind() const;
 

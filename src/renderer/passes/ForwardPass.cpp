@@ -85,8 +85,8 @@ void ForwardPass::Execute(
     m_Shader->SetFloat("u_LightIntensity", scene.MainDirectionalLight.Intensity);
 
     const auto &shadow = shadowMap ? shadowMap : m_FallbackShadowMap;
-    shadow->Bind(0);
-    m_Shader->SetInt("u_ShadowMap", 0);
+    shadow->Bind(static_cast<uint32_t>(TextureSlot::ShadowMap));
+    m_Shader->SetInt("u_ShadowMap", static_cast<int>(TextureSlot::ShadowMap));
 
     for (const auto &item : scene.RenderItems)
     {
@@ -101,11 +101,11 @@ void ForwardPass::Execute(
         // Bind material resources after the pass shader is bound.
         // Current minimal Material only binds textures + its own shader,
         // so for now we bind textures manually to avoid switching shaders.
-        auto albedo = item.Material->GetTexture(1);
+        auto albedo = item.Material->GetTexture(TextureSlot::Albedo);
         if (albedo)
         {
-            albedo->Bind(1);
-            m_Shader->SetInt("u_AlbedoMap", 1);
+            albedo->Bind(static_cast<uint32_t>(TextureSlot::Albedo));
+            m_Shader->SetInt("u_AlbedoMap", static_cast<int>(TextureSlot::Albedo));
             m_Shader->SetBool("u_UseAlbedoMap", true);
         }
         else
