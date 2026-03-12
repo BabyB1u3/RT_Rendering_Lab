@@ -1,2 +1,19 @@
-﻿build
+﻿# Build output
+build
+install
+out
+
+# IDE
 .vs
+.vscode
+*.user
+
+# CMake
+CMakeUserPresets.json
+compile_commands.json
+
+# MSVC artifacts
+*.exe
+*.obj
+*.pdb
+*.ilk
