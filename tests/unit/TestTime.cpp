@@ -5,8 +5,8 @@ TEST(TimeTests, ResetClearsState)
 {
     Time::Reset();
 
-    EXPECT_FLOAT_EQ(Time::GetDeltaTime(), 0.0f);
-    EXPECT_FLOAT_EQ(Time::GetTotalTime(), 0.0f);
+    EXPECT_DOUBLE_EQ(Time::GetDeltaTime(), 0.0f);
+    EXPECT_DOUBLE_EQ(Time::GetTotalTime(), 0.0f);
 }
 
 TEST(TimeTests, FirstUpdateSetsAbsoluteTimeAndZeroDelta)
@@ -14,8 +14,8 @@ TEST(TimeTests, FirstUpdateSetsAbsoluteTimeAndZeroDelta)
     Time::Reset();
     Time::Update(10.0);
 
-    EXPECT_FLOAT_EQ(Time::GetDeltaTime(), 0.0f);
-    EXPECT_FLOAT_EQ(Time::GetTotalTime(), 10.0f);
+    EXPECT_DOUBLE_EQ(Time::GetDeltaTime(), 0.0f);
+    EXPECT_DOUBLE_EQ(Time::GetTotalTime(), 0.0f);
 }
 
 TEST(TimeTests, SecondUpdateComputesDeltaAndUpdatesAbsoluteTime)
@@ -47,6 +47,6 @@ TEST(TimeTests, ResetAfterUpdatesClearsBackToZero)
 
     Time::Reset();
 
-    EXPECT_FLOAT_EQ(Time::GetDeltaTime(), 0.0f);
-    EXPECT_FLOAT_EQ(Time::GetTotalTime(), 0.0f);
+    EXPECT_DOUBLE_EQ(Time::GetDeltaTime(), 0.0f);
+    EXPECT_DOUBLE_EQ(Time::GetTotalTime(), 0.0f);
 }

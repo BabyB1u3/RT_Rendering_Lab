@@ -35,7 +35,7 @@ void LabLayer::OnDetach()
         m_ActiveDemo->OnDetach();
 }
 
-void LabLayer::OnUpdate(float dt)
+void LabLayer::OnUpdate(double dt)
 {
     if (m_ActiveDemo)
         m_ActiveDemo->OnUpdate(dt);

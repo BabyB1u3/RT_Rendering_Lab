@@ -12,7 +12,7 @@ public:
     virtual void OnAttach() {}
     virtual void OnDetach() {}
 
-    virtual void OnUpdate(float) {}
+    virtual void OnUpdate(double) {}
     virtual void OnRender() {}
     virtual void OnImGuiRender() {}
     virtual void OnResize(uint32_t, uint32_t) {}

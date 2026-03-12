@@ -15,7 +15,7 @@ enum class TextureFormat
 	R8,
 	RGB8,
 	RGBA8,
-	RedInteger,       // GL_R32I — for integer attachments (e.g. entity ID picking)
+	RedInteger, // GL_R32I for integer attachments (e.g. entity ID picking)
 	Depth,
 	Depth24Stencil8
 };

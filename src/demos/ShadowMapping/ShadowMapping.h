@@ -20,14 +20,14 @@ public:
 
     void OnAttach() override;
     void OnDetach() override;
-    void OnUpdate(float dt) override;
+    void OnUpdate(double dt) override;
     void OnRender() override;
     void OnImGuiRender() override;
     void OnResize(uint32_t width, uint32_t height) override;
 
 private:
     void BuildScene();
-    void HandleCameraInput(float dt);
+    void HandleCameraInput(double dt);
 
 private:
     uint32_t m_ViewportWidth = 0;

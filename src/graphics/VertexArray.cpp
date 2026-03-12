@@ -105,7 +105,7 @@ void VertexArray::AddVertexBuffer(const Ref<VertexBuffer> &vertexBuffer)
 				element.GetComponentCount(),
 				GL_FLOAT,
 				element.Normalized ? GL_TRUE : GL_FALSE,
-				element.Offset);
+				static_cast<GLuint>(element.Offset));
 			glVertexArrayAttribBinding(m_RendererID, m_VertexAttribIndex, bindingIndex);
 			glVertexArrayBindingDivisor(m_RendererID, bindingIndex, element.Divisor);
 			++m_VertexAttribIndex;
@@ -124,7 +124,7 @@ void VertexArray::AddVertexBuffer(const Ref<VertexBuffer> &vertexBuffer)
 				m_VertexAttribIndex,
 				element.GetComponentCount(),
 				ShaderDataTypeToOpenGLBaseType(element.Type),
-				element.Offset);
+				static_cast<GLuint>(element.Offset));
 			glVertexArrayAttribBinding(m_RendererID, m_VertexAttribIndex, bindingIndex);
 			glVertexArrayBindingDivisor(m_RendererID, bindingIndex, element.Divisor);
 			++m_VertexAttribIndex;
@@ -144,7 +144,7 @@ void VertexArray::AddVertexBuffer(const Ref<VertexBuffer> &vertexBuffer)
 					count,
 					GL_FLOAT,
 					element.Normalized ? GL_TRUE : GL_FALSE,
-					element.Offset + sizeof(float) * count * i);
+					static_cast<GLuint>(element.Offset + sizeof(float) * count * i));
 				glVertexArrayAttribBinding(m_RendererID, m_VertexAttribIndex, bindingIndex);
 				glVertexArrayBindingDivisor(m_RendererID, bindingIndex, element.Divisor);
 				++m_VertexAttribIndex;
