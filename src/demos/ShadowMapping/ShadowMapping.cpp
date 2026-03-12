@@ -77,7 +77,7 @@ void ShadowMapping::OnDetach()
     m_Renderer.reset();
 }
 
-void ShadowMapping::OnUpdate(float dt)
+void ShadowMapping::OnUpdate(double dt)
 {
     HandleCameraInput(dt);
 
@@ -171,7 +171,7 @@ void ShadowMapping::BuildScene()
     }
 }
 
-void ShadowMapping::HandleCameraInput(float dt)
+void ShadowMapping::HandleCameraInput(double dt)
 {
     if (Input::IsKeyPressed(KEY_W))
         m_CameraController.MoveForward(dt);

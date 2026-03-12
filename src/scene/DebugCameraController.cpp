@@ -12,57 +12,57 @@ void DebugCameraController::SetCamera(Camera *camera)
     m_Camera = camera;
 }
 
-void DebugCameraController::MoveForward(float deltaTime)
+void DebugCameraController::MoveForward(double deltaTime)
 {
     if (!m_Camera)
         return;
     glm::vec3 position = m_Camera->GetPosition();
-    position += m_Camera->GetForward() * (m_MoveSpeed * deltaTime);
+    position += m_Camera->GetForward() * static_cast<float>(m_MoveSpeed * deltaTime);
     m_Camera->SetPosition(position);
 }
 
-void DebugCameraController::MoveBackward(float deltaTime)
+void DebugCameraController::MoveBackward(double deltaTime)
 {
     if (!m_Camera)
         return;
     glm::vec3 position = m_Camera->GetPosition();
-    position -= m_Camera->GetForward() * (m_MoveSpeed * deltaTime);
+    position -= m_Camera->GetForward() * static_cast<float>(m_MoveSpeed * deltaTime);
     m_Camera->SetPosition(position);
 }
 
-void DebugCameraController::MoveLeft(float deltaTime)
+void DebugCameraController::MoveLeft(double deltaTime)
 {
     if (!m_Camera)
         return;
     glm::vec3 position = m_Camera->GetPosition();
-    position -= m_Camera->GetRight() * (m_MoveSpeed * deltaTime);
+    position -= m_Camera->GetRight() * static_cast<float>(m_MoveSpeed * deltaTime);
     m_Camera->SetPosition(position);
 }
 
-void DebugCameraController::MoveRight(float deltaTime)
+void DebugCameraController::MoveRight(double deltaTime)
 {
     if (!m_Camera)
         return;
     glm::vec3 position = m_Camera->GetPosition();
-    position += m_Camera->GetRight() * (m_MoveSpeed * deltaTime);
+    position += m_Camera->GetRight() * static_cast<float>(m_MoveSpeed * deltaTime);
     m_Camera->SetPosition(position);
 }
 
-void DebugCameraController::MoveUp(float deltaTime)
+void DebugCameraController::MoveUp(double deltaTime)
 {
     if (!m_Camera)
         return;
     glm::vec3 position = m_Camera->GetPosition();
-    position += glm::vec3(0.0f, 1.0f, 0.0f) * (m_MoveSpeed * deltaTime);
+    position += glm::vec3(0.0f, 1.0f, 0.0f) * static_cast<float>(m_MoveSpeed * deltaTime);
     m_Camera->SetPosition(position);
 }
 
-void DebugCameraController::MoveDown(float deltaTime)
+void DebugCameraController::MoveDown(double deltaTime)
 {
     if (!m_Camera)
         return;
     glm::vec3 position = m_Camera->GetPosition();
-    position -= glm::vec3(0.0f, 1.0f, 0.0f) * (m_MoveSpeed * deltaTime);
+    position -= glm::vec3(0.0f, 1.0f, 0.0f) * static_cast<float>(m_MoveSpeed * deltaTime);
     m_Camera->SetPosition(position);
 }
 

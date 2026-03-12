@@ -20,13 +20,13 @@ public:
     float GetScrollSensitivity() const { return m_ScrollSensitivity; }
 
     // Per-frame movement input
-    void MoveForward(float deltaTime);
-    void MoveBackward(float deltaTime);
-    void MoveLeft(float deltaTime);
-    void MoveRight(float deltaTime);
+    void MoveForward(double deltaTime);
+    void MoveBackward(double deltaTime);
+    void MoveLeft(double deltaTime);
+    void MoveRight(double deltaTime);
     // Along world's Y axis
-    void MoveUp(float deltaTime);
-    void MoveDown(float deltaTime);
+    void MoveUp(double deltaTime);
+    void MoveDown(double deltaTime);
 
     // Mouse delta
     // clamp to [-89, 89] when constrainPitch == true

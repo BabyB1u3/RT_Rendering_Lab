@@ -2,7 +2,7 @@
 
 double Time::s_LastTime = 0.0;
 double Time::s_TotalTime = 0.0;
-float Time::s_DeltaTime = 0.0f;
+double Time::s_DeltaTime = 0.0;
 bool Time::s_Initialized = false;
 
 void Time::Reset()
@@ -18,23 +18,23 @@ void Time::Update(double currentTimeSeconds)
     if (!s_Initialized)
     {
         s_LastTime = currentTimeSeconds;
-        s_TotalTime = currentTimeSeconds;
-        s_DeltaTime = 0.0f;
+        s_TotalTime = 0.0;
+        s_DeltaTime = 0.0;
         s_Initialized = true;
         return;
     }
 
-    s_DeltaTime = static_cast<float>(currentTimeSeconds - s_LastTime);
+    s_DeltaTime = currentTimeSeconds - s_LastTime;
     s_LastTime = currentTimeSeconds;
-    s_TotalTime = currentTimeSeconds;
+    s_TotalTime += s_DeltaTime;
 }
 
-float Time::GetDeltaTime()
+double Time::GetDeltaTime()
 {
     return s_DeltaTime;
 }
 
-float Time::GetTotalTime()
+double Time::GetTotalTime()
 {
-    return static_cast<float>(s_TotalTime);
+    return s_TotalTime;
 }
