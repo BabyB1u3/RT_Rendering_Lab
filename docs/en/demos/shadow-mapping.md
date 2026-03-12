@@ -3,7 +3,9 @@
 The first demo in the RT Rendering Lab — a directional light shadow mapping implementation
 with Blinn-Phong shading and PCF soft shadows.
 
-[中文文档](../../zh-CN//demos/shadow-mapping.zh-CN.md)
+[中文文档](../../zh-CN/demos/shadow-mapping.zh-CN.md)
+
+![Shadow Mapping](../../screenshots/ShadowMapping.png)
 
 ---
 

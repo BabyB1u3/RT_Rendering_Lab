@@ -30,7 +30,7 @@ It provides a lightweight framework where different rendering techniques can be 
 |------|-------------|
 | **[Shadow Mapping](./docs/en/demos/shadow-mapping.md)** | Blinn-Phong shading + directional light shadow mapping with 3x3 PCF, front face culling, and debug visualization |
 
-Screenshots and visual results will be added as the demos evolve.
+![Shadow Mapping](./docs/screenshots/ShadowMapping.png)
 
 ---
 

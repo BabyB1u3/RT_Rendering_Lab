@@ -30,7 +30,7 @@
 |------|------|
 | **[阴影贴图](./demos/shadow-mapping.zh-CN.md)** | Blinn-Phong 光照 + 方向光阴影贴图，3x3 PCF 软阴影、正面剔除及调试可视化 |
 
-随着 Demo 的不断完善，将陆续添加截图和渲染效果展示。
+![阴影贴图](../screenshots/ShadowMapping.png)
 
 ---
 
