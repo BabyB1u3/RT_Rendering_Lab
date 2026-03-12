@@ -31,6 +31,16 @@ ForwardPass::ForwardPass(uint32_t width, uint32_t height, bool renderToTarget)
     }
 
     m_Shader = Shader::CreateFromSingleFile("assets/shaders/ForwardLit.glsl", "ForwardLit");
+
+    // 1x1 white fallback texture for when no shadow map is provided.
+    // Sampling r = 1.0 means currentDepth - bias > 1.0 is always false -> no shadow.
+    TextureSpecification fallbackSpec;
+    fallbackSpec.Width = 1;
+    fallbackSpec.Height = 1;
+    fallbackSpec.Format = TextureFormat::RGBA8;
+    m_FallbackShadowMap = Texture2D::Create(fallbackSpec);
+    const uint32_t white = 0xFFFFFFFFu;
+    m_FallbackShadowMap->SetData(&white, sizeof(uint32_t));
 }
 
 void ForwardPass::Resize(unsigned int width, unsigned int height)
@@ -74,11 +84,9 @@ void ForwardPass::Execute(
     m_Shader->SetFloat3("u_LightColor", scene.MainDirectionalLight.Color);
     m_Shader->SetFloat("u_LightIntensity", scene.MainDirectionalLight.Intensity);
 
-    if (shadowMap)
-    {
-        shadowMap->Bind(0);
-        m_Shader->SetInt("u_ShadowMap", 0);
-    }
+    const auto &shadow = shadowMap ? shadowMap : m_FallbackShadowMap;
+    shadow->Bind(0);
+    m_Shader->SetInt("u_ShadowMap", 0);
 
     for (const auto &item : scene.RenderItems)
     {

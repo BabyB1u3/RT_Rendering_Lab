@@ -34,4 +34,5 @@ private:
 
     Ref<Framebuffer> m_Framebuffer;
     Ref<Shader> m_Shader;
+    Ref<Texture2D> m_FallbackShadowMap;
 };
