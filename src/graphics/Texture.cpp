@@ -188,7 +188,7 @@ Ref<Texture2D> Texture2D::CreateFromFile(const std::string &path, bool flipVerti
 	return Ref<Texture2D>(new Texture2D(rendererID, spec, path));
 }
 
-void Texture2D::SetData(const void *data, uint32_t size)
+void Texture2D::SetData(const void *data)
 {
 	GLenum dataFormat = TextureFormatToGLDataFormat(m_Spec.Format);
 	GLenum dataType = TextureFormatToGLDataType(m_Spec.Format);
@@ -209,8 +209,6 @@ void Texture2D::SetData(const void *data, uint32_t size)
 		assert(false && "SetData only supports ordinary color textures");
 		return;
 	}
-
-	assert(size == m_Spec.Width * m_Spec.Height * bpp && "Texture data size mismatch");
 
 	glTextureSubImage2D(
 		m_RendererID, 0, 0, 0,

@@ -46,8 +46,12 @@
 - [x] 阴影贴图 — 从光源视角的深度 Pass，带偏移修正的阴影比较
 - [x] 阴影贴图调试可视化（TexturePreviewPass）
 - [x] 多 Pass 场景渲染器（ShadowPass → ForwardPass）
+- [x] 3x3 PCF 软阴影
+- [x] 阴影 Pass 正面剔除（无需大偏移即可减少 Acne）
+- [x] 高光照明（Blinn-Phong）
+- [x] CPU 端预计算法线矩阵
+- [x] `enum class TextureSlot` 类型安全纹理槽绑定
 - [ ] 多光源支持（点光源、聚光灯）
-- [ ] 高光照明（Blinn-Phong）
 - [ ] 材质参数 UI（逐 Demo 的 ImGui 控件）
 - [ ] 天空盒 / 环境贴图渲染
 - [ ] 法线贴图

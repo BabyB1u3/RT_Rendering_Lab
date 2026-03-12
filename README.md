@@ -13,8 +13,9 @@ It provides a lightweight framework where different rendering techniques can be 
 
 - **Demo Framework** — modular architecture where each rendering technique lives as an independent, hot-switchable demo
 - **Forward Rendering Pipeline** — multi-pass renderer with shadow mapping support
-- **Shadow Mapping** — directional light depth pass with bias-aware shadow comparison and debug visualization
-- **Material System** — shader + texture slot binding with per-object materials
+- **Blinn-Phong Shading** — ambient + diffuse + specular lighting with directional light
+- **Shadow Mapping** — directional light depth pass with front face culling, slope-scaled bias, and 3x3 PCF soft shadows
+- **Material System** — shader + type-safe `enum class TextureSlot` binding with per-object materials
 - **Procedural Meshes** — built-in cube, plane, and fullscreen quad generators
 - **ImGui Integration** — debug panels for framerate, memory, and demo selection
 - **First-Person Camera** — WASD + mouse look with scroll-wheel FOV control
@@ -27,7 +28,7 @@ It provides a lightweight framework where different rendering techniques can be 
 
 | Demo | Description |
 |------|-------------|
-| **Shadow Mapping** | Directional light shadow mapping with depth pass, forward lit pass, and shadow map debug preview |
+| **[Shadow Mapping](./docs/en/demos/shadow-mapping.md)** | Blinn-Phong shading + directional light shadow mapping with 3x3 PCF, front face culling, and debug visualization |
 
 Screenshots and visual results will be added as the demos evolve.
 

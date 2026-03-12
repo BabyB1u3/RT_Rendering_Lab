@@ -56,6 +56,7 @@ void ShadowPass::Execute(const SceneData &scene, const glm::mat4 &lightViewProje
     RenderCommand::EnableBlend(false);
     RenderCommand::EnableDepthTest(true);
     RenderCommand::EnableCullFace(true);
+    RenderCommand::SetCullFace(true); // Cull front faces to reduce shadow acne
 
     RenderCommand::SetViewport(0, 0, m_Width, m_Height);
     RenderCommand::Clear(false, true, false);
@@ -74,5 +75,6 @@ void ShadowPass::Execute(const SceneData &scene, const glm::mat4 &lightViewProje
         RenderCommand::DrawIndexed(item.Mesh->GetVertexArray());
     }
 
+    RenderCommand::SetCullFace(false); // Restore to cull back faces
     m_Framebuffer->Unbind();
 }

@@ -29,8 +29,8 @@ Ref<Mesh> MeshFactory::CreatePlane()
 
     static const uint32_t indices[] =
         {
-            0, 1, 2,
-            2, 3, 0};
+            0, 3, 2,
+            2, 1, 0};
 
     return CreateRef<Mesh>(
         vertices,

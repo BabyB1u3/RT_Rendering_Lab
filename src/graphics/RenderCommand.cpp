@@ -62,6 +62,11 @@ void RenderCommand::EnableCullFace(bool enabled)
 		glDisable(GL_CULL_FACE);
 }
 
+void RenderCommand::SetCullFace(bool front)
+{
+	glCullFace(front ? GL_FRONT : GL_BACK);
+}
+
 void RenderCommand::DrawIndexed(const Ref<VertexArray> &vao, uint32_t indexCount)
 {
 	vao->Bind();
