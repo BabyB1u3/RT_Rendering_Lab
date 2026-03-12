@@ -64,5 +64,29 @@
       "name": "build-ninja-release",
       "configurePreset": "ninja-release"
     }
+  ],
+  "testPresets": [
+    {
+      "name": "test-windows-debug",
+      "configurePreset": "windows-vs-debug",
+      "configuration": "Debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "test-windows-release",
+      "configurePreset": "windows-vs-release",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "test-ninja-debug",
+      "configurePreset": "ninja-debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "test-ninja-release",
+      "configurePreset": "ninja-release",
+      "output": { "outputOnFailure": true }
+    }
   ]
 }
