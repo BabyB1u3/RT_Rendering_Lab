@@ -15,8 +15,6 @@ Application::Application(const ApplicationSpecification &spec)
     if (s_Instance)
         throw std::runtime_error("Application already exists.");
 
-    s_Instance = this;
-
     WindowProps props;
     props.Title = spec.Name;
     props.Width = spec.Width;
@@ -29,6 +27,8 @@ Application::Application(const ApplicationSpecification &spec)
 
     Input::Initialize(m_Window->GetNativeHandle());
     Time::Reset();
+
+    s_Instance = this;
 }
 
 Application::~Application()
