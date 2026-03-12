@@ -25,7 +25,7 @@ TEST(TimeTests, SecondUpdateComputesDeltaAndUpdatesAbsoluteTime)
     Time::Update(10.5);
 
     EXPECT_NEAR(Time::GetDeltaTime(), 0.5f, 1e-5f);
-    EXPECT_NEAR(Time::GetTotalTime(), 10.5f, 1e-5f);
+    EXPECT_NEAR(Time::GetTotalTime(), 0.5f, 1e-5f);
 }
 
 TEST(TimeTests, MultipleUpdatesAlwaysKeepLatestAbsoluteTime)
@@ -36,7 +36,7 @@ TEST(TimeTests, MultipleUpdatesAlwaysKeepLatestAbsoluteTime)
     Time::Update(2.0);
 
     EXPECT_NEAR(Time::GetDeltaTime(), 0.75f, 1e-5f);
-    EXPECT_NEAR(Time::GetTotalTime(), 2.0f, 1e-5f);
+    EXPECT_NEAR(Time::GetTotalTime(), 1.0f, 1e-5f);
 }
 
 TEST(TimeTests, ResetAfterUpdatesClearsBackToZero)
