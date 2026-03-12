@@ -18,6 +18,7 @@ public:
     static void EnableDepthTest(bool enabled);
     static void EnableBlend(bool enabled);
     static void EnableCullFace(bool enabled);
+    static void SetCullFace(bool front);
 
     static void DrawIndexed(const Ref<VertexArray> &vao, uint32_t indexCount = 0);
     static void DrawArrays(uint32_t mode, uint32_t first, uint32_t count);
