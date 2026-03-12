@@ -48,13 +48,12 @@ TEST_F(TextureIntegrationTests, SetDataDoesNotCrash)
     ASSERT_NE(texture, nullptr);
 
     std::array<unsigned char, 16> pixels = {
-        255, 0,   0,   255,
-        0,   255, 0,   255,
-        0,   0,   255, 255,
-        255, 255, 255, 255
-    };
+        255, 0, 0, 255,
+        0, 255, 0, 255,
+        0, 0, 255, 255,
+        255, 255, 255, 255};
 
-    EXPECT_NO_THROW(texture->SetData(pixels.data(), static_cast<uint32_t>(pixels.size())));
+    EXPECT_NO_THROW(texture->SetData(pixels.data()));
 }
 
 TEST_F(TextureIntegrationTests, BindAndUnbindDoNotCrash)

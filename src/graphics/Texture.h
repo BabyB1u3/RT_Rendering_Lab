@@ -75,7 +75,7 @@ public:
 
 	// Upload data to the whole texture
 	// Intended mainly for ordinary color textures, not depth attachments
-	void SetData(const void *data, uint32_t size);
+	void SetData(const void *data);
 
 	uint32_t GetWidth() const override { return m_Spec.Width; }
 	uint32_t GetHeight() const override { return m_Spec.Height; }

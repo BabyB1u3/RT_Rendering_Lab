@@ -40,7 +40,7 @@ ForwardPass::ForwardPass(uint32_t width, uint32_t height, bool renderToTarget)
     fallbackSpec.Format = TextureFormat::RGBA8;
     m_FallbackShadowMap = Texture2D::Create(fallbackSpec);
     const uint32_t white = 0xFFFFFFFFu;
-    m_FallbackShadowMap->SetData(&white, sizeof(uint32_t));
+    m_FallbackShadowMap->SetData(&white);
 }
 
 void ForwardPass::Resize(unsigned int width, unsigned int height)

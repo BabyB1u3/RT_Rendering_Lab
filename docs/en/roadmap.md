@@ -46,8 +46,12 @@ Progress:
 - [x] Shadow mapping — depth pass from light, shadow comparison with bias
 - [x] Shadow map debug visualization (TexturePreviewPass)
 - [x] Multi-pass scene renderer (ShadowPass → ForwardPass)
+- [x] 3x3 PCF soft shadows
+- [x] Front face culling in shadow pass (reduces acne without large bias)
+- [x] Specular lighting (Blinn-Phong)
+- [x] Normal matrix precomputed on CPU
+- [x] `enum class TextureSlot` for type-safe texture slot binding
 - [ ] Multiple light sources (point lights, spot lights)
-- [ ] Specular lighting (Blinn-Phong)
 - [ ] Material parameter UI (per-demo ImGui controls)
 - [ ] Skybox / environment map rendering
 - [ ] Normal mapping
