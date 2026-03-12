@@ -7,6 +7,7 @@ layout(location = 2) in vec2 a_TexCoord;
 
 uniform mat4 u_ViewProjection;
 uniform mat4 u_Model;
+uniform mat3 u_NormalMatrix;
 uniform mat4 u_LightViewProjection;
 
 out vec3 v_WorldPosition;
@@ -19,7 +20,7 @@ void main()
     vec4 worldPosition = u_Model * vec4(a_Position, 1.0);
 
     v_WorldPosition = worldPosition.xyz;
-    v_WorldNormal = mat3(transpose(inverse(u_Model))) * a_Normal;
+    v_WorldNormal = u_NormalMatrix * a_Normal;
     v_TexCoord = a_TexCoord;
     v_LightSpacePosition = u_LightViewProjection * worldPosition;
 

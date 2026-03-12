@@ -96,6 +96,7 @@ void ForwardPass::Execute(
         glm::mat4 model = item.Transform.GetMatrix();
 
         m_Shader->SetMat4("u_Model", model);
+        m_Shader->SetMat3("u_NormalMatrix", glm::mat3(glm::transpose(glm::inverse(model))));
 
         // Bind material resources after the pass shader is bound.
         // Current minimal Material only binds textures + its own shader,
