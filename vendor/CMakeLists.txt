@@ -36,3 +36,14 @@ add_library(stb STATIC
 target_include_directories(stb PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/stb
 )
+
+# ----------------------------
+# spdlog (header-only)
+# ----------------------------
+add_library(spdlog INTERFACE)
+target_include_directories(spdlog INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/spdlog/include
+)
+target_compile_options(spdlog INTERFACE
+    $<$<CXX_COMPILER_ID:MSVC>:/utf-8>
+)
