@@ -213,6 +213,9 @@ void Framebuffer::Invalidate()
 
 	GLenum fbStatus = glCheckNamedFramebufferStatus(m_RendererID, GL_FRAMEBUFFER);
 	if (fbStatus != GL_FRAMEBUFFER_COMPLETE)
+	{
 		LOG_ERROR("Framebuffer incomplete: status = 0x{:X}", fbStatus);
+		throw std::runtime_error("Framebuffer incomplete: status = " + std::to_string(fbStatus));
+	}
 	assert(fbStatus == GL_FRAMEBUFFER_COMPLETE && "Framebuffer is incomplete");
 }
