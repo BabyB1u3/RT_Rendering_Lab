@@ -8,6 +8,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "core/Input.h"
+#include "core/Logger.h"
 #include "graphics/Material.h"
 #include "graphics/MeshFactory.h"
 #include "graphics/Shader.h"
@@ -38,6 +39,7 @@ ShadowMapping::ShadowMapping(uint32_t width, uint32_t height)
 
 void ShadowMapping::OnAttach()
 {
+    LOG_INFO("ShadowMapping demo attached");
     m_Renderer = CreateScope<SceneRenderer>(m_ViewportWidth, m_ViewportHeight);
 
     m_Camera.SetPosition({0.0f, 2.5f, 6.0f});
@@ -69,6 +71,7 @@ void ShadowMapping::OnAttach()
 
 void ShadowMapping::OnDetach()
 {
+    LOG_INFO("ShadowMapping demo detached");
     m_Scene.RenderItems.clear();
     m_DefaultMaterial.reset();
     m_WhiteTexture.reset();

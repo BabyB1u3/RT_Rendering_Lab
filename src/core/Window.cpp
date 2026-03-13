@@ -1,10 +1,11 @@
 #include "Window.h"
 
 #include <stdexcept>
-#include <iostream>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+
+#include "Logger.h"
 
 namespace
 {
@@ -12,7 +13,7 @@ namespace
 
     void GLFWErrorCallback(int error, const char *description)
     {
-        std::cerr << "[GLFW Error] (" << error << "): " << description << '\n';
+        LOG_ERROR("[GLFW Error] ({}): {}", error, description);
     }
 }
 
@@ -39,6 +40,7 @@ void Window::Init(const WindowProps &props)
         if (!glfwInit())
             throw std::runtime_error("Failed to initialize GLFW.");
 
+        LOG_INFO("GLFW initialized");
         s_GLFWInitialized = true;
     }
 
@@ -63,6 +65,8 @@ void Window::Init(const WindowProps &props)
     if (!m_Handle)
         throw std::runtime_error("Failed to create GLFW window.");
 
+    LOG_INFO("Window created: {}x{} \"{}\"", props.Width, props.Height, props.Title);
+
     glfwMakeContextCurrent(m_Handle);
 
     if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress)))
@@ -84,9 +88,9 @@ void Window::Init(const WindowProps &props)
 
     SetVSync(props.VSync);
 
-    std::cout << "OpenGL Vendor   : " << glGetString(GL_VENDOR) << '\n';
-    std::cout << "OpenGL Renderer : " << glGetString(GL_RENDERER) << '\n';
-    std::cout << "OpenGL Version  : " << glGetString(GL_VERSION) << '\n';
+    LOG_INFO("OpenGL Vendor   : {}", reinterpret_cast<const char *>(glGetString(GL_VENDOR)));
+    LOG_INFO("OpenGL Renderer : {}", reinterpret_cast<const char *>(glGetString(GL_RENDERER)));
+    LOG_INFO("OpenGL Version  : {}", reinterpret_cast<const char *>(glGetString(GL_VERSION)));
 }
 
 void Window::Shutdown()

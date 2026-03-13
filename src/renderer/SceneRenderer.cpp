@@ -3,6 +3,8 @@
 #include <cassert>
 #include <memory>
 
+#include "core/Logger.h"
+
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "graphics/Framebuffer.h"
@@ -23,6 +25,8 @@ SceneRenderer::SceneRenderer(uint32_t width, uint32_t height)
     m_ForwardPass = CreateRef<ForwardPass>(width, height, true);
 
     m_TexturePreviewPass = CreateRef<TexturePreviewPass>();
+
+    LOG_INFO("SceneRenderer initialized ({}x{})", width, height);
 }
 
 void SceneRenderer::Resize(uint32_t width, uint32_t height)
@@ -30,6 +34,7 @@ void SceneRenderer::Resize(uint32_t width, uint32_t height)
     if (width == 0 || height == 0)
         return;
 
+    LOG_INFO("SceneRenderer resized to {}x{}", width, height);
     m_Width = width;
     m_Height = height;
 

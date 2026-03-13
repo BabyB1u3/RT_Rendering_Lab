@@ -9,6 +9,8 @@
 #include <glad/glad.h>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "core/Logger.h"
+
 static GLenum ShaderTypeFromString(const std::string &type)
 {
 	if (type == "vertex")
@@ -115,9 +117,11 @@ uint32_t Shader::CompileStage(uint32_t stage, const std::string &source, const s
 		glGetShaderInfoLog(shader, maxLength, &maxLength, infoLog.data());
 		glDeleteShader(shader);
 
+		LOG_ERROR("Shader compilation failed ({}): {}", debugName, infoLog.data());
 		throw std::runtime_error("Shader compilation failed (" + debugName + "):\n" + std::string(infoLog.data()));
 	}
 
+	LOG_TRACE("Shader stage compiled: {}", debugName);
 	return shader;
 }
 
@@ -145,6 +149,7 @@ uint32_t Shader::LinkProgram(const std::string &name, const std::vector<uint32_t
 
 		glDeleteProgram(program);
 
+		LOG_ERROR("Shader link failed ({}): {}", name, infoLog.data());
 		throw std::runtime_error("Shader link failed (" + name + "):\n" + std::string(infoLog.data()));
 	}
 
@@ -154,6 +159,7 @@ uint32_t Shader::LinkProgram(const std::string &name, const std::vector<uint32_t
 		glDeleteShader(id);
 	}
 
+	LOG_INFO("Shader linked: {}", name);
 	return program;
 }
 

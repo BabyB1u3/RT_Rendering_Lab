@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+#include "Logger.h"
+
 LayerStack::~LayerStack()
 {
     for (auto &layer : m_Layers)
@@ -14,6 +16,7 @@ LayerStack::~LayerStack()
 Layer *LayerStack::PushLayer(Scope<Layer> layer)
 {
     Layer *raw = layer.get();
+    LOG_TRACE("Pushing layer: {}", raw->GetName());
     m_Layers.emplace(m_Layers.begin() + static_cast<std::ptrdiff_t>(m_LayerInsertIndex), std::move(layer));
     ++m_LayerInsertIndex;
     raw->OnAttach();
@@ -23,6 +26,7 @@ Layer *LayerStack::PushLayer(Scope<Layer> layer)
 Layer *LayerStack::PushOverlay(Scope<Layer> overlay)
 {
     Layer *raw = overlay.get();
+    LOG_TRACE("Pushing overlay: {}", raw->GetName());
     m_Layers.emplace_back(std::move(overlay));
     raw->OnAttach();
     return raw;

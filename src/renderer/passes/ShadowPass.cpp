@@ -5,6 +5,7 @@
 
 #include <glm/glm.hpp>
 
+#include "core/Logger.h"
 #include "graphics/Framebuffer.h"
 #include "graphics/Mesh.h"
 #include "graphics/RenderCommand.h"
@@ -40,13 +41,16 @@ void ShadowPass::Resize(unsigned int width, unsigned int height)
 
 Ref<Texture2D> ShadowPass::GetDepthTexture() const
 {
+    if (!m_Framebuffer) LOG_ERROR("ShadowPass: framebuffer is null");
     assert(m_Framebuffer && "ShadowPass framebuffer is null");
     return m_Framebuffer->GetDepthAttachment();
 }
 
 void ShadowPass::Execute(const SceneData &scene, const glm::mat4 &lightViewProjection)
 {
+    if (!m_Framebuffer) LOG_ERROR("ShadowPass: framebuffer is null");
     assert(m_Framebuffer && "ShadowPass framebuffer is null");
+    if (!m_Shader) LOG_ERROR("ShadowPass: shader is null");
     assert(m_Shader && "ShadowPass shader is null");
 
     m_LightViewProjection = lightViewProjection;

@@ -3,6 +3,8 @@
 #include <cassert>
 #include <utility>
 
+#include "core/Logger.h"
+
 namespace
 {
 	constexpr uint32_t s_MaxFramebufferSize = 8192;
@@ -209,6 +211,8 @@ void Framebuffer::Invalidate()
 		glNamedFramebufferReadBuffer(m_RendererID, GL_NONE);
 	}
 
-	assert(glCheckNamedFramebufferStatus(m_RendererID, GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE &&
-		   "Framebuffer is incomplete");
+	GLenum fbStatus = glCheckNamedFramebufferStatus(m_RendererID, GL_FRAMEBUFFER);
+	if (fbStatus != GL_FRAMEBUFFER_COMPLETE)
+		LOG_ERROR("Framebuffer incomplete: status = 0x{:X}", fbStatus);
+	assert(fbStatus == GL_FRAMEBUFFER_COMPLETE && "Framebuffer is incomplete");
 }

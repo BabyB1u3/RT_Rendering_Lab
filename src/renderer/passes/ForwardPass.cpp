@@ -5,6 +5,7 @@
 
 #include <glm/glm.hpp>
 
+#include "core/Logger.h"
 #include "graphics/Framebuffer.h"
 #include "graphics/Material.h"
 #include "graphics/Mesh.h"
@@ -60,7 +61,9 @@ void ForwardPass::Execute(
     const Ref<Texture2D> &shadowMap,
     const glm::mat4 &lightViewProjection)
 {
+    if (!scene.ActiveCamera) LOG_ERROR("ForwardPass: no active camera");
     assert(scene.ActiveCamera && "ForwardPass requires an active camera");
+    if (!m_Shader) LOG_ERROR("ForwardPass: shader is null");
     assert(m_Shader && "ForwardPass shader is null");
 
     if (m_RenderToTarget)
