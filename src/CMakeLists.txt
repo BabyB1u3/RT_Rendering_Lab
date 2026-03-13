@@ -97,6 +97,7 @@ target_link_libraries(RTRLabCore PUBLIC
     glad
     glm
     stb
+    spdlog
     OpenGL::GL
 )
 
@@ -109,6 +110,9 @@ if(MSVC)
     target_compile_definitions(RTRLabCore PUBLIC
         _CRT_SECURE_NO_WARNINGS
         NOMINMAX
+    )
+    target_compile_options(RTRLabCore PUBLIC
+        /wd4005  # macro redefinition (APIENTRY: glad vs windows.h, both identical)
     )
 endif()
 
