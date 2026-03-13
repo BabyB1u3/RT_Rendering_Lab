@@ -5,6 +5,7 @@
 
 #include <glm/glm.hpp>
 
+#include "core/Logger.h"
 #include "graphics/Framebuffer.h"
 #include "graphics/Material.h"
 #include "graphics/Mesh.h"
@@ -91,7 +92,10 @@ void ForwardPass::Execute(
     for (const auto &item : scene.RenderItems)
     {
         if (!item.Mesh || !item.Material)
+        {
+            LOG_WARN("ForwardPass: skipping RenderItem with null Mesh or Material");
             continue;
+        }
 
         glm::mat4 model = item.Transform.GetMatrix();
 

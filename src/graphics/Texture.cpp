@@ -6,6 +6,8 @@
 
 #include <stb_image.h>
 
+#include "core/Logger.h"
+
 static GLenum TextureFormatToGLInternalFormat(TextureFormat format)
 {
 	switch (format)
@@ -142,7 +144,10 @@ Ref<Texture2D> Texture2D::CreateFromFile(const std::string &path, bool flipVerti
 	int width = 0, height = 0, channels = 0;
 	stbi_uc *data = stbi_load(path.c_str(), &width, &height, &channels, 0);
 	if (!data)
+	{
+		LOG_ERROR("Failed to load texture: {}", path);
 		throw std::runtime_error("Failed to load texture: " + path);
+	}
 
 	TextureSpecification spec;
 	spec.Width = static_cast<uint32_t>(width);
@@ -162,6 +167,7 @@ Ref<Texture2D> Texture2D::CreateFromFile(const std::string &path, bool flipVerti
 	else
 	{
 		stbi_image_free(data);
+		LOG_ERROR("Unsupported channel count ({}) in texture: {}", channels, path);
 		throw std::runtime_error("Unsupported image channel count in texture: " + path);
 	}
 
@@ -185,6 +191,7 @@ Ref<Texture2D> Texture2D::CreateFromFile(const std::string &path, bool flipVerti
 
 	stbi_image_free(data);
 
+	LOG_TRACE("Texture loaded: {} ({}x{}, {} channels)", path, width, height, channels);
 	return Ref<Texture2D>(new Texture2D(rendererID, spec, path));
 }
 
@@ -206,8 +213,8 @@ void Texture2D::SetData(const void *data)
 		bpp = 4;
 		break;
 	default:
-		assert(false && "SetData only supports ordinary color textures");
-		return;
+		LOG_ERROR("Texture2D::SetData called with unsupported format");
+		throw std::runtime_error("Texture2D::SetData only supports ordinary color textures");
 	}
 
 	glTextureSubImage2D(

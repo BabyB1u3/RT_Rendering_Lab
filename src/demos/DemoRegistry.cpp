@@ -3,6 +3,7 @@
 #include <stdexcept>
 
 #include "DemoBase.h"
+#include "core/Logger.h"
 
 std::vector<DemoRegistry::Entry> &DemoRegistry::Entries()
 {
@@ -38,6 +39,7 @@ Scope<DemoBase> DemoRegistry::Create(const std::string &name)
             return entry.Create();
     }
 
+    LOG_ERROR("DemoRegistry: unknown demo \"{}\"", name);
     throw std::runtime_error("DemoRegistry::Create failed. Unknown demo: " + name);
 }
 

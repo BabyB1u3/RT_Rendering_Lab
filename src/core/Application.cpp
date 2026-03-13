@@ -14,6 +14,7 @@ Application *Application::s_Instance = nullptr;
 Application::Application(const ApplicationSpecification &spec)
 {
     Logger::Init();
+    LOG_INFO("Starting application: {}", spec.Name);
 
     if (s_Instance)
         throw std::runtime_error("Application already exists.");
@@ -32,10 +33,12 @@ Application::Application(const ApplicationSpecification &spec)
     Time::Reset();
 
     s_Instance = this;
+    LOG_INFO("Application initialized");
 }
 
 Application::~Application()
 {
+    LOG_INFO("Application shutting down");
     s_Instance = nullptr;
 }
 

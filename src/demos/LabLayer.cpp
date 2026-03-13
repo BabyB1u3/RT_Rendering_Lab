@@ -4,6 +4,7 @@
 
 #include "core/Application.h"
 #include "core/Input.h"
+#include "core/Logger.h"
 #include "DemoBase.h"
 #include "DemoRegistry.h"
 #include "demos/ShadowMapping/ShadowMapping.h"
@@ -22,6 +23,7 @@ void LabLayer::OnAttach()
     if (!m_ActiveDemo)
     {
         // Default demo
+        LOG_INFO("Loading default demo: Shadow Mapping");
         SetActiveDemo(DemoRegistry::Create("Shadow Mapping"), "Shadow Mapping");
     }
 
@@ -81,4 +83,5 @@ void LabLayer::SetActiveDemo(Scope<DemoBase> demo, const std::string &name)
 
     m_ActiveDemo = std::move(demo);
     m_ActiveDemoName = name;
+    LOG_INFO("Active demo: {}", m_ActiveDemoName);
 }

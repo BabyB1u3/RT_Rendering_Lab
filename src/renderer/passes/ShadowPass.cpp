@@ -5,6 +5,7 @@
 
 #include <glm/glm.hpp>
 
+#include "core/Logger.h"
 #include "graphics/Framebuffer.h"
 #include "graphics/Mesh.h"
 #include "graphics/RenderCommand.h"
@@ -67,7 +68,10 @@ void ShadowPass::Execute(const SceneData &scene, const glm::mat4 &lightViewProje
     for (const auto &item : scene.RenderItems)
     {
         if (!item.Mesh || !item.Material)
+        {
+            LOG_WARN("ShadowPass: skipping RenderItem with null Mesh or Material");
             continue;
+        }
 
         glm::mat4 model = item.Transform.GetMatrix();
 
