@@ -6,12 +6,15 @@
 #include <GLFW/glfw3.h>
 
 #include "Input.h"
+#include "Logger.h"
 #include "Time.h"
 
 Application *Application::s_Instance = nullptr;
 
 Application::Application(const ApplicationSpecification &spec)
 {
+    Logger::Init();
+
     if (s_Instance)
         throw std::runtime_error("Application already exists.");
 
