@@ -2,8 +2,6 @@
 
 #include <cassert>
 
-#include "core/Logger.h"
-
 Material::Material(const Ref<Shader> &shader)
     : m_Shader(shader)
 {
@@ -33,7 +31,6 @@ Ref<Texture2D> Material::GetTexture(TextureSlot slot) const
 
 void Material::Bind() const
 {
-    if (!m_Shader) LOG_ERROR("Material::Bind called with no shader");
     assert(m_Shader && "Material has no shader");
 
     m_Shader->Bind();

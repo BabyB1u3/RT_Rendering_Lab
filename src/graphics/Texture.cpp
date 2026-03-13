@@ -214,8 +214,7 @@ void Texture2D::SetData(const void *data)
 		break;
 	default:
 		LOG_ERROR("Texture2D::SetData called with unsupported format");
-		assert(false && "SetData only supports ordinary color textures");
-		return;
+		throw std::runtime_error("Texture2D::SetData only supports ordinary color textures");
 	}
 
 	glTextureSubImage2D(

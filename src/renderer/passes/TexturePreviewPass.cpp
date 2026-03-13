@@ -2,7 +2,6 @@
 
 #include <cassert>
 
-#include "core/Logger.h"
 #include "graphics/Mesh.h"
 #include "graphics/MeshFactory.h"
 #include "graphics/RenderCommand.h"
@@ -25,11 +24,8 @@ void TexturePreviewPass::Resize(unsigned int width, unsigned int height)
 
 void TexturePreviewPass::Execute(const Ref<Texture2D> &texture, bool isDepthTexture)
 {
-    if (!texture)       LOG_ERROR("TexturePreviewPass: texture is null");
     assert(texture && "TexturePreviewPass requires a valid texture");
-    if (!m_Shader)      LOG_ERROR("TexturePreviewPass: shader is null");
     assert(m_Shader && "TexturePreviewPass shader is null");
-    if (!m_FullscreenQuad) LOG_ERROR("TexturePreviewPass: fullscreen quad is null");
     assert(m_FullscreenQuad && "TexturePreviewPass fullscreen quad is null");
 
     RenderCommand::EnableBlend(false);

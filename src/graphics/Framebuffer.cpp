@@ -217,5 +217,4 @@ void Framebuffer::Invalidate()
 		LOG_ERROR("Framebuffer incomplete: status = 0x{:X}", fbStatus);
 		throw std::runtime_error("Framebuffer incomplete: status = " + std::to_string(fbStatus));
 	}
-	assert(fbStatus == GL_FRAMEBUFFER_COMPLETE && "Framebuffer is incomplete");
 }
