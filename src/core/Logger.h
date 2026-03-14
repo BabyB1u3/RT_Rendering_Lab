@@ -15,8 +15,42 @@ private:
     static Ref<spdlog::logger> s_Logger;
 };
 
-#define LOG_TRACE(...) ::Logger::GetLogger()->trace(__VA_ARGS__)
-#define LOG_INFO(...) ::Logger::GetLogger()->info(__VA_ARGS__)
-#define LOG_WARN(...) ::Logger::GetLogger()->warn(__VA_ARGS__)
-#define LOG_ERROR(...) ::Logger::GetLogger()->error(__VA_ARGS__)
-#define LOG_CRITICAL(...) ::Logger::GetLogger()->critical(__VA_ARGS__)
+#define LOG_TRACE(...)                              \
+    do                                              \
+    {                                               \
+        const auto &logger = ::Logger::GetLogger(); \
+        if (logger)                                 \
+            logger->trace(__VA_ARGS__);             \
+    } while (0)
+
+#define LOG_INFO(...)                               \
+    do                                              \
+    {                                               \
+        const auto &logger = ::Logger::GetLogger(); \
+        if (logger)                                 \
+            logger->info(__VA_ARGS__);              \
+    } while (0)
+
+#define LOG_WARN(...)                               \
+    do                                              \
+    {                                               \
+        const auto &logger = ::Logger::GetLogger(); \
+        if (logger)                                 \
+            logger->warn(__VA_ARGS__);              \
+    } while (0)
+
+#define LOG_ERROR(...)                              \
+    do                                              \
+    {                                               \
+        const auto &logger = ::Logger::GetLogger(); \
+        if (logger)                                 \
+            logger->error(__VA_ARGS__);             \
+    } while (0)
+
+#define LOG_CRITICAL(...)                           \
+    do                                              \
+    {                                               \
+        const auto &logger = ::Logger::GetLogger(); \
+        if (logger)                                 \
+            logger->critical(__VA_ARGS__);          \
+    } while (0)
