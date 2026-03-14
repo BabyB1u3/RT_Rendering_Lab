@@ -1,14 +1,13 @@
 #include "Shader.h"
 
 #include <array>
-#include <fstream>
-#include <sstream>
 #include <stdexcept>
 #include <vector>
 
 #include <glad/glad.h>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "core/FileSystem.h"
 #include "core/Logger.h"
 
 static GLenum ShaderTypeFromString(const std::string &type)
@@ -55,17 +54,6 @@ Shader &Shader::operator=(Shader &&other) noexcept
 
 	other.m_RendererID = 0;
 	return *this;
-}
-
-std::string Shader::ReadTextFile(const std::string &filepath)
-{
-	std::ifstream in(filepath, std::ios::in | std::ios::binary);
-	if (!in)
-		throw std::runtime_error("Failed to open shader file: " + filepath);
-
-	std::ostringstream ss;
-	ss << in.rdbuf();
-	return ss.str();
 }
 
 std::unordered_map<uint32_t, std::string> Shader::PreProcessSingleFile(const std::string &source)
@@ -186,16 +174,16 @@ Ref<Shader> Shader::CreateFromFiles(
 	const std::string &fragmentPath,
 	const std::string &geometryPath)
 {
-	const std::string vertexSource = ReadTextFile(vertexPath);
-	const std::string fragmentSource = ReadTextFile(fragmentPath);
-	const std::string geometrySource = geometryPath.empty() ? "" : ReadTextFile(geometryPath);
+	const std::string vertexSource = FileSystem::ReadTextFile(vertexPath);
+	const std::string fragmentSource = FileSystem::ReadTextFile(fragmentPath);
+	const std::string geometrySource = geometryPath.empty() ? "" : FileSystem::ReadTextFile(geometryPath);
 
 	return CreateFromSource(name, vertexSource, fragmentSource, geometrySource);
 }
 
 Ref<Shader> Shader::CreateFromSingleFile(const std::string &filepath, const std::string &name)
 {
-	std::string source = ReadTextFile(filepath);
+	std::string source = FileSystem::ReadTextFile(filepath);
 	auto sources = PreProcessSingleFile(source);
 
 	if (!sources.count(GL_VERTEX_SHADER))
