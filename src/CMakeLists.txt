@@ -9,7 +9,7 @@
     core/Window.cpp
 
     graphics/Buffers.cpp
-    graphics/FrameBuffer.cpp
+    graphics/Framebuffer.cpp
     graphics/Material.cpp
     graphics/Mesh.cpp
     graphics/MeshFactory.cpp
@@ -49,7 +49,7 @@ set(GLAB_CORE_HEADERS
     core/Window.h
 
     graphics/Buffers.h
-    graphics/FrameBuffer.h
+    graphics/Framebuffer.h
     graphics/Material.h
     graphics/Mesh.h
     graphics/MeshFactory.h
