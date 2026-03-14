@@ -9,6 +9,7 @@
 #include "graphics/Framebuffer.h"
 #include "graphics/Mesh.h"
 #include "graphics/RenderCommand.h"
+#include "graphics/RenderTarget.h"
 #include "graphics/Shader.h"
 #include "scene/SceneData.h"
 #include "renderer/RenderItem.h"
@@ -52,14 +53,15 @@ void ShadowPass::Execute(const SceneData &scene, const glm::mat4 &lightViewProje
 
     m_LightViewProjection = lightViewProjection;
 
-    m_Framebuffer->Bind();
+    RenderTarget target = RenderTarget::FromFramebuffer(m_Framebuffer);
+    target.Bind();
 
     RenderCommand::EnableBlend(false);
     RenderCommand::EnableDepthTest(true);
     RenderCommand::EnableCullFace(true);
     RenderCommand::SetCullFace(true); // Cull front faces to reduce shadow acne
 
-    RenderCommand::SetViewport(0, 0, m_Width, m_Height);
+    RenderCommand::SetViewport(0, 0, target.GetWidth(), target.GetHeight());
     RenderCommand::Clear(false, true, false);
 
     m_Shader->Bind();
@@ -80,5 +82,5 @@ void ShadowPass::Execute(const SceneData &scene, const glm::mat4 &lightViewProje
     }
 
     RenderCommand::SetCullFace(false); // Restore to cull back faces
-    m_Framebuffer->Unbind();
+    target.Unbind();
 }

@@ -10,6 +10,7 @@
 #include "graphics/Material.h"
 #include "graphics/Mesh.h"
 #include "graphics/RenderCommand.h"
+#include "graphics/RenderTarget.h"
 #include "graphics/Shader.h"
 #include "graphics/Texture.h"
 #include "renderer/RenderItem.h"
@@ -65,14 +66,16 @@ void ForwardPass::Execute(
     assert(scene.ActiveCamera && "ForwardPass requires an active camera");
     assert(m_Shader && "ForwardPass shader is null");
 
-    if (m_RenderToTarget)
-        m_Framebuffer->Bind();
+    RenderTarget target = m_RenderToTarget
+        ? RenderTarget::FromFramebuffer(m_Framebuffer)
+        : RenderTarget::BackBuffer(m_Width, m_Height);
+    target.Bind();
 
     RenderCommand::EnableBlend(false);
     RenderCommand::EnableDepthTest(true);
     RenderCommand::EnableCullFace(true);
 
-    RenderCommand::SetViewport(0, 0, m_Width, m_Height);
+    RenderCommand::SetViewport(0, 0, target.GetWidth(), target.GetHeight());
     RenderCommand::SetClearColor(m_ClearColor);
     RenderCommand::Clear(true, true, false);
 
@@ -108,6 +111,5 @@ void ForwardPass::Execute(
         RenderCommand::DrawIndexed(item.Mesh->GetVertexArray());
     }
 
-    if (m_RenderToTarget)
-        m_Framebuffer->Unbind();
+    target.Unbind();
 }

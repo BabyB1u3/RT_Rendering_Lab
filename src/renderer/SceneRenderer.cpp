@@ -8,6 +8,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "graphics/Framebuffer.h"
+#include "graphics/RenderTarget.h"
 #include "graphics/Texture.h"
 #include "renderer/passes/ForwardPass.h"
 #include "renderer/passes/ShadowPass.h"
@@ -85,21 +86,18 @@ void SceneRenderer::Render(const SceneData &scene)
     m_ForwardPass->Execute(scene, m_ShadowPass->GetDepthTexture(), lightVP);
 
     // 3. Present selected output to current framebuffer/backbuffer
+    RenderTarget shadowTarget = RenderTarget::FromFramebuffer(m_ShadowPass->GetFramebuffer());
+    RenderTarget sceneTarget  = RenderTarget::FromFramebuffer(m_ForwardPass->GetFramebuffer());
+
     switch (m_OutputMode)
     {
     case SceneRendererOutput::FinalColor:
-    {
-        auto colorTexture = m_ForwardPass->GetFramebuffer()->GetColorAttachment();
-        m_TexturePreviewPass->Execute(colorTexture, false);
+        m_TexturePreviewPass->Execute(sceneTarget.GetColorAttachment(), false);
         break;
-    }
 
     case SceneRendererOutput::ShadowMap:
-    {
-        auto shadowTexture = m_ShadowPass->GetDepthTexture();
-        m_TexturePreviewPass->Execute(shadowTexture, true);
+        m_TexturePreviewPass->Execute(shadowTarget.GetDepthAttachment(), true);
         break;
-    }
 
     default:
         break;
