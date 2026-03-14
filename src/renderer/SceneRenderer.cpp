@@ -15,16 +15,14 @@
 #include "scene/Camera.h"
 #include "scene/SceneData.h"
 
-SceneRenderer::SceneRenderer(uint32_t width, uint32_t height)
-    : m_Width(width), m_Height(height)
+SceneRenderer::SceneRenderer(uint32_t width, uint32_t height, const SceneRendererSpecification& spec)
+    : m_Width(width), m_Height(height), m_Spec(spec)
 {
-    // Shadow map resolution can be larger than screen size for better quality
-    m_ShadowPass = CreateRef<ShadowPass>(2048, 2048);
+    m_ShadowPass = CreateRef<ShadowPass>(spec.ShadowMapWidth, spec.ShadowMapHeight, spec.ShadowShaderPath);
 
-    // Render scene to an offscreen target first, then preview/blit it
-    m_ForwardPass = CreateRef<ForwardPass>(width, height, true);
+    m_ForwardPass = CreateRef<ForwardPass>(width, height, true, spec.ForwardShaderPath, spec.ClearColor);
 
-    m_TexturePreviewPass = CreateRef<TexturePreviewPass>();
+    m_TexturePreviewPass = CreateRef<TexturePreviewPass>(spec.TexturePreviewShaderPath);
 
     LOG_INFO("SceneRenderer initialized ({}x{})", width, height);
 }
@@ -52,7 +50,7 @@ glm::mat4 SceneRenderer::BuildDirectionalLightViewProjection(const SceneData &sc
     glm::vec3 lightDir = glm::normalize(scene.MainDirectionalLight.Direction);
 
     // Pull the light "camera" back opposite the light direction
-    glm::vec3 lightPosition = -lightDir * 10.0f;
+    glm::vec3 lightPosition = -lightDir * m_Spec.LightDistance;
     glm::vec3 lightTarget = glm::vec3(0.0f);
 
     glm::mat4 lightView = glm::lookAt(
@@ -61,9 +59,9 @@ glm::mat4 SceneRenderer::BuildDirectionalLightViewProjection(const SceneData &sc
         glm::vec3(0.0f, 1.0f, 0.0f));
 
     // Simple orthographic projection suitable for directional lights
-    float orthoSize = 10.0f;
-    float nearPlane = 0.1f;
-    float farPlane = 30.0f;
+    float orthoSize = m_Spec.LightOrthoSize;
+    float nearPlane = m_Spec.LightNearPlane;
+    float farPlane = m_Spec.LightFarPlane;
 
     glm::mat4 lightProjection = glm::ortho(
         -orthoSize, orthoSize,

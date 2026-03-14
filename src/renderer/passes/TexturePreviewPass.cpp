@@ -8,10 +8,10 @@
 #include "graphics/Shader.h"
 #include "graphics/Texture.h"
 
-TexturePreviewPass::TexturePreviewPass()
+TexturePreviewPass::TexturePreviewPass(const std::string& shaderPath)
 {
     m_FullscreenQuad = MeshFactory::CreateFullscreenQuad();
-    m_Shader = Shader::CreateFromSingleFile("assets/shaders/TexturePreview.glsl", "TexturePreview");
+    m_Shader = Shader::CreateFromSingleFile(shaderPath, "TexturePreview");
 }
 
 void TexturePreviewPass::Resize(unsigned int width, unsigned int height)

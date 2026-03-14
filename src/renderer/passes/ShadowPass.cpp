@@ -13,7 +13,7 @@
 #include "scene/SceneData.h"
 #include "renderer/RenderItem.h"
 
-ShadowPass::ShadowPass(uint32_t width, uint32_t height)
+ShadowPass::ShadowPass(uint32_t width, uint32_t height, const std::string& shaderPath)
     : m_Width(width), m_Height(height)
 {
     FramebufferSpecification fbSpec;
@@ -24,7 +24,7 @@ ShadowPass::ShadowPass(uint32_t width, uint32_t height)
 
     m_Framebuffer = CreateRef<Framebuffer>(fbSpec);
 
-    m_Shader = Shader::CreateFromSingleFile("assets/shaders/ShadowDepth.glsl", "ShadowDepth");
+    m_Shader = Shader::CreateFromSingleFile(shaderPath, "ShadowDepth");
 }
 
 void ShadowPass::Resize(unsigned int width, unsigned int height)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 
 #include "core/Base.h"
 #include "RenderPass.h"
@@ -12,7 +13,7 @@ class Texture2D;
 class TexturePreviewPass : public RenderPass
 {
 public:
-    TexturePreviewPass();
+    TexturePreviewPass(const std::string& shaderPath = "assets/shaders/TexturePreview.glsl");
 
     void Resize(unsigned int width, unsigned int height) override;
 
