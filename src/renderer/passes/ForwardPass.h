@@ -16,8 +16,8 @@ class Texture2D;
 class ForwardPass : public RenderPass
 {
 public:
-    ForwardPass(uint32_t width, uint32_t height, bool renderToTarget = true,
-                const std::string& shaderPath = "assets/shaders/ForwardLit.glsl",
+    ForwardPass(uint32_t width, uint32_t height, bool renderToTarget,
+                const std::string& shaderPath,
                 const glm::vec4& clearColor = { 0.1f, 0.1f, 0.12f, 1.0f });
 
     void Resize(unsigned int width, unsigned int height) override;

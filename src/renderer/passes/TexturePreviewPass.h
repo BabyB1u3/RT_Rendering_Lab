@@ -13,7 +13,7 @@ class Texture2D;
 class TexturePreviewPass : public RenderPass
 {
 public:
-    TexturePreviewPass(const std::string& shaderPath = "assets/shaders/TexturePreview.glsl");
+    TexturePreviewPass(const std::string& shaderPath);
 
     void Resize(unsigned int width, unsigned int height) override;
     void Execute(const RenderContext& ctx) override;

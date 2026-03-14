@@ -57,7 +57,6 @@ public:
 private:
 	Shader(uint32_t program, std::string name);
 
-	static std::string ReadTextFile(const std::string &filepath);
 	static std::unordered_map<uint32_t, std::string> PreProcessSingleFile(const std::string &source);
 
 	static uint32_t CompileStage(uint32_t stage, const std::string &source, const std::string &debugName);
