@@ -3,6 +3,7 @@
 #include <cassert>
 #include <memory>
 
+#include "core/FileSystem.h"
 #include "core/Logger.h"
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -21,11 +22,15 @@
 SceneRenderer::SceneRenderer(uint32_t width, uint32_t height, const SceneRendererSpecification &spec)
     : m_Width(width), m_Height(height), m_Spec(spec)
 {
-    m_ShadowPass = CreateRef<ShadowPass>(spec.ShadowMapWidth, spec.ShadowMapHeight, spec.ShadowShaderPath);
+    auto shadowShader = FileSystem::GetShaderPath(spec.ShadowShaderName).string();
+    auto forwardShader = FileSystem::GetShaderPath(spec.ForwardShaderName).string();
+    auto previewShader = FileSystem::GetShaderPath(spec.TexturePreviewShaderName).string();
 
-    m_ForwardPass = CreateRef<ForwardPass>(width, height, true, spec.ForwardShaderPath, spec.ClearColor);
+    m_ShadowPass = CreateRef<ShadowPass>(spec.ShadowMapWidth, spec.ShadowMapHeight, shadowShader);
 
-    m_TexturePreviewPass = CreateRef<TexturePreviewPass>(spec.TexturePreviewShaderPath);
+    m_ForwardPass = CreateRef<ForwardPass>(width, height, true, forwardShader, spec.ClearColor);
+
+    m_TexturePreviewPass = CreateRef<TexturePreviewPass>(previewShader);
 
     LOG_INFO("SceneRenderer initialized ({}x{})", width, height);
 }

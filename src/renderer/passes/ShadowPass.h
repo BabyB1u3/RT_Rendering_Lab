@@ -15,7 +15,7 @@ class ShadowPass : public RenderPass
 {
 public:
     ShadowPass(uint32_t width, uint32_t height,
-               const std::string& shaderPath = "assets/shaders/ShadowDepth.glsl");
+               const std::string& shaderPath);
 
     void Resize(unsigned int width, unsigned int height) override;
     void Execute(const RenderContext& ctx) override;
