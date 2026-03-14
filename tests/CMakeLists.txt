@@ -26,6 +26,7 @@ add_executable(rtrlab_integration_tests
     integration/TestShader.cpp
     integration/TestTexture.cpp
     integration/TestFramebuffer.cpp
+    integration/TestRenderTarget.cpp
 
     support/GLTestContext.cpp
 )
