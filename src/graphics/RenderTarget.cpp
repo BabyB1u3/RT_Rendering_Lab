@@ -16,7 +16,7 @@ RenderTarget RenderTarget::BackBuffer(uint32_t width, uint32_t height)
     return target;
 }
 
-RenderTarget RenderTarget::FromFramebuffer(const Ref<::Framebuffer>& framebuffer)
+RenderTarget RenderTarget::FromFramebuffer(const Ref<::Framebuffer> &framebuffer)
 {
     assert(framebuffer && "RenderTarget::FromFramebuffer requires a valid framebuffer");
 
@@ -48,7 +48,7 @@ void RenderTarget::Resize(uint32_t width, uint32_t height)
 {
     if (m_Type == Type::BackBuffer)
     {
-        m_Width  = width;
+        m_Width = width;
         m_Height = height;
     }
     else
@@ -83,6 +83,8 @@ Ref<Texture2D> RenderTarget::GetColorAttachment(uint32_t index) const
     if (m_Type == Type::Framebuffer)
     {
         assert(m_Framebuffer && "Framebuffer target is null");
+        if (index >= m_Framebuffer->GetColorAttachmentCount())
+            return nullptr;
         return m_Framebuffer->GetColorAttachment(index);
     }
     return nullptr;
