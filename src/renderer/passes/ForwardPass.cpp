@@ -16,8 +16,9 @@
 #include "scene/Camera.h"
 #include "scene/SceneData.h"
 
-ForwardPass::ForwardPass(uint32_t width, uint32_t height, bool renderToTarget)
-    : m_Width(width), m_Height(height), m_RenderToTarget(renderToTarget)
+ForwardPass::ForwardPass(uint32_t width, uint32_t height, bool renderToTarget,
+                         const std::string& shaderPath, const glm::vec4& clearColor)
+    : m_Width(width), m_Height(height), m_RenderToTarget(renderToTarget), m_ClearColor(clearColor)
 {
     if (m_RenderToTarget)
     {
@@ -31,7 +32,7 @@ ForwardPass::ForwardPass(uint32_t width, uint32_t height, bool renderToTarget)
         m_Framebuffer = CreateRef<Framebuffer>(fbSpec);
     }
 
-    m_Shader = Shader::CreateFromSingleFile("assets/shaders/ForwardLit.glsl", "ForwardLit");
+    m_Shader = Shader::CreateFromSingleFile(shaderPath, "ForwardLit");
 
     // 1x1 white fallback texture for when no shadow map is provided.
     // Sampling r = 1.0 means currentDepth - bias > 1.0 is always false -> no shadow.
@@ -72,7 +73,7 @@ void ForwardPass::Execute(
     RenderCommand::EnableCullFace(true);
 
     RenderCommand::SetViewport(0, 0, m_Width, m_Height);
-    RenderCommand::SetClearColor({0.1f, 0.1f, 0.12f, 1.0f});
+    RenderCommand::SetClearColor(m_ClearColor);
     RenderCommand::Clear(true, true, false);
 
     Camera *camera = scene.ActiveCamera;
