@@ -5,6 +5,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include "FileSystem.h"
 #include "Input.h"
 #include "Logger.h"
 #include "Time.h"
@@ -14,6 +15,7 @@ Application *Application::s_Instance = nullptr;
 Application::Application(const ApplicationSpecification &spec)
 {
     Logger::Init();
+    FileSystem::Init();
     LOG_INFO("Starting application: {}", spec.Name);
 
     if (s_Instance)
