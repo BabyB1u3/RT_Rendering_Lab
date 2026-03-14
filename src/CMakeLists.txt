@@ -106,6 +106,7 @@ target_link_libraries(RTRLabCore PUBLIC
 target_compile_definitions(RTRLabCore PUBLIC
     GLM_ENABLE_EXPERIMENTAL
     GLAB_ASSET_DIR="assets"
+    GLAB_ROOT_DIR="${CMAKE_SOURCE_DIR}"
 )
 
 if(MSVC)
