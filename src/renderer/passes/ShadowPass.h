@@ -4,15 +4,12 @@
 #include <memory>
 #include <string>
 
-#include <glm/glm.hpp>
-
 #include "core/Base.h"
 #include "RenderPass.h"
 
 class Framebuffer;
 class Shader;
 class Texture2D;
-struct SceneData;
 
 class ShadowPass : public RenderPass
 {
@@ -21,19 +18,14 @@ public:
                const std::string& shaderPath = "assets/shaders/ShadowDepth.glsl");
 
     void Resize(unsigned int width, unsigned int height) override;
-
-    void Execute(const SceneData &scene, const glm::mat4 &lightViewProjection);
+    void Execute(const RenderContext& ctx) override;
 
     Ref<Framebuffer> GetFramebuffer() const { return m_Framebuffer; }
     Ref<Texture2D> GetDepthTexture() const;
 
-    const glm::mat4 &GetLightViewProjection() const { return m_LightViewProjection; }
-
 private:
     uint32_t m_Width = 0;
     uint32_t m_Height = 0;
-
-    glm::mat4 m_LightViewProjection{1.0f};
 
     Ref<Framebuffer> m_Framebuffer;
     Ref<Shader> m_Shader;

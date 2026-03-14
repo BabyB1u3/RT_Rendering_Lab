@@ -97,9 +97,8 @@ void ShadowMapping::OnRender()
     if (!m_Renderer)
         return;
 
-    m_Scene.ActiveCamera = &m_Camera;
     m_Renderer->SetOutputMode(m_OutputMode);
-    m_Renderer->Render(m_Scene);
+    m_Renderer->Render(m_Scene, m_Camera);
 }
 
 void ShadowMapping::OnImGuiRender()

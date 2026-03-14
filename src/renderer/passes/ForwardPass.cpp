@@ -13,6 +13,7 @@
 #include "graphics/RenderTarget.h"
 #include "graphics/Shader.h"
 #include "graphics/Texture.h"
+#include "renderer/RenderContext.h"
 #include "renderer/RenderItem.h"
 #include "scene/Camera.h"
 #include "scene/SceneData.h"
@@ -58,12 +59,8 @@ void ForwardPass::Resize(unsigned int width, unsigned int height)
         m_Framebuffer->Resize(width, height);
 }
 
-void ForwardPass::Execute(
-    const SceneData &scene,
-    const Ref<Texture2D> &shadowMap,
-    const glm::mat4 &lightViewProjection)
+void ForwardPass::Execute(const RenderContext& ctx)
 {
-    assert(scene.ActiveCamera && "ForwardPass requires an active camera");
     assert(m_Shader && "ForwardPass shader is null");
 
     RenderTarget target = m_RenderToTarget
@@ -79,17 +76,18 @@ void ForwardPass::Execute(
     RenderCommand::SetClearColor(m_ClearColor);
     RenderCommand::Clear(true, true, false);
 
-    Camera *camera = scene.ActiveCamera;
+    const auto& camera = ctx.View.Camera;
+    const auto& scene = ctx.View.Scene;
 
     m_Shader->Bind();
-    m_Shader->SetMat4("u_ViewProjection", camera->GetViewProjection());
-    m_Shader->SetMat4("u_LightViewProjection", lightViewProjection);
-    m_Shader->SetFloat3("u_CameraPosition", camera->GetPosition());
+    m_Shader->SetMat4("u_ViewProjection", camera.GetViewProjection());
+    m_Shader->SetMat4("u_LightViewProjection", ctx.Resources.LightViewProjection);
+    m_Shader->SetFloat3("u_CameraPosition", camera.GetPosition());
     m_Shader->SetFloat3("u_LightDirection", scene.MainDirectionalLight.Direction);
     m_Shader->SetFloat3("u_LightColor", scene.MainDirectionalLight.Color);
     m_Shader->SetFloat("u_LightIntensity", scene.MainDirectionalLight.Intensity);
 
-    const auto &shadow = shadowMap ? shadowMap : m_FallbackShadowMap;
+    const auto &shadow = ctx.Resources.ShadowMap ? ctx.Resources.ShadowMap : m_FallbackShadowMap;
     shadow->Bind(static_cast<uint32_t>(TextureSlot::ShadowMap));
     m_Shader->SetInt("u_ShadowMap", static_cast<int>(TextureSlot::ShadowMap));
 

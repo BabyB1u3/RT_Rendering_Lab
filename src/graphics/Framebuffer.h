@@ -63,6 +63,7 @@ public:
 	uint32_t GetRendererID() const { return m_RendererID; }
 
 	const FramebufferSpecification &GetSpecification() const { return m_Specification; }
+	std::size_t GetColorAttachmentCount() const { return m_ColorAttachments.size(); }
 
 	Ref<Texture2D> GetColorAttachment(uint32_t index = 0) const;
 	Ref<Texture2D> GetDepthAttachment() const;
