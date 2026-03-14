@@ -12,7 +12,6 @@
 class Framebuffer;
 class Shader;
 class Texture2D;
-struct SceneData;
 
 class ForwardPass : public RenderPass
 {
@@ -22,11 +21,7 @@ public:
                 const glm::vec4& clearColor = { 0.1f, 0.1f, 0.12f, 1.0f });
 
     void Resize(unsigned int width, unsigned int height) override;
-
-    void Execute(
-        const SceneData &scene,
-        const Ref<Texture2D> &shadowMap,
-        const glm::mat4 &lightViewProjection);
+    void Execute(const RenderContext& ctx) override;
 
     Ref<Framebuffer> GetFramebuffer() const { return m_Framebuffer; }
 

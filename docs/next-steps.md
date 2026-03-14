@@ -12,8 +12,10 @@ Updated 2026-03-14. Single source of truth for project state, priorities, and ar
 
 | Metric               | Status                                             |
 |----------------------|----------------------------------------------------|
+| Phase 0 (Base Green) | Complete                                           |
 | Phase 1 (Framework)  | Complete                                           |
 | Phase 2 (Basic RT)   | ~60% — lighting, shadows, Blinn-Phong done         |
+| Phase 3 (Pass Unify) | Complete                                           |
 | Active Demos         | 1 (Shadow Mapping)                                 |
 | Shader Files         | 3 (ForwardLit, ShadowDepth, TexturePreview)        |
 | Test Suite           | 77 / 77 passing (unit + integration, Google Test)  |
@@ -25,11 +27,11 @@ Updated 2026-03-14. Single source of truth for project state, priorities, and ar
 - Core runtime: `Application`, `Window`, `Input`, `Layer`, `LayerStack`, `Time`, `Logger`
 - OpenGL resources: buffers, vertex arrays, textures, shaders, framebuffers, meshes
 - Scene layer: `Camera`, `DebugCameraController`, `Transform`, `DirectionalLight`, `SceneData`
-- Renderer: `SceneRenderer`, `ShadowPass`, `ForwardPass`, `TexturePreviewPass`
+- Renderer: `SceneRenderer`, `RenderContext` (SceneView + FrameResources), `ShadowPass`, `ForwardPass`, `TexturePreviewPass`
 - Demo system: `DemoBase`, `DemoRegistry`, `LabLayer`, `ShadowMapping`
 - Material: textures + typed float/int/vec3/vec4 properties with `UploadToShader()`
 - `RenderTarget`: backbuffer vs framebuffer wrapper, depth-only safe, integration-tested
-- `SceneRendererSpecification`: renderer tuning extracted from pass internals
+- `SceneRendererSpecification` / `SceneRendererOutput`: renderer tuning extracted into `SceneRendererTypes.h`
 - Logger macros: null-safe before `Logger::Init()`
 - CMake source list: case-correct for `Framebuffer.*`
 
@@ -46,8 +48,6 @@ Other gaps:
 
 - `LabLayer` has a `TODO` for demo selection
 - `ShadowMapping::OnImGuiRender()` is empty
-- `RenderPass` only exposes `Resize()`; no unified `Execute()` interface
-- `SceneData` carries a raw non-owning `Camera*`
 - Asset paths are hardcoded relative strings
 - No test coverage for `Material`, `SceneRenderer`, or individual passes
 
@@ -61,16 +61,20 @@ These were identified and fixed in the current sprint:
 - `RenderTarget::GetColorAttachment()` returns `nullptr` on depth-only framebuffers
 - CMake source list uses correct `Framebuffer` casing for cross-platform builds
 - All 7 previously failing tests now pass (LayerStack, Shader, RenderTarget)
+- `ActiveCamera` removed from `SceneData`; camera passed via `Render(scene, camera)` parameter
+- `RenderPass` now has unified `Execute(const RenderContext&)` pure virtual interface
+- Introduced `SceneView` / `FrameResources` / `RenderContext` three-layer frame state design
+- Extracted `SceneRendererSpecification` / `SceneRendererOutput` into `SceneRendererTypes.h`
 
 ---
 
 ## 3. Development Plan
 
-### Phase 0 — Keep the Base Green
+### Phase 0 — Keep the Base Green ✅
 
-1. Maintain `ctest` green on the current Windows preset
-2. Update README / roadmap wording so docs do not claim finished GUI or FileSystem
-3. Decide `SceneData::ActiveCamera` ownership: `std::reference_wrapper<const Camera>` (non-nullable, non-owning) or `Ref<Camera>` (shared ownership)
+1. ✅ Maintain `ctest` green on the current Windows preset
+2. ✅ Update README / roadmap wording so docs do not claim finished GUI or FileSystem
+3. ✅ `ActiveCamera` removed from `SceneData`; camera is now passed as `const Camera&` to `SceneRenderer::Render()` — neither `reference_wrapper` nor `Ref<Camera>` needed
 
 Exit criteria: tests green, docs accurate, camera contract decided.
 
@@ -109,23 +113,42 @@ Then continue with:
 
 Rationale: model loading unlocks real test assets; normal mapping and skybox are both more useful once real geometry exists.
 
-### Phase 3 — Unify Pass Interface (Pre-Refactor Architecture)
+### Phase 3 — Unify Pass Interface (Pre-Refactor Architecture) ✅
 
-1. Introduce `RenderContext`:
+Adopted a three-layer design instead of the original string-keyed map approach:
 
 ```cpp
+// SceneView: decouples scene content from rendering viewpoint
+struct SceneView {
+    const SceneData& Scene;   // borrowed from demo
+    const Camera& Camera;     // borrowed from demo
+    uint32_t ViewportWidth, ViewportHeight;
+};
+
+// FrameResources: inter-pass shared outputs (typed fields, not string maps)
+struct FrameResources {
+    glm::mat4 LightViewProjection{1.0f};
+    Ref<Texture2D> ShadowMap;
+    RenderTarget ShadowTarget;
+    Ref<Texture2D> SceneColor;
+    RenderTarget SceneTarget;
+};
+
+// RenderContext: unified parameter for Execute()
 struct RenderContext {
-    const SceneData *Scene = nullptr;
-    glm::mat4 LightViewProjection;
-    std::unordered_map<std::string, Ref<Texture2D>> Textures;
-    std::unordered_map<std::string, RenderTarget>   Targets;
+    const SceneView& View;
+    const SceneRendererSpecification& Spec;
+    FrameResources Resources;
+    SceneRendererOutput OutputMode = SceneRendererOutput::FinalColor;
 };
 ```
 
-2. Unify all passes behind `Execute(RenderContext&)`
-3. Reduce direct pass wiring inside `SceneRenderer`
+1. ✅ Introduced `SceneView`, `FrameResources`, `RenderContext` in `src/renderer/RenderContext.h`
+2. ✅ All passes implement `Execute(const RenderContext&)` via pure virtual on `RenderPass`
+3. ✅ `SceneRenderer::Render()` now just builds context and calls three passes sequentially
+4. ✅ Extracted `SceneRendererSpecification` / `SceneRendererOutput` into `SceneRendererTypes.h`
 
-Why this matters: once all passes share a common `Execute()` signature, the multi-backend refactor only needs to re-implement pass internals — the orchestration logic stays the same.
+Why typed fields over string maps: compile-time safety, IDE support, no typo risk. Suitable for the current 3-pass pipeline; render graph with dynamic resource names is a Phase 5+ concern.
 
 ### Phase 4 — Multi-Backend Refactor
 

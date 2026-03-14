@@ -11,8 +11,9 @@
 #include "graphics/RenderCommand.h"
 #include "graphics/RenderTarget.h"
 #include "graphics/Shader.h"
-#include "scene/SceneData.h"
+#include "renderer/RenderContext.h"
 #include "renderer/RenderItem.h"
+#include "scene/SceneData.h"
 
 ShadowPass::ShadowPass(uint32_t width, uint32_t height, const std::string& shaderPath)
     : m_Width(width), m_Height(height)
@@ -46,12 +47,10 @@ Ref<Texture2D> ShadowPass::GetDepthTexture() const
     return m_Framebuffer->GetDepthAttachment();
 }
 
-void ShadowPass::Execute(const SceneData &scene, const glm::mat4 &lightViewProjection)
+void ShadowPass::Execute(const RenderContext& ctx)
 {
     assert(m_Framebuffer && "ShadowPass framebuffer is null");
     assert(m_Shader && "ShadowPass shader is null");
-
-    m_LightViewProjection = lightViewProjection;
 
     RenderTarget target = RenderTarget::FromFramebuffer(m_Framebuffer);
     target.Bind();
@@ -65,9 +64,9 @@ void ShadowPass::Execute(const SceneData &scene, const glm::mat4 &lightViewProje
     RenderCommand::Clear(false, true, false);
 
     m_Shader->Bind();
-    m_Shader->SetMat4("u_LightViewProjection", m_LightViewProjection);
+    m_Shader->SetMat4("u_LightViewProjection", ctx.Resources.LightViewProjection);
 
-    for (const auto &item : scene.RenderItems)
+    for (const auto &item : ctx.View.Scene.RenderItems)
     {
         if (!item.Mesh || !item.Material)
         {

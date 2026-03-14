@@ -16,9 +16,7 @@ public:
     TexturePreviewPass(const std::string& shaderPath = "assets/shaders/TexturePreview.glsl");
 
     void Resize(unsigned int width, unsigned int height) override;
-
-    // Draw the texture to the currently bound framebuffer / backbuffer
-    void Execute(const Ref<Texture2D> &texture, bool isDepthTexture = false);
+    void Execute(const RenderContext& ctx) override;
 
 private:
     Ref<Shader> m_Shader;

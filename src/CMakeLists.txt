@@ -59,8 +59,10 @@ set(GLAB_CORE_HEADERS
     graphics/Texture.h
     graphics/VertexArray.h
 
+    renderer/RenderContext.h
     renderer/RenderItem.h
     renderer/SceneRenderer.h
+    renderer/SceneRendererTypes.h
 
     renderer/passes/ForwardPass.h
     renderer/passes/RenderPass.h

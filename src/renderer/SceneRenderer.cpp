@@ -10,13 +10,15 @@
 #include "graphics/Framebuffer.h"
 #include "graphics/RenderTarget.h"
 #include "graphics/Texture.h"
+#include "renderer/RenderContext.h"
 #include "renderer/passes/ForwardPass.h"
 #include "renderer/passes/ShadowPass.h"
 #include "renderer/passes/TexturePreviewPass.h"
 #include "scene/Camera.h"
+#include "scene/Light.h"
 #include "scene/SceneData.h"
 
-SceneRenderer::SceneRenderer(uint32_t width, uint32_t height, const SceneRendererSpecification& spec)
+SceneRenderer::SceneRenderer(uint32_t width, uint32_t height, const SceneRendererSpecification &spec)
     : m_Width(width), m_Height(height), m_Spec(spec)
 {
     m_ShadowPass = CreateRef<ShadowPass>(spec.ShadowMapWidth, spec.ShadowMapHeight, spec.ShadowShaderPath);
@@ -44,11 +46,11 @@ void SceneRenderer::Resize(uint32_t width, uint32_t height)
         m_TexturePreviewPass->Resize(width, height);
 }
 
-glm::mat4 SceneRenderer::BuildDirectionalLightViewProjection(const SceneData &scene) const
+glm::mat4 SceneRenderer::BuildDirectionalLightViewProjection(const DirectionalLight &light) const
 {
     // Very simple first-pass directional light camera.
     // Later you can replace this with a tighter fit around the visible scene.
-    glm::vec3 lightDir = glm::normalize(scene.MainDirectionalLight.Direction);
+    glm::vec3 lightDir = glm::normalize(light.Direction);
 
     // Pull the light "camera" back opposite the light direction
     glm::vec3 lightPosition = -lightDir * m_Spec.LightDistance;
@@ -72,34 +74,27 @@ glm::mat4 SceneRenderer::BuildDirectionalLightViewProjection(const SceneData &sc
     return lightProjection * lightView;
 }
 
-void SceneRenderer::Render(const SceneData &scene)
+void SceneRenderer::Render(const SceneData &scene, const Camera &camera)
 {
-    assert(scene.ActiveCamera && "SceneRenderer requires an active camera");
     assert(m_ShadowPass && m_ForwardPass && m_TexturePreviewPass && "SceneRenderer passes are not initialized");
 
-    glm::mat4 lightVP = BuildDirectionalLightViewProjection(scene);
+    SceneView view{scene, camera, m_Width, m_Height};
+
+    FrameResources resources;
+    resources.LightViewProjection = BuildDirectionalLightViewProjection(scene.MainDirectionalLight);
+    resources.ShadowMap = m_ShadowPass->GetDepthTexture();
+    resources.ShadowTarget = RenderTarget::FromFramebuffer(m_ShadowPass->GetFramebuffer());
+    resources.SceneColor = m_ForwardPass->GetFramebuffer()->GetColorAttachment(0);
+    resources.SceneTarget = RenderTarget::FromFramebuffer(m_ForwardPass->GetFramebuffer());
+
+    RenderContext ctx{view, m_Spec, std::move(resources), m_OutputMode};
 
     // 1. Shadow map generation
-    m_ShadowPass->Execute(scene, lightVP);
+    m_ShadowPass->Execute(ctx);
 
     // 2. Forward render to scene color target
-    m_ForwardPass->Execute(scene, m_ShadowPass->GetDepthTexture(), lightVP);
+    m_ForwardPass->Execute(ctx);
 
-    // 3. Present selected output to current framebuffer/backbuffer
-    RenderTarget shadowTarget = RenderTarget::FromFramebuffer(m_ShadowPass->GetFramebuffer());
-    RenderTarget sceneTarget  = RenderTarget::FromFramebuffer(m_ForwardPass->GetFramebuffer());
-
-    switch (m_OutputMode)
-    {
-    case SceneRendererOutput::FinalColor:
-        m_TexturePreviewPass->Execute(sceneTarget.GetColorAttachment(), false);
-        break;
-
-    case SceneRendererOutput::ShadowMap:
-        m_TexturePreviewPass->Execute(shadowTarget.GetDepthAttachment(), true);
-        break;
-
-    default:
-        break;
-    }
+    // 3. Present selected output to backbuffer (pass decides based on OutputMode)
+    m_TexturePreviewPass->Execute(ctx);
 }
