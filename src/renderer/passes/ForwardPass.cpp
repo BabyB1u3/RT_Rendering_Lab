@@ -103,20 +103,7 @@ void ForwardPass::Execute(
         m_Shader->SetMat4("u_Model", model);
         m_Shader->SetMat3("u_NormalMatrix", glm::mat3(glm::transpose(glm::inverse(model))));
 
-        // Bind material resources after the pass shader is bound.
-        // Current minimal Material only binds textures + its own shader,
-        // so for now we bind textures manually to avoid switching shaders.
-        auto albedo = item.Material->GetTexture(TextureSlot::Albedo);
-        if (albedo)
-        {
-            albedo->Bind(static_cast<uint32_t>(TextureSlot::Albedo));
-            m_Shader->SetInt("u_AlbedoMap", static_cast<int>(TextureSlot::Albedo));
-            m_Shader->SetBool("u_UseAlbedoMap", true);
-        }
-        else
-        {
-            m_Shader->SetBool("u_UseAlbedoMap", false);
-        }
+        item.Material->UploadToShader(m_Shader);
 
         RenderCommand::DrawIndexed(item.Mesh->GetVertexArray());
     }

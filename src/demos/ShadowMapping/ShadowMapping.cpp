@@ -61,10 +61,11 @@ void ShadowMapping::OnAttach()
     const uint32_t whitePixel = 0xffffffffu;
     m_WhiteTexture->SetData(&whitePixel);
 
-    // Currently ForwardPass is using the uniform pass shader
-    // so material here is used as a texture resource container
     m_DefaultMaterial = CreateRef<Material>();
     m_DefaultMaterial->SetTexture(TextureSlot::Albedo, m_WhiteTexture);
+    m_DefaultMaterial->SetVec3("u_Albedo", glm::vec3(0.85f));
+    m_DefaultMaterial->SetFloat("u_SpecularPower", 32.0f);
+    m_DefaultMaterial->SetFloat("u_AmbientStrength", 0.15f);
 
     BuildScene();
 }

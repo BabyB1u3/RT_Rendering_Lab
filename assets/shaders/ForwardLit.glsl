@@ -39,6 +39,10 @@ uniform sampler2D u_ShadowMap;
 uniform sampler2D u_AlbedoMap;
 
 uniform bool u_UseAlbedoMap;
+uniform vec3 u_Albedo;
+uniform float u_SpecularPower;
+uniform float u_AmbientStrength;
+
 uniform vec3 u_CameraPosition;
 uniform vec3 u_LightDirection;
 uniform vec3 u_LightColor;
@@ -78,20 +82,20 @@ void main()
     vec3 normal = normalize(v_WorldNormal);
     vec3 lightDir = normalize(u_LightDirection);
 
-    vec3 albedo = vec3(0.85);
+    vec3 albedo = u_Albedo;
     if (u_UseAlbedoMap)
-        albedo = texture(u_AlbedoMap, v_TexCoord).rgb;
+        albedo *= texture(u_AlbedoMap, v_TexCoord).rgb;
 
     float NdotL = max(dot(normal, -lightDir), 0.0);
     float shadow = ComputeShadow(v_LightSpacePosition, normal, lightDir);
 
-    vec3 ambient = 0.15 * albedo;
+    vec3 ambient = u_AmbientStrength * albedo;
     vec3 diffuse = (1.0 - shadow) * NdotL * albedo * u_LightColor * u_LightIntensity;
 
     // Blinn-Phong specular
     vec3 viewDir = normalize(u_CameraPosition - v_WorldPosition);
     vec3 halfDir = normalize(viewDir + (-lightDir));
-    float spec = pow(max(dot(normal, halfDir), 0.0), 32.0);
+    float spec = pow(max(dot(normal, halfDir), 0.0), u_SpecularPower);
     vec3 specular = (1.0 - shadow) * spec * u_LightColor * u_LightIntensity;
 
     FragColor = vec4(ambient + diffuse + specular, 1.0);
