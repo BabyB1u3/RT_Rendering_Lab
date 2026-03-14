@@ -695,3 +695,100 @@ viewport 是 pass 的职责，应由 pass 在 `Bind()` 之后显式调用：
 - **Pass 和 SceneRenderer 开始改为接收/使用 RenderTarget**
 
 这是最适合你现在 RT Rendering Lab 阶段的方案。
+
+---
+
+## 13. 多后端架构中的演化路径
+
+> 本节适用于项目目标已调整为 **OpenGL / Metal / Vulkan 三后端支持**的情况。
+
+### 13.1 当前文档描述的是 OpenGL 后端实现
+
+第 8 节的 `RenderTarget.cpp` 包含 `#include <glad/glad.h>`，并直接调用
+`glBindFramebuffer`。这意味着当前设计是 OpenGL 后端的具体实现，而非跨平台抽象。
+
+在多后端架构下，这没有问题——只需把它的定位明确为 **OpenGL 后端的实现类**，
+并把文件迁移到对应的目录即可。
+
+---
+
+### 13.2 迁移后的目录结构
+
+```
+src/graphics/
+  interface/
+    IRenderTarget.h        ← 纯虚接口（无任何平台 include）
+
+  opengl/
+    GLRenderTarget.h       ← 继承 IRenderTarget，当前 RenderTarget 代码的直接改名
+    GLRenderTarget.cpp     ← 包含 glad，调用 glBindFramebuffer
+
+  metal/
+    MTLRenderTarget.h      ← 继承 IRenderTarget
+    MTLRenderTarget.mm     ← 使用 MTLRenderPassDescriptor
+```
+
+---
+
+### 13.3 抽象接口 `IRenderTarget`
+
+```cpp
+// src/graphics/interface/IRenderTarget.h
+#pragma once
+#include <cstdint>
+#include "Base.h"
+
+class ITexture2D;
+
+class IRenderTarget {
+public:
+    virtual ~IRenderTarget() = default;
+
+    virtual void Bind() const = 0;
+    virtual void Unbind() const = 0;
+    virtual void Resize(uint32_t width, uint32_t height) = 0;
+
+    virtual uint32_t GetWidth() const = 0;
+    virtual uint32_t GetHeight() const = 0;
+
+    virtual bool IsBackBuffer() const = 0;
+
+    virtual Ref<ITexture2D> GetColorAttachment(uint32_t index = 0) const = 0;
+    virtual Ref<ITexture2D> GetDepthAttachment() const = 0;
+};
+```
+
+所有 Pass 和 SceneRenderer 只持有 `Ref<IRenderTarget>`，完全不感知底层是哪个 API。
+
+---
+
+### 13.4 Metal 后端的对应概念
+
+Metal 没有 `glBindFramebuffer`，输出目标通过 `MTLRenderPassDescriptor` 描述，
+在创建 `MTLRenderCommandEncoder` 时绑定：
+
+```objc
+// MTLRenderTarget.mm (概念示意)
+void MTLRenderTarget::Bind() const {
+    // Metal 不在此时绑定——descriptor 在 Execute 开始时传给 commandEncoder
+    // Bind() 在 Metal 后端里是"准备 descriptor"而非"调用绑定 API"
+    m_RenderPassDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
+    // 配置 colorAttachments[0].texture 等...
+}
+```
+
+这是 Metal 与 OpenGL 最大的概念差异之一：**Metal 的"绑定"发生在 encoder 创建时，
+而不是一个独立的状态设置调用**。`IRenderTarget::Bind()` 在 Metal 后端的语义
+等价于"配置并持有 render pass descriptor，供 encoder 创建时使用"。
+
+---
+
+### 13.5 不变的部分
+
+无论后端如何切换，以下设计决策在所有后端中保持一致：
+
+- **`Bind()` 不设置 viewport**：viewport 始终由 Pass 在 `Bind()` 后显式调用
+- **backbuffer vs offscreen 统一接口**：`IsBackBuffer()` 让 Pass 无需分支
+- **`GetColorAttachment()` 在 backbuffer 时返回 nullptr**：backbuffer 不是可采样纹理
+- **RenderTarget 不负责资源创建**：具体的 Framebuffer / MTLTexture 由各自的工厂创建，
+  RenderTarget 只做包装
