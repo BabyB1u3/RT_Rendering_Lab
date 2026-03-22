@@ -59,14 +59,20 @@ void Application::Run()
         const double currentTime = glfwGetTime();
         Time::Update(currentTime);
 
+        // Skip all layer processing while minimized — no visible surface to render to,
+        // and some drivers return a 0×0 framebuffer which would cause GL errors.
         if (!m_Minimized)
         {
+            // Phase 1: logic update (input, physics, animation, etc.)
             for (auto &layer : m_LayerStack)
                 layer->OnUpdate(Time::GetDeltaTime());
 
+            // Phase 2: GPU draw calls (scene rendering)
             for (auto &layer : m_LayerStack)
                 layer->OnRender();
 
+            // Phase 3: ImGui pass — Begin/End bracket all OnImGuiRender() calls
+            // so that ImGui's NewFrame/Render are issued exactly once per frame.
             m_ImGuiLayer->Begin();
             for (auto &layer : m_LayerStack)
                 layer->OnImGuiRender();

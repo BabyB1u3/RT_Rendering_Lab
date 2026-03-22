@@ -45,6 +45,9 @@ std::pair<float, float> Input::GetMouseDelta()
 {
     auto [x, y] = GetMousePosition();
 
+    // On the very first sample, record the position and return zero delta.
+    // Without this guard, the delta would be (cursorPos - 0), causing a
+    // large camera jump on the first frame.
     if (s_FirstMouseSample)
     {
         s_LastMouseX = x;

@@ -44,6 +44,8 @@ void Window::Init(const WindowProps &props)
         s_GLFWInitialized = true;
     }
 
+    // macOS caps out at OpenGL 4.1 (Core Profile, forward-compatible).
+    // Windows/Linux request 4.6 with a debug context for GL error callbacks.
 #ifdef __APPLE__
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
@@ -73,6 +75,9 @@ void Window::Init(const WindowProps &props)
     if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress)))
         throw std::runtime_error("Failed to initialize GLAD.");
 
+    // Register an OpenGL debug callback to surface driver warnings/errors via our Logger.
+    // GL_DEBUG_OUTPUT_SYNCHRONOUS ensures the callback fires on the calling thread,
+    // making stack traces useful. Notifications are filtered out to reduce noise.
 #ifndef __APPLE__
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -112,8 +117,10 @@ void Window::Init(const WindowProps &props)
     LOG_INFO("OpenGL debug callback registered");
 #endif
 
+    // Store 'this' in the GLFW window so that static callbacks can reach the Window instance.
     glfwSetWindowUserPointer(m_Handle, this);
 
+    // Forward framebuffer resize events to the Application-provided callback.
     glfwSetFramebufferSizeCallback(m_Handle, [](GLFWwindow *window, int width, int height)
                                    {
             auto* self = static_cast<Window*>(glfwGetWindowUserPointer(window));
