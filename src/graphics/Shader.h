@@ -1,5 +1,18 @@
 #pragma once
 
+/// @file Shader.h
+/// @brief OpenGL shader program wrapper with uniform caching.
+///
+/// Three creation paths:
+///   - CreateFromSource():     compile from raw GLSL strings (vertex + fragment + optional geometry).
+///   - CreateFromFiles():      load each stage from a separate file.
+///   - CreateFromSingleFile(): load all stages from one file using `#type vertex` / `#type fragment`
+///                             preprocessor directives to split sections.
+///
+/// Uniform uploads use DSA (glProgramUniform*) — the shader does not need to be bound
+/// when setting uniforms. Uniform locations are cached in an unordered_map to avoid
+/// repeated glGetUniformLocation calls.
+
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -34,6 +47,7 @@ public:
 		const std::string &fragmentPath,
 		const std::string &geometryPath = "");
 
+	/// Load all stages from a single file using `#type vertex` / `#type fragment` markers.
 	static Ref<Shader> CreateFromSingleFile(
 		const std::string &filepath,
 		const std::string &name = "");
@@ -57,11 +71,13 @@ public:
 private:
 	Shader(uint32_t program, std::string name);
 
+	/// Split a single-file shader source into per-stage sources keyed by GL_*_SHADER.
 	static std::unordered_map<uint32_t, std::string> PreProcessSingleFile(const std::string &source);
 
 	static uint32_t CompileStage(uint32_t stage, const std::string &source, const std::string &debugName);
 	static uint32_t LinkProgram(const std::string &name, const std::vector<uint32_t> &shaderIDs);
 
+	/// Look up (and cache) the uniform location for the given name.
 	int GetUniformLocation(const std::string &name);
 
 private:

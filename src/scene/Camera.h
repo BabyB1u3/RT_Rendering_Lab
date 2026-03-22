@@ -1,5 +1,18 @@
 #pragma once
 
+/// @file Camera.h
+/// @brief Perspective camera with yaw/pitch Euler rotation.
+///
+/// The camera maintains its own projection and view matrices, recomputed
+/// automatically when position, rotation, FOV, or aspect ratio change.
+///
+/// Orientation is defined by yaw (horizontal, degrees) and pitch (vertical, degrees).
+/// Yaw = -90 looks along -Z (OpenGL convention). Pitch is NOT clamped internally —
+/// clamping is the responsibility of the controller (e.g., DebugCameraController)
+/// so that specialized cameras (orbit, light) can use the full range.
+///
+/// Basis vectors (Forward, Right, Up) are derived from yaw/pitch via RecalculateBasis().
+
 #include <glm/glm.hpp>
 
 class Camera

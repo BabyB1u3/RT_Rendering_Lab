@@ -64,8 +64,8 @@ shadow /= 9.0;
 
 ### Debug Visualization
 
-Press **2** to switch to shadow map preview mode (depth buffer visualized as grayscale).
-Press **1** to return to the final rendered output.
+Use the **ImGui panel** to switch between final color output and shadow map preview mode
+(depth buffer visualized as grayscale). Keyboard shortcuts **1** / **2** also work.
 
 ---
 
@@ -79,6 +79,18 @@ Press **1** to return to the final rendered output.
 | Scroll wheel | Adjust FOV |
 | 1 | Show final color output |
 | 2 | Show shadow map debug view |
+
+### ImGui Controls
+
+The demo provides an ImGui panel for real-time parameter tuning:
+
+| Control | Description |
+|---------|-------------|
+| Output Mode | Toggle between final color and shadow map debug view |
+| Light Direction | Adjust directional light direction (XYZ) |
+| Light Color | Change light color |
+| Light Intensity | Scale light brightness |
+| Shadow Projection | Tune orthographic size, near/far planes for the shadow pass |
 
 ---
 

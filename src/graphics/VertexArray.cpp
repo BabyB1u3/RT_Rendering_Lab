@@ -86,6 +86,7 @@ void VertexArray::AddVertexBuffer(const Ref<VertexBuffer> &vertexBuffer)
 	const auto &layout = vertexBuffer->GetLayout();
 	assert(!layout.GetElements().empty() && "VertexBuffer has no layout!");
 
+	// Each VBO gets its own binding index so multiple vertex streams are supported.
 	GLuint bindingIndex = static_cast<GLuint>(m_VertexBuffers.size());
 	glVertexArrayVertexBuffer(m_RendererID, bindingIndex, vertexBuffer->GetRendererID(), 0, layout.GetStride());
 
@@ -131,6 +132,8 @@ void VertexArray::AddVertexBuffer(const Ref<VertexBuffer> &vertexBuffer)
 			break;
 		}
 
+		// Mat3/Mat4 occupy multiple attribute slots (3 or 4 consecutive vec3/vec4).
+		// Each column becomes its own attribute with an offset stride.
 		case ShaderDataType::Mat3:
 		case ShaderDataType::Mat4:
 		{

@@ -191,6 +191,9 @@ void Framebuffer::Invalidate()
 			0);
 	}
 
+	// Configure draw buffers: map each color attachment to its GL_COLOR_ATTACHMENTi.
+	// For depth-only FBOs (e.g., shadow maps), set draw/read to GL_NONE to avoid
+	// incomplete-framebuffer errors when no color attachment exists.
 	if (!m_ColorAttachments.empty())
 	{
 		assert(m_ColorAttachments.size() <= 4 && "Too many color attachments");

@@ -1,3 +1,10 @@
+/// @file main.cpp
+/// @brief Application entry point.
+///
+/// Creates the Application with a window spec, pushes LabLayer as the sole
+/// Layer, and enters the main loop. LabLayer handles demo registration,
+/// switching, and all per-frame callbacks.
+
 #include "core/Application.h"
 #include "core/Base.h"
 #include "demos/LabLayer.h"

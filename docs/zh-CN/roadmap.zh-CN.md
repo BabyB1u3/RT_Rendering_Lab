@@ -52,7 +52,7 @@
 - [x] CPU 端预计算法线矩阵
 - [x] `enum class TextureSlot` 类型安全纹理槽绑定
 - [ ] 多光源支持（点光源、聚光灯）
-- [ ] 材质参数 UI（逐 Demo 的 ImGui 控件）
+- [x] 材质参数 UI（逐 Demo 的 ImGui 控件）
 - [ ] 天空盒 / 环境贴图渲染
 - [ ] 法线贴图
 - [ ] 模型加载（OBJ / glTF）

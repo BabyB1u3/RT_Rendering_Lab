@@ -16,7 +16,7 @@ It provides a lightweight framework where different rendering techniques can be 
 - **Blinn-Phong Shading** — ambient + diffuse + specular lighting with directional light
 - **Shadow Mapping** — directional light depth pass with front face culling, slope-scaled bias, and 3x3 PCF soft shadows
 - **Material System** — shader + type-safe `enum class TextureSlot` binding with per-object materials
-- **Procedural Meshes** — built-in cube, plane, and fullscreen quad generators
+- **Procedural Meshes** — built-in cube, plane, fullscreen quad, and UV sphere generators
 - **ImGui Integration** — debug panels for framerate, memory, and demo selection
 - **First-Person Camera** — WASD + mouse look with scroll-wheel FOV control
 - **Framebuffer Abstraction** — off-screen rendering with multiple color/depth attachments and pixel read-back
@@ -29,8 +29,10 @@ It provides a lightweight framework where different rendering techniques can be 
 | Demo | Description |
 |------|-------------|
 | **[Shadow Mapping](./docs/en/demos/shadow-mapping.md)** | Blinn-Phong shading + directional light shadow mapping with 3x3 PCF, front face culling, and debug visualization |
+| **[Material Playground](./docs/en/demos/material-playground.md)** | 5 UV spheres with distinct Blinn-Phong presets, per-sphere albedo / specular / ambient editing via ImGui |
 
 ![Shadow Mapping](./docs/screenshots/ShadowMapping.png)
+![Material Playground](./docs/screenshots/MaterialPlayground.png)
 
 ---
 
@@ -43,7 +45,7 @@ RT_Rendering_Lab/
 │   ├── graphics/       # Shader, Texture, Buffers, Mesh, Material, Framebuffer, RenderCommand
 │   ├── renderer/       # SceneRenderer, ForwardPass, ShadowPass, TexturePreviewPass
 │   ├── scene/          # Camera, DebugCameraController, Light, Transform, SceneData
-│   ├── demos/          # DemoBase, DemoRegistry, LabLayer, ShadowMapping/
+│   ├── demos/          # DemoBase, DemoRegistry, LabLayer, ShadowMapping/, MaterialPlayground/
 │   ├── gui/            # ImGuiLayer, DebugPanel, DemoSelectorPanel
 │   └── main.cpp
 ├── assets/
@@ -147,6 +149,7 @@ Integration tests create a hidden OpenGL context — they require a GPU or softw
 | [Glad](https://glad.dav1d.de/) | OpenGL 4.6 loader | `vendor/glad/` |
 | [STB Image](https://github.com/nothings/stb) | Image loading | `vendor/stb/` |
 | [Dear ImGui](https://github.com/ocornut/imgui) | Debug GUI | `vendor/imgui/` |
+| [spdlog](https://github.com/gabime/spdlog) | Logging | `vendor/spdlog/` |
 | [Google Test](https://github.com/google/googletest) | Testing framework | CMake FetchContent |
 
 ---

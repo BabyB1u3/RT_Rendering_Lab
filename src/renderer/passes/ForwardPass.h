@@ -1,5 +1,20 @@
 #pragma once
 
+/// @file ForwardPass.h
+/// @brief Main forward-shading pass: Blinn-Phong lighting + PCF shadow sampling.
+///
+/// For each RenderItem in the scene:
+///   1. Upload model matrix + normal matrix
+///   2. Upload material properties (albedo, specular, ambient) via Material::UploadToShader()
+///   3. Sample the shadow map from ShadowPass to compute shadow factor
+///   4. Shade with Blinn-Phong (ambient + diffuse + specular)
+///
+/// The pass can render to either an off-screen Framebuffer (for later compositing
+/// by TexturePreviewPass) or directly to the back buffer.
+///
+/// A 1x1 white fallback texture is used when no shadow map is available,
+/// ensuring that sampling produces depth=1.0 → no shadow.
+
 #include <cstdint>
 #include <memory>
 #include <string>

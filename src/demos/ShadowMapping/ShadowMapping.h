@@ -1,5 +1,13 @@
 #pragma once
 
+/// @file ShadowMapping.h
+/// @brief Shadow-mapping demo: cubes on a floor lit by a single directional light.
+///
+/// Demonstrates the full 3-pass rendering pipeline (ShadowPass → ForwardPass →
+/// TexturePreviewPass). The ImGui panel exposes output mode (final color vs.
+/// shadow map debug view), light direction/color/intensity, and light projection
+/// parameters (distance, ortho size, near/far).
+
 #include <cstdint>
 #include <memory>
 

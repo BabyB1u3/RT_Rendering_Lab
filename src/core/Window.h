@@ -1,5 +1,17 @@
 #pragma once
 
+/// @file Window.h
+/// @brief Platform window abstraction backed by GLFW.
+///
+/// Responsibilities:
+///   - Create an OS window with an OpenGL context
+///   - Initialize GLFW (once) and load GL functions via Glad
+///   - Register an OpenGL debug callback (non-Apple platforms)
+///   - Forward framebuffer-resize events to the Application via ResizeCallback
+///
+/// The Window does NOT own the Input system — Input is initialized separately
+/// with the native GLFW handle via Input::Initialize().
+
 #include <string>
 #include <functional>
 #include <cstdint>
@@ -25,8 +37,11 @@ public:
     Window(const Window &) = delete;
     Window &operator=(const Window &) = delete;
 
+    /// Process pending OS/input events (non-blocking).
     void PollEvents();
+    /// Present the back buffer to the screen.
     void SwapBuffers();
+    /// True if the user requested the window to close (e.g., clicked the X button).
     bool ShouldClose() const;
 
     void SetVSync(bool enabled);
@@ -35,8 +50,10 @@ public:
     uint32_t GetWidth() const { return m_Width; }
     uint32_t GetHeight() const { return m_Height; }
 
+    /// Return the underlying GLFW window pointer (needed by Input, ImGui, etc.).
     GLFWwindow *GetNativeHandle() const { return m_Handle; }
 
+    /// Register a callback invoked when the framebuffer is resized.
     void SetResizeCallback(ResizeCallback callback);
 
 private:
@@ -44,10 +61,7 @@ private:
     void Shutdown();
 
 private:
-    // Opaque native handle. Lifetime managed manually.
-    GLFWwindow *m_Handle = nullptr;
-    // Must use custom deleter if using unique_ptr for GLFWwindow:
-    // std::unique_ptr<GLFWwindow, GLFWwindowDeleter>
+    GLFWwindow *m_Handle = nullptr;  // Non-owning; destroyed manually in Shutdown().
     uint32_t m_Width = 0;
     uint32_t m_Height = 0;
     bool m_VSync = true;

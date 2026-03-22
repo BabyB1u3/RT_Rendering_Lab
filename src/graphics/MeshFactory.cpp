@@ -128,6 +128,8 @@ Ref<Mesh> MeshFactory::CreateCube()
 
 Ref<Mesh> MeshFactory::CreateSphere(uint32_t stacks, uint32_t slices)
 {
+    // Generate a UV sphere by sweeping theta (pole to pole, 0..PI) and phi (around equator, 0..2PI).
+    // Vertex grid is (stacks+1) x (slices+1); degenerate triangles at the poles are skipped.
     std::vector<PrimitiveVertex> vertices;
     std::vector<uint32_t> indices;
 
@@ -171,6 +173,7 @@ Ref<Mesh> MeshFactory::CreateSphere(uint32_t stacks, uint32_t slices)
             uint32_t current = i * (slices + 1) + j;
             uint32_t next = current + slices + 1;
 
+            // Skip the top-cap degenerate triangle at the north pole (i == 0).
             if (i != 0)
             {
                 indices.push_back(current);
@@ -178,6 +181,7 @@ Ref<Mesh> MeshFactory::CreateSphere(uint32_t stacks, uint32_t slices)
                 indices.push_back(current + 1);
             }
 
+            // Skip the bottom-cap degenerate triangle at the south pole (i == stacks-1).
             if (i != stacks - 1)
             {
                 indices.push_back(current + 1);

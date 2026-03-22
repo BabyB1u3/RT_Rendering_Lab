@@ -76,6 +76,8 @@ void Camera::RecalculateView()
 
 void Camera::RecalculateBasis()
 {
+    // Convert Euler angles (yaw, pitch) to a forward direction vector.
+    // Yaw rotates around Y in the XZ plane; pitch tilts up/down.
     glm::vec3 forward;
     forward.x = std::cos(glm::radians(m_Yaw)) * std::cos(glm::radians(m_Pitch));
     forward.y = std::sin(glm::radians(m_Pitch));

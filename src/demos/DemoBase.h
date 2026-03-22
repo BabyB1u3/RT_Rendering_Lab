@@ -1,5 +1,12 @@
 #pragma once
 
+/// @file DemoBase.h
+/// @brief Abstract base class for all demos.
+///
+/// Mirrors the Layer lifecycle (OnAttach/OnDetach/OnUpdate/OnRender/OnImGuiRender/OnResize)
+/// so that LabLayer can forward its callbacks to the active demo transparently.
+/// Each demo owns its own Camera, SceneRenderer, SceneData, and meshes/materials.
+
 #include <cstdint>
 
 class DemoBase

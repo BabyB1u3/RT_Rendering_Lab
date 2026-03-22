@@ -1,5 +1,19 @@
 #pragma once
 
+/// @file Texture.h
+/// @brief GPU texture abstractions (DSA).
+///
+/// TextureFormat enumerates all supported internal formats (color, integer, depth).
+/// Texture2D handles creation, uploading, and binding via DSA
+/// (glCreateTextures / glTextureStorage2D / glBindTextureUnit).
+///
+/// Two creation paths:
+///   - Create(spec):          empty GPU texture from a TextureSpecification.
+///   - CreateFromFile(path):  load an image via stb_image and upload to GPU.
+///
+/// Textures are bound to numbered texture units via Bind(slot), matching
+/// the sampler uniform index in the shader (e.g., TextureSlot::Albedo = 1).
+
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -8,7 +22,7 @@
 
 #include "core/Base.h"
 
-// Texture format
+/// Supported GPU texture internal formats.
 enum class TextureFormat
 {
 	None = 0,
@@ -35,7 +49,7 @@ struct TextureSpecification
 	GLenum MagFilter = GL_LINEAR;
 };
 
-// Abstract texture base
+/// Abstract base class for all texture types.
 class Texture
 {
 public:
@@ -52,7 +66,7 @@ public:
 	virtual bool operator==(const Texture &other) const = 0;
 };
 
-// 2D texture
+/// Concrete 2D texture backed by an OpenGL texture object (DSA).
 class Texture2D : public Texture
 {
 public:
