@@ -2,6 +2,9 @@
 
 #include <glad/glad.h>
 
+#include "graphics/interface/IIndexBuffer.h"
+#include "graphics/interface/IVertexArray.h"
+
 void RenderCommand::Init()
 {
 	glEnable(GL_BLEND);
@@ -67,7 +70,7 @@ void RenderCommand::SetCullFace(bool front)
 	glCullFace(front ? GL_FRONT : GL_BACK);
 }
 
-void RenderCommand::DrawIndexed(const Ref<VertexArray> &vao, uint32_t indexCount)
+void RenderCommand::DrawIndexed(const Ref<IVertexArray> &vao, uint32_t indexCount)
 {
 	vao->Bind();
 	uint32_t count = indexCount ? indexCount : vao->GetIndexBuffer()->GetCount();

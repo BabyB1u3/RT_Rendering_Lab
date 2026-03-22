@@ -10,7 +10,8 @@
 #include <glm/glm.hpp>
 
 #include "core/Base.h"
-#include "VertexArray.h"
+
+class IVertexArray;
 
 class RenderCommand
 {
@@ -31,6 +32,6 @@ public:
     static void SetCullFace(bool front);
 
     /// Draw indexed triangles. If indexCount is 0, uses the full index buffer.
-    static void DrawIndexed(const Ref<VertexArray> &vao, uint32_t indexCount = 0);
+    static void DrawIndexed(const Ref<IVertexArray> &vao, uint32_t indexCount = 0);
     static void DrawArrays(uint32_t mode, uint32_t first, uint32_t count);
 };

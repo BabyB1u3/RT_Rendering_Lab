@@ -16,7 +16,10 @@
 
 #include "core/Base.h"
 #include "Buffers.h"
-#include "VertexArray.h"
+
+class IVertexArray;
+class IVertexBuffer;
+class IIndexBuffer;
 
 class Mesh
 {
@@ -39,16 +42,16 @@ public:
     void Bind() const;
     void Unbind() const;
 
-    const Ref<VertexArray> &GetVertexArray() const { return m_VertexArray; }
-    const Ref<IndexBuffer> &GetIndexBuffer() const { return m_IndexBuffer; }
+    const Ref<IVertexArray> &GetVertexArray() const { return m_VertexArray; }
+    const Ref<IIndexBuffer> &GetIndexBuffer() const { return m_IndexBuffer; }
 
     uint32_t GetIndexCount() const { return m_IndexCount; }
 
 private:
-    Ref<VertexArray> m_VertexArray;
+    Ref<IVertexArray> m_VertexArray;
     // Could have multiple vertexbuffers in the future:
     // Main vertex buffer + intance buffer + secondary stream
-    std::vector<Ref<VertexBuffer>> m_VertexBuffers;
-    Ref<IndexBuffer> m_IndexBuffer;
+    std::vector<Ref<IVertexBuffer>> m_VertexBuffers;
+    Ref<IIndexBuffer> m_IndexBuffer;
     uint32_t m_IndexCount = 0;
 };
