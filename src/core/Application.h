@@ -7,6 +7,8 @@
 #include "Window.h"
 #include "LayerStack.h"
 
+class ImGuiLayer;
+
 struct ApplicationSpecification
 {
     std::string Name = "RTRLab";
@@ -44,6 +46,8 @@ private:
 
     Scope<Window> m_Window;
     LayerStack m_LayerStack;
+    // Non-owning pointer. Lifetime is managed externally by the LayerStack.
+    ImGuiLayer *m_ImGuiLayer = nullptr;
 
     bool m_Running = true;
     bool m_Minimized = false;

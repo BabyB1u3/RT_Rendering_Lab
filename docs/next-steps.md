@@ -1,6 +1,6 @@
 # Next Steps — Project Status & Development Plan
 
-Updated 2026-03-14. Single source of truth for project state, priorities, and architecture direction.
+Updated 2026-03-21. Single source of truth for project state, priorities, and architecture direction.
 
 > **Architecture Goal**: Multi-backend support (OpenGL on Windows/Linux, Metal on macOS, Vulkan optional).
 > All priorities below reflect this direction, but immediate work focuses on completing the current
@@ -16,6 +16,7 @@ Updated 2026-03-14. Single source of truth for project state, priorities, and ar
 | Phase 1 (Framework)  | Complete                                           |
 | Phase 2 (Basic RT)   | ~60% — lighting, shadows, Blinn-Phong done         |
 | Phase 3 (Pass Unify) | Complete                                           |
+| Input/Event Design   | Design doc complete, polling implemented, event system pending |
 | Active Demos         | 1 (Shadow Mapping)                                 |
 | Shader Files         | 3 (ForwardLit, ShadowDepth, TexturePreview)        |
 | Test Suite           | 77 / 77 passing (unit + integration, Google Test)  |
@@ -32,6 +33,8 @@ Updated 2026-03-14. Single source of truth for project state, priorities, and ar
 - Material: textures + typed float/int/vec3/vec4 properties with `UploadToShader()`
 - `RenderTarget`: backbuffer vs framebuffer wrapper, depth-only safe, integration-tested
 - `SceneRendererSpecification` / `SceneRendererOutput`: renderer tuning extracted into `SceneRendererTypes.h`
+- `FileSystem`: cross-platform path resolution, `GetAssetPath()`, `GetShaderPath()`, `ReadTextFile()`, integrated into Application and all render passes
+- `Input`: polling-based keyboard/mouse via GLFW (`IsKeyPressed()`, `GetMousePosition()`, `GetMouseDelta()`)
 - Logger macros: null-safe before `Logger::Init()`
 - CMake source list: case-correct for `Framebuffer.*`
 
@@ -39,16 +42,17 @@ Updated 2026-03-14. Single source of truth for project state, priorities, and ar
 
 | File                                     | Status     |
 |------------------------------------------|------------|
-| `src/core/FileSystem.h` / `.cpp`         | Empty stub |
 | `src/gui/ImGuiLayer.h` / `.cpp`          | Empty stub |
 | `src/gui/Panels/DebugPanel.h` / `.cpp`   | Empty stub |
 | `src/gui/Panels/DemoSelectorPanel.h` / `.cpp` | Empty stub |
+| `src/core/Input.h` / `.cpp`              | Polling done, event system not yet |
 
 Other gaps:
 
 - `LabLayer` has a `TODO` for demo selection
 - `ShadowMapping::OnImGuiRender()` is empty
-- Asset paths are hardcoded relative strings
+- Event system designed (`docs/design-input-event-system.md`) but not implemented
+- `KeyCode` enum not yet created (archived version available in `archive/Illusion/KeyCode.h`)
 - No test coverage for `Material`, `SceneRenderer`, or individual passes
 
 ---
@@ -65,6 +69,10 @@ These were identified and fixed in the current sprint:
 - `RenderPass` now has unified `Execute(const RenderContext&)` pure virtual interface
 - Introduced `SceneView` / `FrameResources` / `RenderContext` three-layer frame state design
 - Extracted `SceneRendererSpecification` / `SceneRendererOutput` into `SceneRendererTypes.h`
+- `FileSystem` fully implemented with cross-platform path discovery and integrated into Application, SceneRenderer, and all render passes
+- `Input` polling system implemented (`IsKeyPressed`, `GetMousePosition`, `GetMouseDelta`)
+- Input/Event system architecture designed (10-layer spec in `docs/design-input-event-system.md`)
+- Archived old Illusion panels to `archive/Illusion/`
 
 ---
 
@@ -82,17 +90,18 @@ Exit criteria: tests green, docs accurate, camera contract decided.
 
 Recommended order:
 
-| Order | Item | Rationale |
-|-------|------|-----------|
-| 1 | Minimal `ImGuiLayer` | Highest dev-experience impact; all panels depend on it |
-| 2 | `DemoSelectorPanel` | Resolves the `LabLayer` TODO; makes multi-demo usable |
-| 3 | `DebugPanel` | Stats overlay + `SceneRendererSpecification` sliders |
-| 4 | `ShadowMapping::OnImGuiRender()` | Expose light direction, shadow tuning, output mode |
-| 5 | `FileSystem` | Centralize path resolution; remove hardcoded asset strings |
-| 6 | Route shader/asset loading through `FileSystem` | Prerequisite for SPIR-V pipeline later |
-| 7 | `KeyCode` enum | Thin wrapper over GLFW constants; stop using raw ints in demos |
+| Order | Item | Status | Rationale |
+|-------|------|--------|-----------|
+| 1 | Minimal `ImGuiLayer` | **TODO** | Highest dev-experience impact; all panels depend on it |
+| 2 | `DemoSelectorPanel` | **TODO** | Resolves the `LabLayer` TODO; makes multi-demo usable |
+| 3 | `DebugPanel` | **TODO** | Stats overlay + `SceneRendererSpecification` sliders |
+| 4 | `ShadowMapping::OnImGuiRender()` | **TODO** | Expose light direction, shadow tuning, output mode |
+| 5 | `FileSystem` | ✅ Done | Centralize path resolution; remove hardcoded asset strings |
+| 6 | Route shader/asset loading through `FileSystem` | ✅ Done | Prerequisite for SPIR-V pipeline later |
+| 7 | `KeyCode` enum | **TODO** | Thin wrapper over GLFW constants; stop using raw ints in demos |
+| 8 | Input/Event system (Layer 0-2) | **TODO** | KeyCode + InputAction + EventBus; design doc complete |
 
-Why ImGuiLayer before FileSystem: ImGui gives immediate ability to inspect and tune the renderer at runtime. FileSystem is important for cross-platform correctness but the current `POST_BUILD copy` workflow is sufficient for single-platform dev.
+Items 5-6 completed. Next priority is Item 1 (ImGuiLayer), which unblocks Items 2-4.
 
 ### Phase 2 — Expand the Current Demo & Add Features
 
@@ -220,16 +229,9 @@ class DemoSelectorPanel {
 };
 ```
 
-### FileSystem
+### FileSystem ✅ (Implemented)
 
-```cpp
-class FileSystem {
-    static std::string GetAssetPath(const std::string &relativePath);
-    static std::string GetRootPath();
-    static std::string ReadTextFile(const std::string &path);
-    static bool Exists(const std::string &path);
-};
-```
+Now in `src/core/FileSystem.h/.cpp`. Cross-platform path discovery with `Init()`, `GetRootPath()`, `GetAssetPath()`, `GetShaderPath()`, `ReadTextFile()`, `Exists()`.
 
 ### KeyCode (when needed)
 
@@ -250,6 +252,8 @@ struct KeyEvent : Event { Key Code; bool Repeat; };
 ```
 
 Decision: build `KeyCode.h` first (trivial), build `Event.h` only when `ImGuiLayer` requires input routing.
+
+Full Input/Event system architecture specified in `docs/design-input-event-system.md` (10-layer design). Archived `KeyCode.h` available in `archive/Illusion/` for reference.
 
 ---
 

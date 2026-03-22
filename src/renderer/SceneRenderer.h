@@ -27,6 +27,9 @@ public:
     void SetOutputMode(SceneRendererOutput mode) { m_OutputMode = mode; }
     SceneRendererOutput GetOutputMode() const { return m_OutputMode; }
 
+    SceneRendererSpecification &GetSpecification() { return m_Spec; }
+    const SceneRendererSpecification &GetSpecification() const { return m_Spec; }
+
     void Render(const SceneData &scene, const Camera &camera);
 
     Ref<ShadowPass> GetShadowPass() const { return m_ShadowPass; }
