@@ -1,5 +1,18 @@
 #pragma once
 
+/// @file DebugCameraController.h
+/// @brief First-person fly camera controller for debugging and exploration.
+///
+/// Translates WASD/QE key input into camera movement along the camera's basis
+/// vectors (Forward, Right) and world Y axis (Up/Down). Mouse deltas rotate
+/// yaw/pitch. Scroll wheel adjusts the vertical FOV.
+///
+/// The controller does NOT poll input itself — the demo calls the individual
+/// Move*/OnMouse* methods each frame after reading from the Input system.
+/// This keeps the controller independent of any specific input backend.
+///
+/// Non-owning: the controller holds a raw pointer to the Camera it drives.
+
 #include "scene/Camera.h"
 
 class DebugCameraController
