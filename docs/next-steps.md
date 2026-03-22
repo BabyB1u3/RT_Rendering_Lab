@@ -1,6 +1,6 @@
 # Next Steps — Project Status & Development Plan
 
-Updated 2026-03-14. Single source of truth for project state, priorities, and architecture direction.
+Updated 2026-03-22. Single source of truth for project state, priorities, and architecture direction.
 
 > **Architecture Goal**: Multi-backend support (OpenGL on Windows/Linux, Metal on macOS, Vulkan optional).
 > All priorities below reflect this direction, but immediate work focuses on completing the current
@@ -32,24 +32,20 @@ Updated 2026-03-14. Single source of truth for project state, priorities, and ar
 - Material: textures + typed float/int/vec3/vec4 properties with `UploadToShader()`
 - `RenderTarget`: backbuffer vs framebuffer wrapper, depth-only safe, integration-tested
 - `SceneRendererSpecification` / `SceneRendererOutput`: renderer tuning extracted into `SceneRendererTypes.h`
+- `FileSystem`: cross-platform path resolution, `GetAssetPath()`, `GetShaderPath()`, `ReadTextFile()`, integrated into Application and all render passes
+- `Input`: polling-based keyboard/mouse via GLFW (`IsKeyPressed()`, `GetMousePosition()`, `GetMouseDelta()`)
+- `ImGuiLayer`: GLFW+OpenGL3 backend, auto-created as overlay in `Application`, `Begin()`/`End()` wrapping all `OnImGuiRender()` calls
+- `DemoSelectorPanel`: selectable list from `DemoRegistry::GetNames()`, integrated into `LabLayer` with runtime demo switching
+- `DebugPanel`: FPS / frame time display, owned by `LabLayer` (global scope, not per-demo)
+- `ShadowMapping::OnImGuiRender()`: output mode toggle, light direction/color/intensity, light projection tuning via `SceneRendererSpecification`
 - Logger macros: null-safe before `Logger::Init()`
 - CMake source list: case-correct for `Framebuffer.*`
 
-### Still incomplete or empty
+### Remaining gaps
 
-| File                                     | Status     |
-|------------------------------------------|------------|
-| `src/core/FileSystem.h` / `.cpp`         | Empty stub |
-| `src/gui/ImGuiLayer.h` / `.cpp`          | Empty stub |
-| `src/gui/Panels/DebugPanel.h` / `.cpp`   | Empty stub |
-| `src/gui/Panels/DemoSelectorPanel.h` / `.cpp` | Empty stub |
-
-Other gaps:
-
-- `LabLayer` has a `TODO` for demo selection
-- `ShadowMapping::OnImGuiRender()` is empty
-- Asset paths are hardcoded relative strings
+- Input/Event system Layer 1-2 (double-buffered state, InputAction map) not yet implemented
 - No test coverage for `Material`, `SceneRenderer`, or individual passes
+- Only one demo registered; demo selector UI is ready for more
 
 ---
 
@@ -65,6 +61,17 @@ These were identified and fixed in the current sprint:
 - `RenderPass` now has unified `Execute(const RenderContext&)` pure virtual interface
 - Introduced `SceneView` / `FrameResources` / `RenderContext` three-layer frame state design
 - Extracted `SceneRendererSpecification` / `SceneRendererOutput` into `SceneRendererTypes.h`
+- `FileSystem` fully implemented with cross-platform path discovery and integrated into Application, SceneRenderer, and all render passes
+- `Input` polling system implemented (`IsKeyPressed`, `GetMousePosition`, `GetMouseDelta`)
+- Input/Event system architecture designed (10-layer spec in `docs/design-input-event-system.md`)
+- Archived old Illusion panels to `archive/Illusion/`
+- `ImGuiLayer` implemented (GLFW+OpenGL3 backend), auto-created as overlay in `Application`
+- `DemoSelectorPanel` implemented with runtime demo switching in `LabLayer`
+- `DebugPanel` implemented (FPS/frame time), owned by `LabLayer` as global panel
+- `ShadowMapping::OnImGuiRender()` implemented: output mode, light params, light projection tuning
+- `SceneRenderer::GetSpecification()` added for runtime spec access
+- `KeyCode.h` / `MouseCode.h` implemented per design doc Layer 0 (`Key::Code`, `Mouse::Code` typed enums)
+- `ShadowMapping` migrated from hardcoded `int` constants to `Key::` / `Mouse::` enums
 
 ---
 
@@ -82,22 +89,23 @@ Exit criteria: tests green, docs accurate, camera contract decided.
 
 Recommended order:
 
-| Order | Item | Rationale |
-|-------|------|-----------|
-| 1 | Minimal `ImGuiLayer` | Highest dev-experience impact; all panels depend on it |
-| 2 | `DemoSelectorPanel` | Resolves the `LabLayer` TODO; makes multi-demo usable |
-| 3 | `DebugPanel` | Stats overlay + `SceneRendererSpecification` sliders |
-| 4 | `ShadowMapping::OnImGuiRender()` | Expose light direction, shadow tuning, output mode |
-| 5 | `FileSystem` | Centralize path resolution; remove hardcoded asset strings |
-| 6 | Route shader/asset loading through `FileSystem` | Prerequisite for SPIR-V pipeline later |
-| 7 | `KeyCode` enum | Thin wrapper over GLFW constants; stop using raw ints in demos |
+| Order | Item | Status | Rationale |
+|-------|------|--------|-----------|
+| 1 | Minimal `ImGuiLayer` | ✅ Done | Highest dev-experience impact; all panels depend on it |
+| 2 | `DemoSelectorPanel` | ✅ Done | Resolves the `LabLayer` TODO; makes multi-demo usable |
+| 3 | `DebugPanel` | ✅ Done | FPS/frame time display (global, owned by LabLayer) |
+| 4 | `ShadowMapping::OnImGuiRender()` | ✅ Done | Output mode, light direction, light projection tuning |
+| 5 | `FileSystem` | ✅ Done | Centralize path resolution; remove hardcoded asset strings |
+| 6 | Route shader/asset loading through `FileSystem` | ✅ Done | Prerequisite for SPIR-V pipeline later |
+| 7 | `KeyCode` / `MouseCode` | ✅ Done | Typed enums matching design doc Layer 0; `ShadowMapping` migrated |
+| 8 | Input/Event system (Layer 1-2) | **TODO** | Double-buffered state + InputAction map; design doc complete |
 
-Why ImGuiLayer before FileSystem: ImGui gives immediate ability to inspect and tune the renderer at runtime. FileSystem is important for cross-platform correctness but the current `POST_BUILD copy` workflow is sufficient for single-platform dev.
+Items 1-7 completed. Phase 1 only remaining item is Layer 1-2 of Input/Event system. Next priority is Phase 2 (add a second demo).
 
 ### Phase 2 — Expand the Current Demo & Add Features
 
-1. Allow `SceneRendererSpecification` adjustment at runtime via UI
-2. Add a second demo once the selector UI exists
+1. ✅ Allow `SceneRendererSpecification` adjustment at runtime via UI (done in `ShadowMapping::OnImGuiRender()`)
+2. Add a second demo (selector UI is ready)
 
 Recommended second demo candidates (pick one):
 
@@ -201,55 +209,25 @@ Consumes SPIR-V directly. Primarily useful if OpenGL is to be phased out on Wind
 
 ## 4. Placeholder File Reference
 
-### ImGuiLayer
+### ImGuiLayer ✅ (Implemented)
 
-```cpp
-class ImGuiLayer : public Layer {
-    void OnAttach() override;  // ImGui::CreateContext(), style, backend init
-    void OnDetach() override;  // ImGui::DestroyContext()
-    void Begin();              // ImGui::NewFrame()
-    void End();                // ImGui::Render() + draw data submission
-};
-```
+Now in `src/gui/ImGuiLayer.h/.cpp`. GLFW+OpenGL3 backend, auto-created as overlay in `Application`. `Begin()`/`End()` wrap all `OnImGuiRender()` calls.
 
-### DemoSelectorPanel
+### DemoSelectorPanel ✅ (Implemented)
 
-```cpp
-class DemoSelectorPanel {
-    void OnImGuiRender(const std::vector<std::string> &demoNames, int &selectedIndex);
-};
-```
+Now in `src/gui/Panels/DemoSelectorPanel.h/.cpp`. Selectable list from `DemoRegistry::GetNames()`, integrated into `LabLayer` with runtime demo switching.
 
-### FileSystem
+### FileSystem ✅ (Implemented)
 
-```cpp
-class FileSystem {
-    static std::string GetAssetPath(const std::string &relativePath);
-    static std::string GetRootPath();
-    static std::string ReadTextFile(const std::string &path);
-    static bool Exists(const std::string &path);
-};
-```
+Now in `src/core/FileSystem.h/.cpp`. Cross-platform path discovery with `Init()`, `GetRootPath()`, `GetAssetPath()`, `GetShaderPath()`, `ReadTextFile()`, `Exists()`.
 
-### KeyCode (when needed)
+### KeyCode / MouseCode ✅ (Implemented)
 
-```cpp
-enum class Key : int {
-    W = GLFW_KEY_W, A = GLFW_KEY_A, S = GLFW_KEY_S, D = GLFW_KEY_D,
-    Escape = GLFW_KEY_ESCAPE, F1 = GLFW_KEY_F1,
-    // extend as demos require
-};
-```
+Now in `src/core/KeyCode.h` and `src/core/MouseCode.h`. Typed enums (`Key::Code`, `Mouse::Code`) matching GLFW values, per design doc Layer 0. No GLFW header dependency outside `Input.cpp` / `Window.cpp`.
 
-### Event System (when ImGuiLayer needs input routing)
+### Event System (when needed)
 
-```cpp
-enum class EventType { WindowResize, KeyPressed, KeyReleased, MouseMoved };
-struct Event { EventType Type; bool Handled = false; };
-struct KeyEvent : Event { Key Code; bool Repeat; };
-```
-
-Decision: build `KeyCode.h` first (trivial), build `Event.h` only when `ImGuiLayer` requires input routing.
+Full Input/Event system architecture specified in `docs/design-input-event-system.md` (10-layer design). Next implementation step is Layer 1 (double-buffered polling state) and Layer 2 (InputAction map).
 
 ---
 

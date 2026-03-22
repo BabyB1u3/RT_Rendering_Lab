@@ -7,27 +7,17 @@
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <imgui.h>
+
 #include "core/Input.h"
+#include "core/KeyCode.h"
 #include "core/Logger.h"
+#include "core/MouseCode.h"
 #include "graphics/Material.h"
 #include "graphics/MeshFactory.h"
 #include "graphics/Shader.h"
 #include "graphics/Texture.h"
 #include "renderer/RenderItem.h"
-
-namespace
-{
-    constexpr int KEY_W = 87;
-    constexpr int KEY_A = 65;
-    constexpr int KEY_S = 83;
-    constexpr int KEY_D = 68;
-    constexpr int KEY_Q = 81;
-    constexpr int KEY_E = 69;
-    constexpr int KEY_1 = 49;
-    constexpr int KEY_2 = 50;
-
-    constexpr int MOUSE_BUTTON_RIGHT = 1;
-}
 
 ShadowMapping::ShadowMapping(uint32_t width, uint32_t height)
     : m_ViewportWidth(width),
@@ -85,10 +75,10 @@ void ShadowMapping::OnUpdate(double dt)
 {
     HandleCameraInput(dt);
 
-    if (Input::IsKeyPressed(KEY_1))
+    if (Input::IsKeyPressed(Key::D1))
         m_OutputMode = SceneRendererOutput::FinalColor;
 
-    if (Input::IsKeyPressed(KEY_2))
+    if (Input::IsKeyPressed(Key::D2))
         m_OutputMode = SceneRendererOutput::ShadowMap;
 }
 
@@ -103,10 +93,41 @@ void ShadowMapping::OnRender()
 
 void ShadowMapping::OnImGuiRender()
 {
-    // - output mode toggle
-    // - light direction
-    // - camera values
-    // - shadow map preview switch
+    ImGui::Begin("Shadow Mapping");
+
+    // Output mode
+    int mode = static_cast<int>(m_OutputMode);
+    ImGui::Text("Output Mode");
+    ImGui::RadioButton("Final Color", &mode, 0);
+    ImGui::SameLine();
+    ImGui::RadioButton("Shadow Map", &mode, 1);
+    m_OutputMode = static_cast<SceneRendererOutput>(mode);
+
+    ImGui::Separator();
+
+    // Light direction
+    ImGui::Text("Directional Light");
+    ImGui::DragFloat3("Direction", &m_Scene.MainDirectionalLight.Direction.x, 0.01f, -1.0f, 1.0f);
+    m_Scene.MainDirectionalLight.Direction = glm::normalize(m_Scene.MainDirectionalLight.Direction);
+    ImGui::ColorEdit3("Light Color", &m_Scene.MainDirectionalLight.Color.x);
+    ImGui::DragFloat("Intensity", &m_Scene.MainDirectionalLight.Intensity, 0.01f, 0.0f, 5.0f);
+
+    ImGui::Separator();
+
+    // Light projection (renderer spec)
+    if (m_Renderer)
+    {
+        auto &spec = m_Renderer->GetSpecification();
+        if (ImGui::CollapsingHeader("Light Projection"))
+        {
+            ImGui::DragFloat("Distance", &spec.LightDistance, 0.1f, 1.0f, 50.0f);
+            ImGui::DragFloat("Ortho Size", &spec.LightOrthoSize, 0.1f, 1.0f, 50.0f);
+            ImGui::DragFloat("Near Plane", &spec.LightNearPlane, 0.01f, 0.01f, 10.0f);
+            ImGui::DragFloat("Far Plane", &spec.LightFarPlane, 0.1f, 1.0f, 100.0f);
+        }
+    }
+
+    ImGui::End();
 }
 
 void ShadowMapping::OnResize(uint32_t width, uint32_t height)
@@ -176,17 +197,17 @@ void ShadowMapping::BuildScene()
 
 void ShadowMapping::HandleCameraInput(double dt)
 {
-    if (Input::IsKeyPressed(KEY_W))
+    if (Input::IsKeyPressed(Key::W))
         m_CameraController.MoveForward(dt);
-    if (Input::IsKeyPressed(KEY_S))
+    if (Input::IsKeyPressed(Key::S))
         m_CameraController.MoveBackward(dt);
-    if (Input::IsKeyPressed(KEY_A))
+    if (Input::IsKeyPressed(Key::A))
         m_CameraController.MoveLeft(dt);
-    if (Input::IsKeyPressed(KEY_D))
+    if (Input::IsKeyPressed(Key::D))
         m_CameraController.MoveRight(dt);
-    if (Input::IsKeyPressed(KEY_Q))
+    if (Input::IsKeyPressed(Key::Q))
         m_CameraController.MoveDown(dt);
-    if (Input::IsKeyPressed(KEY_E))
+    if (Input::IsKeyPressed(Key::E))
         m_CameraController.MoveUp(dt);
 
     if (m_RightMouseLooking)
