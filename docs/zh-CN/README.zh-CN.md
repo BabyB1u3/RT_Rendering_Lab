@@ -16,7 +16,7 @@
 - **Blinn-Phong 光照** — 环境光 + 漫反射 + 镜面高光，方向光照明
 - **阴影贴图** — 方向光深度 Pass，正面剔除 + 斜率偏移 + 3x3 PCF 软阴影
 - **材质系统** — Shader + 类型安全 `enum class TextureSlot` 绑定，支持逐物体材质
-- **程序化网格** — 内置立方体、平面、全屏四边形生成器
+- **程序化网格** — 内置立方体、平面、全屏四边形、UV 球体生成器
 - **ImGui 集成** — 调试面板，显示帧率、内存信息及 Demo 选择器
 - **第一人称相机** — WASD + 鼠标控制视角，滚轮调节视场角
 - **帧缓冲抽象** — 离屏渲染，支持多颜色/深度附件及像素回读
@@ -29,8 +29,10 @@
 | Demo | 描述 |
 |------|------|
 | **[阴影贴图](./demos/shadow-mapping.zh-CN.md)** | Blinn-Phong 光照 + 方向光阴影贴图，3x3 PCF 软阴影、正面剔除及调试可视化 |
+| **[材质实验场](./demos/material-playground.zh-CN.md)** | 5 个 UV 球体，各具不同 Blinn-Phong 预设，可通过 ImGui 逐球编辑漫反射色 / 高光度 / 环境光强度 |
 
 ![阴影贴图](../screenshots/ShadowMapping.png)
+![材质实验场](../screenshots/MaterialPlayground.png)
 
 ---
 
@@ -43,7 +45,7 @@ RT_Rendering_Lab/
 │   ├── graphics/       # Shader、纹理、缓冲区、网格、材质、帧缓冲、渲染命令
 │   ├── renderer/       # 场景渲染器、ForwardPass、ShadowPass、TexturePreviewPass
 │   ├── scene/          # 相机、调试相机控制器、光源、变换、场景数据
-│   ├── demos/          # DemoBase、DemoRegistry、LabLayer、ShadowMapping/
+│   ├── demos/          # DemoBase、DemoRegistry、LabLayer、ShadowMapping/、MaterialPlayground/
 │   ├── gui/            # ImGui 层、调试面板、Demo 选择面板
 │   └── main.cpp
 ├── assets/
@@ -147,6 +149,7 @@ ctest --test-dir build/windows-vs-debug
 | [Glad](https://glad.dav1d.de/) | OpenGL 4.6 函数加载器 | `vendor/glad/` |
 | [STB Image](https://github.com/nothings/stb) | 图像文件加载 | `vendor/stb/` |
 | [Dear ImGui](https://github.com/ocornut/imgui) | 调试 GUI | `vendor/imgui/` |
+| [spdlog](https://github.com/gabime/spdlog) | 日志系统 | `vendor/spdlog/` |
 | [Google Test](https://github.com/google/googletest) | 测试框架 | CMake FetchContent |
 
 ---

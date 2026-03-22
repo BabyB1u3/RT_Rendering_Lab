@@ -52,7 +52,7 @@ Progress:
 - [x] Normal matrix precomputed on CPU
 - [x] `enum class TextureSlot` for type-safe texture slot binding
 - [ ] Multiple light sources (point lights, spot lights)
-- [ ] Material parameter UI (per-demo ImGui controls)
+- [x] Material parameter UI (per-demo ImGui controls)
 - [ ] Skybox / environment map rendering
 - [ ] Normal mapping
 - [ ] Model loading (OBJ / glTF)

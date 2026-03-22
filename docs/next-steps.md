@@ -1,6 +1,6 @@
 # Next Steps — Project Status & Development Plan
 
-Updated 2026-03-22. Single source of truth for project state, priorities, and architecture direction.
+Updated 2026-03-21. Single source of truth for project state, priorities, and architecture direction.
 
 > **Architecture Goal**: Multi-backend support (OpenGL on Windows/Linux, Metal on macOS, Vulkan optional).
 > All priorities below reflect this direction, but immediate work focuses on completing the current
@@ -16,7 +16,7 @@ Updated 2026-03-22. Single source of truth for project state, priorities, and ar
 | Phase 1 (Framework)  | Complete                                           |
 | Phase 2 (Basic RT)   | ~60% — lighting, shadows, Blinn-Phong done         |
 | Phase 3 (Pass Unify) | Complete                                           |
-| Active Demos         | 1 (Shadow Mapping)                                 |
+| Active Demos         | 2 (Shadow Mapping, Material Playground)            |
 | Shader Files         | 3 (ForwardLit, ShadowDepth, TexturePreview)        |
 | Test Suite           | 77 / 77 passing (unit + integration, Google Test)  |
 | Rendering Pipeline   | Forward: ShadowPass -> ForwardPass -> TexturePreview |
@@ -28,7 +28,7 @@ Updated 2026-03-22. Single source of truth for project state, priorities, and ar
 - OpenGL resources: buffers, vertex arrays, textures, shaders, framebuffers, meshes
 - Scene layer: `Camera`, `DebugCameraController`, `Transform`, `DirectionalLight`, `SceneData`
 - Renderer: `SceneRenderer`, `RenderContext` (SceneView + FrameResources), `ShadowPass`, `ForwardPass`, `TexturePreviewPass`
-- Demo system: `DemoBase`, `DemoRegistry`, `LabLayer`, `ShadowMapping`
+- Demo system: `DemoBase`, `DemoRegistry`, `LabLayer`, `ShadowMapping`, `MaterialPlayground`
 - Material: textures + typed float/int/vec3/vec4 properties with `UploadToShader()`
 - `RenderTarget`: backbuffer vs framebuffer wrapper, depth-only safe, integration-tested
 - `SceneRendererSpecification` / `SceneRendererOutput`: renderer tuning extracted into `SceneRendererTypes.h`
@@ -39,13 +39,14 @@ Updated 2026-03-22. Single source of truth for project state, priorities, and ar
 - `DebugPanel`: FPS / frame time display, owned by `LabLayer` (global scope, not per-demo)
 - `ShadowMapping::OnImGuiRender()`: output mode toggle, light direction/color/intensity, light projection tuning via `SceneRendererSpecification`
 - Logger macros: null-safe before `Logger::Init()`
+- `MeshFactory::CreateSphere()`: UV sphere primitive (16 stacks × 32 slices)
 - CMake source list: case-correct for `Framebuffer.*`
 
 ### Remaining gaps
 
 - Input/Event system Layer 1-2 (double-buffered state, InputAction map) not yet implemented
 - No test coverage for `Material`, `SceneRenderer`, or individual passes
-- Only one demo registered; demo selector UI is ready for more
+- NVIDIA GL performance warning (id=131218): shader recompilation on first draw — cosmetic, not functional
 
 ---
 
@@ -72,6 +73,9 @@ These were identified and fixed in the current sprint:
 - `SceneRenderer::GetSpecification()` added for runtime spec access
 - `KeyCode.h` / `MouseCode.h` implemented per design doc Layer 0 (`Key::Code`, `Mouse::Code` typed enums)
 - `ShadowMapping` migrated from hardcoded `int` constants to `Key::` / `Mouse::` enums
+- `MeshFactory::CreateSphere()` added — UV sphere with configurable stacks/slices
+- `MaterialPlayground` demo added: 5 spheres with distinct Blinn-Phong presets, ImGui per-sphere material editing
+- `SceneRenderer::GetSpecification()` mutable ref for runtime parameter tuning
 
 ---
 
@@ -105,15 +109,9 @@ Items 1-7 completed. Phase 1 only remaining item is Layer 1-2 of Input/Event sys
 ### Phase 2 — Expand the Current Demo & Add Features
 
 1. ✅ Allow `SceneRendererSpecification` adjustment at runtime via UI (done in `ShadowMapping::OnImGuiRender()`)
-2. Add a second demo (selector UI is ready)
+2. ✅ Add a second demo — Material Playground (5 spheres, per-sphere Blinn-Phong material editing via ImGui)
 
-Recommended second demo candidates (pick one):
-
-- Material Playground — exercise the property system
-- Normal Mapping — high visual impact, small shader change
-- Skybox / Environment Preview — simple, visually striking
-
-Then continue with:
+Continue with:
 
 3. Model loading (OBJ or glTF via Assimp/tinygltf)
 4. Normal mapping (TBN in vertex shader, modify `ForwardLit.glsl`)

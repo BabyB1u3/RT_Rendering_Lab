@@ -22,7 +22,7 @@ void FileSystem::Init()
 {
     s_RootPath = DiscoverRootPath();
     s_Initialized = true;
-    LOG_INFO("FileSystem initialized — root: {}", s_RootPath.string());
+    LOG_INFO("FileSystem initialized - root: {}", s_RootPath.string());
 }
 
 const std::filesystem::path &FileSystem::GetRootPath()
