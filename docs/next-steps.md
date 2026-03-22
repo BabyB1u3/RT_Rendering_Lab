@@ -1,10 +1,12 @@
 # Next Steps — Project Status & Development Plan
 
-Updated 2026-03-21. Single source of truth for project state, priorities, and architecture direction.
+Updated 2026-03-22. Single source of truth for project state, priorities, and architecture direction.
 
 > **Architecture Goal**: Multi-backend support (OpenGL on Windows/Linux, Metal on macOS, Vulkan optional).
-> All priorities below reflect this direction, but immediate work focuses on completing the current
-> OpenGL foundation before starting the backend refactor.
+> Phase 4 (Multi-Backend Refactor) — R1 (Abstract Interface Layer) and R2 (OpenGL Backend
+> Reorganization) are complete. Next up: R3 (SPIR-V Shader Pipeline).
+> Phase 1 (Input Layer 1-2) and Phase 2 (model loading, normal mapping, skybox) remain in progress
+> but are not blocking — they operate on the renderer/demo layer.
 
 ---
 
@@ -13,9 +15,10 @@ Updated 2026-03-21. Single source of truth for project state, priorities, and ar
 | Metric               | Status                                             |
 |----------------------|----------------------------------------------------|
 | Phase 0 (Base Green) | Complete                                           |
-| Phase 1 (Framework)  | Complete                                           |
+| Phase 1 (Framework)  | 7/8 done — Input Layer 1-2 deferred                |
 | Phase 2 (Basic RT)   | ~60% — lighting, shadows, Blinn-Phong done         |
 | Phase 3 (Pass Unify) | Complete                                           |
+| **Phase 4 (Refactor)** | **R1 ✅, R2 ✅ — R3 next**                       |
 | Active Demos         | 2 (Shadow Mapping, Material Playground)            |
 | Shader Files         | 3 (ForwardLit, ShadowDepth, TexturePreview)        |
 | Test Suite           | 77 / 77 passing (unit + integration, Google Test)  |
@@ -25,12 +28,12 @@ Updated 2026-03-21. Single source of truth for project state, priorities, and ar
 ### Working today
 
 - Core runtime: `Application`, `Window`, `Input`, `Layer`, `LayerStack`, `Time`, `Logger`
-- OpenGL resources: buffers, vertex arrays, textures, shaders, framebuffers, meshes
+- Graphics abstraction: pure virtual interfaces (`I*.h`) + OpenGL backend (`opengl/GL*.h`) + device factory (`GraphicsDevice`)
 - Scene layer: `Camera`, `DebugCameraController`, `Transform`, `DirectionalLight`, `SceneData`
 - Renderer: `SceneRenderer`, `RenderContext` (SceneView + FrameResources), `ShadowPass`, `ForwardPass`, `TexturePreviewPass`
 - Demo system: `DemoBase`, `DemoRegistry`, `LabLayer`, `ShadowMapping`, `MaterialPlayground`
 - Material: textures + typed float/int/vec3/vec4 properties with `UploadToShader()`
-- `RenderTarget`: backbuffer vs framebuffer wrapper, depth-only safe, integration-tested
+- `IRenderTarget`: backbuffer vs framebuffer wrapper, depth-only safe, integration-tested
 - `SceneRendererSpecification` / `SceneRendererOutput`: renderer tuning extracted into `SceneRendererTypes.h`
 - `FileSystem`: cross-platform path resolution, `GetAssetPath()`, `GetShaderPath()`, `ReadTextFile()`, integrated into Application and all render passes
 - `Input`: polling-based keyboard/mouse via GLFW (`IsKeyPressed()`, `GetMousePosition()`, `GetMouseDelta()`)
@@ -134,10 +137,10 @@ struct SceneView {
 // FrameResources: inter-pass shared outputs (typed fields, not string maps)
 struct FrameResources {
     glm::mat4 LightViewProjection{1.0f};
-    Ref<Texture2D> ShadowMap;
-    RenderTarget ShadowTarget;
-    Ref<Texture2D> SceneColor;
-    RenderTarget SceneTarget;
+    Ref<ITexture2D> ShadowMap;
+    Ref<IRenderTarget> ShadowTarget;
+    Ref<ITexture2D> SceneColor;
+    Ref<IRenderTarget> SceneTarget;
 };
 
 // RenderContext: unified parameter for Execute()
@@ -156,27 +159,123 @@ struct RenderContext {
 
 Why typed fields over string maps: compile-time safety, IDE support, no typo risk. Suitable for the current 3-pass pipeline; render graph with dynamic resource names is a Phase 5+ concern.
 
-### Phase 4 — Multi-Backend Refactor
+### Phase 4 — Multi-Backend Refactor (Active)
 
-Do not begin until Phases 0-3 are complete.
+Phases 0 and 3 are complete. Phase 1 (Layer 1-2) and Phase 2 (model loading, normal mapping, skybox)
+remain in progress but are not blocking — they operate on the renderer/demo layer while Phase 4
+operates on the graphics abstraction layer.
 
-#### R1: Abstract Interface Layer
+#### R1: Abstract Interface Layer ✅
 
-Define pure virtual interfaces in `src/graphics/interface/`:
+**Goal**: Define pure virtual interfaces so the renderer layer can be written against abstractions
+instead of concrete OpenGL types. R1 only *defines* the interfaces — it does not refactor existing
+classes to implement them (that is R2).
+
+**Directory structure** (see also `renderTarget_design.md` §13):
 
 ```
-IVertexBuffer, IIndexBuffer, IVertexArray, ITexture2D,
-IFramebuffer, IRenderTarget, IShader, IUniformBuffer,
-IRenderCommand, IGraphicsDevice (factory)
+src/graphics/
+  interface/           ← NEW: pure virtual headers only (no platform #include)
+    ITexture2D.h
+    IVertexBuffer.h
+    IIndexBuffer.h
+    IVertexArray.h
+    IShader.h
+    IFramebuffer.h
+    IRenderTarget.h
+    IRenderCommand.h
+    IGraphicsDevice.h
+    GraphicsInterfaces.h   ← convenience header, includes all above
+  opengl/              ← created in R2: GL implementations
+  [root]               ← backend-agnostic: enums, specs, layouts, Material, Mesh
 ```
 
-#### R2: OpenGL Backend Reorganization
+##### Step 0 — Spec cleanup (prerequisite)
 
-Move existing OpenGL code into `src/graphics/opengl/` implementing the R1 interfaces. Mostly mechanical file moves + adding virtual overrides.
+Shared headers currently leak OpenGL types. These must be replaced with backend-agnostic
+enums before the interfaces can be clean.
+
+| File | Issue | Fix |
+|------|-------|-----|
+| `Texture.h` | `#include <glad/glad.h>`; `GLenum WrapS/WrapT/MinFilter/MagFilter` in `TextureSpecification` | Add `TextureWrap` / `TextureFilter` enums; remove glad from header |
+| `Buffers.h` | `#include <glad/glad.h>`; inline `ToOpenGLBufferUsage()` | Move GL helper to `.cpp`; remove glad from header |
+
+##### Interfaces
+
+| Interface | Header | Key methods | Notes |
+|-----------|--------|-------------|-------|
+| `ITexture2D` | `ITexture2D.h` | `GetWidth`, `GetHeight`, `GetFormat`, `Bind(slot)`, `Unbind(slot)`, `SetData` | Leaf dependency — referenced by IFramebuffer, IRenderTarget |
+| `IVertexBuffer` | `IVertexBuffer.h` | `SetData`, `SetLayout`, `GetLayout` | References `BufferLayout` (backend-agnostic) |
+| `IIndexBuffer` | `IIndexBuffer.h` | `GetCount` | Minimal |
+| `IVertexArray` | `IVertexArray.h` | `Bind`, `Unbind`, `AddVertexBuffer`, `SetIndexBuffer`, `GetIndexBuffer` | Metal/Vulkan have no VAO — impl stores bindings and applies at draw time |
+| `IShader` | `IShader.h` | `Bind`, `Unbind`, `GetName`, `Set{Int,Float,Float2..4,Mat3,Mat4,Bool,IntArray}` | Full uniform setter surface — used by `Material::UploadToShader` and all passes |
+| `IFramebuffer` | `IFramebuffer.h` | `Bind`, `Unbind`, `Resize`, `GetSpecification`, `GetColor/DepthAttachment`, `ReadPixel`, `ClearAttachment` | `FramebufferSpecification` stays in graphics root |
+| `IRenderTarget` | `IRenderTarget.h` | `Bind`, `Unbind`, `Resize`, `GetWidth/Height`, `IsBackBuffer`, `GetColor/DepthAttachment` | Design from `renderTarget_design.md` §13.3 |
+| `IRenderCommand` | `IRenderCommand.h` | `Init`, `SetClearColor`, `Clear`, `SetViewport`, `Enable{DepthTest,Blend,CullFace}`, `DrawIndexed`, `DrawArrays` | Current static `RenderCommand` becomes a forwarding shim in R2 |
+| `IGraphicsDevice` | `IGraphicsDevice.h` | Factory: `CreateVertexBuffer`, `CreateIndexBuffer`, `CreateVertexArray`, `CreateTexture2D`, `CreateShader*`, `CreateFramebuffer`, `CreateRenderTarget*`, `GetRenderCommand` | Replaces all static `Create`/`CreateFromFile` methods. Global accessor `GetDevice()` set at Application init |
+
+##### What does NOT need an interface
+
+| Type | Reason |
+|------|--------|
+| `ShaderDataType`, `BufferElement`, `BufferLayout` | Pure CPU-side data description |
+| `BufferUsage`, `TextureFormat`, `TextureSlot` | Backend-agnostic enums |
+| `TextureWrap`, `TextureFilter` (new) | Backend-agnostic enums replacing `GLenum` |
+| `FramebufferSpecification` and related | Config structs, no GPU calls |
+| `Material` | Already backend-agnostic data container (Model B — see `material_system_design.md`). `UploadToShader(Ref<Shader>)` becomes `UploadToShader(Ref<IShader>)` in R2 |
+| `Mesh` / `MeshFactory` | Concrete, but member types change to `Ref<IVertexArray>` etc. in R2. No virtual interface needed |
+| `IUniformBuffer` | No UBO in codebase yet. Add interface when implementing multiple light sources (Phase 5) |
+
+##### Design decisions
+
+- **I-prefix**: consistent with `renderTarget_design.md` §13 and existing convention
+- **No `GetRendererID()`** on any interface: GL-specific. OpenGL implementations keep it as a non-virtual method
+- **`IGraphicsDevice` as factory hub**: single point of backend-specific object creation, set once at startup
+- **`IRenderCommand` is instanced**: replaces current static-only `RenderCommand`. Existing static class can forward to the active instance during R2 transition
+
+##### Implementation order
+
+| Order | Task | Dependencies |
+|-------|------|--------------|
+| 0 | Spec cleanup (remove `GLenum` from `TextureSpecification`, move `ToOpenGLBufferUsage`) | None |
+| 1 | `ITexture2D` | None (leaf) |
+| 2 | `IVertexBuffer`, `IIndexBuffer` | `BufferLayout` |
+| 3 | `IVertexArray` | `IVertexBuffer`, `IIndexBuffer` |
+| 4 | `IShader` | glm, std::string |
+| 5 | `IFramebuffer` | `ITexture2D`, `FramebufferSpecification` |
+| 6 | `IRenderTarget` | `ITexture2D` |
+| 7 | `IRenderCommand` | `IVertexArray` |
+| 8 | `IGraphicsDevice` | All above |
+| 9 | `GraphicsInterfaces.h` (convenience include) | All above |
+
+##### Exit criteria
+
+- All interface headers compile independently (no platform `#include`)
+- `Texture.h` and `Buffers.h` no longer `#include <glad/glad.h>`
+- `ctest` green (77/77)
+- `grep -r "glad/glad.h" src/graphics/interface/` returns 0 results
+
+#### R2: OpenGL Backend Reorganization ✅
+
+Moved all OpenGL code into `src/graphics/opengl/` implementing the R1 interfaces.
+
+**Completed:**
+- `GLTexture2D`, `GLVertexBuffer`, `GLIndexBuffer`, `GLVertexArray`, `GLShader`, `GLFramebuffer`, `GLRenderTarget`, `GLRenderCommand` — all implement their respective R1 interfaces
+- `GLGraphicsDevice : public IGraphicsDevice` — factory hub for all GL resource creation
+- `GLCast.h` — centralized `AsGL<T>()` downcast helper (debug `dynamic_cast` + release `static_cast`)
+- `GraphicsDevice.h/cpp` — global `SetDevice()` / `GetDevice()` accessor
+- `RenderCommand` converted to static forwarding shim (delegates to `GetDevice()->GetRenderCommand()`)
+- `Material` uses `Ref<IShader>` / `Ref<ITexture2D>`; `Mesh` uses `Ref<IVertexArray>` / `Ref<IVertexBuffer>` / `Ref<IIndexBuffer>`
+- All renderer passes, demos, and tests migrated to interface types + device factory
+- Old concrete classes removed from root headers (`Texture.h`, `Buffers.h`, `Framebuffer.h` retain only enums/specs)
+- Deleted: `Texture.cpp`, `Buffers.cpp`, `Framebuffer.cpp`, `VertexArray.h/cpp`, `Shader.h/cpp`, `RenderTarget.h/cpp`
+- No `glad/glad.h` in interface or root graphics headers
+- No concrete GL types outside `opengl/`, `Application.cpp`, and backend-specific integration tests
 
 #### R3: Shader Pipeline (SPIR-V)
 
-GLSL -> SPIR-V (via glslang/shaderc, offline CMake step) -> SPIRV-Cross for per-backend transpilation. Single shader source, multiple backends.
+GLSL → SPIR-V (via glslang/shaderc, offline CMake step) → SPIRV-Cross for per-backend
+transpilation. Single shader source, multiple backends.
 
 #### R4: Metal Backend
 
@@ -231,10 +330,9 @@ Full Input/Event system architecture specified in `docs/design-input-event-syste
 
 ## 5. Items NOT to Focus on Now
 
-- Metal / Vulkan backends
-- SPIR-V shader pipeline
-- Render graph
-- Full multi-backend abstraction sweep
-- Backend-aware resource cache
+- Metal / Vulkan backend implementations (R4/R5 — after R1-R3)
+- SPIR-V shader pipeline (R3 — after R2)
+- Render graph (Phase 5+)
+- Backend-aware resource cache (Phase 5+)
 
-These are valid long-term targets but the current OpenGL path still has missing framework pieces that deliver more immediate value.
+These are valid long-term targets. Current focus is R3 (SPIR-V shader pipeline) to enable multi-backend shader compilation.

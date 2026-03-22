@@ -2,6 +2,11 @@
 
 #include <cassert>
 
+#include "graphics/GraphicsDevice.h"
+#include "graphics/interface/IIndexBuffer.h"
+#include "graphics/interface/IVertexArray.h"
+#include "graphics/interface/IVertexBuffer.h"
+
 Mesh::Mesh(const void *vertexData,
            uint32_t vertexBufferSize,
            const BufferLayout &layout,
@@ -16,14 +21,16 @@ Mesh::Mesh(const void *vertexData,
     assert(indexCount > 0 && "Mesh index count must be > 0");
     assert(!layout.GetElements().empty() && "Mesh layout is empty");
 
-    m_VertexArray = CreateRef<VertexArray>();
+    auto device = GetDevice();
 
-    auto vertexBuffer = CreateRef<VertexBuffer>(vertexData, vertexBufferSize, vertexUsage);
+    m_VertexArray = device->CreateVertexArray();
+
+    auto vertexBuffer = device->CreateVertexBuffer(vertexData, vertexBufferSize, vertexUsage);
     vertexBuffer->SetLayout(layout);
 
     m_VertexArray->AddVertexBuffer(vertexBuffer);
 
-    m_IndexBuffer = CreateRef<IndexBuffer>(indices, indexCount);
+    m_IndexBuffer = device->CreateIndexBuffer(indices, indexCount);
     m_VertexArray->SetIndexBuffer(m_IndexBuffer);
 
     m_VertexBuffers.push_back(vertexBuffer);
@@ -31,10 +38,12 @@ Mesh::Mesh(const void *vertexData,
 
 void Mesh::Bind() const
 {
-    m_VertexArray->Bind();
+    if (m_VertexArray)
+        m_VertexArray->Bind();
 }
 
 void Mesh::Unbind() const
 {
-    m_VertexArray->Unbind();
+    if (m_VertexArray)
+        m_VertexArray->Unbind();
 }

@@ -3,7 +3,9 @@
 #include <array>
 
 #include "GlTestContext.h"
+#include "graphics/GraphicsDevice.h"
 #include "graphics/Texture.h"
+#include "graphics/interface/ITexture2D.h"
 
 class TextureIntegrationTests : public ::testing::Test
 {
@@ -28,13 +30,12 @@ TEST_F(TextureIntegrationTests, CreateTextureFromSpecification)
     spec.Height = 2;
     spec.Format = TextureFormat::RGBA8;
 
-    auto texture = Texture2D::Create(spec);
+    auto texture = GetDevice()->CreateTexture2D(spec);
 
     ASSERT_NE(texture, nullptr);
     EXPECT_EQ(texture->GetWidth(), 2u);
     EXPECT_EQ(texture->GetHeight(), 2u);
     EXPECT_EQ(texture->GetFormat(), TextureFormat::RGBA8);
-    EXPECT_NE(texture->GetRendererID(), 0u);
 }
 
 TEST_F(TextureIntegrationTests, SetDataDoesNotCrash)
@@ -44,7 +45,7 @@ TEST_F(TextureIntegrationTests, SetDataDoesNotCrash)
     spec.Height = 2;
     spec.Format = TextureFormat::RGBA8;
 
-    auto texture = Texture2D::Create(spec);
+    auto texture = GetDevice()->CreateTexture2D(spec);
     ASSERT_NE(texture, nullptr);
 
     std::array<unsigned char, 16> pixels = {
@@ -63,7 +64,7 @@ TEST_F(TextureIntegrationTests, BindAndUnbindDoNotCrash)
     spec.Height = 1;
     spec.Format = TextureFormat::RGBA8;
 
-    auto texture = Texture2D::Create(spec);
+    auto texture = GetDevice()->CreateTexture2D(spec);
     ASSERT_NE(texture, nullptr);
 
     EXPECT_NO_THROW(texture->Bind(0));

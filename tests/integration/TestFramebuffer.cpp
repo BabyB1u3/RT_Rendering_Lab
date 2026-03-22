@@ -3,6 +3,9 @@
 
 #include "GlTestContext.h"
 #include "graphics/Framebuffer.h"
+#include "graphics/GraphicsDevice.h"
+#include "graphics/interface/IFramebuffer.h"
+#include "graphics/interface/ITexture2D.h"
 
 class FramebufferIntegrationTests : public ::testing::Test
 {
@@ -29,13 +32,13 @@ TEST_F(FramebufferIntegrationTests, CreateFramebufferWithColorAttachments)
         TextureFormat::RGBA8
     };
 
-    Framebuffer framebuffer(spec);
+    auto framebuffer = GetDevice()->CreateFramebuffer(spec);
 
-    EXPECT_NE(framebuffer.GetRendererID(), 0u);
-    EXPECT_EQ(framebuffer.GetSpecification().Width, 128u);
-    EXPECT_EQ(framebuffer.GetSpecification().Height, 128u);
+    ASSERT_NE(framebuffer, nullptr);
+    EXPECT_EQ(framebuffer->GetSpecification().Width, 128u);
+    EXPECT_EQ(framebuffer->GetSpecification().Height, 128u);
 
-    EXPECT_NE(framebuffer.GetColorAttachment(), nullptr);
+    EXPECT_NE(framebuffer->GetColorAttachment(), nullptr);
 }
 
 TEST_F(FramebufferIntegrationTests, CreateFramebufferWithDepthAttachments)
@@ -47,13 +50,13 @@ TEST_F(FramebufferIntegrationTests, CreateFramebufferWithDepthAttachments)
         TextureFormat::Depth
     };
 
-    Framebuffer framebuffer(spec);
+    auto framebuffer = GetDevice()->CreateFramebuffer(spec);
 
-    EXPECT_NE(framebuffer.GetRendererID(), 0u);
-    EXPECT_EQ(framebuffer.GetSpecification().Width, 128u);
-    EXPECT_EQ(framebuffer.GetSpecification().Height, 128u);
+    ASSERT_NE(framebuffer, nullptr);
+    EXPECT_EQ(framebuffer->GetSpecification().Width, 128u);
+    EXPECT_EQ(framebuffer->GetSpecification().Height, 128u);
 
-    EXPECT_NE(framebuffer.GetDepthAttachment(), nullptr);
+    EXPECT_NE(framebuffer->GetDepthAttachment(), nullptr);
 }
 
 TEST_F(FramebufferIntegrationTests, CreateFramebufferWithColorAndDepthAttachments)
@@ -66,14 +69,14 @@ TEST_F(FramebufferIntegrationTests, CreateFramebufferWithColorAndDepthAttachment
         TextureFormat::Depth24Stencil8
     };
 
-    Framebuffer framebuffer(spec);
+    auto framebuffer = GetDevice()->CreateFramebuffer(spec);
 
-    EXPECT_NE(framebuffer.GetRendererID(), 0u);
-    EXPECT_EQ(framebuffer.GetSpecification().Width, 128u);
-    EXPECT_EQ(framebuffer.GetSpecification().Height, 128u);
+    ASSERT_NE(framebuffer, nullptr);
+    EXPECT_EQ(framebuffer->GetSpecification().Width, 128u);
+    EXPECT_EQ(framebuffer->GetSpecification().Height, 128u);
 
-    EXPECT_NE(framebuffer.GetColorAttachment(), nullptr);
-    EXPECT_NE(framebuffer.GetDepthAttachment(), nullptr);
+    EXPECT_NE(framebuffer->GetColorAttachment(), nullptr);
+    EXPECT_NE(framebuffer->GetDepthAttachment(), nullptr);
 }
 
 TEST_F(FramebufferIntegrationTests, ResizeUpdatesAttachmentSizes)
@@ -86,13 +89,13 @@ TEST_F(FramebufferIntegrationTests, ResizeUpdatesAttachmentSizes)
         TextureFormat::Depth24Stencil8
     };
 
-    Framebuffer framebuffer(spec);
-    framebuffer.Resize(256, 128);
+    auto framebuffer = GetDevice()->CreateFramebuffer(spec);
+    framebuffer->Resize(256, 128);
 
-    EXPECT_EQ(framebuffer.GetSpecification().Width, 256u);
-    EXPECT_EQ(framebuffer.GetSpecification().Height, 128u);
+    EXPECT_EQ(framebuffer->GetSpecification().Width, 256u);
+    EXPECT_EQ(framebuffer->GetSpecification().Height, 128u);
 
-    auto color = framebuffer.GetColorAttachment();
+    auto color = framebuffer->GetColorAttachment();
     ASSERT_NE(color, nullptr);
     EXPECT_EQ(color->GetWidth(), 256u);
     EXPECT_EQ(color->GetHeight(), 128u);
@@ -108,8 +111,8 @@ TEST_F(FramebufferIntegrationTests, BindAndUnbindDoNotCrash)
         TextureFormat::Depth24Stencil8
     };
 
-    Framebuffer framebuffer(spec);
+    auto framebuffer = GetDevice()->CreateFramebuffer(spec);
 
-    EXPECT_NO_THROW(framebuffer.Bind());
-    EXPECT_NO_THROW(framebuffer.Unbind());
+    EXPECT_NO_THROW(framebuffer->Bind());
+    EXPECT_NO_THROW(framebuffer->Unbind());
 }

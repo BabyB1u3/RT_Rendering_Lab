@@ -1,17 +1,16 @@
 #pragma once
 
 /// @file Buffers.h
-/// @brief GPU buffer abstractions: VertexBuffer, IndexBuffer, and BufferLayout.
+/// @brief Backend-agnostic buffer types: ShaderDataType, BufferElement, BufferLayout, BufferUsage.
 ///
-/// All buffers use OpenGL 4.5+ DSA (Direct State Access) — no bind-to-edit pattern.
-/// Created with glCreateBuffers / glNamedBufferData; never require glBindBuffer for
-/// data upload. Move-only semantics prevent accidental GPU resource duplication.
+/// Concrete buffer classes live in the backend subdirectory (e.g. opengl/GLVertexBuffer).
+/// Create buffers via GetDevice()->CreateVertexBuffer() / CreateIndexBuffer().
 ///
 /// Typical usage:
 ///   1. Create a BufferLayout describing the vertex attributes.
-///   2. Create a VertexBuffer (with or without initial data) and assign the layout.
-///   3. Create an IndexBuffer with the triangle index data.
-///   4. Feed both into a VertexArray via AddVertexBuffer / SetIndexBuffer.
+///   2. Create an IVertexBuffer via GetDevice() and assign the layout.
+///   3. Create an IIndexBuffer via GetDevice().
+///   4. Feed both into an IVertexArray via AddVertexBuffer / SetIndexBuffer.
 
 #include <cstdint>
 #include <cstddef>
@@ -19,8 +18,6 @@
 #include <vector>
 #include <initializer_list>
 #include <cassert>
-
-#include <glad/glad.h>
 
 /// Enumerates the data types that can appear in a vertex attribute.
 enum class ShaderDataType
@@ -173,70 +170,3 @@ enum class BufferUsage
     StreamDraw
 };
 
-inline GLenum ToOpenGLBufferUsage(BufferUsage usage)
-{
-    switch (usage)
-    {
-    case BufferUsage::StaticDraw:
-        return GL_STATIC_DRAW;
-    case BufferUsage::DynamicDraw:
-        return GL_DYNAMIC_DRAW;
-    case BufferUsage::StreamDraw:
-        return GL_STREAM_DRAW;
-    }
-
-    return GL_STATIC_DRAW;
-}
-
-/// GPU vertex buffer (DSA). Holds per-vertex attribute data.
-/// Two construction modes:
-///   - Size only (DynamicDraw): allocate uninitialized GPU memory, fill later via SetData().
-///   - Data + size (StaticDraw): upload initial data immediately.
-class VertexBuffer
-{
-public:
-    /// Allocate an empty buffer of the given byte size (for streaming / dynamic updates).
-    VertexBuffer(uint32_t size, BufferUsage usage = BufferUsage::DynamicDraw);
-    /// Allocate and upload initial data in one call.
-    VertexBuffer(const void *data, uint32_t size, BufferUsage usage = BufferUsage::StaticDraw);
-    ~VertexBuffer();
-
-    VertexBuffer(const VertexBuffer &) = delete;
-    VertexBuffer &operator=(const VertexBuffer &) = delete;
-
-    VertexBuffer(VertexBuffer &&other) noexcept;
-    VertexBuffer &operator=(VertexBuffer &&other) noexcept;
-
-    void SetData(const void *data, uint32_t size, uint32_t offset = 0);
-
-    void SetLayout(const BufferLayout &layout) { m_Layout = layout; }
-    const BufferLayout &GetLayout() const { return m_Layout; }
-
-    uint32_t GetRendererID() const { return m_RendererID; }
-
-private:
-    uint32_t m_RendererID = 0;
-    BufferLayout m_Layout;
-    BufferUsage m_Usage = BufferUsage::StaticDraw;
-};
-
-/// GPU index buffer (DSA). Stores uint32 triangle indices, always StaticDraw.
-class IndexBuffer
-{
-public:
-    IndexBuffer(const uint32_t *indices, uint32_t count);
-    ~IndexBuffer();
-
-    IndexBuffer(const IndexBuffer &) = delete;
-    IndexBuffer &operator=(const IndexBuffer &) = delete;
-
-    IndexBuffer(IndexBuffer &&other) noexcept;
-    IndexBuffer &operator=(IndexBuffer &&other) noexcept;
-
-    uint32_t GetCount() const { return m_Count; }
-    uint32_t GetRendererID() const { return m_RendererID; }
-
-private:
-    uint32_t m_RendererID = 0;
-    uint32_t m_Count = 0;
-};

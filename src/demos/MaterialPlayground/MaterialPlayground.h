@@ -23,7 +23,7 @@
 
 class Mesh;
 class Material;
-class Texture2D;
+class ITexture2D;
 
 class MaterialPlayground : public DemoBase
 {
@@ -55,7 +55,7 @@ private:
     Ref<Mesh> m_SphereMesh;
     Ref<Mesh> m_PlaneMesh;
 
-    Ref<Texture2D> m_WhiteTexture;
+    Ref<ITexture2D> m_WhiteTexture;
     Ref<Material> m_FloorMaterial;
 
     /// Per-sphere editable preset. Label is displayed in the ImGui header.

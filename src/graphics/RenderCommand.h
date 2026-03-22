@@ -1,16 +1,17 @@
 #pragma once
 
 /// @file RenderCommand.h
-/// @brief Stateless wrappers around common OpenGL state and draw commands.
+/// @brief Static forwarding shim that delegates to the active graphics device.
 ///
-/// All methods are static — RenderCommand has no state of its own.
-/// Init() sets sensible GL defaults (blend, depth test).
-/// Render passes call these instead of raw gl* functions for readability.
+/// All methods are static — RenderCommand forwards each call to
+/// GetDevice()->GetRenderCommand(). Render passes call these instead of
+/// interacting with the backend directly.
 
 #include <glm/glm.hpp>
 
 #include "core/Base.h"
-#include "VertexArray.h"
+
+class IVertexArray;
 
 class RenderCommand
 {
@@ -31,6 +32,6 @@ public:
     static void SetCullFace(bool front);
 
     /// Draw indexed triangles. If indexCount is 0, uses the full index buffer.
-    static void DrawIndexed(const Ref<VertexArray> &vao, uint32_t indexCount = 0);
+    static void DrawIndexed(const Ref<IVertexArray> &vao, uint32_t indexCount = 0);
     static void DrawArrays(uint32_t mode, uint32_t first, uint32_t count);
 };

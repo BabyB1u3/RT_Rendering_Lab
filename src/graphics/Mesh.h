@@ -1,11 +1,12 @@
 #pragma once
 
 /// @file Mesh.h
-/// @brief GPU-ready mesh: a VAO + vertex/index buffers, created from raw vertex data.
+/// @brief GPU-ready mesh: vertex array + vertex/index buffers, created from raw vertex data.
 ///
-/// A Mesh packages a VertexArray, one or more VertexBuffers, and an IndexBuffer
-/// into a single drawable unit. It does NOT include material or transform data —
-/// those are stored separately in RenderItem.
+/// A Mesh packages an IVertexArray, one or more IVertexBuffers, and an IIndexBuffer
+/// into a single drawable unit. GPU resources are created via GetDevice().
+/// It does NOT include material or transform data — those are stored separately
+/// in RenderItem.
 ///
 /// Meshes are typically created via MeshFactory (cube, plane, sphere, quad)
 /// rather than constructed directly.
@@ -16,7 +17,10 @@
 
 #include "core/Base.h"
 #include "Buffers.h"
-#include "VertexArray.h"
+
+class IVertexArray;
+class IVertexBuffer;
+class IIndexBuffer;
 
 class Mesh
 {
@@ -39,16 +43,16 @@ public:
     void Bind() const;
     void Unbind() const;
 
-    const Ref<VertexArray> &GetVertexArray() const { return m_VertexArray; }
-    const Ref<IndexBuffer> &GetIndexBuffer() const { return m_IndexBuffer; }
+    const Ref<IVertexArray> &GetVertexArray() const { return m_VertexArray; }
+    const Ref<IIndexBuffer> &GetIndexBuffer() const { return m_IndexBuffer; }
 
     uint32_t GetIndexCount() const { return m_IndexCount; }
 
 private:
-    Ref<VertexArray> m_VertexArray;
+    Ref<IVertexArray> m_VertexArray;
     // Could have multiple vertexbuffers in the future:
     // Main vertex buffer + intance buffer + secondary stream
-    std::vector<Ref<VertexBuffer>> m_VertexBuffers;
-    Ref<IndexBuffer> m_IndexBuffer;
+    std::vector<Ref<IVertexBuffer>> m_VertexBuffers;
+    Ref<IIndexBuffer> m_IndexBuffer;
     uint32_t m_IndexCount = 0;
 };

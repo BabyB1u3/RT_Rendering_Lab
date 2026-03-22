@@ -22,7 +22,8 @@
 #include "core/Base.h"
 #include "Texture.h"
 
-class Shader;
+class IShader;
+class ITexture2D;
 
 /// Type-safe texture unit binding slots. Values correspond to GL texture unit indices.
 enum class TextureSlot : uint32_t
@@ -45,8 +46,8 @@ public:
     Material &operator=(Material &&) noexcept = default;
 
     // Texture bindings
-    void SetTexture(TextureSlot slot, const Ref<Texture2D> &texture);
-    Ref<Texture2D> GetTexture(TextureSlot slot) const;
+    void SetTexture(TextureSlot slot, const Ref<ITexture2D> &texture);
+    Ref<ITexture2D> GetTexture(TextureSlot slot) const;
 
     // Property setters
     void SetFloat(const std::string &name, float value);
@@ -62,10 +63,10 @@ public:
 
     /// Upload all stored properties as uniforms and bind textures to the given shader.
     /// The shader must already be bound (or use DSA uniform calls internally).
-    void UploadToShader(const Ref<Shader> &shader) const;
+    void UploadToShader(const Ref<IShader> &shader) const;
 
 private:
-    std::unordered_map<uint32_t, Ref<Texture2D>> m_Textures;
+    std::unordered_map<uint32_t, Ref<ITexture2D>> m_Textures;
 
     std::unordered_map<std::string, float>     m_Floats;
     std::unordered_map<std::string, int>       m_Ints;

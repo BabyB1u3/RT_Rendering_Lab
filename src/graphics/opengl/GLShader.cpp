@@ -1,6 +1,7 @@
-#include "Shader.h"
+#include "GLShader.h"
 
 #include <array>
+#include <cstring>
 #include <stdexcept>
 #include <vector>
 
@@ -21,18 +22,18 @@ static GLenum ShaderTypeFromString(const std::string &type)
 	return 0;
 }
 
-Shader::Shader(uint32_t program, std::string name)
+GLShader::GLShader(uint32_t program, std::string name)
 	: m_RendererID(program), m_Name(std::move(name))
 {
 }
 
-Shader::~Shader()
+GLShader::~GLShader()
 {
 	if (m_RendererID != 0)
 		glDeleteProgram(m_RendererID);
 }
 
-Shader::Shader(Shader &&other) noexcept
+GLShader::GLShader(GLShader &&other) noexcept
 	: m_RendererID(other.m_RendererID),
 	  m_Name(std::move(other.m_Name)),
 	  m_UniformLocationCache(std::move(other.m_UniformLocationCache))
@@ -40,7 +41,7 @@ Shader::Shader(Shader &&other) noexcept
 	other.m_RendererID = 0;
 }
 
-Shader &Shader::operator=(Shader &&other) noexcept
+GLShader &GLShader::operator=(GLShader &&other) noexcept
 {
 	if (this == &other)
 		return *this;
@@ -56,7 +57,7 @@ Shader &Shader::operator=(Shader &&other) noexcept
 	return *this;
 }
 
-std::unordered_map<uint32_t, std::string> Shader::PreProcessSingleFile(const std::string &source)
+std::unordered_map<uint32_t, std::string> GLShader::PreProcessSingleFile(const std::string &source)
 {
 	std::unordered_map<uint32_t, std::string> shaderSources;
 
@@ -87,7 +88,7 @@ std::unordered_map<uint32_t, std::string> Shader::PreProcessSingleFile(const std
 	return shaderSources;
 }
 
-uint32_t Shader::CompileStage(uint32_t stage, const std::string &source, const std::string &debugName)
+uint32_t GLShader::CompileStage(uint32_t stage, const std::string &source, const std::string &debugName)
 {
 	GLuint shader = glCreateShader(stage);
 	const GLchar *src = source.c_str();
@@ -113,7 +114,7 @@ uint32_t Shader::CompileStage(uint32_t stage, const std::string &source, const s
 	return shader;
 }
 
-uint32_t Shader::LinkProgram(const std::string &name, const std::vector<uint32_t> &shaderIDs)
+uint32_t GLShader::LinkProgram(const std::string &name, const std::vector<uint32_t> &shaderIDs)
 {
 	GLuint program = glCreateProgram();
 
@@ -151,7 +152,7 @@ uint32_t Shader::LinkProgram(const std::string &name, const std::vector<uint32_t
 	return program;
 }
 
-Ref<Shader> Shader::CreateFromSource(
+Ref<GLShader> GLShader::CreateFromSource(
 	const std::string &name,
 	const std::string &vertexSource,
 	const std::string &fragmentSource,
@@ -165,10 +166,10 @@ Ref<Shader> Shader::CreateFromSource(
 		shaderIDs.push_back(CompileStage(GL_GEOMETRY_SHADER, geometrySource, name + " [geometry]"));
 
 	uint32_t program = LinkProgram(name, shaderIDs);
-	return Ref<Shader>(new Shader(program, name));
+	return Ref<GLShader>(new GLShader(program, name));
 }
 
-Ref<Shader> Shader::CreateFromFiles(
+Ref<GLShader> GLShader::CreateFromFiles(
 	const std::string &name,
 	const std::string &vertexPath,
 	const std::string &fragmentPath,
@@ -181,7 +182,7 @@ Ref<Shader> Shader::CreateFromFiles(
 	return CreateFromSource(name, vertexSource, fragmentSource, geometrySource);
 }
 
-Ref<Shader> Shader::CreateFromSingleFile(const std::string &filepath, const std::string &name)
+Ref<GLShader> GLShader::CreateFromSingleFile(const std::string &filepath, const std::string &name)
 {
 	std::string source = FileSystem::ReadTextFile(filepath);
 	auto sources = PreProcessSingleFile(source);
@@ -201,17 +202,17 @@ Ref<Shader> Shader::CreateFromSingleFile(const std::string &filepath, const std:
 		geometrySource);
 }
 
-void Shader::Bind() const
+void GLShader::Bind() const
 {
 	glUseProgram(m_RendererID);
 }
 
-void Shader::Unbind() const
+void GLShader::Unbind() const
 {
 	glUseProgram(0);
 }
 
-int Shader::GetUniformLocation(const std::string &name)
+int GLShader::GetUniformLocation(const std::string &name)
 {
 	auto it = m_UniformLocationCache.find(name);
 	if (it != m_UniformLocationCache.end())
@@ -222,47 +223,47 @@ int Shader::GetUniformLocation(const std::string &name)
 	return location;
 }
 
-void Shader::SetInt(const std::string &name, int value)
+void GLShader::SetInt(const std::string &name, int value)
 {
 	glProgramUniform1i(m_RendererID, GetUniformLocation(name), value);
 }
 
-void Shader::SetIntArray(const std::string &name, const int *values, uint32_t count)
+void GLShader::SetIntArray(const std::string &name, const int *values, uint32_t count)
 {
 	glProgramUniform1iv(m_RendererID, GetUniformLocation(name), static_cast<GLsizei>(count), values);
 }
 
-void Shader::SetBool(const std::string &name, bool value)
+void GLShader::SetBool(const std::string &name, bool value)
 {
 	glProgramUniform1i(m_RendererID, GetUniformLocation(name), value ? 1 : 0);
 }
 
-void Shader::SetFloat(const std::string &name, float value)
+void GLShader::SetFloat(const std::string &name, float value)
 {
 	glProgramUniform1f(m_RendererID, GetUniformLocation(name), value);
 }
 
-void Shader::SetFloat2(const std::string &name, const glm::vec2 &value)
+void GLShader::SetFloat2(const std::string &name, const glm::vec2 &value)
 {
 	glProgramUniform2f(m_RendererID, GetUniformLocation(name), value.x, value.y);
 }
 
-void Shader::SetFloat3(const std::string &name, const glm::vec3 &value)
+void GLShader::SetFloat3(const std::string &name, const glm::vec3 &value)
 {
 	glProgramUniform3f(m_RendererID, GetUniformLocation(name), value.x, value.y, value.z);
 }
 
-void Shader::SetFloat4(const std::string &name, const glm::vec4 &value)
+void GLShader::SetFloat4(const std::string &name, const glm::vec4 &value)
 {
 	glProgramUniform4f(m_RendererID, GetUniformLocation(name), value.x, value.y, value.z, value.w);
 }
 
-void Shader::SetMat3(const std::string &name, const glm::mat3 &value)
+void GLShader::SetMat3(const std::string &name, const glm::mat3 &value)
 {
 	glProgramUniformMatrix3fv(m_RendererID, GetUniformLocation(name), 1, GL_FALSE, glm::value_ptr(value));
 }
 
-void Shader::SetMat4(const std::string &name, const glm::mat4 &value)
+void GLShader::SetMat4(const std::string &name, const glm::mat4 &value)
 {
 	glProgramUniformMatrix4fv(m_RendererID, GetUniformLocation(name), 1, GL_FALSE, glm::value_ptr(value));
 }

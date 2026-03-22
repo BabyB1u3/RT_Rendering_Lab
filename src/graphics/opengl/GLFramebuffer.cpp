@@ -1,9 +1,14 @@
-#include "Framebuffer.h"
+#include "GLFramebuffer.h"
 
 #include <cassert>
+#include <stdexcept>
 #include <utility>
 
+#include <glad/glad.h>
+
 #include "core/Logger.h"
+#include "GLCast.h"
+#include "GLTexture2D.h"
 
 namespace
 {
@@ -21,7 +26,7 @@ namespace
 	}
 }
 
-Framebuffer::Framebuffer(const FramebufferSpecification &spec)
+GLFramebuffer::GLFramebuffer(const FramebufferSpecification &spec)
 	: m_Specification(spec)
 {
 	for (const auto &attachment : m_Specification.Attachments.Attachments)
@@ -35,13 +40,13 @@ Framebuffer::Framebuffer(const FramebufferSpecification &spec)
 	Invalidate();
 }
 
-Framebuffer::~Framebuffer()
+GLFramebuffer::~GLFramebuffer()
 {
 	if (m_RendererID != 0)
 		glDeleteFramebuffers(1, &m_RendererID);
 }
 
-Framebuffer::Framebuffer(Framebuffer &&other) noexcept
+GLFramebuffer::GLFramebuffer(GLFramebuffer &&other) noexcept
 	: m_RendererID(other.m_RendererID),
 	  m_Specification(other.m_Specification),
 	  m_ColorAttachmentSpecifications(std::move(other.m_ColorAttachmentSpecifications)),
@@ -52,7 +57,7 @@ Framebuffer::Framebuffer(Framebuffer &&other) noexcept
 	other.m_RendererID = 0;
 }
 
-Framebuffer &Framebuffer::operator=(Framebuffer &&other) noexcept
+GLFramebuffer &GLFramebuffer::operator=(GLFramebuffer &&other) noexcept
 {
 	if (this == &other)
 		return *this;
@@ -71,17 +76,17 @@ Framebuffer &Framebuffer::operator=(Framebuffer &&other) noexcept
 	return *this;
 }
 
-void Framebuffer::Bind() const
+void GLFramebuffer::Bind() const
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, m_RendererID);
 }
 
-void Framebuffer::Unbind() const
+void GLFramebuffer::Unbind() const
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void Framebuffer::Resize(uint32_t width, uint32_t height)
+void GLFramebuffer::Resize(uint32_t width, uint32_t height)
 {
 	if (width == 0 || height == 0 || width > s_MaxFramebufferSize || height > s_MaxFramebufferSize)
 		return;
@@ -91,18 +96,19 @@ void Framebuffer::Resize(uint32_t width, uint32_t height)
 	Invalidate();
 }
 
-Ref<Texture2D> Framebuffer::GetColorAttachment(uint32_t index) const
+Ref<ITexture2D> GLFramebuffer::GetColorAttachment(uint32_t index) const
 {
-	assert(index < m_ColorAttachments.size() && "Color attachment index out of range");
+	if (index >= m_ColorAttachments.size())
+		return nullptr;
 	return m_ColorAttachments[index];
 }
 
-Ref<Texture2D> Framebuffer::GetDepthAttachment() const
+Ref<ITexture2D> GLFramebuffer::GetDepthAttachment() const
 {
 	return m_DepthAttachment;
 }
 
-int Framebuffer::ReadPixel(uint32_t attachmentIndex, int x, int y) const
+int GLFramebuffer::ReadPixel(uint32_t attachmentIndex, int x, int y) const
 {
 	assert(attachmentIndex < m_ColorAttachments.size() && "Attachment index out of range");
 	assert(IsIntegerFormat(m_ColorAttachmentSpecifications[attachmentIndex].Format) &&
@@ -116,21 +122,17 @@ int Framebuffer::ReadPixel(uint32_t attachmentIndex, int x, int y) const
 	return pixelData;
 }
 
-void Framebuffer::ClearAttachment(uint32_t attachmentIndex, int value)
+void GLFramebuffer::ClearAttachment(uint32_t attachmentIndex, int value)
 {
 	assert(attachmentIndex < m_ColorAttachments.size() && "Attachment index out of range");
 	assert(IsIntegerFormat(m_ColorAttachmentSpecifications[attachmentIndex].Format) &&
 		   "ClearAttachment requires an integer-format attachment");
 
-	glClearTexImage(
-		m_ColorAttachments[attachmentIndex]->GetRendererID(),
-		0,
-		GL_RED_INTEGER,
-		GL_INT,
-		&value);
+	auto *glTex = AsGL<GLTexture2D>(m_ColorAttachments[attachmentIndex]);
+	glClearTexImage(glTex->GetRendererID(), 0, GL_RED_INTEGER, GL_INT, &value);
 }
 
-void Framebuffer::Invalidate()
+void GLFramebuffer::Invalidate()
 {
 	if (m_RendererID != 0)
 	{
@@ -150,12 +152,12 @@ void Framebuffer::Invalidate()
 		spec.Width = m_Specification.Width;
 		spec.Height = m_Specification.Height;
 		spec.Format = m_ColorAttachmentSpecifications[i].Format;
-		spec.WrapS = GL_CLAMP_TO_EDGE;
-		spec.WrapT = GL_CLAMP_TO_EDGE;
-		spec.MinFilter = GL_LINEAR;
-		spec.MagFilter = GL_LINEAR;
+		spec.WrapS = TextureWrap::ClampToEdge;
+		spec.WrapT = TextureWrap::ClampToEdge;
+		spec.MinFilter = TextureFilter::Linear;
+		spec.MagFilter = TextureFilter::Linear;
 
-		auto texture = Texture2D::Create(spec);
+		auto texture = GLTexture2D::Create(spec);
 		m_ColorAttachments.push_back(texture);
 
 		glNamedFramebufferTexture(
@@ -172,12 +174,13 @@ void Framebuffer::Invalidate()
 		spec.Width = m_Specification.Width;
 		spec.Height = m_Specification.Height;
 		spec.Format = m_DepthAttachmentSpecification.Format;
-		spec.WrapS = GL_CLAMP_TO_EDGE;
-		spec.WrapT = GL_CLAMP_TO_EDGE;
-		spec.MinFilter = GL_NEAREST;
-		spec.MagFilter = GL_NEAREST;
+		spec.WrapS = TextureWrap::ClampToEdge;
+		spec.WrapT = TextureWrap::ClampToEdge;
+		spec.MinFilter = TextureFilter::Nearest;
+		spec.MagFilter = TextureFilter::Nearest;
 
-		m_DepthAttachment = Texture2D::Create(spec);
+		auto depthTex = GLTexture2D::Create(spec);
+		m_DepthAttachment = depthTex;
 
 		GLenum attachmentType =
 			(m_DepthAttachmentSpecification.Format == TextureFormat::Depth24Stencil8)
@@ -187,13 +190,10 @@ void Framebuffer::Invalidate()
 		glNamedFramebufferTexture(
 			m_RendererID,
 			attachmentType,
-			m_DepthAttachment->GetRendererID(),
+			depthTex->GetRendererID(),
 			0);
 	}
 
-	// Configure draw buffers: map each color attachment to its GL_COLOR_ATTACHMENTi.
-	// For depth-only FBOs (e.g., shadow maps), set draw/read to GL_NONE to avoid
-	// incomplete-framebuffer errors when no color attachment exists.
 	if (!m_ColorAttachments.empty())
 	{
 		assert(m_ColorAttachments.size() <= 4 && "Too many color attachments");
@@ -214,7 +214,7 @@ void Framebuffer::Invalidate()
 	GLenum fbStatus = glCheckNamedFramebufferStatus(m_RendererID, GL_FRAMEBUFFER);
 	if (fbStatus != GL_FRAMEBUFFER_COMPLETE)
 	{
-		LOG_ERROR("Framebuffer incomplete: status = 0x{:X}", fbStatus);
-		throw std::runtime_error("Framebuffer incomplete: status = " + std::to_string(fbStatus));
+		LOG_ERROR("GLFramebuffer incomplete: status = 0x{:X}", fbStatus);
+		throw std::runtime_error("GLFramebuffer incomplete: status = " + std::to_string(fbStatus));
 	}
 }

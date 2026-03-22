@@ -24,8 +24,8 @@
 #include "renderer/SceneRendererTypes.h"
 
 class Camera;
-class Framebuffer;
-class Texture2D;
+class IFramebuffer;
+class ITexture2D;
 class ShadowPass;
 class ForwardPass;
 class TexturePreviewPass;

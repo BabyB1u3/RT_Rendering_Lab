@@ -2,17 +2,19 @@
 
 #include <cassert>
 
+#include "graphics/GraphicsDevice.h"
 #include "graphics/Mesh.h"
 #include "graphics/MeshFactory.h"
 #include "graphics/RenderCommand.h"
-#include "graphics/Shader.h"
-#include "graphics/Texture.h"
+#include "graphics/interface/IRenderTarget.h"
+#include "graphics/interface/IShader.h"
+#include "graphics/interface/ITexture2D.h"
 #include "renderer/RenderContext.h"
 
 TexturePreviewPass::TexturePreviewPass(const std::string& shaderPath)
 {
     m_FullscreenQuad = MeshFactory::CreateFullscreenQuad();
-    m_Shader = Shader::CreateFromSingleFile(shaderPath, "TexturePreview");
+    m_Shader = GetDevice()->CreateShaderFromSingleFile(shaderPath, "TexturePreview");
 }
 
 void TexturePreviewPass::Resize(unsigned int width, unsigned int height)
@@ -28,18 +30,18 @@ void TexturePreviewPass::Execute(const RenderContext& ctx)
     assert(m_Shader && "TexturePreviewPass shader is null");
     assert(m_FullscreenQuad && "TexturePreviewPass fullscreen quad is null");
 
-    Ref<Texture2D> texture;
+    Ref<ITexture2D> texture;
     bool isDepth = false;
 
     switch (ctx.OutputMode)
     {
     case SceneRendererOutput::FinalColor:
-        texture = ctx.Resources.SceneTarget.GetColorAttachment();
+        texture = ctx.Resources.SceneTarget->GetColorAttachment();
         isDepth = false;
         break;
 
     case SceneRendererOutput::ShadowMap:
-        texture = ctx.Resources.ShadowTarget.GetDepthAttachment();
+        texture = ctx.Resources.ShadowTarget->GetDepthAttachment();
         isDepth = true;
         break;
     }

@@ -1,5 +1,4 @@
 #include <gtest/gtest.h>
-#include <glad/glad.h>
 
 #include "core/Application.h"
 #include "core/Window.h"
@@ -63,10 +62,10 @@ TEST(SpecificationTests, TextureSpecificationHasExpectedDefaults)
     EXPECT_EQ(spec.Format, TextureFormat::RGBA8);
     EXPECT_FALSE(spec.GenerateMips);
 
-    EXPECT_EQ(spec.WrapS, static_cast<GLenum>(GL_REPEAT));
-    EXPECT_EQ(spec.WrapT, static_cast<GLenum>(GL_REPEAT));
-    EXPECT_EQ(spec.MinFilter, static_cast<GLenum>(GL_LINEAR));
-    EXPECT_EQ(spec.MagFilter, static_cast<GLenum>(GL_LINEAR));
+    EXPECT_EQ(spec.WrapS, TextureWrap::Repeat);
+    EXPECT_EQ(spec.WrapT, TextureWrap::Repeat);
+    EXPECT_EQ(spec.MinFilter, TextureFilter::Linear);
+    EXPECT_EQ(spec.MagFilter, TextureFilter::Linear);
 }
 
 TEST(SpecificationTests, TextureSpecificationCanBeCustomized)
@@ -76,19 +75,19 @@ TEST(SpecificationTests, TextureSpecificationCanBeCustomized)
     spec.Height = 256;
     spec.Format = TextureFormat::Depth;
     spec.GenerateMips = true;
-    spec.WrapS = GL_CLAMP_TO_EDGE;
-    spec.WrapT = GL_CLAMP_TO_EDGE;
-    spec.MinFilter = GL_NEAREST;
-    spec.MagFilter = GL_NEAREST;
+    spec.WrapS = TextureWrap::ClampToEdge;
+    spec.WrapT = TextureWrap::ClampToEdge;
+    spec.MinFilter = TextureFilter::Nearest;
+    spec.MagFilter = TextureFilter::Nearest;
 
     EXPECT_EQ(spec.Width, 512u);
     EXPECT_EQ(spec.Height, 256u);
     EXPECT_EQ(spec.Format, TextureFormat::Depth);
     EXPECT_TRUE(spec.GenerateMips);
-    EXPECT_EQ(spec.WrapS, static_cast<GLenum>(GL_CLAMP_TO_EDGE));
-    EXPECT_EQ(spec.WrapT, static_cast<GLenum>(GL_CLAMP_TO_EDGE));
-    EXPECT_EQ(spec.MinFilter, static_cast<GLenum>(GL_NEAREST));
-    EXPECT_EQ(spec.MagFilter, static_cast<GLenum>(GL_NEAREST));
+    EXPECT_EQ(spec.WrapS, TextureWrap::ClampToEdge);
+    EXPECT_EQ(spec.WrapT, TextureWrap::ClampToEdge);
+    EXPECT_EQ(spec.MinFilter, TextureFilter::Nearest);
+    EXPECT_EQ(spec.MagFilter, TextureFilter::Nearest);
 }
 
 TEST(SpecificationTests, FramebufferTextureSpecificationDefaultsToNoneFormat)

@@ -1,12 +1,41 @@
-#include "Texture.h"
+#include "GLTexture2D.h"
 
 #include <cassert>
 #include <stdexcept>
 #include <utility>
 
+#include <glad/glad.h>
 #include <stb_image.h>
 
 #include "core/Logger.h"
+
+static GLenum TextureWrapToGL(TextureWrap wrap)
+{
+	switch (wrap)
+	{
+	case TextureWrap::Repeat:
+		return GL_REPEAT;
+	case TextureWrap::ClampToEdge:
+		return GL_CLAMP_TO_EDGE;
+	case TextureWrap::MirroredRepeat:
+		return GL_MIRRORED_REPEAT;
+	}
+	return GL_REPEAT;
+}
+
+static GLenum TextureFilterToGL(TextureFilter filter)
+{
+	switch (filter)
+	{
+	case TextureFilter::Nearest:
+		return GL_NEAREST;
+	case TextureFilter::Linear:
+		return GL_LINEAR;
+	case TextureFilter::LinearMipmapLinear:
+		return GL_LINEAR_MIPMAP_LINEAR;
+	}
+	return GL_LINEAR;
+}
 
 static GLenum TextureFormatToGLInternalFormat(TextureFormat format)
 {
@@ -72,18 +101,18 @@ static GLenum TextureFormatToGLDataType(TextureFormat format)
 	return 0;
 }
 
-Texture2D::Texture2D(uint32_t rendererID, const TextureSpecification &spec, std::string path)
+GLTexture2D::GLTexture2D(uint32_t rendererID, const TextureSpecification &spec, std::string path)
 	: m_RendererID(rendererID), m_Spec(spec), m_Path(std::move(path))
 {
 }
 
-Texture2D::~Texture2D()
+GLTexture2D::~GLTexture2D()
 {
 	if (m_RendererID != 0)
 		glDeleteTextures(1, &m_RendererID);
 }
 
-Texture2D::Texture2D(Texture2D &&other) noexcept
+GLTexture2D::GLTexture2D(GLTexture2D &&other) noexcept
 	: m_RendererID(other.m_RendererID),
 	  m_Spec(other.m_Spec),
 	  m_Path(std::move(other.m_Path))
@@ -91,7 +120,7 @@ Texture2D::Texture2D(Texture2D &&other) noexcept
 	other.m_RendererID = 0;
 }
 
-Texture2D &Texture2D::operator=(Texture2D &&other) noexcept
+GLTexture2D &GLTexture2D::operator=(GLTexture2D &&other) noexcept
 {
 	if (this == &other)
 		return *this;
@@ -107,13 +136,12 @@ Texture2D &Texture2D::operator=(Texture2D &&other) noexcept
 	return *this;
 }
 
-Ref<Texture2D> Texture2D::Create(const TextureSpecification &spec)
+Ref<GLTexture2D> GLTexture2D::Create(const TextureSpecification &spec)
 {
 	uint32_t rendererID = 0;
 	glCreateTextures(GL_TEXTURE_2D, 1, &rendererID);
 
 	GLenum internalFormat = TextureFormatToGLInternalFormat(spec.Format);
-
 	assert(internalFormat != 0 && "Unsupported texture format");
 
 	uint32_t mipLevels = 1;
@@ -129,15 +157,15 @@ Ref<Texture2D> Texture2D::Create(const TextureSpecification &spec)
 
 	glTextureStorage2D(rendererID, mipLevels, internalFormat, spec.Width, spec.Height);
 
-	glTextureParameteri(rendererID, GL_TEXTURE_WRAP_S, spec.WrapS);
-	glTextureParameteri(rendererID, GL_TEXTURE_WRAP_T, spec.WrapT);
-	glTextureParameteri(rendererID, GL_TEXTURE_MIN_FILTER, spec.MinFilter);
-	glTextureParameteri(rendererID, GL_TEXTURE_MAG_FILTER, spec.MagFilter);
+	glTextureParameteri(rendererID, GL_TEXTURE_WRAP_S, TextureWrapToGL(spec.WrapS));
+	glTextureParameteri(rendererID, GL_TEXTURE_WRAP_T, TextureWrapToGL(spec.WrapT));
+	glTextureParameteri(rendererID, GL_TEXTURE_MIN_FILTER, TextureFilterToGL(spec.MinFilter));
+	glTextureParameteri(rendererID, GL_TEXTURE_MAG_FILTER, TextureFilterToGL(spec.MagFilter));
 
-	return Ref<Texture2D>(new Texture2D(rendererID, spec));
+	return Ref<GLTexture2D>(new GLTexture2D(rendererID, spec));
 }
 
-Ref<Texture2D> Texture2D::CreateFromFile(const std::string &path, bool flipVertically)
+Ref<GLTexture2D> GLTexture2D::CreateFromFile(const std::string &path, bool flipVertically)
 {
 	stbi_set_flip_vertically_on_load(flipVertically ? 1 : 0);
 
@@ -153,10 +181,10 @@ Ref<Texture2D> Texture2D::CreateFromFile(const std::string &path, bool flipVerti
 	spec.Width = static_cast<uint32_t>(width);
 	spec.Height = static_cast<uint32_t>(height);
 	spec.GenerateMips = false;
-	spec.WrapS = GL_REPEAT;
-	spec.WrapT = GL_REPEAT;
-	spec.MinFilter = GL_LINEAR;
-	spec.MagFilter = GL_LINEAR;
+	spec.WrapS = TextureWrap::Repeat;
+	spec.WrapT = TextureWrap::Repeat;
+	spec.MinFilter = TextureFilter::Linear;
+	spec.MagFilter = TextureFilter::Linear;
 
 	if (channels == 1)
 		spec.Format = TextureFormat::R8;
@@ -179,10 +207,10 @@ Ref<Texture2D> Texture2D::CreateFromFile(const std::string &path, bool flipVerti
 	GLenum dataType = TextureFormatToGLDataType(spec.Format);
 
 	glTextureStorage2D(rendererID, 1, internalFormat, spec.Width, spec.Height);
-	glTextureParameteri(rendererID, GL_TEXTURE_WRAP_S, spec.WrapS);
-	glTextureParameteri(rendererID, GL_TEXTURE_WRAP_T, spec.WrapT);
-	glTextureParameteri(rendererID, GL_TEXTURE_MIN_FILTER, spec.MinFilter);
-	glTextureParameteri(rendererID, GL_TEXTURE_MAG_FILTER, spec.MagFilter);
+	glTextureParameteri(rendererID, GL_TEXTURE_WRAP_S, TextureWrapToGL(spec.WrapS));
+	glTextureParameteri(rendererID, GL_TEXTURE_WRAP_T, TextureWrapToGL(spec.WrapT));
+	glTextureParameteri(rendererID, GL_TEXTURE_MIN_FILTER, TextureFilterToGL(spec.MinFilter));
+	glTextureParameteri(rendererID, GL_TEXTURE_MAG_FILTER, TextureFilterToGL(spec.MagFilter));
 
 	glTextureSubImage2D(rendererID, 0, 0, 0, spec.Width, spec.Height, dataFormat, dataType, data);
 
@@ -192,10 +220,10 @@ Ref<Texture2D> Texture2D::CreateFromFile(const std::string &path, bool flipVerti
 	stbi_image_free(data);
 
 	LOG_TRACE("Texture loaded: {} ({}x{}, {} channels)", path, width, height, channels);
-	return Ref<Texture2D>(new Texture2D(rendererID, spec, path));
+	return Ref<GLTexture2D>(new GLTexture2D(rendererID, spec, path));
 }
 
-void Texture2D::SetData(const void *data)
+void GLTexture2D::SetData(const void *data)
 {
 	GLenum dataFormat = TextureFormatToGLDataFormat(m_Spec.Format);
 	GLenum dataType = TextureFormatToGLDataType(m_Spec.Format);
@@ -213,9 +241,11 @@ void Texture2D::SetData(const void *data)
 		bpp = 4;
 		break;
 	default:
-		LOG_ERROR("Texture2D::SetData called with unsupported format");
-		throw std::runtime_error("Texture2D::SetData only supports ordinary color textures");
+		LOG_ERROR("GLTexture2D::SetData called with unsupported format");
+		throw std::runtime_error("GLTexture2D::SetData only supports ordinary color textures");
 	}
+
+	(void)bpp; // used for validation only
 
 	glTextureSubImage2D(
 		m_RendererID, 0, 0, 0,
@@ -223,12 +253,21 @@ void Texture2D::SetData(const void *data)
 		dataFormat, dataType, data);
 }
 
-void Texture2D::Bind(uint32_t slot) const
+void GLTexture2D::Bind(uint32_t slot) const
 {
 	glBindTextureUnit(slot, m_RendererID);
 }
 
-void Texture2D::Unbind(uint32_t slot) const
+void GLTexture2D::Unbind(uint32_t slot) const
 {
 	glBindTextureUnit(slot, 0);
+}
+
+bool GLTexture2D::operator==(const ITexture2D &other) const
+{
+	// Compare by GL renderer ID within the GL backend
+	const auto *glOther = dynamic_cast<const GLTexture2D *>(&other);
+	if (!glOther)
+		return false;
+	return m_RendererID == glOther->m_RendererID;
 }

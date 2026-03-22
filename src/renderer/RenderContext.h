@@ -10,7 +10,7 @@
 //
 //   FrameResources — (inter-pass shared outputs)
 //                    Each pass still owns its framebuffer internally.
-//                    FrameResources holds Ref<Texture2D> pointing to attachment
+//                    FrameResources holds Ref<ITexture2D> pointing to attachment
 //                    textures so that downstream passes can sample upstream outputs.
 //                    Extension: add output textures / targets here when new passes
 //                    are introduced.
@@ -32,11 +32,11 @@
 #include <glm/glm.hpp>
 
 #include "core/Base.h"
-#include "graphics/RenderTarget.h"
 #include "renderer/SceneRendererTypes.h"
 
 class Camera;
-class Texture2D;
+class ITexture2D;
+class IRenderTarget;
 struct SceneData;
 
 struct SceneView
@@ -51,11 +51,11 @@ struct FrameResources
 {
     glm::mat4 LightViewProjection{1.0f};
 
-    Ref<Texture2D> ShadowMap;
-    RenderTarget ShadowTarget;
+    Ref<ITexture2D> ShadowMap;
+    Ref<IRenderTarget> ShadowTarget;
 
-    Ref<Texture2D> SceneColor;
-    RenderTarget SceneTarget;
+    Ref<ITexture2D> SceneColor;
+    Ref<IRenderTarget> SceneTarget;
 };
 
 struct RenderContext

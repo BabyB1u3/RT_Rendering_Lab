@@ -2,7 +2,6 @@
 
 #include <stdexcept>
 
-#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
 #include "FileSystem.h"
@@ -10,6 +9,9 @@
 #include "Logger.h"
 #include "Time.h"
 #include "gui/ImGuiLayer.h"
+#include "graphics/GraphicsDevice.h"
+#include "graphics/RenderCommand.h"
+#include "graphics/opengl/GLGraphicsDevice.h"
 
 Application *Application::s_Instance = nullptr;
 
@@ -31,6 +33,9 @@ Application::Application(const ApplicationSpecification &spec)
     m_Window = CreateScope<Window>(props);
     m_Window->SetResizeCallback([this](uint32_t width, uint32_t height)
                                 { OnWindowResize(width, height); });
+
+    SetDevice(CreateRef<GLGraphicsDevice>());
+    RenderCommand::Init();
 
     Input::Initialize(m_Window->GetNativeHandle());
     Time::Reset();
@@ -107,7 +112,7 @@ void Application::OnWindowResize(uint32_t width, uint32_t height)
     }
 
     m_Minimized = false;
-    glViewport(0, 0, static_cast<int>(width), static_cast<int>(height));
+    RenderCommand::SetViewport(0, 0, width, height);
 
     for (auto &layer : m_LayerStack)
         layer->OnResize(width, height);
