@@ -59,7 +59,7 @@ RT_Rendering_Lab/
 │   └── support/        # GLTestContext、MathTestUtils、TestLayer
 ├── docs/
 │   └── roadmap.md
-├── vendor/             # 第三方库：GLFW、GLM（子模块）、Glad、STB、ImGui
+├── vendor/             # 第三方库：GLFW、GLM、ImGui（子模块），Glad、STB
 └── CMakeLists.txt
 ```
 
@@ -84,19 +84,42 @@ cd RT_Rendering_Lab
 
 > 如果克隆时未使用 `--recursive`，请执行 `git submodule update --init --recursive`。
 
+当前固定的子模块版本：
+
+- `GLFW`：`3.4.0`
+- `GLM`：`1.0.3`
+- `Dear ImGui`：`1.92.6`（`docking` 分支）
+
 ### 使用预设构建
 
 项目提供了常用配置的 CMake 预设：
 
 ```bash
-# Visual Studio 2022 — Debug
+# Visual Studio 2026 — Debug
 cmake --preset windows-vs-debug
 cmake --build build/windows-vs-debug
+
+# Visual Studio 2026 — 快速调试迭代
+cmake --preset windows-vs-debug-fast
+cmake --build --preset build-windows-debug-fast --parallel
 
 # Ninja — Release
 cmake --preset ninja-release
 cmake --build build/ninja-release
+
+# Ninja — 快速调试迭代（需要本机安装 Ninja）
+cmake --preset ninja-debug-fast
+cmake --build --preset build-ninja-debug-fast
 ```
+
+`windows-vs-debug-fast` 和 `ninja-debug-fast` 用于缩短日常开发的“修改-编译-运行”循环，默认会启用以下配置：
+
+- 关闭测试构建：`GLAB_BUILD_TESTS=OFF`
+- 开启 unity build：`GLAB_ENABLE_UNITY_BUILD=ON`
+- 开启预编译头：`GLAB_ENABLE_PCH=ON`
+- 不编译 Dear ImGui 的 `imgui_demo.cpp`：`GLAB_BUILD_IMGUI_DEMO=OFF`
+
+为了兼顾稳定性，unity build 会跳过少量 OpenGL / GLFW 相关源文件，避免头文件包含顺序带来的冲突，同时保留大部分提速收益。
 
 ### 手动构建
 
@@ -137,6 +160,10 @@ ctest --test-dir build/windows-vs-debug
 | `GLAB_BUILD_TESTS` | `ON` | 构建测试套件 |
 | `GLAB_ENABLE_WARNINGS` | `ON` | 启用严格的编译器警告 |
 | `GLAB_ENABLE_ASAN` | `OFF` | 启用 AddressSanitizer（非 MSVC） |
+| `GLAB_ENABLE_PCH` | `ON` | 为项目内 C++ 目标启用预编译头 |
+| `GLAB_ENABLE_UNITY_BUILD` | `OFF` | 将部分 `.cpp` 合并为 unity 编译单元以加快完整构建 |
+| `GLAB_ENABLE_MSVC_MP` | `ON` | 为 MSVC 启用多进程编译（`/MP`） |
+| `GLAB_BUILD_IMGUI_DEMO` | `OFF` | 是否将 `imgui_demo.cpp` 编译进 Dear ImGui 静态库 |
 
 ---
 
@@ -144,11 +171,11 @@ ctest --test-dir build/windows-vs-debug
 
 | 库 | 用途 | 来源 |
 |----|------|------|
-| [GLFW](https://github.com/glfw/glfw) | 窗口管理与输入处理 | Git 子模块 |
-| [GLM](https://github.com/g-truc/glm) | 线性代数运算 | Git 子模块 |
+| [GLFW](https://github.com/glfw/glfw) | 窗口管理与输入处理 | Git 子模块（`vendor/glfw`，`3.4.0`） |
+| [GLM](https://github.com/g-truc/glm) | 线性代数运算 | Git 子模块（`vendor/glm`，`1.0.3`） |
 | [Glad](https://glad.dav1d.de/) | OpenGL 4.6 函数加载器 | `vendor/glad/` |
 | [STB Image](https://github.com/nothings/stb) | 图像文件加载 | `vendor/stb/` |
-| [Dear ImGui](https://github.com/ocornut/imgui) | 调试 GUI | `vendor/imgui/` |
+| [Dear ImGui](https://github.com/ocornut/imgui) | 调试 GUI | Git 子模块（`vendor/imgui`，`1.92.6`，`docking` 分支） |
 | [spdlog](https://github.com/gabime/spdlog) | 日志系统 | `vendor/spdlog/` |
 | [Google Test](https://github.com/google/googletest) | 测试框架 | CMake FetchContent |
 
