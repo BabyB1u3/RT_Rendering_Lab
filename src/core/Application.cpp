@@ -9,6 +9,7 @@
 #include "Input.h"
 #include "Logger.h"
 #include "Time.h"
+#include "gui/ImGuiLayer.h"
 
 Application *Application::s_Instance = nullptr;
 
@@ -35,6 +36,11 @@ Application::Application(const ApplicationSpecification &spec)
     Time::Reset();
 
     s_Instance = this;
+
+    auto imguiLayer = CreateScope<ImGuiLayer>();
+    m_ImGuiLayer = imguiLayer.get();
+    PushOverlay(std::move(imguiLayer));
+
     LOG_INFO("Application initialized");
 }
 
@@ -61,8 +67,10 @@ void Application::Run()
             for (auto &layer : m_LayerStack)
                 layer->OnRender();
 
+            m_ImGuiLayer->Begin();
             for (auto &layer : m_LayerStack)
                 layer->OnImGuiRender();
+            m_ImGuiLayer->End();
         }
 
         m_Window->SwapBuffers();
