@@ -10,7 +10,7 @@
 //
 //   FrameResources — (inter-pass shared outputs)
 //                    Each pass still owns its framebuffer internally.
-//                    FrameResources holds Ref<Texture2D> pointing to attachment
+//                    FrameResources holds Ref<ITexture2D> pointing to attachment
 //                    textures so that downstream passes can sample upstream outputs.
 //                    Extension: add output textures / targets here when new passes
 //                    are introduced.
