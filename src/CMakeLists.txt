@@ -30,6 +30,7 @@
 
     demos/LabLayer.cpp
     demos/DemoRegistry.cpp
+    demos/MaterialPlayground/MaterialPlayground.cpp
     demos/ShadowMapping/ShadowMapping.cpp
 
     gui/ImGuiLayer.cpp
@@ -80,6 +81,7 @@ set(GLAB_CORE_HEADERS
     demos/DemoBase.h
     demos/DemoRegistry.h
     demos/LabLayer.h
+    demos/MaterialPlayground/MaterialPlayground.h
     demos/ShadowMapping/ShadowMapping.h
 
     gui/ImGuiLayer.h

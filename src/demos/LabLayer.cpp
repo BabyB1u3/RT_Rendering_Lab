@@ -7,6 +7,7 @@
 #include "core/Logger.h"
 #include "DemoBase.h"
 #include "DemoRegistry.h"
+#include "demos/MaterialPlayground/MaterialPlayground.h"
 #include "demos/ShadowMapping/ShadowMapping.h"
 
 LabLayer::LabLayer()
@@ -81,6 +82,11 @@ void LabLayer::RegisterBuiltInDemos()
                            {
         const auto& window = Application::Get().GetWindow();
         return CreateScope<ShadowMapping>(window.GetWidth(), window.GetHeight()); });
+
+    DemoRegistry::Register("Material Playground", []()
+                           {
+        const auto& window = Application::Get().GetWindow();
+        return CreateScope<MaterialPlayground>(window.GetWidth(), window.GetHeight()); });
 
     m_DemosRegistered = true;
 }
