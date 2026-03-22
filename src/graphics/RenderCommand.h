@@ -1,11 +1,11 @@
 #pragma once
 
 /// @file RenderCommand.h
-/// @brief Stateless wrappers around common OpenGL state and draw commands.
+/// @brief Static forwarding shim that delegates to the active graphics device.
 ///
-/// All methods are static — RenderCommand has no state of its own.
-/// Init() sets sensible GL defaults (blend, depth test).
-/// Render passes call these instead of raw gl* functions for readability.
+/// All methods are static — RenderCommand forwards each call to
+/// GetDevice()->GetRenderCommand(). Render passes call these instead of
+/// interacting with the backend directly.
 
 #include <glm/glm.hpp>
 
