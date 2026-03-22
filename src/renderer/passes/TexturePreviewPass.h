@@ -16,9 +16,9 @@
 #include "core/Base.h"
 #include "RenderPass.h"
 
-class Shader;
+class IShader;
 class Mesh;
-class Texture2D;
+class ITexture2D;
 
 class TexturePreviewPass : public RenderPass
 {
@@ -29,6 +29,6 @@ public:
     void Execute(const RenderContext& ctx) override;
 
 private:
-    Ref<Shader> m_Shader;
+    Ref<IShader> m_Shader;
     Ref<Mesh> m_FullscreenQuad;
 };

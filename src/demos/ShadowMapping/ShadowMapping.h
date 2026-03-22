@@ -19,7 +19,7 @@
 
 class Mesh;
 class Material;
-class Texture2D;
+class ITexture2D;
 
 class ShadowMapping : public DemoBase
 {
@@ -51,7 +51,7 @@ private:
     Ref<Mesh> m_PlaneMesh;
 
     Ref<Material> m_DefaultMaterial;
-    Ref<Texture2D> m_WhiteTexture;
+    Ref<ITexture2D> m_WhiteTexture;
 
     SceneRendererOutput m_OutputMode = SceneRendererOutput::FinalColor;
     bool m_RightMouseLooking = true;

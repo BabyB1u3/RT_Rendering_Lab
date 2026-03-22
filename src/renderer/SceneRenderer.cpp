@@ -8,9 +8,8 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "graphics/Framebuffer.h"
-#include "graphics/RenderTarget.h"
-#include "graphics/Texture.h"
+#include "graphics/GraphicsDevice.h"
+#include "graphics/interface/IFramebuffer.h"
 #include "renderer/RenderContext.h"
 #include "renderer/passes/ForwardPass.h"
 #include "renderer/passes/ShadowPass.h"
@@ -88,9 +87,9 @@ void SceneRenderer::Render(const SceneData &scene, const Camera &camera)
     FrameResources resources;
     resources.LightViewProjection = BuildDirectionalLightViewProjection(scene.MainDirectionalLight);
     resources.ShadowMap = m_ShadowPass->GetDepthTexture();
-    resources.ShadowTarget = RenderTarget::FromFramebuffer(m_ShadowPass->GetFramebuffer());
+    resources.ShadowTarget = GetDevice()->CreateRenderTargetFromFramebuffer(m_ShadowPass->GetFramebuffer());
     resources.SceneColor = m_ForwardPass->GetFramebuffer()->GetColorAttachment(0);
-    resources.SceneTarget = RenderTarget::FromFramebuffer(m_ForwardPass->GetFramebuffer());
+    resources.SceneTarget = GetDevice()->CreateRenderTargetFromFramebuffer(m_ForwardPass->GetFramebuffer());
 
     RenderContext ctx{view, m_Spec, std::move(resources), m_OutputMode};
 

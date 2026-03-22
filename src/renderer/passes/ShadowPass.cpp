@@ -7,10 +7,12 @@
 
 #include "core/Logger.h"
 #include "graphics/Framebuffer.h"
+#include "graphics/GraphicsDevice.h"
 #include "graphics/Mesh.h"
 #include "graphics/RenderCommand.h"
-#include "graphics/RenderTarget.h"
-#include "graphics/Shader.h"
+#include "graphics/interface/IFramebuffer.h"
+#include "graphics/interface/IRenderTarget.h"
+#include "graphics/interface/IShader.h"
 #include "renderer/RenderContext.h"
 #include "renderer/RenderItem.h"
 #include "scene/SceneData.h"
@@ -24,9 +26,9 @@ ShadowPass::ShadowPass(uint32_t width, uint32_t height, const std::string& shade
     fbSpec.Attachments = {
         {TextureFormat::Depth}};
 
-    m_Framebuffer = CreateRef<Framebuffer>(fbSpec);
+    m_Framebuffer = GetDevice()->CreateFramebuffer(fbSpec);
 
-    m_Shader = Shader::CreateFromSingleFile(shaderPath, "ShadowDepth");
+    m_Shader = GetDevice()->CreateShaderFromSingleFile(shaderPath, "ShadowDepth");
 }
 
 void ShadowPass::Resize(unsigned int width, unsigned int height)
@@ -41,7 +43,7 @@ void ShadowPass::Resize(unsigned int width, unsigned int height)
         m_Framebuffer->Resize(width, height);
 }
 
-Ref<Texture2D> ShadowPass::GetDepthTexture() const
+Ref<ITexture2D> ShadowPass::GetDepthTexture() const
 {
     assert(m_Framebuffer && "ShadowPass framebuffer is null");
     return m_Framebuffer->GetDepthAttachment();
@@ -52,15 +54,15 @@ void ShadowPass::Execute(const RenderContext& ctx)
     assert(m_Framebuffer && "ShadowPass framebuffer is null");
     assert(m_Shader && "ShadowPass shader is null");
 
-    RenderTarget target = RenderTarget::FromFramebuffer(m_Framebuffer);
-    target.Bind();
+    auto target = GetDevice()->CreateRenderTargetFromFramebuffer(m_Framebuffer);
+    target->Bind();
 
     RenderCommand::EnableBlend(false);
     RenderCommand::EnableDepthTest(true);
     RenderCommand::EnableCullFace(true);
     RenderCommand::SetCullFace(true); // Cull front faces to reduce shadow acne
 
-    RenderCommand::SetViewport(0, 0, target.GetWidth(), target.GetHeight());
+    RenderCommand::SetViewport(0, 0, target->GetWidth(), target->GetHeight());
     RenderCommand::Clear(false, true, false);
 
     m_Shader->Bind();
@@ -81,5 +83,5 @@ void ShadowPass::Execute(const RenderContext& ctx)
     }
 
     RenderCommand::SetCullFace(false); // Restore to cull back faces
-    target.Unbind();
+    target->Unbind();
 }

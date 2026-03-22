@@ -7,12 +7,15 @@
 
 #include "core/Logger.h"
 #include "graphics/Framebuffer.h"
+#include "graphics/GraphicsDevice.h"
 #include "graphics/Material.h"
 #include "graphics/Mesh.h"
 #include "graphics/RenderCommand.h"
-#include "graphics/RenderTarget.h"
-#include "graphics/Shader.h"
 #include "graphics/Texture.h"
+#include "graphics/interface/IFramebuffer.h"
+#include "graphics/interface/IRenderTarget.h"
+#include "graphics/interface/IShader.h"
+#include "graphics/interface/ITexture2D.h"
 #include "renderer/RenderContext.h"
 #include "renderer/RenderItem.h"
 #include "scene/Camera.h"
@@ -31,10 +34,10 @@ ForwardPass::ForwardPass(uint32_t width, uint32_t height, bool renderToTarget,
             {TextureFormat::RGBA8},
             {TextureFormat::Depth24Stencil8}};
 
-        m_Framebuffer = CreateRef<Framebuffer>(fbSpec);
+        m_Framebuffer = GetDevice()->CreateFramebuffer(fbSpec);
     }
 
-    m_Shader = Shader::CreateFromSingleFile(shaderPath, "ForwardLit");
+    m_Shader = GetDevice()->CreateShaderFromSingleFile(shaderPath, "ForwardLit");
 
     // 1x1 white fallback texture for when no shadow map is provided.
     // Sampling r = 1.0 means currentDepth - bias > 1.0 is always false -> no shadow.
@@ -42,7 +45,7 @@ ForwardPass::ForwardPass(uint32_t width, uint32_t height, bool renderToTarget,
     fallbackSpec.Width = 1;
     fallbackSpec.Height = 1;
     fallbackSpec.Format = TextureFormat::RGBA8;
-    m_FallbackShadowMap = Texture2D::Create(fallbackSpec);
+    m_FallbackShadowMap = GetDevice()->CreateTexture2D(fallbackSpec);
     const uint32_t white = 0xFFFFFFFFu;
     m_FallbackShadowMap->SetData(&white);
 }
@@ -63,16 +66,16 @@ void ForwardPass::Execute(const RenderContext& ctx)
 {
     assert(m_Shader && "ForwardPass shader is null");
 
-    RenderTarget target = m_RenderToTarget
-        ? RenderTarget::FromFramebuffer(m_Framebuffer)
-        : RenderTarget::BackBuffer(m_Width, m_Height);
-    target.Bind();
+    auto target = m_RenderToTarget
+        ? GetDevice()->CreateRenderTargetFromFramebuffer(m_Framebuffer)
+        : GetDevice()->CreateRenderTargetBackBuffer(m_Width, m_Height);
+    target->Bind();
 
     RenderCommand::EnableBlend(false);
     RenderCommand::EnableDepthTest(true);
     RenderCommand::EnableCullFace(true);
 
-    RenderCommand::SetViewport(0, 0, target.GetWidth(), target.GetHeight());
+    RenderCommand::SetViewport(0, 0, target->GetWidth(), target->GetHeight());
     RenderCommand::SetClearColor(m_ClearColor);
     RenderCommand::Clear(true, true, false);
 
@@ -112,5 +115,5 @@ void ForwardPass::Execute(const RenderContext& ctx)
         RenderCommand::DrawIndexed(item.Mesh->GetVertexArray());
     }
 
-    target.Unbind();
+    target->Unbind();
 }

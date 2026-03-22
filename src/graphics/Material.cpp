@@ -1,8 +1,9 @@
 #include "Material.h"
 
-#include "Shader.h"
+#include "graphics/interface/IShader.h"
+#include "graphics/interface/ITexture2D.h"
 
-void Material::SetTexture(TextureSlot slot, const Ref<Texture2D> &texture)
+void Material::SetTexture(TextureSlot slot, const Ref<ITexture2D> &texture)
 {
     auto key = static_cast<uint32_t>(slot);
     if (texture)
@@ -11,7 +12,7 @@ void Material::SetTexture(TextureSlot slot, const Ref<Texture2D> &texture)
         m_Textures.erase(key);
 }
 
-Ref<Texture2D> Material::GetTexture(TextureSlot slot) const
+Ref<ITexture2D> Material::GetTexture(TextureSlot slot) const
 {
     auto it = m_Textures.find(static_cast<uint32_t>(slot));
     if (it == m_Textures.end())
@@ -54,7 +55,7 @@ glm::vec4 Material::GetVec4(const std::string &name, const glm::vec4 &defaultVal
 
 // --- Upload to shader ---
 
-void Material::UploadToShader(const Ref<Shader> &shader) const
+void Material::UploadToShader(const Ref<IShader> &shader) const
 {
     // Upload scalar/vector properties
     for (const auto &[name, val] : m_Floats)

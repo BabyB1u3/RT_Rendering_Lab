@@ -7,9 +7,11 @@
 #include "core/Input.h"
 #include "core/KeyCode.h"
 #include "core/Logger.h"
+#include "graphics/GraphicsDevice.h"
 #include "graphics/Material.h"
 #include "graphics/MeshFactory.h"
 #include "graphics/Texture.h"
+#include "graphics/interface/ITexture2D.h"
 #include "renderer/RenderItem.h"
 
 MaterialPlayground::MaterialPlayground(uint32_t width, uint32_t height)
@@ -38,7 +40,7 @@ void MaterialPlayground::OnAttach()
     whiteSpec.Width = 1;
     whiteSpec.Height = 1;
     whiteSpec.Format = TextureFormat::RGBA8;
-    m_WhiteTexture = Texture2D::Create(whiteSpec);
+    m_WhiteTexture = GetDevice()->CreateTexture2D(whiteSpec);
     const uint32_t whitePixel = 0xFFFFFFFFu;
     m_WhiteTexture->SetData(&whitePixel);
 
