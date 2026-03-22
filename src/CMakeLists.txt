@@ -119,6 +119,23 @@ add_library(RTRLabCore STATIC
     ${GLAB_CORE_HEADERS}
 )
 
+set_source_files_properties(
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/Application.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/Input.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/Window.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLFramebuffer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLGraphicsDevice.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLIndexBuffer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLRenderCommand.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLRenderTarget.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLShader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLTexture2D.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLVertexArray.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLVertexBuffer.cpp
+    PROPERTIES
+        SKIP_UNITY_BUILD_INCLUSION ON
+)
+
 target_include_directories(RTRLabCore PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
@@ -138,6 +155,12 @@ target_compile_definitions(RTRLabCore PUBLIC
     GLAB_ASSET_DIR="assets"
     GLAB_ROOT_DIR="${CMAKE_SOURCE_DIR}"
 )
+
+if(GLAB_ENABLE_PCH)
+    target_precompile_headers(RTRLabCore PRIVATE
+        "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/pch.h>"
+    )
+endif()
 
 if(MSVC)
     target_compile_definitions(RTRLabCore PUBLIC
@@ -162,6 +185,13 @@ add_executable(RTRLab
 target_link_libraries(RTRLab PRIVATE
     RTRLabCore
 )
+
+if(GLAB_ENABLE_PCH)
+    target_precompile_headers(RTRLab REUSE_FROM RTRLabCore)
+endif()
+
+glab_enable_build_speedups(RTRLabCore)
+glab_enable_build_speedups(RTRLab)
 
 if(GLAB_ENABLE_WARNINGS)
     glab_set_warnings(RTRLabCore)

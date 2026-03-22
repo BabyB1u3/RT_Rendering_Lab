@@ -25,6 +25,18 @@
       }
     },
     {
+      "name": "windows-vs-debug-fast",
+      "displayName": "Windows VS2026 Debug Fast",
+      "generator": "Visual Studio 18 2026",
+      "binaryDir": "${sourceDir}/build/windows-vs-debug-fast",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/windows-vs-debug-fast",
+        "GLAB_BUILD_TESTS": "OFF",
+        "GLAB_ENABLE_UNITY_BUILD": "ON",
+        "GLAB_BUILD_IMGUI_DEMO": "OFF"
+      }
+    },
+    {
       "name": "ninja-debug",
       "displayName": "Ninja Debug",
       "generator": "Ninja",
@@ -32,6 +44,19 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ninja-debug"
+      }
+    },
+    {
+      "name": "ninja-debug-fast",
+      "displayName": "Ninja Debug Fast",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/ninja-debug-fast",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ninja-debug-fast",
+        "GLAB_BUILD_TESTS": "OFF",
+        "GLAB_ENABLE_UNITY_BUILD": "ON",
+        "GLAB_BUILD_IMGUI_DEMO": "OFF"
       }
     },
     {
@@ -57,8 +82,17 @@
       "configuration": "Release"
     },
     {
+      "name": "build-windows-debug-fast",
+      "configurePreset": "windows-vs-debug-fast",
+      "configuration": "Debug"
+    },
+    {
       "name": "build-ninja-debug",
       "configurePreset": "ninja-debug"
+    },
+    {
+      "name": "build-ninja-debug-fast",
+      "configurePreset": "ninja-debug-fast"
     },
     {
       "name": "build-ninja-release",

@@ -30,6 +30,10 @@ endforeach()
 option(GLAB_BUILD_TESTS "Build tests" ON)
 option(GLAB_ENABLE_WARNINGS "Enable warnings" ON)
 option(GLAB_ENABLE_ASAN "Enable AddressSanitizer" OFF)
+option(GLAB_ENABLE_PCH "Enable precompiled headers for local C++ targets" ON)
+option(GLAB_ENABLE_UNITY_BUILD "Enable unity builds for local C++ targets" OFF)
+option(GLAB_ENABLE_MSVC_MP "Enable MSVC multi-processor compilation (/MP)" ON)
+option(GLAB_BUILD_IMGUI_DEMO "Build Dear ImGui demo translation unit" OFF)
 
 function(glab_set_warnings target_name)
     if(MSVC)
@@ -45,6 +49,23 @@ function(glab_enable_sanitizers target_name)
     else()
         target_compile_options(${target_name} PRIVATE -fsanitize=address -fno-omit-frame-pointer)
         target_link_options(${target_name} PRIVATE -fsanitize=address)
+    endif()
+endfunction()
+
+function(glab_enable_parallel_compilation target_name)
+    if(MSVC AND GLAB_ENABLE_MSVC_MP)
+        target_compile_options(${target_name} PRIVATE /MP)
+    endif()
+endfunction()
+
+function(glab_enable_build_speedups target_name)
+    glab_enable_parallel_compilation(${target_name})
+
+    if(GLAB_ENABLE_UNITY_BUILD)
+        set_target_properties(${target_name} PROPERTIES
+            UNITY_BUILD ON
+            UNITY_BUILD_BATCH_SIZE 8
+        )
     endif()
 endfunction()
 
