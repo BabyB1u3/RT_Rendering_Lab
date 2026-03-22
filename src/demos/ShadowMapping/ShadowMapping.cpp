@@ -10,26 +10,14 @@
 #include <imgui.h>
 
 #include "core/Input.h"
+#include "core/KeyCode.h"
 #include "core/Logger.h"
+#include "core/MouseCode.h"
 #include "graphics/Material.h"
 #include "graphics/MeshFactory.h"
 #include "graphics/Shader.h"
 #include "graphics/Texture.h"
 #include "renderer/RenderItem.h"
-
-namespace
-{
-    constexpr int KEY_W = 87;
-    constexpr int KEY_A = 65;
-    constexpr int KEY_S = 83;
-    constexpr int KEY_D = 68;
-    constexpr int KEY_Q = 81;
-    constexpr int KEY_E = 69;
-    constexpr int KEY_1 = 49;
-    constexpr int KEY_2 = 50;
-
-    constexpr int MOUSE_BUTTON_RIGHT = 1;
-}
 
 ShadowMapping::ShadowMapping(uint32_t width, uint32_t height)
     : m_ViewportWidth(width),
@@ -87,10 +75,10 @@ void ShadowMapping::OnUpdate(double dt)
 {
     HandleCameraInput(dt);
 
-    if (Input::IsKeyPressed(KEY_1))
+    if (Input::IsKeyPressed(Key::D1))
         m_OutputMode = SceneRendererOutput::FinalColor;
 
-    if (Input::IsKeyPressed(KEY_2))
+    if (Input::IsKeyPressed(Key::D2))
         m_OutputMode = SceneRendererOutput::ShadowMap;
 }
 
@@ -209,17 +197,17 @@ void ShadowMapping::BuildScene()
 
 void ShadowMapping::HandleCameraInput(double dt)
 {
-    if (Input::IsKeyPressed(KEY_W))
+    if (Input::IsKeyPressed(Key::W))
         m_CameraController.MoveForward(dt);
-    if (Input::IsKeyPressed(KEY_S))
+    if (Input::IsKeyPressed(Key::S))
         m_CameraController.MoveBackward(dt);
-    if (Input::IsKeyPressed(KEY_A))
+    if (Input::IsKeyPressed(Key::A))
         m_CameraController.MoveLeft(dt);
-    if (Input::IsKeyPressed(KEY_D))
+    if (Input::IsKeyPressed(Key::D))
         m_CameraController.MoveRight(dt);
-    if (Input::IsKeyPressed(KEY_Q))
+    if (Input::IsKeyPressed(Key::Q))
         m_CameraController.MoveDown(dt);
-    if (Input::IsKeyPressed(KEY_E))
+    if (Input::IsKeyPressed(Key::E))
         m_CameraController.MoveUp(dt);
 
     if (m_RightMouseLooking)

@@ -42,8 +42,10 @@ set(GLAB_CORE_HEADERS
     core/Base.h
     core/FileSystem.h
     core/Input.h
+    core/KeyCode.h
     core/Layer.h
     core/LayerStack.h
+    core/MouseCode.h
     core/Logger.h
     core/Time.h
     core/Window.h
