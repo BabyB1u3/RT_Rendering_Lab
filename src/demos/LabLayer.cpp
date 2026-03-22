@@ -51,8 +51,15 @@ void LabLayer::OnRender()
 
 void LabLayer::OnImGuiRender()
 {
-    // demo selector should placed here
-    // TODO: Implement demo selector
+    const auto &names = DemoRegistry::GetNames();
+    if (m_DemoSelectorPanel.OnImGuiRender(names, m_SelectedDemoIndex))
+    {
+        const auto &name = names[m_SelectedDemoIndex];
+        SetActiveDemo(DemoRegistry::Create(name), name);
+        if (m_ActiveDemo)
+            m_ActiveDemo->OnAttach();
+    }
+
     if (m_ActiveDemo)
         m_ActiveDemo->OnImGuiRender();
 }

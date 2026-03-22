@@ -5,6 +5,7 @@
 
 #include "core/Layer.h"
 #include "core/Base.h"
+#include "gui/Panels/DemoSelectorPanel.h"
 
 class DemoBase;
 
@@ -28,6 +29,9 @@ private:
 private:
     bool m_DemosRegistered = false;
 
+    int m_SelectedDemoIndex = 0;
     std::string m_ActiveDemoName;
     Scope<DemoBase> m_ActiveDemo;
+
+    DemoSelectorPanel m_DemoSelectorPanel;
 };
