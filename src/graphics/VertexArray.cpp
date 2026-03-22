@@ -3,6 +3,8 @@
 #include <cassert>
 #include <utility>
 
+#include <glad/glad.h>
+
 static GLenum ShaderDataTypeToOpenGLBaseType(ShaderDataType type)
 {
 	switch (type)

@@ -2,6 +2,19 @@
 
 #include <utility>
 
+#include <glad/glad.h>
+
+static GLenum ToOpenGLBufferUsage(BufferUsage usage)
+{
+	switch (usage)
+	{
+	case BufferUsage::StaticDraw:  return GL_STATIC_DRAW;
+	case BufferUsage::DynamicDraw: return GL_DYNAMIC_DRAW;
+	case BufferUsage::StreamDraw:  return GL_STREAM_DRAW;
+	}
+	return GL_STATIC_DRAW;
+}
+
 // -------------------- VertexBuffer --------------------
 
 VertexBuffer::VertexBuffer(uint32_t size, BufferUsage usage)

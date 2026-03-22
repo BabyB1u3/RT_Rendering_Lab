@@ -20,8 +20,6 @@
 #include <initializer_list>
 #include <cassert>
 
-#include <glad/glad.h>
-
 /// Enumerates the data types that can appear in a vertex attribute.
 enum class ShaderDataType
 {
@@ -172,21 +170,6 @@ enum class BufferUsage
     DynamicDraw,
     StreamDraw
 };
-
-inline GLenum ToOpenGLBufferUsage(BufferUsage usage)
-{
-    switch (usage)
-    {
-    case BufferUsage::StaticDraw:
-        return GL_STATIC_DRAW;
-    case BufferUsage::DynamicDraw:
-        return GL_DYNAMIC_DRAW;
-    case BufferUsage::StreamDraw:
-        return GL_STREAM_DRAW;
-    }
-
-    return GL_STATIC_DRAW;
-}
 
 /// GPU vertex buffer (DSA). Holds per-vertex attribute data.
 /// Two construction modes:

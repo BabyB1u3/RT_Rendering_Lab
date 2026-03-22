@@ -3,6 +3,8 @@
 #include <cassert>
 #include <utility>
 
+#include <glad/glad.h>
+
 #include "core/Logger.h"
 
 namespace
@@ -150,10 +152,10 @@ void Framebuffer::Invalidate()
 		spec.Width = m_Specification.Width;
 		spec.Height = m_Specification.Height;
 		spec.Format = m_ColorAttachmentSpecifications[i].Format;
-		spec.WrapS = GL_CLAMP_TO_EDGE;
-		spec.WrapT = GL_CLAMP_TO_EDGE;
-		spec.MinFilter = GL_LINEAR;
-		spec.MagFilter = GL_LINEAR;
+		spec.WrapS = TextureWrap::ClampToEdge;
+		spec.WrapT = TextureWrap::ClampToEdge;
+		spec.MinFilter = TextureFilter::Linear;
+		spec.MagFilter = TextureFilter::Linear;
 
 		auto texture = Texture2D::Create(spec);
 		m_ColorAttachments.push_back(texture);
@@ -172,10 +174,10 @@ void Framebuffer::Invalidate()
 		spec.Width = m_Specification.Width;
 		spec.Height = m_Specification.Height;
 		spec.Format = m_DepthAttachmentSpecification.Format;
-		spec.WrapS = GL_CLAMP_TO_EDGE;
-		spec.WrapT = GL_CLAMP_TO_EDGE;
-		spec.MinFilter = GL_NEAREST;
-		spec.MagFilter = GL_NEAREST;
+		spec.WrapS = TextureWrap::ClampToEdge;
+		spec.WrapT = TextureWrap::ClampToEdge;
+		spec.MinFilter = TextureFilter::Nearest;
+		spec.MagFilter = TextureFilter::Nearest;
 
 		m_DepthAttachment = Texture2D::Create(spec);
 

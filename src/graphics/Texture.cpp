@@ -4,9 +4,32 @@
 #include <stdexcept>
 #include <utility>
 
+#include <glad/glad.h>
 #include <stb_image.h>
 
 #include "core/Logger.h"
+
+static GLenum TextureWrapToGL(TextureWrap wrap)
+{
+	switch (wrap)
+	{
+	case TextureWrap::Repeat:         return GL_REPEAT;
+	case TextureWrap::ClampToEdge:    return GL_CLAMP_TO_EDGE;
+	case TextureWrap::MirroredRepeat: return GL_MIRRORED_REPEAT;
+	}
+	return GL_REPEAT;
+}
+
+static GLenum TextureFilterToGL(TextureFilter filter)
+{
+	switch (filter)
+	{
+	case TextureFilter::Nearest:            return GL_NEAREST;
+	case TextureFilter::Linear:             return GL_LINEAR;
+	case TextureFilter::LinearMipmapLinear: return GL_LINEAR_MIPMAP_LINEAR;
+	}
+	return GL_LINEAR;
+}
 
 static GLenum TextureFormatToGLInternalFormat(TextureFormat format)
 {
@@ -129,10 +152,10 @@ Ref<Texture2D> Texture2D::Create(const TextureSpecification &spec)
 
 	glTextureStorage2D(rendererID, mipLevels, internalFormat, spec.Width, spec.Height);
 
-	glTextureParameteri(rendererID, GL_TEXTURE_WRAP_S, spec.WrapS);
-	glTextureParameteri(rendererID, GL_TEXTURE_WRAP_T, spec.WrapT);
-	glTextureParameteri(rendererID, GL_TEXTURE_MIN_FILTER, spec.MinFilter);
-	glTextureParameteri(rendererID, GL_TEXTURE_MAG_FILTER, spec.MagFilter);
+	glTextureParameteri(rendererID, GL_TEXTURE_WRAP_S, TextureWrapToGL(spec.WrapS));
+	glTextureParameteri(rendererID, GL_TEXTURE_WRAP_T, TextureWrapToGL(spec.WrapT));
+	glTextureParameteri(rendererID, GL_TEXTURE_MIN_FILTER, TextureFilterToGL(spec.MinFilter));
+	glTextureParameteri(rendererID, GL_TEXTURE_MAG_FILTER, TextureFilterToGL(spec.MagFilter));
 
 	return Ref<Texture2D>(new Texture2D(rendererID, spec));
 }
@@ -153,10 +176,10 @@ Ref<Texture2D> Texture2D::CreateFromFile(const std::string &path, bool flipVerti
 	spec.Width = static_cast<uint32_t>(width);
 	spec.Height = static_cast<uint32_t>(height);
 	spec.GenerateMips = false;
-	spec.WrapS = GL_REPEAT;
-	spec.WrapT = GL_REPEAT;
-	spec.MinFilter = GL_LINEAR;
-	spec.MagFilter = GL_LINEAR;
+	spec.WrapS = TextureWrap::Repeat;
+	spec.WrapT = TextureWrap::Repeat;
+	spec.MinFilter = TextureFilter::Linear;
+	spec.MagFilter = TextureFilter::Linear;
 
 	if (channels == 1)
 		spec.Format = TextureFormat::R8;
@@ -179,10 +202,10 @@ Ref<Texture2D> Texture2D::CreateFromFile(const std::string &path, bool flipVerti
 	GLenum dataType = TextureFormatToGLDataType(spec.Format);
 
 	glTextureStorage2D(rendererID, 1, internalFormat, spec.Width, spec.Height);
-	glTextureParameteri(rendererID, GL_TEXTURE_WRAP_S, spec.WrapS);
-	glTextureParameteri(rendererID, GL_TEXTURE_WRAP_T, spec.WrapT);
-	glTextureParameteri(rendererID, GL_TEXTURE_MIN_FILTER, spec.MinFilter);
-	glTextureParameteri(rendererID, GL_TEXTURE_MAG_FILTER, spec.MagFilter);
+	glTextureParameteri(rendererID, GL_TEXTURE_WRAP_S, TextureWrapToGL(spec.WrapS));
+	glTextureParameteri(rendererID, GL_TEXTURE_WRAP_T, TextureWrapToGL(spec.WrapT));
+	glTextureParameteri(rendererID, GL_TEXTURE_MIN_FILTER, TextureFilterToGL(spec.MinFilter));
+	glTextureParameteri(rendererID, GL_TEXTURE_MAG_FILTER, TextureFilterToGL(spec.MagFilter));
 
 	glTextureSubImage2D(rendererID, 0, 0, 0, spec.Width, spec.Height, dataFormat, dataType, data);
 

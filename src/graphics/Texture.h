@@ -18,8 +18,6 @@
 #include <memory>
 #include <string>
 
-#include <glad/glad.h>
-
 #include "core/Base.h"
 
 /// Supported GPU texture internal formats.
@@ -29,9 +27,25 @@ enum class TextureFormat
 	R8,
 	RGB8,
 	RGBA8,
-	RedInteger, // GL_R32I for integer attachments (e.g. entity ID picking)
+	RedInteger, // integer attachments (e.g. entity ID picking)
 	Depth,
 	Depth24Stencil8
+};
+
+/// Backend-agnostic texture wrap mode.
+enum class TextureWrap
+{
+	Repeat,
+	ClampToEdge,
+	MirroredRepeat
+};
+
+/// Backend-agnostic texture filter mode.
+enum class TextureFilter
+{
+	Nearest,
+	Linear,
+	LinearMipmapLinear
 };
 
 // Texture creation spec
@@ -43,10 +57,10 @@ struct TextureSpecification
 
 	bool GenerateMips = false;
 
-	GLenum WrapS = GL_REPEAT;
-	GLenum WrapT = GL_REPEAT;
-	GLenum MinFilter = GL_LINEAR;
-	GLenum MagFilter = GL_LINEAR;
+	TextureWrap WrapS = TextureWrap::Repeat;
+	TextureWrap WrapT = TextureWrap::Repeat;
+	TextureFilter MinFilter = TextureFilter::Linear;
+	TextureFilter MagFilter = TextureFilter::Linear;
 };
 
 /// Abstract base class for all texture types.
