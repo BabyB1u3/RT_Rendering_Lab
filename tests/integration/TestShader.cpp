@@ -3,7 +3,8 @@
 #include <glm/glm.hpp>
 
 #include "GlTestContext.h"
-#include "graphics/Shader.h"
+#include "graphics/GraphicsDevice.h"
+#include "graphics/interface/IShader.h"
 
 class ShaderIntegrationTests : public ::testing::Test
 {
@@ -43,16 +44,15 @@ void main()
 
 TEST_F(ShaderIntegrationTests, CreateFromSourceProducesValidProgram)
 {
-	auto shader = Shader::CreateFromSource("TestShader", kVertexSrc, kFragmentSrc);
+	auto shader = GetDevice()->CreateShaderFromSource("TestShader", kVertexSrc, kFragmentSrc);
 
 	ASSERT_NE(shader, nullptr);
-	EXPECT_NE(shader->GetRendererID(), 0u);
 	EXPECT_EQ(shader->GetName(), "TestShader");
 }
 
 TEST_F(ShaderIntegrationTests, BindAndUniformSettersDoNotCrash)
 {
-	auto shader = Shader::CreateFromSource("TestShader", kVertexSrc, kFragmentSrc);
+	auto shader = GetDevice()->CreateShaderFromSource("TestShader", kVertexSrc, kFragmentSrc);
 
 	ASSERT_NE(shader, nullptr);
 

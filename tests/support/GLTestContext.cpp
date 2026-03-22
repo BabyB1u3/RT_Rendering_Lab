@@ -5,6 +5,10 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include "graphics/GraphicsDevice.h"
+#include "graphics/interface/IRenderCommand.h"
+#include "graphics/opengl/GLGraphicsDevice.h"
+
 GlTestContext::GlTestContext()
 {
     if (!glfwInit())
@@ -38,11 +42,16 @@ GlTestContext::GlTestContext()
         throw std::runtime_error("gladLoadGLLoader failed");
     }
 
+    SetDevice(CreateRef<GLGraphicsDevice>());
+    GetDevice()->GetRenderCommand()->Init();
+
     m_Initialized = true;
 }
 
 GlTestContext::~GlTestContext()
 {
+    SetDevice(nullptr);
+
     if (m_Window)
     {
         glfwDestroyWindow(m_Window);

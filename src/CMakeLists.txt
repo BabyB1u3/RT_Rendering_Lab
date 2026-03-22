@@ -8,16 +8,10 @@
     core/Time.cpp
     core/Window.cpp
 
-    graphics/Buffers.cpp
-    graphics/Framebuffer.cpp
     graphics/Material.cpp
     graphics/Mesh.cpp
     graphics/MeshFactory.cpp
     graphics/RenderCommand.cpp
-    graphics/RenderTarget.cpp
-    graphics/Shader.cpp
-    graphics/Texture.cpp
-    graphics/VertexArray.cpp
 
     graphics/GraphicsDevice.cpp
     graphics/opengl/GLTexture2D.cpp
@@ -68,10 +62,7 @@ set(GLAB_CORE_HEADERS
     graphics/Mesh.h
     graphics/MeshFactory.h
     graphics/RenderCommand.h
-    graphics/RenderTarget.h
-    graphics/Shader.h
     graphics/Texture.h
-    graphics/VertexArray.h
 
     graphics/GraphicsDevice.h
     graphics/opengl/GLCast.h

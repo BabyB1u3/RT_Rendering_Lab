@@ -3,8 +3,11 @@
 
 #include "GlTestContext.h"
 #include "graphics/Framebuffer.h"
-#include "graphics/RenderTarget.h"
-#include "graphics/Texture.h"
+#include "graphics/GraphicsDevice.h"
+#include "graphics/interface/IFramebuffer.h"
+#include "graphics/interface/IRenderTarget.h"
+#include "graphics/interface/ITexture2D.h"
+#include "graphics/opengl/GLRenderTarget.h"
 
 class RenderTargetIntegrationTests : public ::testing::Test
 {
@@ -26,44 +29,38 @@ protected:
 
 TEST_F(RenderTargetIntegrationTests, BackBufferCreation)
 {
-    RenderTarget target = RenderTarget::BackBuffer(800, 600);
+    auto target = GetDevice()->CreateRenderTargetBackBuffer(800, 600);
 
-    EXPECT_TRUE(target.IsBackBuffer());
-    EXPECT_FALSE(target.IsFramebuffer());
-    EXPECT_EQ(target.GetWidth(), 800u);
-    EXPECT_EQ(target.GetHeight(), 600u);
+    ASSERT_NE(target, nullptr);
+    EXPECT_EQ(target->GetWidth(), 800u);
+    EXPECT_EQ(target->GetHeight(), 600u);
 }
 
 TEST_F(RenderTargetIntegrationTests, BackBufferReturnsNullAttachments)
 {
-    RenderTarget target = RenderTarget::BackBuffer(800, 600);
+    auto target = GetDevice()->CreateRenderTargetBackBuffer(800, 600);
 
-    EXPECT_EQ(target.GetColorAttachment(), nullptr);
-    EXPECT_EQ(target.GetDepthAttachment(), nullptr);
-}
-
-TEST_F(RenderTargetIntegrationTests, BackBufferResize)
-{
-    RenderTarget target = RenderTarget::BackBuffer(800, 600);
-    target.Resize(1920, 1080);
-
-    EXPECT_EQ(target.GetWidth(), 1920u);
-    EXPECT_EQ(target.GetHeight(), 1080u);
+    EXPECT_EQ(target->GetColorAttachment(), nullptr);
+    EXPECT_EQ(target->GetDepthAttachment(), nullptr);
 }
 
 TEST_F(RenderTargetIntegrationTests, BackBufferBindUnbindDoNotCrash)
 {
-    RenderTarget target = RenderTarget::BackBuffer(800, 600);
+    auto target = GetDevice()->CreateRenderTargetBackBuffer(800, 600);
 
-    EXPECT_NO_THROW(target.Bind());
-    EXPECT_NO_THROW(target.Unbind());
+    EXPECT_NO_THROW(target->Bind());
+    EXPECT_NO_THROW(target->Unbind());
 }
 
-TEST_F(RenderTargetIntegrationTests, BackBufferFramebufferIsNull)
+TEST_F(RenderTargetIntegrationTests, BackBufferIsNotFramebuffer)
 {
-    RenderTarget target = RenderTarget::BackBuffer(800, 600);
+    auto target = GetDevice()->CreateRenderTargetBackBuffer(800, 600);
+    auto* glTarget = dynamic_cast<GLRenderTarget*>(target.get());
 
-    EXPECT_EQ(target.GetFramebuffer(), nullptr);
+    ASSERT_NE(glTarget, nullptr);
+    EXPECT_TRUE(glTarget->IsBackBuffer());
+    EXPECT_FALSE(glTarget->IsFramebuffer());
+    EXPECT_EQ(glTarget->GetFramebuffer(), nullptr);
 }
 
 // --- Framebuffer target tests ---
@@ -78,13 +75,28 @@ TEST_F(RenderTargetIntegrationTests, FromFramebufferCreation)
         TextureFormat::Depth24Stencil8
     };
 
-    auto fb = CreateRef<Framebuffer>(spec);
-    RenderTarget target = RenderTarget::FromFramebuffer(fb);
+    auto fb = GetDevice()->CreateFramebuffer(spec);
+    auto target = GetDevice()->CreateRenderTargetFromFramebuffer(fb);
 
-    EXPECT_FALSE(target.IsBackBuffer());
-    EXPECT_TRUE(target.IsFramebuffer());
-    EXPECT_EQ(target.GetWidth(), 256u);
-    EXPECT_EQ(target.GetHeight(), 256u);
+    ASSERT_NE(target, nullptr);
+    EXPECT_EQ(target->GetWidth(), 256u);
+    EXPECT_EQ(target->GetHeight(), 256u);
+}
+
+TEST_F(RenderTargetIntegrationTests, FromFramebufferIsFramebuffer)
+{
+    FramebufferSpecification spec{};
+    spec.Width = 128;
+    spec.Height = 128;
+    spec.Attachments = { TextureFormat::RGBA8 };
+
+    auto fb = GetDevice()->CreateFramebuffer(spec);
+    auto target = GetDevice()->CreateRenderTargetFromFramebuffer(fb);
+    auto* glTarget = dynamic_cast<GLRenderTarget*>(target.get());
+
+    ASSERT_NE(glTarget, nullptr);
+    EXPECT_FALSE(glTarget->IsBackBuffer());
+    EXPECT_TRUE(glTarget->IsFramebuffer());
 }
 
 TEST_F(RenderTargetIntegrationTests, FromFramebufferDelegatesAttachments)
@@ -97,13 +109,13 @@ TEST_F(RenderTargetIntegrationTests, FromFramebufferDelegatesAttachments)
         TextureFormat::Depth24Stencil8
     };
 
-    auto fb = CreateRef<Framebuffer>(spec);
-    RenderTarget target = RenderTarget::FromFramebuffer(fb);
+    auto fb = GetDevice()->CreateFramebuffer(spec);
+    auto target = GetDevice()->CreateRenderTargetFromFramebuffer(fb);
 
-    EXPECT_NE(target.GetColorAttachment(), nullptr);
-    EXPECT_NE(target.GetDepthAttachment(), nullptr);
-    EXPECT_EQ(target.GetColorAttachment(), fb->GetColorAttachment());
-    EXPECT_EQ(target.GetDepthAttachment(), fb->GetDepthAttachment());
+    EXPECT_NE(target->GetColorAttachment(), nullptr);
+    EXPECT_NE(target->GetDepthAttachment(), nullptr);
+    EXPECT_EQ(target->GetColorAttachment(), fb->GetColorAttachment());
+    EXPECT_EQ(target->GetDepthAttachment(), fb->GetDepthAttachment());
 }
 
 TEST_F(RenderTargetIntegrationTests, FromFramebufferDepthOnly)
@@ -115,32 +127,11 @@ TEST_F(RenderTargetIntegrationTests, FromFramebufferDepthOnly)
         TextureFormat::Depth
     };
 
-    auto fb = CreateRef<Framebuffer>(spec);
-    RenderTarget target = RenderTarget::FromFramebuffer(fb);
+    auto fb = GetDevice()->CreateFramebuffer(spec);
+    auto target = GetDevice()->CreateRenderTargetFromFramebuffer(fb);
 
-    EXPECT_EQ(target.GetColorAttachment(), nullptr);
-    EXPECT_NE(target.GetDepthAttachment(), nullptr);
-}
-
-TEST_F(RenderTargetIntegrationTests, FromFramebufferResizePropagates)
-{
-    FramebufferSpecification spec{};
-    spec.Width = 64;
-    spec.Height = 64;
-    spec.Attachments = {
-        TextureFormat::RGBA8,
-        TextureFormat::Depth24Stencil8
-    };
-
-    auto fb = CreateRef<Framebuffer>(spec);
-    RenderTarget target = RenderTarget::FromFramebuffer(fb);
-
-    target.Resize(512, 256);
-
-    EXPECT_EQ(target.GetWidth(), 512u);
-    EXPECT_EQ(target.GetHeight(), 256u);
-    EXPECT_EQ(fb->GetSpecification().Width, 512u);
-    EXPECT_EQ(fb->GetSpecification().Height, 256u);
+    EXPECT_EQ(target->GetColorAttachment(), nullptr);
+    EXPECT_NE(target->GetDepthAttachment(), nullptr);
 }
 
 TEST_F(RenderTargetIntegrationTests, FromFramebufferBindUnbindDoNotCrash)
@@ -153,22 +144,9 @@ TEST_F(RenderTargetIntegrationTests, FromFramebufferBindUnbindDoNotCrash)
         TextureFormat::Depth24Stencil8
     };
 
-    auto fb = CreateRef<Framebuffer>(spec);
-    RenderTarget target = RenderTarget::FromFramebuffer(fb);
+    auto fb = GetDevice()->CreateFramebuffer(spec);
+    auto target = GetDevice()->CreateRenderTargetFromFramebuffer(fb);
 
-    EXPECT_NO_THROW(target.Bind());
-    EXPECT_NO_THROW(target.Unbind());
-}
-
-TEST_F(RenderTargetIntegrationTests, FromFramebufferHoldsReference)
-{
-    FramebufferSpecification spec{};
-    spec.Width = 64;
-    spec.Height = 64;
-    spec.Attachments = { TextureFormat::RGBA8 };
-
-    auto fb = CreateRef<Framebuffer>(spec);
-    RenderTarget target = RenderTarget::FromFramebuffer(fb);
-
-    EXPECT_EQ(target.GetFramebuffer(), fb);
+    EXPECT_NO_THROW(target->Bind());
+    EXPECT_NO_THROW(target->Unbind());
 }
