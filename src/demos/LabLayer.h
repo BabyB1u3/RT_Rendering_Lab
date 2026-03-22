@@ -5,6 +5,7 @@
 
 #include "core/Layer.h"
 #include "core/Base.h"
+#include "gui/Panels/DebugPanel.h"
 #include "gui/Panels/DemoSelectorPanel.h"
 
 class DemoBase;
@@ -33,5 +34,6 @@ private:
     std::string m_ActiveDemoName;
     Scope<DemoBase> m_ActiveDemo;
 
+    DebugPanel m_DebugPanel;
     DemoSelectorPanel m_DemoSelectorPanel;
 };

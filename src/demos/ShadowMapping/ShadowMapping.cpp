@@ -7,6 +7,8 @@
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <imgui.h>
+
 #include "core/Input.h"
 #include "core/Logger.h"
 #include "graphics/Material.h"
@@ -103,10 +105,41 @@ void ShadowMapping::OnRender()
 
 void ShadowMapping::OnImGuiRender()
 {
-    // - output mode toggle
-    // - light direction
-    // - camera values
-    // - shadow map preview switch
+    ImGui::Begin("Shadow Mapping");
+
+    // Output mode
+    int mode = static_cast<int>(m_OutputMode);
+    ImGui::Text("Output Mode");
+    ImGui::RadioButton("Final Color", &mode, 0);
+    ImGui::SameLine();
+    ImGui::RadioButton("Shadow Map", &mode, 1);
+    m_OutputMode = static_cast<SceneRendererOutput>(mode);
+
+    ImGui::Separator();
+
+    // Light direction
+    ImGui::Text("Directional Light");
+    ImGui::DragFloat3("Direction", &m_Scene.MainDirectionalLight.Direction.x, 0.01f, -1.0f, 1.0f);
+    m_Scene.MainDirectionalLight.Direction = glm::normalize(m_Scene.MainDirectionalLight.Direction);
+    ImGui::ColorEdit3("Light Color", &m_Scene.MainDirectionalLight.Color.x);
+    ImGui::DragFloat("Intensity", &m_Scene.MainDirectionalLight.Intensity, 0.01f, 0.0f, 5.0f);
+
+    ImGui::Separator();
+
+    // Light projection (renderer spec)
+    if (m_Renderer)
+    {
+        auto &spec = m_Renderer->GetSpecification();
+        if (ImGui::CollapsingHeader("Light Projection"))
+        {
+            ImGui::DragFloat("Distance", &spec.LightDistance, 0.1f, 1.0f, 50.0f);
+            ImGui::DragFloat("Ortho Size", &spec.LightOrthoSize, 0.1f, 1.0f, 50.0f);
+            ImGui::DragFloat("Near Plane", &spec.LightNearPlane, 0.01f, 0.01f, 10.0f);
+            ImGui::DragFloat("Far Plane", &spec.LightFarPlane, 0.1f, 1.0f, 100.0f);
+        }
+    }
+
+    ImGui::End();
 }
 
 void ShadowMapping::OnResize(uint32_t width, uint32_t height)
