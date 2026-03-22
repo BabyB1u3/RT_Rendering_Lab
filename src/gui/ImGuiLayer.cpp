@@ -22,8 +22,10 @@ void ImGuiLayer::OnAttach()
 
     ImGui::StyleColorsDark();
 
+    // install_callbacks = true lets ImGui intercept GLFW input events.
     GLFWwindow *window = Application::Get().GetWindow().GetNativeHandle();
     ImGui_ImplGlfw_InitForOpenGL(window, true);
+    // GLSL 460 matches the OpenGL 4.6 core context created in Window.
     ImGui_ImplOpenGL3_Init("#version 460");
 }
 
