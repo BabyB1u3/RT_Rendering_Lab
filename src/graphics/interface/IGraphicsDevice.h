@@ -11,7 +11,7 @@
 #include <string>
 
 #include "core/Base.h"
-#include "graphics/Buffers.h"  // BufferUsage
+#include "graphics/Buffers.h" // BufferUsage
 
 class IVertexBuffer;
 class IIndexBuffer;

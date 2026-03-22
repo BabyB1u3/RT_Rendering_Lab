@@ -19,6 +19,17 @@
     graphics/Texture.cpp
     graphics/VertexArray.cpp
 
+    graphics/GraphicsDevice.cpp
+    graphics/opengl/GLTexture2D.cpp
+    graphics/opengl/GLVertexBuffer.cpp
+    graphics/opengl/GLIndexBuffer.cpp
+    graphics/opengl/GLVertexArray.cpp
+    graphics/opengl/GLShader.cpp
+    graphics/opengl/GLFramebuffer.cpp
+    graphics/opengl/GLRenderTarget.cpp
+    graphics/opengl/GLRenderCommand.cpp
+    graphics/opengl/GLGraphicsDevice.cpp
+
     renderer/SceneRenderer.cpp
 
     renderer/passes/ForwardPass.cpp
@@ -61,6 +72,29 @@ set(GLAB_CORE_HEADERS
     graphics/Shader.h
     graphics/Texture.h
     graphics/VertexArray.h
+
+    graphics/GraphicsDevice.h
+    graphics/opengl/GLCast.h
+    graphics/opengl/GLTexture2D.h
+    graphics/opengl/GLVertexBuffer.h
+    graphics/opengl/GLIndexBuffer.h
+    graphics/opengl/GLVertexArray.h
+    graphics/opengl/GLShader.h
+    graphics/opengl/GLFramebuffer.h
+    graphics/opengl/GLRenderTarget.h
+    graphics/opengl/GLRenderCommand.h
+    graphics/opengl/GLGraphicsDevice.h
+
+    graphics/interface/ITexture2D.h
+    graphics/interface/IVertexBuffer.h
+    graphics/interface/IIndexBuffer.h
+    graphics/interface/IVertexArray.h
+    graphics/interface/IShader.h
+    graphics/interface/IFramebuffer.h
+    graphics/interface/IRenderTarget.h
+    graphics/interface/IRenderCommand.h
+    graphics/interface/IGraphicsDevice.h
+    graphics/interface/GraphicsInterfaces.h
 
     renderer/RenderContext.h
     renderer/RenderItem.h
