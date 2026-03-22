@@ -98,7 +98,8 @@ void GLFramebuffer::Resize(uint32_t width, uint32_t height)
 
 Ref<ITexture2D> GLFramebuffer::GetColorAttachment(uint32_t index) const
 {
-	assert(index < m_ColorAttachments.size() && "Color attachment index out of range");
+	if (index >= m_ColorAttachments.size())
+		return nullptr;
 	return m_ColorAttachments[index];
 }
 

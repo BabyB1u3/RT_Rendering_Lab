@@ -3,10 +3,10 @@
 Updated 2026-03-22. Single source of truth for project state, priorities, and architecture direction.
 
 > **Architecture Goal**: Multi-backend support (OpenGL on Windows/Linux, Metal on macOS, Vulkan optional).
-> Phase 4 (Multi-Backend Refactor) is now active — starting with R1 (Abstract Interface Layer).
+> Phase 4 (Multi-Backend Refactor) — R1 (Abstract Interface Layer) and R2 (OpenGL Backend
+> Reorganization) are complete. Next up: R3 (SPIR-V Shader Pipeline).
 > Phase 1 (Input Layer 1-2) and Phase 2 (model loading, normal mapping, skybox) remain in progress
-> but do not block R1: they operate on the renderer/demo layer while R1 operates on the graphics
-> abstraction layer.
+> but are not blocking — they operate on the renderer/demo layer.
 
 ---
 
@@ -18,7 +18,7 @@ Updated 2026-03-22. Single source of truth for project state, priorities, and ar
 | Phase 1 (Framework)  | 7/8 done — Input Layer 1-2 deferred                |
 | Phase 2 (Basic RT)   | ~60% — lighting, shadows, Blinn-Phong done         |
 | Phase 3 (Pass Unify) | Complete                                           |
-| **Phase 4 (Refactor)** | **Active — R1 in progress**                      |
+| **Phase 4 (Refactor)** | **R1 ✅, R2 ✅ — R3 next**                       |
 | Active Demos         | 2 (Shadow Mapping, Material Playground)            |
 | Shader Files         | 3 (ForwardLit, ShadowDepth, TexturePreview)        |
 | Test Suite           | 77 / 77 passing (unit + integration, Google Test)  |
@@ -28,12 +28,12 @@ Updated 2026-03-22. Single source of truth for project state, priorities, and ar
 ### Working today
 
 - Core runtime: `Application`, `Window`, `Input`, `Layer`, `LayerStack`, `Time`, `Logger`
-- OpenGL resources: buffers, vertex arrays, textures, shaders, framebuffers, meshes
+- Graphics abstraction: pure virtual interfaces (`I*.h`) + OpenGL backend (`opengl/GL*.h`) + device factory (`GraphicsDevice`)
 - Scene layer: `Camera`, `DebugCameraController`, `Transform`, `DirectionalLight`, `SceneData`
 - Renderer: `SceneRenderer`, `RenderContext` (SceneView + FrameResources), `ShadowPass`, `ForwardPass`, `TexturePreviewPass`
 - Demo system: `DemoBase`, `DemoRegistry`, `LabLayer`, `ShadowMapping`, `MaterialPlayground`
 - Material: textures + typed float/int/vec3/vec4 properties with `UploadToShader()`
-- `RenderTarget`: backbuffer vs framebuffer wrapper, depth-only safe, integration-tested
+- `IRenderTarget`: backbuffer vs framebuffer wrapper, depth-only safe, integration-tested
 - `SceneRendererSpecification` / `SceneRendererOutput`: renderer tuning extracted into `SceneRendererTypes.h`
 - `FileSystem`: cross-platform path resolution, `GetAssetPath()`, `GetShaderPath()`, `ReadTextFile()`, integrated into Application and all render passes
 - `Input`: polling-based keyboard/mouse via GLFW (`IsKeyPressed()`, `GetMousePosition()`, `GetMouseDelta()`)
@@ -137,10 +137,10 @@ struct SceneView {
 // FrameResources: inter-pass shared outputs (typed fields, not string maps)
 struct FrameResources {
     glm::mat4 LightViewProjection{1.0f};
-    Ref<Texture2D> ShadowMap;
-    RenderTarget ShadowTarget;
-    Ref<Texture2D> SceneColor;
-    RenderTarget SceneTarget;
+    Ref<ITexture2D> ShadowMap;
+    Ref<IRenderTarget> ShadowTarget;
+    Ref<ITexture2D> SceneColor;
+    Ref<IRenderTarget> SceneTarget;
 };
 
 // RenderContext: unified parameter for Execute()
@@ -165,7 +165,7 @@ Phases 0 and 3 are complete. Phase 1 (Layer 1-2) and Phase 2 (model loading, nor
 remain in progress but are not blocking — they operate on the renderer/demo layer while Phase 4
 operates on the graphics abstraction layer.
 
-#### R1: Abstract Interface Layer (Active)
+#### R1: Abstract Interface Layer ✅
 
 **Goal**: Define pure virtual interfaces so the renderer layer can be written against abstractions
 instead of concrete OpenGL types. R1 only *defines* the interfaces — it does not refactor existing
@@ -255,23 +255,22 @@ enums before the interfaces can be clean.
 - `ctest` green (77/77)
 - `grep -r "glad/glad.h" src/graphics/interface/` returns 0 results
 
-#### R2: OpenGL Backend Reorganization
+#### R2: OpenGL Backend Reorganization ✅
 
-Move existing OpenGL code into `src/graphics/opengl/` implementing the R1 interfaces.
-Mostly mechanical file moves + adding `override` on virtual methods.
+Moved all OpenGL code into `src/graphics/opengl/` implementing the R1 interfaces.
 
-- Rename `Texture2D` → `GLTexture2D : public ITexture2D`
-- Rename `VertexBuffer` → `GLVertexBuffer : public IVertexBuffer`
-- Rename `IndexBuffer` → `GLIndexBuffer : public IIndexBuffer`
-- Rename `VertexArray` → `GLVertexArray : public IVertexArray`
-- Rename `Shader` → `GLShader : public IShader`
-- Rename `Framebuffer` → `GLFramebuffer : public IFramebuffer`
-- Rename `RenderTarget` → `GLRenderTarget : public IRenderTarget`
-- Rename `RenderCommand` → `GLRenderCommand : public IRenderCommand`
-- Implement `GLGraphicsDevice : public IGraphicsDevice`
-- Update all renderer / demo / test `#include` paths
-- `Material::UploadToShader` changes parameter type to `Ref<IShader>`
-- `Mesh` / `MeshFactory` use `Ref<IVertexArray>`, `Ref<IVertexBuffer>`, `Ref<IIndexBuffer>`
+**Completed:**
+- `GLTexture2D`, `GLVertexBuffer`, `GLIndexBuffer`, `GLVertexArray`, `GLShader`, `GLFramebuffer`, `GLRenderTarget`, `GLRenderCommand` — all implement their respective R1 interfaces
+- `GLGraphicsDevice : public IGraphicsDevice` — factory hub for all GL resource creation
+- `GLCast.h` — centralized `AsGL<T>()` downcast helper (debug `dynamic_cast` + release `static_cast`)
+- `GraphicsDevice.h/cpp` — global `SetDevice()` / `GetDevice()` accessor
+- `RenderCommand` converted to static forwarding shim (delegates to `GetDevice()->GetRenderCommand()`)
+- `Material` uses `Ref<IShader>` / `Ref<ITexture2D>`; `Mesh` uses `Ref<IVertexArray>` / `Ref<IVertexBuffer>` / `Ref<IIndexBuffer>`
+- All renderer passes, demos, and tests migrated to interface types + device factory
+- Old concrete classes removed from root headers (`Texture.h`, `Buffers.h`, `Framebuffer.h` retain only enums/specs)
+- Deleted: `Texture.cpp`, `Buffers.cpp`, `Framebuffer.cpp`, `VertexArray.h/cpp`, `Shader.h/cpp`, `RenderTarget.h/cpp`
+- No `glad/glad.h` in interface or root graphics headers
+- No concrete GL types outside `opengl/`, `Application.cpp`, and backend-specific integration tests
 
 #### R3: Shader Pipeline (SPIR-V)
 
@@ -336,4 +335,4 @@ Full Input/Event system architecture specified in `docs/design-input-event-syste
 - Render graph (Phase 5+)
 - Backend-aware resource cache (Phase 5+)
 
-These are valid long-term targets. Current focus is R1 (abstract interfaces) followed by R2 (OpenGL backend reorganization).
+These are valid long-term targets. Current focus is R3 (SPIR-V shader pipeline) to enable multi-backend shader compilation.
