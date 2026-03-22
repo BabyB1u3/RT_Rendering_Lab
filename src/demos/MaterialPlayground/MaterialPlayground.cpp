@@ -168,7 +168,7 @@ void MaterialPlayground::BuildScene()
         m_Scene.RenderItems.push_back(floor);
     }
 
-    // Spheres
+    // Spheres — evenly spaced along X axis, centered at origin.
     for (size_t i = 0; i < m_Spheres.size(); ++i)
     {
         RenderItem sphere;
@@ -180,6 +180,8 @@ void MaterialPlayground::BuildScene()
     }
 }
 
+/// Push UI-edited SpherePreset values into the actual Material objects.
+/// Called every frame after ImGui editing so that the renderer sees updated values.
 void MaterialPlayground::SyncMaterialProperties()
 {
     for (auto &s : m_Spheres)

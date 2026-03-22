@@ -1,5 +1,16 @@
 #pragma once
 
+/// @file LabLayer.h
+/// @brief Main application Layer that hosts the demo framework.
+///
+/// LabLayer is the single Layer pushed onto the Application's LayerStack.
+/// It owns the active demo (a DemoBase subclass), a DemoSelectorPanel for
+/// hot-switching demos at runtime, and a DebugPanel for FPS display.
+///
+/// Lifecycle flow per frame:
+///   OnUpdate(dt) → OnRender() → [ImGui] OnImGuiRender()
+/// All three are forwarded to the currently active demo.
+
 #include <memory>
 #include <string>
 

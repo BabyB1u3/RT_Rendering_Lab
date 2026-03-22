@@ -52,6 +52,8 @@ void LabLayer::OnRender()
 
 void LabLayer::OnImGuiRender()
 {
+    // When DemoSelectorPanel returns true, the user picked a different demo.
+    // SetActiveDemo detaches the old demo; we then attach the new one.
     const auto &names = DemoRegistry::GetNames();
     if (m_DemoSelectorPanel.OnImGuiRender(names, m_SelectedDemoIndex))
     {

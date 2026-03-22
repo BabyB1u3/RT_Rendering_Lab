@@ -1,5 +1,13 @@
 #pragma once
 
+/// @file MaterialPlayground.h
+/// @brief Material-editing demo: five UV spheres with distinct Blinn-Phong presets.
+///
+/// Each sphere starts with a named preset (Matte Red, Shiny Blue, Gold, Plastic
+/// Green, Chrome). The ImGui panel lets you edit albedo, specular power, and
+/// ambient strength per sphere in real time. SyncMaterialProperties() pushes
+/// the edited SpherePreset values back into the Material each frame.
+
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -50,6 +58,9 @@ private:
     Ref<Texture2D> m_WhiteTexture;
     Ref<Material> m_FloorMaterial;
 
+    /// Per-sphere editable preset. Label is displayed in the ImGui header.
+    /// Albedo/SpecularPower/AmbientStrength are the "source of truth" edited
+    /// by the UI; SyncMaterialProperties() copies them into Mat each frame.
     struct SpherePreset
     {
         std::string Label;

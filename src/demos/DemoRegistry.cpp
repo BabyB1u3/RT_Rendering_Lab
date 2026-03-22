@@ -5,6 +5,9 @@
 #include "DemoBase.h"
 #include "core/Logger.h"
 
+// Function-local statics ensure the containers are initialized on first use,
+// avoiding the static initialization order fiasco (SIOF).
+
 std::vector<DemoRegistry::Entry> &DemoRegistry::Entries()
 {
     static std::vector<Entry> s_Entries;
@@ -21,6 +24,7 @@ void DemoRegistry::Register(const std::string &name, Factory factory)
 {
     auto &entries = Entries();
 
+    // Silently ignore duplicate registrations (idempotent).
     for (const auto &entry : entries)
     {
         if (entry.Name == name)
