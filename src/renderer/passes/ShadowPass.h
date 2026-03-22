@@ -1,5 +1,14 @@
 #pragma once
 
+/// @file ShadowPass.h
+/// @brief Depth-only pass that renders the scene from the directional light's POV.
+///
+/// Produces a depth texture (shadow map) that the ForwardPass samples to determine
+/// whether a fragment is in shadow. Uses front-face culling during rendering to
+/// reduce self-shadowing artifacts (shadow acne) without requiring a large depth bias.
+///
+/// The pass owns a depth-only Framebuffer (no color attachment).
+
 #include <cstdint>
 #include <memory>
 #include <string>

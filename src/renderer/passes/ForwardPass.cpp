@@ -102,6 +102,9 @@ void ForwardPass::Execute(const RenderContext& ctx)
         glm::mat4 model = item.Transform.GetMatrix();
 
         m_Shader->SetMat4("u_Model", model);
+        // Normal matrix = transpose(inverse(mat3(model))).
+        // Precomputed on CPU to avoid per-fragment inverse in the shader.
+        // Handles non-uniform scale correctly.
         m_Shader->SetMat3("u_NormalMatrix", glm::mat3(glm::transpose(glm::inverse(model))));
 
         item.Material->UploadToShader(m_Shader);
