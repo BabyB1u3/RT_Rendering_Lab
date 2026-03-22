@@ -1,5 +1,18 @@
 #pragma once
 
+/// @file Buffers.h
+/// @brief GPU buffer abstractions: VertexBuffer, IndexBuffer, and BufferLayout.
+///
+/// All buffers use OpenGL 4.5+ DSA (Direct State Access) — no bind-to-edit pattern.
+/// Created with glCreateBuffers / glNamedBufferData; never require glBindBuffer for
+/// data upload. Move-only semantics prevent accidental GPU resource duplication.
+///
+/// Typical usage:
+///   1. Create a BufferLayout describing the vertex attributes.
+///   2. Create a VertexBuffer (with or without initial data) and assign the layout.
+///   3. Create an IndexBuffer with the triangle index data.
+///   4. Feed both into a VertexArray via AddVertexBuffer / SetIndexBuffer.
+
 #include <cstdint>
 #include <cstddef>
 #include <string>
@@ -9,7 +22,7 @@
 
 #include <glad/glad.h>
 
-// Type of the vertex/shader data
+/// Enumerates the data types that can appear in a vertex attribute.
 enum class ShaderDataType
 {
     None = 0,
@@ -61,7 +74,7 @@ inline uint32_t ShaderDataTypeSize(ShaderDataType type)
     return 0;
 }
 
-// A single element/attribute in a vertex buffer layout
+/// A single vertex attribute description (name, type, byte offset, divisor).
 struct BufferElement
 {
     std::string Name;
@@ -113,7 +126,8 @@ struct BufferElement
     }
 };
 
-// Describes the layout of vertex data in a vertex buffer
+/// Describes the memory layout of interleaved vertex data.
+/// Automatically computes per-element byte offsets and the total stride.
 class BufferLayout
 {
 public:
@@ -174,11 +188,16 @@ inline GLenum ToOpenGLBufferUsage(BufferUsage usage)
     return GL_STATIC_DRAW;
 }
 
-//-------------------- Vertex Buffer --------------------
+/// GPU vertex buffer (DSA). Holds per-vertex attribute data.
+/// Two construction modes:
+///   - Size only (DynamicDraw): allocate uninitialized GPU memory, fill later via SetData().
+///   - Data + size (StaticDraw): upload initial data immediately.
 class VertexBuffer
 {
 public:
+    /// Allocate an empty buffer of the given byte size (for streaming / dynamic updates).
     VertexBuffer(uint32_t size, BufferUsage usage = BufferUsage::DynamicDraw);
+    /// Allocate and upload initial data in one call.
     VertexBuffer(const void *data, uint32_t size, BufferUsage usage = BufferUsage::StaticDraw);
     ~VertexBuffer();
 
@@ -201,8 +220,7 @@ private:
     BufferUsage m_Usage = BufferUsage::StaticDraw;
 };
 
-//-------------------- Index Buffer ---------------------
-
+/// GPU index buffer (DSA). Stores uint32 triangle indices, always StaticDraw.
 class IndexBuffer
 {
 public:

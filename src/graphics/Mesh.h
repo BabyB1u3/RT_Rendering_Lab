@@ -1,5 +1,15 @@
 #pragma once
 
+/// @file Mesh.h
+/// @brief GPU-ready mesh: a VAO + vertex/index buffers, created from raw vertex data.
+///
+/// A Mesh packages a VertexArray, one or more VertexBuffers, and an IndexBuffer
+/// into a single drawable unit. It does NOT include material or transform data —
+/// those are stored separately in RenderItem.
+///
+/// Meshes are typically created via MeshFactory (cube, plane, sphere, quad)
+/// rather than constructed directly.
+
 #include <cstdint>
 #include <memory>
 #include <vector>
