@@ -100,6 +100,7 @@ target_link_libraries(RTRLabCore PUBLIC
     glm
     stb
     spdlog
+    imgui
     OpenGL::GL
 )
 
