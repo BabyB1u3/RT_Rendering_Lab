@@ -76,10 +76,10 @@ void ShadowMapping::OnUpdate(double dt)
 {
     HandleCameraInput(dt);
 
-    if (Input::IsKeyPressed(Key::D1))
+    if (Input::WasKeyPressedThisFrame(Key::D1))
         m_OutputMode = SceneRendererOutput::FinalColor;
 
-    if (Input::IsKeyPressed(Key::D2))
+    if (Input::WasKeyPressedThisFrame(Key::D2))
         m_OutputMode = SceneRendererOutput::ShadowMap;
 }
 
@@ -198,24 +198,29 @@ void ShadowMapping::BuildScene()
 
 void ShadowMapping::HandleCameraInput(double dt)
 {
-    if (Input::IsKeyPressed(Key::W))
+    if (Input::IsKeyDown(Key::W))
         m_CameraController.MoveForward(dt);
-    if (Input::IsKeyPressed(Key::S))
+    if (Input::IsKeyDown(Key::S))
         m_CameraController.MoveBackward(dt);
-    if (Input::IsKeyPressed(Key::A))
+    if (Input::IsKeyDown(Key::A))
         m_CameraController.MoveLeft(dt);
-    if (Input::IsKeyPressed(Key::D))
+    if (Input::IsKeyDown(Key::D))
         m_CameraController.MoveRight(dt);
-    if (Input::IsKeyPressed(Key::Q))
+    if (Input::IsKeyDown(Key::Q))
         m_CameraController.MoveDown(dt);
-    if (Input::IsKeyPressed(Key::E))
+    if (Input::IsKeyDown(Key::E))
         m_CameraController.MoveUp(dt);
 
-    if (m_RightMouseLooking)
+    // Right-click to look around
+    if (Input::IsMouseButtonDown(Mouse::Right))
     {
-        std::pair<float, float> mouseDeltaPair = Input::GetMouseDelta();
-        glm::vec2 mouseDelta(mouseDeltaPair.first, mouseDeltaPair.second);
-        if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f)
-            m_CameraController.OnMouseDelta(mouseDelta.x, -mouseDelta.y);
+        auto [dx, dy] = Input::GetMouseDelta();
+        if (dx != 0.0f || dy != 0.0f)
+            m_CameraController.OnMouseDelta(dx, -dy);
     }
+
+    // Scroll to zoom (adjust FOV)
+    float scroll = Input::GetScrollDelta();
+    if (scroll != 0.0f)
+        m_CameraController.OnMouseScroll(scroll);
 }

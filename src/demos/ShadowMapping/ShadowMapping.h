@@ -54,5 +54,4 @@ private:
     Ref<ITexture2D> m_WhiteTexture;
 
     SceneRendererOutput m_OutputMode = SceneRendererOutput::FinalColor;
-    bool m_RightMouseLooking = true;
 };
