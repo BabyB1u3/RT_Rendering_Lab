@@ -2,6 +2,7 @@
     core/Application.cpp
     core/FileSystem.cpp
     core/Input.cpp
+    core/InputAction.cpp
     core/Layer.cpp
     core/LayerStack.cpp
     core/Logger.cpp
@@ -47,8 +48,12 @@ set(GLAB_CORE_HEADERS
     core/Application.h
     core/Base.h
     core/FileSystem.h
+    core/EventBus.h
+    core/Events.h
     core/Input.h
+    core/InputAction.h
     core/KeyCode.h
+    core/ScopedConnection.h
     core/Layer.h
     core/LayerStack.h
     core/MouseCode.h

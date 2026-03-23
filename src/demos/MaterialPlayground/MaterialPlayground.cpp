@@ -74,7 +74,7 @@ void MaterialPlayground::OnAttach()
 
     m_InputMap.BindAction("ShowFinalColor",  Key::D1);
     m_InputMap.BindAction("ShowShadowMap",   Key::D2);
-    m_InputMap.BindAction("ToggleLookMode",  Mouse::Right);
+    m_InputMap.BindAction("ToggleLookMode",  InputSource::FromMouseButton(Mouse::Right));
     m_InputMap.BindAxis("Zoom",              InputActionMap::MouseAxis::ScrollY);
 
     BuildScene();

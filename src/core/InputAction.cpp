@@ -13,11 +13,6 @@ void InputActionMap::BindAction(const std::string &name, Key::Code key)
     BindAction(name, InputSource::FromKey(key));
 }
 
-void InputActionMap::BindAction(const std::string &name, Mouse::Code button)
-{
-    BindAction(name, InputSource::FromMouseButton(button));
-}
-
 void InputActionMap::BindAxis(const std::string &name, Key::Code positive, Key::Code negative)
 {
     AxisEntry entry{};

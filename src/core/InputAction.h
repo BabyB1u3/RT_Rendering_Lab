@@ -61,9 +61,6 @@ public:
     /// Convenience: bind action to a key.
     void BindAction(const std::string &name, Key::Code key);
 
-    /// Convenience: bind action to a mouse button.
-    void BindAction(const std::string &name, Mouse::Code button);
-
     /// Bind a 1D axis to a positive/negative key pair.
     void BindAxis(const std::string &name, Key::Code positive, Key::Code negative);
 
