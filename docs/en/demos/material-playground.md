@@ -103,9 +103,10 @@ src/renderer/
     └── TexturePreviewPass.h/cpp   # Fullscreen texture visualization
 
 assets/shaders/
-├── ForwardLit.glsl                # Blinn-Phong + PCF shadow sampling (u_Albedo, u_SpecularPower, u_AmbientStrength)
-├── ShadowDepth.glsl               # Depth-only shader
-└── TexturePreview.glsl            # Fullscreen quad visualization
+├── ForwardLit.vert / .frag        # Blinn-Phong + PCF shadow sampling (u_Albedo, u_SpecularPower, u_AmbientStrength)
+├── ShadowDepth.vert / .frag       # Depth-only shader
+├── TexturePreview.vert / .frag    # Fullscreen quad visualization
+└── *.spv                          # Compiled SPIR-V (generated at build time by glslang)
 ```
 
 ---

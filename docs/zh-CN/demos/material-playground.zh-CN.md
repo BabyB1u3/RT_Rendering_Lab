@@ -102,9 +102,10 @@ src/renderer/
     └── TexturePreviewPass.h/cpp   # 全屏纹理可视化
 
 assets/shaders/
-├── ForwardLit.glsl                # Blinn-Phong + PCF 阴影采样（u_Albedo、u_SpecularPower、u_AmbientStrength）
-├── ShadowDepth.glsl               # 仅写入深度的着色器
-└── TexturePreview.glsl            # 全屏四边形可视化
+├── ForwardLit.vert / .frag        # Blinn-Phong + PCF 阴影采样（u_Albedo、u_SpecularPower、u_AmbientStrength）
+├── ShadowDepth.vert / .frag       # 仅写入深度的着色器
+├── TexturePreview.vert / .frag    # 全屏四边形可视化
+└── *.spv                          # 编译后的 SPIR-V（构建时由 glslang 生成）
 ```
 
 ---
