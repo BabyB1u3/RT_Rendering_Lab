@@ -15,6 +15,7 @@
 
 #include <glm/glm.hpp>
 
+#include "core/InputAction.h"
 #include "demos/DemoBase.h"
 #include "renderer/SceneRenderer.h"
 #include "scene/Camera.h"
@@ -72,5 +73,6 @@ private:
 
     std::vector<SpherePreset> m_Spheres;
 
+    InputActionMap m_InputMap;
     SceneRendererOutput m_OutputMode = SceneRendererOutput::FinalColor;
 };

@@ -4,10 +4,7 @@
 
 #include <imgui.h>
 
-#include "core/Input.h"
-#include "core/KeyCode.h"
 #include "core/Logger.h"
-#include "core/MouseCode.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/Material.h"
 #include "graphics/MeshFactory.h"
@@ -68,6 +65,18 @@ void MaterialPlayground::OnAttach()
         s.Mat->SetFloat("u_AmbientStrength", s.AmbientStrength);
     }
 
+    // Input bindings
+    m_InputMap.BindAxis("MoveForward",  Key::W, Key::S);
+    m_InputMap.BindAxis("MoveRight",    Key::D, Key::A);
+    m_InputMap.BindAxis("MoveUp",       Key::E, Key::Q);
+    m_InputMap.BindAxis("LookX",        InputActionMap::MouseAxis::X);
+    m_InputMap.BindAxis("LookY",        InputActionMap::MouseAxis::Y);
+
+    m_InputMap.BindAction("ShowFinalColor",  Key::D1);
+    m_InputMap.BindAction("ShowShadowMap",   Key::D2);
+    m_InputMap.BindAction("ToggleLookMode",  Mouse::Right);
+    m_InputMap.BindAxis("Zoom",              InputActionMap::MouseAxis::ScrollY);
+
     BuildScene();
 }
 
@@ -87,9 +96,9 @@ void MaterialPlayground::OnUpdate(double dt)
 {
     HandleCameraInput(dt);
 
-    if (Input::WasKeyPressedThisFrame(Key::D1))
+    if (m_InputMap.WasActionPressedThisFrame("ShowFinalColor"))
         m_OutputMode = SceneRendererOutput::FinalColor;
-    if (Input::WasKeyPressedThisFrame(Key::D2))
+    if (m_InputMap.WasActionPressedThisFrame("ShowShadowMap"))
         m_OutputMode = SceneRendererOutput::ShadowMap;
 }
 
@@ -197,29 +206,28 @@ void MaterialPlayground::SyncMaterialProperties()
 
 void MaterialPlayground::HandleCameraInput(double dt)
 {
-    if (Input::IsKeyDown(Key::W))
-        m_CameraController.MoveForward(dt);
-    if (Input::IsKeyDown(Key::S))
-        m_CameraController.MoveBackward(dt);
-    if (Input::IsKeyDown(Key::A))
-        m_CameraController.MoveLeft(dt);
-    if (Input::IsKeyDown(Key::D))
-        m_CameraController.MoveRight(dt);
-    if (Input::IsKeyDown(Key::Q))
-        m_CameraController.MoveDown(dt);
-    if (Input::IsKeyDown(Key::E))
-        m_CameraController.MoveUp(dt);
+    float forward = m_InputMap.GetAxis("MoveForward");
+    float right   = m_InputMap.GetAxis("MoveRight");
+    float up      = m_InputMap.GetAxis("MoveUp");
+
+    if (forward > 0.0f)  m_CameraController.MoveForward(dt);
+    if (forward < 0.0f)  m_CameraController.MoveBackward(dt);
+    if (right > 0.0f)    m_CameraController.MoveRight(dt);
+    if (right < 0.0f)    m_CameraController.MoveLeft(dt);
+    if (up > 0.0f)       m_CameraController.MoveUp(dt);
+    if (up < 0.0f)       m_CameraController.MoveDown(dt);
 
     // Right-click to look around
-    if (Input::IsMouseButtonDown(Mouse::Right))
+    if (m_InputMap.IsActionDown("ToggleLookMode"))
     {
-        auto [dx, dy] = Input::GetMouseDelta();
-        if (dx != 0.0f || dy != 0.0f)
-            m_CameraController.OnMouseDelta(dx, -dy);
+        float lookX = m_InputMap.GetAxis("LookX");
+        float lookY = m_InputMap.GetAxis("LookY");
+        if (lookX != 0.0f || lookY != 0.0f)
+            m_CameraController.OnMouseDelta(lookX, -lookY);
     }
 
     // Scroll to zoom (adjust FOV)
-    float scroll = Input::GetScrollDelta();
+    float scroll = m_InputMap.GetAxis("Zoom");
     if (scroll != 0.0f)
         m_CameraController.OnMouseScroll(scroll);
 }
