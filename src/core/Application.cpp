@@ -33,6 +33,7 @@ Application::Application(const ApplicationSpecification &spec)
     m_Window = CreateScope<Window>(props);
     m_Window->SetResizeCallback([this](uint32_t width, uint32_t height)
                                 { OnWindowResize(width, height); });
+    m_Window->SetEventBus(&m_EventBus);
 
     SetDevice(CreateRef<GLGraphicsDevice>());
     RenderCommand::Init();

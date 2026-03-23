@@ -19,6 +19,7 @@
 #include <cstdint>
 
 #include "Base.h"
+#include "EventBus.h"
 #include "Window.h"
 #include "LayerStack.h"
 
@@ -54,6 +55,8 @@ public:
     Window &GetWindow() { return *m_Window; }
     const Window &GetWindow() const { return *m_Window; }
 
+    EventBus &GetEventBus() { return m_EventBus; }
+
     static Application &Get() { return *s_Instance; }
 
 private:
@@ -65,6 +68,7 @@ private:
     static Application *s_Instance;
 
     Scope<Window> m_Window;
+    EventBus m_EventBus;
     LayerStack m_LayerStack;
     // Non-owning pointer. Lifetime is managed by the LayerStack (pushed as overlay).
     ImGuiLayer *m_ImGuiLayer = nullptr;
