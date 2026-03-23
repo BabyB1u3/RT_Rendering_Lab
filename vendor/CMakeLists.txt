@@ -89,3 +89,37 @@ target_link_libraries(imgui PRIVATE
 )
 
 glab_enable_parallel_compilation(imgui)
+
+# ----------------------------
+# glslang (SPIR-V compiler)
+# ----------------------------
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/glslang/CMakeLists.txt")
+    message(FATAL_ERROR
+        "glslang submodule not initialized.\n"
+        "Run: git submodule update --init vendor/glslang\n"
+        "Then: cd vendor/glslang && python update_glslang_sources.py")
+endif()
+set(ENABLE_CTEST OFF CACHE BOOL "" FORCE)
+set(ENABLE_HLSL OFF CACHE BOOL "" FORCE)
+set(ENABLE_OPT OFF CACHE BOOL "" FORCE)
+set(SKIP_GLSLANG_INSTALL ON CACHE BOOL "" FORCE)
+add_subdirectory(glslang)
+# Export the standalone tool target name for CompileShaders.cmake
+set(GLSLANG_TARGET "glslang-standalone" CACHE INTERNAL "glslang compiler tool target")
+
+# ----------------------------
+# SPIRV-Cross
+# ----------------------------
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/spirv-cross/CMakeLists.txt")
+    message(FATAL_ERROR
+        "SPIRV-Cross submodule not initialized.\n"
+        "Run: git submodule update --init vendor/spirv-cross")
+endif()
+set(SPIRV_CROSS_CLI OFF CACHE BOOL "" FORCE)
+set(SPIRV_CROSS_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
+set(SPIRV_CROSS_ENABLE_HLSL OFF CACHE BOOL "" FORCE)
+set(SPIRV_CROSS_ENABLE_MSL OFF CACHE BOOL "" FORCE)
+set(SPIRV_CROSS_ENABLE_CPP OFF CACHE BOOL "" FORCE)
+set(SPIRV_CROSS_ENABLE_REFLECT OFF CACHE BOOL "" FORCE)
+set(SPIRV_CROSS_ENABLE_UTIL OFF CACHE BOOL "" FORCE)
+add_subdirectory(spirv-cross)

@@ -148,6 +148,8 @@ target_link_libraries(RTRLabCore PUBLIC
     spdlog
     imgui
     OpenGL::GL
+    spirv-cross-core
+    spirv-cross-glsl
 )
 
 target_compile_definitions(RTRLabCore PUBLIC
@@ -201,6 +203,10 @@ endif()
 if(GLAB_ENABLE_ASAN)
     glab_enable_sanitizers(RTRLabCore)
     glab_enable_sanitizers(RTRLab)
+endif()
+
+if(TARGET CompileShaders)
+    add_dependencies(RTRLab CompileShaders)
 endif()
 
 add_custom_command(TARGET RTRLab POST_BUILD

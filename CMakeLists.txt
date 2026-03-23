@@ -71,7 +71,10 @@ endfunction()
 
 find_package(OpenGL REQUIRED)
 
+include(cmake/CompileShaders.cmake)
+
 add_subdirectory(vendor)
+glab_compile_shaders()
 add_subdirectory(src)
 
 if(GLAB_BUILD_TESTS)
