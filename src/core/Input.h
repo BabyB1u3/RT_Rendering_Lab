@@ -1,49 +1,116 @@
 #pragma once
 
 /// @file Input.h
-/// @brief Polling-based input system (keyboard + mouse) backed by GLFW.
+/// @brief Polling-based input system with double-buffered state and edge detection.
 ///
-/// Design:  Stateless polling — every call queries GLFW for the current key/button
-///          state, so there is no event queue or buffering.
+/// Design: Double-buffered per-frame snapshots of GLFW keyboard/mouse state.
+///   BeginFrame() must be called once at the top of the frame loop (before any
+///   layer's OnUpdate). This enables:
+///     - IsKeyDown / IsMouseButtonDown   — held right now
+///     - WasKeyPressedThisFrame          — down this frame, up last frame
+///     - WasKeyReleasedThisFrame         — up this frame, down last frame
 ///
-/// Mouse delta tracking:
-///   GetMouseDelta() computes (currentPos - lastPos) each time it is called.
-///   The very first call after Initialize() always returns (0, 0) to avoid a
-///   large jump from the default (0, 0) origin to the actual cursor position.
+/// Scroll is the one exception to polling: GLFW only reports it via callback,
+/// so we accumulate it and expose it per-frame via GetScrollDelta().
+///
+/// Capture flags (set by ImGuiLayer) block polling so game/demo code doesn't
+/// respond to input that ImGui is consuming.
 ///
 /// Thread safety: All methods must be called from the main (GLFW) thread.
 ///
 /// See also: KeyCode.h / MouseCode.h for typed enum constants.
 
 #include <utility>
+#include "KeyCode.h"
+#include "MouseCode.h"
 
 struct GLFWwindow;
 
 class Input
 {
 public:
-    /// Bind to a GLFW window. Must be called once before any query method.
-    static void Initialize(GLFWwindow *window);
+    // --- Lifecycle (called by Application, not by user code) ---
 
-    /// True if the key is currently held down (GLFW_PRESS or GLFW_REPEAT).
-    /// @param key  A GLFW key code or a Key::Code value from KeyCode.h.
-    static bool IsKeyPressed(int key);
+    /// Bind to a GLFW window. Must be called once before any query method.
+    static void Initialize(GLFWwindow* window);
+
+    /// Must be called ONCE per frame, BEFORE any layer's OnUpdate().
+    /// Snapshots current GLFW state into the "current" buffer and
+    /// moves the old "current" into "previous".
+    static void BeginFrame();
+
+    // --- Keyboard ---
+
+    /// True if the key is currently held down.
+    static bool IsKeyDown(Key::Code key);
+    /// True only on the frame the key transitioned from up to down.
+    static bool WasKeyPressedThisFrame(Key::Code key);
+    /// True only on the frame the key transitioned from down to up.
+    static bool WasKeyReleasedThisFrame(Key::Code key);
+
+    // --- Mouse buttons ---
+
     /// True if the mouse button is currently pressed.
-    /// @param button  A GLFW button code or a Mouse::Code value from MouseCode.h.
-    static bool IsMouseButtonPressed(int button);
+    static bool IsMouseButtonDown(Mouse::Code button);
+    /// True only on the frame the button transitioned from up to down.
+    static bool WasMouseButtonPressedThisFrame(Mouse::Code button);
+    /// True only on the frame the button transitioned from down to up.
+    static bool WasMouseButtonReleasedThisFrame(Mouse::Code button);
+
+    // --- Mouse position & delta ---
 
     /// Current cursor position in window-space pixels.
     static std::pair<float, float> GetMousePosition();
-    /// Cursor movement since the last call to GetMouseDelta().
-    /// Returns (0, 0) on the first call to prevent a large initial jump.
+    /// Cursor movement since the previous frame.
     static std::pair<float, float> GetMouseDelta();
-
     static float GetMouseX();
     static float GetMouseY();
 
+    // --- Mouse scroll (accumulated this frame) ---
+
+    /// Returns the scroll Y delta accumulated since the last BeginFrame().
+    static float GetScrollDelta();
+
+    /// Fed by the GLFW scroll callback. Not for user code.
+    static void AccumulateScroll(float yOffset);
+
+    // --- Capture flags (set by ImGui layer) ---
+
+    static void SetKeyboardCaptured(bool captured);
+    static void SetMouseCaptured(bool captured);
+    static bool IsKeyboardCaptured();
+    static bool IsMouseCaptured();
+
+    // --- Backwards-compatible aliases ---
+
+    /// @deprecated Use IsKeyDown() instead.
+    static bool IsKeyPressed(Key::Code key) { return IsKeyDown(key); }
+    /// @deprecated Use IsMouseButtonDown() instead.
+    static bool IsMouseButtonPressed(Mouse::Code button) { return IsMouseButtonDown(button); }
+
 private:
-    static GLFWwindow *s_Window;   // Non-owning. Lifetime managed by Window.
-    static float s_LastMouseX;
-    static float s_LastMouseY;
-    static bool s_FirstMouseSample; // Guards against the first-frame jump.
+    static GLFWwindow* s_Window;
+
+    // Double-buffered keyboard state. GLFW_KEY_LAST = 348, 512 is safe.
+    static constexpr int KEY_STATE_SIZE = 512;
+    static bool s_CurrentKeys[KEY_STATE_SIZE];
+    static bool s_PreviousKeys[KEY_STATE_SIZE];
+
+    // Double-buffered mouse button state.
+    static constexpr int MOUSE_BUTTON_COUNT = 8;
+    static bool s_CurrentMouseButtons[MOUSE_BUTTON_COUNT];
+    static bool s_PreviousMouseButtons[MOUSE_BUTTON_COUNT];
+
+    // Mouse position tracking.
+    static float s_MouseX, s_MouseY;
+    static float s_LastMouseX, s_LastMouseY;
+    static bool  s_FirstMouseSample;
+
+    // Scroll accumulator (set via GLFW scroll callback, consumed per frame).
+    static float s_ScrollAccumulator;
+    static float s_ScrollThisFrame;
+
+    // Capture flags.
+    static bool s_KeyboardCaptured;
+    static bool s_MouseCaptured;
 };
