@@ -51,7 +51,9 @@ void Input::BeginFrame()
 
     // Swap keyboard state buffers
     std::memcpy(s_PreviousKeys, s_CurrentKeys, sizeof(s_CurrentKeys));
-    for (int i = 0; i < KEY_STATE_SIZE; ++i)
+    // GLFW valid key range is GLFW_KEY_SPACE (32) .. GLFW_KEY_LAST (348).
+    // Keys 0-31 and >348 are invalid and trigger GLFW error callbacks.
+    for (int i = GLFW_KEY_SPACE; i <= GLFW_KEY_LAST; ++i)
         s_CurrentKeys[i] = (glfwGetKey(s_Window, i) == GLFW_PRESS);
 
     // Swap mouse button state buffers
