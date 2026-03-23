@@ -20,7 +20,7 @@ Completed:
 - [x] Application runtime with main loop and layer stack
 - [x] GLFW window and input system (keyboard, mouse, scroll)
 - [x] OpenGL 4.6 rendering loop with DSA (Direct State Access)
-- [x] Shader management — file loading, multi-source, `#type` preprocessing, uniform caching
+- [x] Shader management — SPIR-V pipeline (GLSL → glslang → SPIRV-Cross), per-stage files, uniform caching
 - [x] Texture loading via STB Image (R8, RGB8, RGBA8, Depth formats)
 - [x] Resource management with smart pointers (`Scope<T>`, `Ref<T>`)
 - [x] Framebuffer abstraction — multiple color/depth attachments, pixel read-back, resize
@@ -32,6 +32,8 @@ Completed:
 - [x] Demo framework — DemoBase, DemoRegistry, LabLayer with hot-switching
 - [x] Logging and file system utilities
 - [x] Unit and integration test infrastructure (Google Test)
+- [x] Multi-backend graphics abstraction — pure virtual interfaces (`IShader`, `ITexture2D`, `IFramebuffer`, etc.) with OpenGL backend
+- [x] SPIR-V shader pipeline — GLSL source compiled to SPIR-V at build time (glslang), transpiled to backend GLSL at runtime (SPIRV-Cross)
 
 ---
 

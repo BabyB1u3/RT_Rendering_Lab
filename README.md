@@ -12,6 +12,8 @@ It provides a lightweight framework where different rendering techniques can be 
 ## Features
 
 - **Demo Framework** — modular architecture where each rendering technique lives as an independent, hot-switchable demo
+- **Multi-Backend Graphics Abstraction** — pure virtual interfaces (`IShader`, `ITexture2D`, `IFramebuffer`, etc.) with OpenGL backend; designed for Metal/Vulkan extension
+- **SPIR-V Shader Pipeline** — GLSL source → SPIR-V (glslang, build time) → backend GLSL (SPIRV-Cross, runtime); single source, multiple backends
 - **Forward Rendering Pipeline** — multi-pass renderer with shadow mapping support
 - **Blinn-Phong Shading** — ambient + diffuse + specular lighting with directional light
 - **Shadow Mapping** — directional light depth pass with front face culling, slope-scaled bias, and 3x3 PCF soft shadows
@@ -42,24 +44,24 @@ It provides a lightweight framework where different rendering techniques can be 
 RT_Rendering_Lab/
 ├── src/
 │   ├── core/           # Application, Window, Input, Time, Logger, FileSystem
-│   ├── graphics/       # Shader, Texture, Buffers, Mesh, Material, Framebuffer, RenderCommand
+│   ├── graphics/       # Abstract interfaces (interface/I*.h), OpenGL backend (opengl/GL*), Mesh, Material
 │   ├── renderer/       # SceneRenderer, ForwardPass, ShadowPass, TexturePreviewPass
 │   ├── scene/          # Camera, DebugCameraController, Light, Transform, SceneData
 │   ├── demos/          # DemoBase, DemoRegistry, LabLayer, ShadowMapping/, MaterialPlayground/
 │   ├── gui/            # ImGuiLayer, DebugPanel, DemoSelectorPanel
 │   └── main.cpp
 ├── assets/
-│   ├── shaders/        # GLSL shaders (ForwardLit, ShadowDepth, TexturePreview)
+│   ├── shaders/        # GLSL source (.vert/.frag) + compiled SPIR-V (.spv)
 │   ├── models/
 │   ├── textures/
 │   └── scenes/
 ├── tests/
 │   ├── unit/           # Time, LayerStack, Transform, Camera, Buffers, CameraController
-│   ├── integration/    # Shader, Texture, Framebuffer (require OpenGL context)
+│   ├── integration/    # Shader, Texture, Framebuffer, RenderTarget (require OpenGL context)
 │   └── support/        # GLTestContext, MathTestUtils, TestLayer
 ├── docs/
 │   └── roadmap.md
-├── vendor/             # Third-party: GLFW, GLM, ImGui (submodules), Glad, STB
+├── vendor/             # Third-party: GLFW, GLM, ImGui, glslang, SPIRV-Cross (submodules), Glad, STB
 └── CMakeLists.txt
 ```
 
@@ -89,6 +91,8 @@ Current pinned submodule versions:
 - `GLFW`: `3.4.0`
 - `GLM`: `1.0.3`
 - `Dear ImGui`: `1.92.6` (`docking` branch)
+- `glslang`: `vulkan-sdk-1.4.304.1`
+- `SPIRV-Cross`: `vulkan-sdk-1.4.304.1`
 
 ### Build with Presets
 
@@ -157,6 +161,7 @@ Integration tests create a hidden OpenGL context — they require a GPU or softw
 
 | Option | Default | Description |
 |--------|---------|-------------|
+| `GLAB_COMPILE_SHADERS` | `ON` | Compile GLSL shaders to SPIR-V at build time (requires glslang submodule) |
 | `GLAB_BUILD_TESTS` | `ON` | Build the test suite |
 | `GLAB_ENABLE_WARNINGS` | `ON` | Enable strict compiler warnings |
 | `GLAB_ENABLE_ASAN` | `OFF` | Enable AddressSanitizer (non-MSVC) |
@@ -176,6 +181,8 @@ Integration tests create a hidden OpenGL context — they require a GPU or softw
 | [Glad](https://glad.dav1d.de/) | OpenGL 4.6 loader | `vendor/glad/` |
 | [STB Image](https://github.com/nothings/stb) | Image loading | `vendor/stb/` |
 | [Dear ImGui](https://github.com/ocornut/imgui) | Debug GUI | Git submodule (`vendor/imgui`, `1.92.6`, `docking` branch) |
+| [glslang](https://github.com/KhronosGroup/glslang) | GLSL to SPIR-V compiler | Git submodule (`vendor/glslang`, `vulkan-sdk-1.4.304.1`) |
+| [SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross) | SPIR-V to GLSL transpiler | Git submodule (`vendor/spirv-cross`, `vulkan-sdk-1.4.304.1`) |
 | [spdlog](https://github.com/gabime/spdlog) | Logging | `vendor/spdlog/` |
 | [Google Test](https://github.com/google/googletest) | Testing framework | CMake FetchContent |
 

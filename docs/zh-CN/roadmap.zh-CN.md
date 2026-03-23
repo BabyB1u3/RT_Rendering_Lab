@@ -20,7 +20,7 @@
 - [x] 应用程序运行时，包含主循环和层栈（Layer Stack）
 - [x] 基于 GLFW 的窗口和输入系统（键盘、鼠标、滚轮）
 - [x] OpenGL 4.6 渲染循环，采用 DSA（Direct State Access）
-- [x] 着色器管理 — 文件加载、多源码、`#type` 预处理、Uniform 缓存
+- [x] 着色器管理 — SPIR-V 管线（GLSL → glslang → SPIRV-Cross），逐阶段文件，Uniform 缓存
 - [x] 基于 STB Image 的纹理加载（R8、RGB8、RGBA8、Depth 格式）
 - [x] 基于智能指针的资源管理（`Scope<T>`、`Ref<T>`）
 - [x] 帧缓冲抽象 — 多颜色/深度附件、像素回读、尺寸调整
@@ -32,6 +32,8 @@
 - [x] Demo 框架 — DemoBase、DemoRegistry、LabLayer，支持热切换
 - [x] 日志与文件系统工具
 - [x] 单元测试与集成测试基础设施（Google Test）
+- [x] 多后端图形抽象 — 纯虚接口（`IShader`、`ITexture2D`、`IFramebuffer` 等）+ OpenGL 后端
+- [x] SPIR-V 着色器管线 — 构建时将 GLSL 源码编译为 SPIR-V（glslang），运行时转译为目标 GLSL（SPIRV-Cross）
 
 ---
 

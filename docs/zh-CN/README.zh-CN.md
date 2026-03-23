@@ -12,6 +12,8 @@
 ## 功能特性
 
 - **Demo 框架** — 模块化架构，每种渲染技术作为独立 Demo 存在，支持运行时热切换
+- **多后端图形抽象** — 纯虚接口（`IShader`、`ITexture2D`、`IFramebuffer` 等）+ OpenGL 后端；为 Metal/Vulkan 扩展而设计
+- **SPIR-V 着色器管线** — GLSL 源码 → SPIR-V（glslang，构建期）→ 目标 GLSL（SPIRV-Cross，运行时）；单一源码，多后端
 - **前向渲染管线** — 多 Pass 渲染器，支持阴影贴图
 - **Blinn-Phong 光照** — 环境光 + 漫反射 + 镜面高光，方向光照明
 - **阴影贴图** — 方向光深度 Pass，正面剔除 + 斜率偏移 + 3x3 PCF 软阴影
@@ -42,24 +44,24 @@
 RT_Rendering_Lab/
 ├── src/
 │   ├── core/           # 应用程序、窗口、输入、时间、日志、文件系统
-│   ├── graphics/       # Shader、纹理、缓冲区、网格、材质、帧缓冲、渲染命令
+│   ├── graphics/       # 抽象接口（interface/I*.h）、OpenGL 后端（opengl/GL*）、网格、材质
 │   ├── renderer/       # 场景渲染器、ForwardPass、ShadowPass、TexturePreviewPass
 │   ├── scene/          # 相机、调试相机控制器、光源、变换、场景数据
 │   ├── demos/          # DemoBase、DemoRegistry、LabLayer、ShadowMapping/、MaterialPlayground/
 │   ├── gui/            # ImGui 层、调试面板、Demo 选择面板
 │   └── main.cpp
 ├── assets/
-│   ├── shaders/        # GLSL 着色器 (ForwardLit, ShadowDepth, TexturePreview)
+│   ├── shaders/        # GLSL 源码（.vert/.frag）+ 编译后的 SPIR-V（.spv）
 │   ├── models/
 │   ├── textures/
 │   └── scenes/
 ├── tests/
 │   ├── unit/           # 单元测试：Time、LayerStack、Transform、Camera、Buffers、CameraController
-│   ├── integration/    # 集成测试：Shader、Texture、Framebuffer（需要 OpenGL 上下文）
+│   ├── integration/    # 集成测试：Shader、Texture、Framebuffer、RenderTarget（需要 OpenGL 上下文）
 │   └── support/        # GLTestContext、MathTestUtils、TestLayer
 ├── docs/
 │   └── roadmap.md
-├── vendor/             # 第三方库：GLFW、GLM、ImGui（子模块），Glad、STB
+├── vendor/             # 第三方库：GLFW、GLM、ImGui、glslang、SPIRV-Cross（子模块），Glad、STB
 └── CMakeLists.txt
 ```
 
@@ -89,6 +91,8 @@ cd RT_Rendering_Lab
 - `GLFW`：`3.4.0`
 - `GLM`：`1.0.3`
 - `Dear ImGui`：`1.92.6`（`docking` 分支）
+- `glslang`：`vulkan-sdk-1.4.304.1`
+- `SPIRV-Cross`：`vulkan-sdk-1.4.304.1`
 
 ### 使用预设构建
 
@@ -157,6 +161,7 @@ ctest --test-dir build/windows-vs-debug
 
 | 选项 | 默认值 | 描述 |
 |------|--------|------|
+| `GLAB_COMPILE_SHADERS` | `ON` | 构建时将 GLSL 着色器编译为 SPIR-V（需要 glslang 子模块） |
 | `GLAB_BUILD_TESTS` | `ON` | 构建测试套件 |
 | `GLAB_ENABLE_WARNINGS` | `ON` | 启用严格的编译器警告 |
 | `GLAB_ENABLE_ASAN` | `OFF` | 启用 AddressSanitizer（非 MSVC） |
@@ -176,6 +181,8 @@ ctest --test-dir build/windows-vs-debug
 | [Glad](https://glad.dav1d.de/) | OpenGL 4.6 函数加载器 | `vendor/glad/` |
 | [STB Image](https://github.com/nothings/stb) | 图像文件加载 | `vendor/stb/` |
 | [Dear ImGui](https://github.com/ocornut/imgui) | 调试 GUI | Git 子模块（`vendor/imgui`，`1.92.6`，`docking` 分支） |
+| [glslang](https://github.com/KhronosGroup/glslang) | GLSL → SPIR-V 编译器 | Git 子模块（`vendor/glslang`，`vulkan-sdk-1.4.304.1`） |
+| [SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross) | SPIR-V → GLSL 转译器 | Git 子模块（`vendor/spirv-cross`，`vulkan-sdk-1.4.304.1`） |
 | [spdlog](https://github.com/gabime/spdlog) | 日志系统 | `vendor/spdlog/` |
 | [Google Test](https://github.com/google/googletest) | 测试框架 | CMake FetchContent |
 

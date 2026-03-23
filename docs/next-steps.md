@@ -3,8 +3,8 @@
 Updated 2026-03-22. Single source of truth for project state, priorities, and architecture direction.
 
 > **Architecture Goal**: Multi-backend support (OpenGL on Windows/Linux, Metal on macOS, Vulkan optional).
-> Phase 4 (Multi-Backend Refactor) — R1 (Abstract Interface Layer) and R2 (OpenGL Backend
-> Reorganization) are complete. Next up: R3 (SPIR-V Shader Pipeline).
+> Phase 4 (Multi-Backend Refactor) — R1 (Abstract Interface Layer), R2 (OpenGL Backend
+> Reorganization), and R3 (SPIR-V Shader Pipeline) are complete. Next up: R4 (Metal Backend).
 > Phase 1 (Input Layer 1-2) and Phase 2 (model loading, normal mapping, skybox) remain in progress
 > but are not blocking — they operate on the renderer/demo layer.
 
@@ -18,10 +18,11 @@ Updated 2026-03-22. Single source of truth for project state, priorities, and ar
 | Phase 1 (Framework)  | 7/8 done — Input Layer 1-2 deferred                |
 | Phase 2 (Basic RT)   | ~60% — lighting, shadows, Blinn-Phong done         |
 | Phase 3 (Pass Unify) | Complete                                           |
-| **Phase 4 (Refactor)** | **R1 ✅, R2 ✅ — R3 next**                       |
+| **Phase 4 (Refactor)** | **R1 ✅, R2 ✅, R3 ✅ — R4 next**              |
 | Active Demos         | 2 (Shadow Mapping, Material Playground)            |
-| Shader Files         | 3 (ForwardLit, ShadowDepth, TexturePreview)        |
-| Test Suite           | 77 / 77 passing (unit + integration, Google Test)  |
+| Shader Files         | 6 (.vert/.frag per shader, SPIR-V compiled)        |
+| Shader Pipeline      | GLSL → SPIR-V (glslang `-G`) → SPIRV-Cross → GLSL 460 |
+| Test Suite           | 78 / 78 passing (unit + integration, Google Test)  |
 | Rendering Pipeline   | Forward: ShadowPass -> ForwardPass -> TexturePreview |
 | Platform Support     | Windows only (OpenGL 4.6)                          |
 
@@ -35,7 +36,7 @@ Updated 2026-03-22. Single source of truth for project state, priorities, and ar
 - Material: textures + typed float/int/vec3/vec4 properties with `UploadToShader()`
 - `IRenderTarget`: backbuffer vs framebuffer wrapper, depth-only safe, integration-tested
 - `SceneRendererSpecification` / `SceneRendererOutput`: renderer tuning extracted into `SceneRendererTypes.h`
-- `FileSystem`: cross-platform path resolution, `GetAssetPath()`, `GetShaderPath()`, `ReadTextFile()`, integrated into Application and all render passes
+- `FileSystem`: cross-platform path resolution, `GetAssetPath()`, `GetShaderStem()`, `ReadTextFile()`, `ReadBinaryFile()`, integrated into Application and all render passes
 - `Input`: polling-based keyboard/mouse via GLFW (`IsKeyPressed()`, `GetMousePosition()`, `GetMouseDelta()`)
 - `ImGuiLayer`: GLFW+OpenGL3 backend, auto-created as overlay in `Application`, `Begin()`/`End()` wrapping all `OnImGuiRender()` calls
 - `DemoSelectorPanel`: selectable list from `DemoRegistry::GetNames()`, integrated into `LabLayer` with runtime demo switching
@@ -50,6 +51,7 @@ Updated 2026-03-22. Single source of truth for project state, priorities, and ar
 - Input/Event system Layer 1-2 (double-buffered state, InputAction map) not yet implemented
 - No test coverage for `Material`, `SceneRenderer`, or individual passes
 - NVIDIA GL performance warning (id=131218): shader recompilation on first draw — cosmetic, not functional
+- Vulkan migration (R3b) — bare uniforms need UBO/push constant migration for Vulkan backend (see `docs/shader-vulkan-migration.md`)
 
 ---
 
@@ -79,6 +81,18 @@ These were identified and fixed in the current sprint:
 - `MeshFactory::CreateSphere()` added — UV sphere with configurable stacks/slices
 - `MaterialPlayground` demo added: 5 spheres with distinct Blinn-Phong presets, ImGui per-sphere material editing
 - `SceneRenderer::GetSpecification()` mutable ref for runtime parameter tuning
+- **Phase 4 R3 — SPIR-V Shader Pipeline** complete:
+  - Split 3 monolithic `.glsl` files into 6 per-stage `.vert`/`.frag` files with explicit `layout(location)` qualifiers
+  - Added glslang as vendor submodule (pinned `vulkan-sdk-1.4.304.1`) for offline GLSL → SPIR-V compilation
+  - Added SPIRV-Cross as vendor submodule for runtime SPIR-V → GLSL 460 transpilation
+  - `cmake/CompileShaders.cmake` with `GLAB_COMPILE_SHADERS` option, uses `-G --auto-map-locations --auto-map-bindings`
+  - `FileSystem::GetShaderPath()` → `GetShaderStem()` (returns stem path, backend appends extensions)
+  - `FileSystem::ReadBinaryFile()` added for SPIR-V loading
+  - `IGraphicsDevice::CreateShaderFromStem()` replaces `CreateShaderFromSingleFile()`
+  - `GLShader::TranspileSpirvToGlsl()` with SPIRV-Cross: strips binding/location from plain uniforms
+  - All render passes updated to stem-based shader loading
+  - 3 new integration tests (SPIR-V roundtrip for ForwardLit, ShadowDepth, TexturePreview)
+  - Vulkan migration guide created (`docs/shader-vulkan-migration.md`)
 
 ---
 
@@ -252,7 +266,7 @@ enums before the interfaces can be clean.
 
 - All interface headers compile independently (no platform `#include`)
 - `Texture.h` and `Buffers.h` no longer `#include <glad/glad.h>`
-- `ctest` green (77/77)
+- `ctest` green (78/78)
 - `grep -r "glad/glad.h" src/graphics/interface/` returns 0 results
 
 #### R2: OpenGL Backend Reorganization ✅
@@ -272,10 +286,26 @@ Moved all OpenGL code into `src/graphics/opengl/` implementing the R1 interfaces
 - No `glad/glad.h` in interface or root graphics headers
 - No concrete GL types outside `opengl/`, `Application.cpp`, and backend-specific integration tests
 
-#### R3: Shader Pipeline (SPIR-V)
+#### R3: Shader Pipeline (SPIR-V) ✅
 
-GLSL → SPIR-V (via glslang/shaderc, offline CMake step) → SPIRV-Cross for per-backend
-transpilation. Single shader source, multiple backends.
+**Goal**: Establish a single-source, multi-backend shader pipeline. GLSL source files are compiled to
+SPIR-V at build time (OpenGL semantics), then transpiled back to the target language at runtime.
+
+**Completed:**
+- Split 3 monolithic `.glsl` files into 6 per-stage `.vert`/`.frag` with explicit `layout(location)` qualifiers
+- glslang vendored as submodule (`vulkan-sdk-1.4.304.1`) — compiles GLSL to SPIR-V with `-G` (OpenGL semantics)
+- SPIRV-Cross vendored as submodule — transpiles SPIR-V back to GLSL 460 at runtime
+- `cmake/CompileShaders.cmake` with `GLAB_COMPILE_SHADERS` option; `CompileShaders` target built from source
+- "Shader stem" abstraction: `FileSystem::GetShaderStem("ForwardLit")` returns path without extension; backend appends `.vert.spv`/`.frag.spv`
+- `IGraphicsDevice::CreateShaderFromStem()` replaces `CreateShaderFromSingleFile()`
+- `GLShader::TranspileSpirvToGlsl()` strips binding/location decorations from plain uniforms (driver compatibility)
+- `.spv` artifacts in source tree (transitional — will move to build tree in R4/R5)
+- 3 new integration tests with `GTEST_SKIP` guard when `.spv` files are absent
+- Vulkan migration guide: `docs/shader-vulkan-migration.md`
+
+**Scope note**: R3 is an OpenGL-first SPIR-V asset pipeline (R3a). It does NOT migrate to Vulkan resource
+model (UBOs, descriptor sets, push constants). That migration is documented in `docs/shader-vulkan-migration.md`
+for future R3b/R5.
 
 #### R4: Metal Backend
 
@@ -316,7 +346,7 @@ Now in `src/gui/Panels/DemoSelectorPanel.h/.cpp`. Selectable list from `DemoRegi
 
 ### FileSystem ✅ (Implemented)
 
-Now in `src/core/FileSystem.h/.cpp`. Cross-platform path discovery with `Init()`, `GetRootPath()`, `GetAssetPath()`, `GetShaderPath()`, `ReadTextFile()`, `Exists()`.
+Now in `src/core/FileSystem.h/.cpp`. Cross-platform path discovery with `Init()`, `GetRootPath()`, `GetAssetPath()`, `GetShaderStem()`, `ReadTextFile()`, `ReadBinaryFile()`, `Exists()`.
 
 ### KeyCode / MouseCode ✅ (Implemented)
 
@@ -330,9 +360,10 @@ Full Input/Event system architecture specified in `docs/design-input-event-syste
 
 ## 5. Items NOT to Focus on Now
 
-- Metal / Vulkan backend implementations (R4/R5 — after R1-R3)
-- SPIR-V shader pipeline (R3 — after R2)
+- Vulkan resource model migration (R3b — UBOs, push constants, descriptor sets; see `docs/shader-vulkan-migration.md`)
+- Metal backend implementation (R4 — next Phase 4 milestone)
+- Vulkan backend implementation (R5 — consumes SPIR-V directly)
 - Render graph (Phase 5+)
 - Backend-aware resource cache (Phase 5+)
 
-These are valid long-term targets. Current focus is R3 (SPIR-V shader pipeline) to enable multi-backend shader compilation.
+These are valid long-term targets. Current focus is R4 (Metal backend) to deliver the first non-OpenGL backend.
