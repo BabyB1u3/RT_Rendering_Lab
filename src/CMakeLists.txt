@@ -148,14 +148,13 @@ target_link_libraries(RTRLabCore PUBLIC
     spdlog
     imgui
     OpenGL::GL
-    spirv-cross-core
-    spirv-cross-glsl
 )
 
 target_compile_definitions(RTRLabCore PUBLIC
     GLM_ENABLE_EXPERIMENTAL
     GLAB_ASSET_DIR="assets"
     GLAB_ROOT_DIR="${CMAKE_SOURCE_DIR}"
+    GLAB_SHADER_OUTPUT_DIR="${CMAKE_BINARY_DIR}/shaders"
 )
 
 if(GLAB_ENABLE_PCH)
@@ -213,6 +212,9 @@ add_custom_command(TARGET RTRLab POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
             ${CMAKE_SOURCE_DIR}/assets
             $<TARGET_FILE_DIR:RTRLab>/assets
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_BINARY_DIR}/shaders
+            $<TARGET_FILE_DIR:RTRLab>/shaders
 )
 
 set_target_properties(RTRLab PROPERTIES

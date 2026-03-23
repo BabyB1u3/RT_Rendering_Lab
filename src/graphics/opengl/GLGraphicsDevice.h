@@ -27,9 +27,9 @@ public:
 	Ref<ITexture2D> CreateTexture2DFromFile(const std::string &path, bool flipVertically = true) override;
 
 	// --- Shaders ---
+	Ref<IShader> CreateShader(const std::string &name) override;
 	Ref<IShader> CreateShaderFromSource(const std::string &name, const std::string &vertexSrc, const std::string &fragmentSrc, const std::string &geometrySrc = "") override;
 	Ref<IShader> CreateShaderFromFiles(const std::string &name, const std::string &vertexPath, const std::string &fragmentPath, const std::string &geometryPath = "") override;
-	Ref<IShader> CreateShaderFromStem(const std::filesystem::path &stemPath, const std::string &name = "") override;
 
 	// --- Framebuffers ---
 	Ref<IFramebuffer> CreateFramebuffer(const FramebufferSpecification &spec) override;

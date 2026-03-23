@@ -17,7 +17,7 @@
 #include "renderer/RenderItem.h"
 #include "scene/SceneData.h"
 
-ShadowPass::ShadowPass(uint32_t width, uint32_t height, const std::filesystem::path& shaderStem)
+ShadowPass::ShadowPass(uint32_t width, uint32_t height)
     : m_Width(width), m_Height(height)
 {
     FramebufferSpecification fbSpec;
@@ -28,7 +28,7 @@ ShadowPass::ShadowPass(uint32_t width, uint32_t height, const std::filesystem::p
 
     m_Framebuffer = GetDevice()->CreateFramebuffer(fbSpec);
 
-    m_Shader = GetDevice()->CreateShaderFromStem(shaderStem, "ShadowDepth");
+    m_Shader = GetDevice()->CreateShader("ShadowDepth");
 }
 
 void ShadowPass::Resize(unsigned int width, unsigned int height)
@@ -66,7 +66,18 @@ void ShadowPass::Execute(const RenderContext& ctx)
     RenderCommand::Clear(false, true, false);
 
     m_Shader->Bind();
-    m_Shader->SetMat4("u_LightViewProjection", ctx.Resources.LightViewProjection);
+
+    // Slang UBO layout (binding 0, std140):
+    //   mat4 u_LightViewProjection  (offset  0, 64 bytes)
+    //   mat4 u_Model                (offset 64, 64 bytes)
+    struct alignas(16) ShadowParams
+    {
+        glm::mat4 LightViewProjection;
+        glm::mat4 Model;
+    };
+
+    ShadowParams params{};
+    params.LightViewProjection = ctx.Resources.LightViewProjection;
 
     for (const auto &item : ctx.View.Scene.RenderItems)
     {
@@ -76,9 +87,8 @@ void ShadowPass::Execute(const RenderContext& ctx)
             continue;
         }
 
-        glm::mat4 model = item.Transform.GetMatrix();
-
-        m_Shader->SetMat4("u_Model", model);
+        params.Model = item.Transform.GetMatrix();
+        m_Shader->SetUniformBlock(0, &params, sizeof(params));
         RenderCommand::DrawIndexed(item.Mesh->GetVertexArray());
     }
 

@@ -52,6 +52,11 @@ Ref<ITexture2D> GLGraphicsDevice::CreateTexture2DFromFile(const std::string &pat
 
 // --- Shaders ---
 
+Ref<IShader> GLGraphicsDevice::CreateShader(const std::string &name)
+{
+	return GLShader::CreateFromCompiledGlsl(name);
+}
+
 Ref<IShader> GLGraphicsDevice::CreateShaderFromSource(const std::string &name, const std::string &vertexSrc, const std::string &fragmentSrc, const std::string &geometrySrc)
 {
 	return GLShader::CreateFromSource(name, vertexSrc, fragmentSrc, geometrySrc);
@@ -60,11 +65,6 @@ Ref<IShader> GLGraphicsDevice::CreateShaderFromSource(const std::string &name, c
 Ref<IShader> GLGraphicsDevice::CreateShaderFromFiles(const std::string &name, const std::string &vertexPath, const std::string &fragmentPath, const std::string &geometryPath)
 {
 	return GLShader::CreateFromFiles(name, vertexPath, fragmentPath, geometryPath);
-}
-
-Ref<IShader> GLGraphicsDevice::CreateShaderFromStem(const std::filesystem::path &stemPath, const std::string &name)
-{
-	return GLShader::CreateFromStem(stemPath, name);
 }
 
 // --- Framebuffers ---
