@@ -5,6 +5,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include "Input.h"
 #include "Logger.h"
 
 namespace
@@ -132,6 +133,13 @@ void Window::Init(const WindowProps &props)
 
             if (self->m_ResizeCallback)
                 self->m_ResizeCallback(self->m_Width, self->m_Height); });
+
+    // Scroll callback — GLFW only reports scroll via callback, so we accumulate
+    // it into the Input system for per-frame consumption.
+    glfwSetScrollCallback(m_Handle, [](GLFWwindow* /*window*/, double /*xoffset*/, double yoffset)
+    {
+        Input::AccumulateScroll(static_cast<float>(yoffset));
+    });
 
     SetVSync(props.VSync);
 
