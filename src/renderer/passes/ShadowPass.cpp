@@ -17,7 +17,7 @@
 #include "renderer/RenderItem.h"
 #include "scene/SceneData.h"
 
-ShadowPass::ShadowPass(uint32_t width, uint32_t height, const std::string& shaderPath)
+ShadowPass::ShadowPass(uint32_t width, uint32_t height, const std::filesystem::path& shaderStem)
     : m_Width(width), m_Height(height)
 {
     FramebufferSpecification fbSpec;
@@ -28,7 +28,7 @@ ShadowPass::ShadowPass(uint32_t width, uint32_t height, const std::string& shade
 
     m_Framebuffer = GetDevice()->CreateFramebuffer(fbSpec);
 
-    m_Shader = GetDevice()->CreateShaderFromSingleFile(shaderPath, "ShadowDepth");
+    m_Shader = GetDevice()->CreateShaderFromStem(shaderStem, "ShadowDepth");
 }
 
 void ShadowPass::Resize(unsigned int width, unsigned int height)

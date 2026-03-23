@@ -11,10 +11,10 @@
 #include "graphics/interface/ITexture2D.h"
 #include "renderer/RenderContext.h"
 
-TexturePreviewPass::TexturePreviewPass(const std::string& shaderPath)
+TexturePreviewPass::TexturePreviewPass(const std::filesystem::path& shaderStem)
 {
     m_FullscreenQuad = MeshFactory::CreateFullscreenQuad();
-    m_Shader = GetDevice()->CreateShaderFromSingleFile(shaderPath, "TexturePreview");
+    m_Shader = GetDevice()->CreateShaderFromStem(shaderStem, "TexturePreview");
 }
 
 void TexturePreviewPass::Resize(unsigned int width, unsigned int height)

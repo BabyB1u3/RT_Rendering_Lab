@@ -21,15 +21,15 @@
 SceneRenderer::SceneRenderer(uint32_t width, uint32_t height, const SceneRendererSpecification &spec)
     : m_Width(width), m_Height(height), m_Spec(spec)
 {
-    auto shadowShader = FileSystem::GetShaderPath(spec.ShadowShaderName).string();
-    auto forwardShader = FileSystem::GetShaderPath(spec.ForwardShaderName).string();
-    auto previewShader = FileSystem::GetShaderPath(spec.TexturePreviewShaderName).string();
+    auto shadowStem = FileSystem::GetShaderStem(spec.ShadowShaderName);
+    auto forwardStem = FileSystem::GetShaderStem(spec.ForwardShaderName);
+    auto previewStem = FileSystem::GetShaderStem(spec.TexturePreviewShaderName);
 
-    m_ShadowPass = CreateRef<ShadowPass>(spec.ShadowMapWidth, spec.ShadowMapHeight, shadowShader);
+    m_ShadowPass = CreateRef<ShadowPass>(spec.ShadowMapWidth, spec.ShadowMapHeight, shadowStem);
 
-    m_ForwardPass = CreateRef<ForwardPass>(width, height, true, forwardShader, spec.ClearColor);
+    m_ForwardPass = CreateRef<ForwardPass>(width, height, true, forwardStem, spec.ClearColor);
 
-    m_TexturePreviewPass = CreateRef<TexturePreviewPass>(previewShader);
+    m_TexturePreviewPass = CreateRef<TexturePreviewPass>(previewStem);
 
     LOG_INFO("SceneRenderer initialized ({}x{})", width, height);
 }
