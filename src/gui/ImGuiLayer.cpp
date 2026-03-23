@@ -5,6 +5,7 @@
 #include <imgui_impl_opengl3.h>
 
 #include "core/Application.h"
+#include "core/Input.h"
 
 ImGuiLayer::ImGuiLayer()
     : Layer("ImGuiLayer")
@@ -41,6 +42,12 @@ void ImGuiLayer::Begin()
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+
+    // Forward ImGui's capture state to the Input polling layer so that
+    // game/demo code does not respond to keys/mouse meant for UI widgets.
+    ImGuiIO& io = ImGui::GetIO();
+    Input::SetKeyboardCaptured(io.WantCaptureKeyboard);
+    Input::SetMouseCaptured(io.WantCaptureMouse);
 }
 
 void ImGuiLayer::End()

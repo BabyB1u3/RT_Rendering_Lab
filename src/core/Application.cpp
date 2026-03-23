@@ -60,6 +60,7 @@ void Application::Run()
     while (m_Running && !m_Window->ShouldClose())
     {
         m_Window->PollEvents();
+        Input::BeginFrame();
 
         const double currentTime = glfwGetTime();
         Time::Update(currentTime);
