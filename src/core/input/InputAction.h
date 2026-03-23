@@ -12,8 +12,8 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include "KeyCode.h"
-#include "MouseCode.h"
+#include "core/input/KeyCode.h"
+#include "core/input/MouseCode.h"
 
 /// An InputSource can be a key, mouse button, or (future) gamepad button.
 struct InputSource

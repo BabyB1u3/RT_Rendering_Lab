@@ -14,7 +14,7 @@
 #include <memory>
 #include <string>
 
-#include "core/Layer.h"
+#include "core/app/Layer.h"
 #include "core/Base.h"
 #include "gui/Panels/DebugPanel.h"
 #include "gui/Panels/DemoSelectorPanel.h"

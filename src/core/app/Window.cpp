@@ -1,14 +1,14 @@
-#include "Window.h"
+#include "core/app/Window.h"
 
 #include <stdexcept>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-#include "EventBus.h"
-#include "Events.h"
-#include "Input.h"
-#include "Logger.h"
+#include "core/event/EventBus.h"
+#include "core/event/Events.h"
+#include "core/input/Input.h"
+#include "core/Logger.h"
 
 namespace
 {

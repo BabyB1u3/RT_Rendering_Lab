@@ -1,8 +1,8 @@
-#include "LayerStack.h"
+#include "core/app/LayerStack.h"
 
 #include <algorithm>
 
-#include "Logger.h"
+#include "core/Logger.h"
 
 LayerStack::~LayerStack()
 {

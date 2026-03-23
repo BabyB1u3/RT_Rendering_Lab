@@ -21,8 +21,8 @@
 /// See also: KeyCode.h / MouseCode.h for typed enum constants.
 
 #include <utility>
-#include "KeyCode.h"
-#include "MouseCode.h"
+#include "core/input/KeyCode.h"
+#include "core/input/MouseCode.h"
 
 struct GLFWwindow;
 

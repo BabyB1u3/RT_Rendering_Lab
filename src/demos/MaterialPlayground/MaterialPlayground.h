@@ -15,7 +15,7 @@
 
 #include <glm/glm.hpp>
 
-#include "core/InputAction.h"
+#include "core/input/InputAction.h"
 #include "demos/DemoBase.h"
 #include "renderer/SceneRenderer.h"
 #include "scene/Camera.h"

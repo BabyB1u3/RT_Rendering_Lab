@@ -1,13 +1,13 @@
-#include "Application.h"
+#include "core/app/Application.h"
 
 #include <stdexcept>
 
 #include <GLFW/glfw3.h>
 
-#include "FileSystem.h"
-#include "Input.h"
-#include "Logger.h"
-#include "Time.h"
+#include "core/FileSystem.h"
+#include "core/input/Input.h"
+#include "core/Logger.h"
+#include "core/Time.h"
 #include "gui/ImGuiLayer.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/RenderCommand.h"

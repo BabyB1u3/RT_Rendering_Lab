@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include "core/Application.h"
-#include "core/Window.h"
+#include "core/app/Application.h"
+#include "core/app/Window.h"
 #include "graphics/Texture.h"
 #include "graphics/Framebuffer.h"
 

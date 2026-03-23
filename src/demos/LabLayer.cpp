@@ -2,9 +2,9 @@
 
 #include <utility>
 
-#include "core/Application.h"
-#include "core/Events.h"
-#include "core/Input.h"
+#include "core/app/Application.h"
+#include "core/event/Events.h"
+#include "core/input/Input.h"
 #include "core/Logger.h"
 #include "DemoBase.h"
 #include "DemoRegistry.h"

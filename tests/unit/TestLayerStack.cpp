@@ -2,7 +2,7 @@
 #include <vector>
 #include <string>
 
-#include "core/LayerStack.h"
+#include "core/app/LayerStack.h"
 #include "core/Base.h"
 #include "TestLayer.h"
 

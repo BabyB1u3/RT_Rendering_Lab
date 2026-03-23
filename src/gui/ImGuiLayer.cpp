@@ -4,8 +4,8 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
-#include "core/Application.h"
-#include "core/Input.h"
+#include "core/app/Application.h"
+#include "core/input/Input.h"
 
 ImGuiLayer::ImGuiLayer()
     : Layer("ImGuiLayer")

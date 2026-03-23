@@ -1,5 +1,5 @@
-#include "InputAction.h"
-#include "Input.h"
+#include "core/input/InputAction.h"
+#include "core/input/Input.h"
 
 // --- Registration ---
 

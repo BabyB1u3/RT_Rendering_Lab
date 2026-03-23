@@ -18,10 +18,10 @@
 #include <string>
 #include <cstdint>
 
-#include "Base.h"
-#include "EventBus.h"
-#include "Window.h"
-#include "LayerStack.h"
+#include "core/Base.h"
+#include "core/event/EventBus.h"
+#include "core/app/Window.h"
+#include "core/app/LayerStack.h"
 
 class ImGuiLayer;
 

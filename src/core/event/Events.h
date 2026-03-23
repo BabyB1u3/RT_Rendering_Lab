@@ -7,8 +7,8 @@
 /// Subscribe to a specific type via EventBus::Subscribe<T>.
 
 #include <cstdint>
-#include "KeyCode.h"
-#include "MouseCode.h"
+#include "core/input/KeyCode.h"
+#include "core/input/MouseCode.h"
 
 // ---- Window events ----
 
