@@ -7,20 +7,10 @@
 
 #include <glad/glad.h>
 #include <glm/gtc/type_ptr.hpp>
+#include <spirv_glsl.hpp>
 
 #include "core/FileSystem.h"
 #include "core/Logger.h"
-
-static GLenum ShaderTypeFromString(const std::string &type)
-{
-	if (type == "vertex")
-		return GL_VERTEX_SHADER;
-	if (type == "fragment")
-		return GL_FRAGMENT_SHADER;
-	if (type == "geometry")
-		return GL_GEOMETRY_SHADER;
-	return 0;
-}
 
 GLShader::GLShader(uint32_t program, std::string name)
 	: m_RendererID(program), m_Name(std::move(name))
@@ -57,35 +47,24 @@ GLShader &GLShader::operator=(GLShader &&other) noexcept
 	return *this;
 }
 
-std::unordered_map<uint32_t, std::string> GLShader::PreProcessSingleFile(const std::string &source)
+std::string GLShader::TranspileSpirvToGlsl(const std::vector<uint8_t> &spirvBytes)
 {
-	std::unordered_map<uint32_t, std::string> shaderSources;
+	if (spirvBytes.size() % 4 != 0)
+		throw std::runtime_error("SPIR-V binary size is not a multiple of 4 bytes");
 
-	const char *typeToken = "#type";
-	const size_t typeTokenLength = std::strlen(typeToken);
-	size_t pos = source.find(typeToken, 0);
+	std::vector<uint32_t> words(spirvBytes.size() / 4);
+	std::memcpy(words.data(), spirvBytes.data(), spirvBytes.size());
 
-	while (pos != std::string::npos)
-	{
-		size_t eol = source.find_first_of("\r\n", pos);
-		if (eol == std::string::npos)
-			throw std::runtime_error("Shader syntax error: missing newline after #type directive");
+	spirv_cross::CompilerGLSL compiler(std::move(words));
 
-		size_t begin = pos + typeTokenLength + 1;
-		std::string type = source.substr(begin, eol - begin);
-		GLenum shaderType = ShaderTypeFromString(type);
-		if (shaderType == 0)
-			throw std::runtime_error("Shader syntax error: unknown shader type '" + type + "'");
+	spirv_cross::CompilerGLSL::Options opts;
+	opts.version = 460;
+	opts.es = false;
+	opts.vulkan_semantics = false;
+	opts.enable_420pack_extension = true;
+	compiler.set_common_options(opts);
 
-		size_t nextLinePos = source.find_first_not_of("\r\n", eol);
-		pos = source.find(typeToken, nextLinePos);
-
-		shaderSources[shaderType] = source.substr(
-			nextLinePos,
-			pos == std::string::npos ? std::string::npos : pos - nextLinePos);
-	}
-
-	return shaderSources;
+	return compiler.compile();
 }
 
 uint32_t GLShader::CompileStage(uint32_t stage, const std::string &source, const std::string &debugName)
@@ -182,24 +161,39 @@ Ref<GLShader> GLShader::CreateFromFiles(
 	return CreateFromSource(name, vertexSource, fragmentSource, geometrySource);
 }
 
-Ref<GLShader> GLShader::CreateFromSingleFile(const std::string &filepath, const std::string &name)
+Ref<GLShader> GLShader::CreateFromStem(const std::filesystem::path &stemPath, const std::string &name)
 {
-	std::string source = FileSystem::ReadTextFile(filepath);
-	auto sources = PreProcessSingleFile(source);
+	auto vertSpvPath = stemPath.string() + ".vert.spv";
+	auto fragSpvPath = stemPath.string() + ".frag.spv";
 
-	if (!sources.count(GL_VERTEX_SHADER))
-		throw std::runtime_error("Shader file '" + filepath + "' is missing a #type vertex section");
-	if (!sources.count(GL_FRAGMENT_SHADER))
-		throw std::runtime_error("Shader file '" + filepath + "' is missing a #type fragment section");
+	if (!FileSystem::Exists(vertSpvPath))
+		throw std::runtime_error(
+			"Shader artifact missing: " + vertSpvPath +
+			"\nEnable GLAB_COMPILE_SHADERS and rebuild, or build the CompileShaders target.");
+	if (!FileSystem::Exists(fragSpvPath))
+		throw std::runtime_error(
+			"Shader artifact missing: " + fragSpvPath +
+			"\nEnable GLAB_COMPILE_SHADERS and rebuild, or build the CompileShaders target.");
 
-	std::string shaderName = name.empty() ? filepath : name;
-	std::string geometrySource = sources.count(GL_GEOMETRY_SHADER) ? sources[GL_GEOMETRY_SHADER] : "";
+	auto vertSpv = FileSystem::ReadBinaryFile(vertSpvPath);
+	auto fragSpv = FileSystem::ReadBinaryFile(fragSpvPath);
 
-	return CreateFromSource(
-		shaderName,
-		sources[GL_VERTEX_SHADER],
-		sources[GL_FRAGMENT_SHADER],
-		geometrySource);
+	std::string vertGlsl = TranspileSpirvToGlsl(vertSpv);
+	std::string fragGlsl = TranspileSpirvToGlsl(fragSpv);
+
+	LOG_TRACE("SPIRV-Cross transpiled vertex shader ({}):\n{}", stemPath.stem().string(), vertGlsl);
+	LOG_TRACE("SPIRV-Cross transpiled fragment shader ({}):\n{}", stemPath.stem().string(), fragGlsl);
+
+	std::string geomGlsl;
+	auto geomSpvPath = stemPath.string() + ".geom.spv";
+	if (FileSystem::Exists(geomSpvPath))
+	{
+		auto geomSpv = FileSystem::ReadBinaryFile(geomSpvPath);
+		geomGlsl = TranspileSpirvToGlsl(geomSpv);
+	}
+
+	std::string shaderName = name.empty() ? stemPath.stem().string() : name;
+	return CreateFromSource(shaderName, vertGlsl, fragGlsl, geomGlsl);
 }
 
 void GLShader::Bind() const

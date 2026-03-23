@@ -4,6 +4,7 @@
 /// @brief OpenGL shader program implementation of IShader with uniform caching.
 
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -57,14 +58,14 @@ public:
 		const std::string &fragmentPath,
 		const std::string &geometryPath = "");
 
-	static Ref<GLShader> CreateFromSingleFile(
-		const std::string &filepath,
+	static Ref<GLShader> CreateFromStem(
+		const std::filesystem::path &stemPath,
 		const std::string &name = "");
 
 private:
 	GLShader(uint32_t program, std::string name);
 
-	static std::unordered_map<uint32_t, std::string> PreProcessSingleFile(const std::string &source);
+	static std::string TranspileSpirvToGlsl(const std::vector<uint8_t> &spirvBytes);
 	static uint32_t CompileStage(uint32_t stage, const std::string &source, const std::string &debugName);
 	static uint32_t LinkProgram(const std::string &name, const std::vector<uint32_t> &shaderIDs);
 

@@ -29,7 +29,7 @@ public:
 	// --- Shaders ---
 	Ref<IShader> CreateShaderFromSource(const std::string &name, const std::string &vertexSrc, const std::string &fragmentSrc, const std::string &geometrySrc = "") override;
 	Ref<IShader> CreateShaderFromFiles(const std::string &name, const std::string &vertexPath, const std::string &fragmentPath, const std::string &geometryPath = "") override;
-	Ref<IShader> CreateShaderFromSingleFile(const std::string &filepath, const std::string &name = "") override;
+	Ref<IShader> CreateShaderFromStem(const std::filesystem::path &stemPath, const std::string &name = "") override;
 
 	// --- Framebuffers ---
 	Ref<IFramebuffer> CreateFramebuffer(const FramebufferSpecification &spec) override;

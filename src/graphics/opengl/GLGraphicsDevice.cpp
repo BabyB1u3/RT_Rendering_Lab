@@ -62,9 +62,9 @@ Ref<IShader> GLGraphicsDevice::CreateShaderFromFiles(const std::string &name, co
 	return GLShader::CreateFromFiles(name, vertexPath, fragmentPath, geometryPath);
 }
 
-Ref<IShader> GLGraphicsDevice::CreateShaderFromSingleFile(const std::string &filepath, const std::string &name)
+Ref<IShader> GLGraphicsDevice::CreateShaderFromStem(const std::filesystem::path &stemPath, const std::string &name)
 {
-	return GLShader::CreateFromSingleFile(filepath, name);
+	return GLShader::CreateFromStem(stemPath, name);
 }
 
 // --- Framebuffers ---
