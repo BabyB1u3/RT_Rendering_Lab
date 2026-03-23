@@ -35,13 +35,9 @@ std::filesystem::path FileSystem::GetAssetPath(std::string_view relativePath)
     return s_RootPath / GLAB_ASSET_DIR / relativePath;
 }
 
-std::filesystem::path FileSystem::GetShaderPath(std::string_view shaderName)
+std::filesystem::path FileSystem::GetShaderStem(std::string_view shaderName)
 {
-    std::string filename(shaderName);
-    // Append .glsl if the caller didn't include an extension
-    if (filename.find('.') == std::string::npos)
-        filename += ".glsl";
-    return GetAssetPath("shaders/" + filename);
+    return GetAssetPath("shaders/" + std::string(shaderName));
 }
 
 std::string FileSystem::ReadTextFile(const std::filesystem::path &path)
@@ -53,6 +49,20 @@ std::string FileSystem::ReadTextFile(const std::filesystem::path &path)
     std::ostringstream ss;
     ss << in.rdbuf();
     return ss.str();
+}
+
+std::vector<uint8_t> FileSystem::ReadBinaryFile(const std::filesystem::path &path)
+{
+    std::ifstream in(path, std::ios::in | std::ios::binary | std::ios::ate);
+    if (!in)
+        throw std::runtime_error("Failed to open binary file: " + path.string());
+
+    auto size = in.tellg();
+    in.seekg(0, std::ios::beg);
+
+    std::vector<uint8_t> data(static_cast<size_t>(size));
+    in.read(reinterpret_cast<char *>(data.data()), size);
+    return data;
 }
 
 bool FileSystem::Exists(const std::filesystem::path &path)
