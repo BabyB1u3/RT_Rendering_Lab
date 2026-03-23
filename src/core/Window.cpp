@@ -5,6 +5,8 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include "EventBus.h"
+#include "Events.h"
 #include "Input.h"
 #include "Logger.h"
 
@@ -181,4 +183,87 @@ void Window::SetVSync(bool enabled)
 void Window::SetResizeCallback(ResizeCallback callback)
 {
     m_ResizeCallback = std::move(callback);
+}
+
+void Window::SetEventBus(EventBus* bus)
+{
+    m_EventBus = bus;
+    if (m_EventBus)
+        InstallCallbacks();
+}
+
+void Window::InstallCallbacks()
+{
+    // Framebuffer resize — update width/height, fire legacy callback AND EventBus.
+    glfwSetFramebufferSizeCallback(m_Handle, [](GLFWwindow* w, int width, int height)
+    {
+        auto* self = static_cast<Window*>(glfwGetWindowUserPointer(w));
+        if (!self) return;
+
+        self->m_Width  = static_cast<uint32_t>(width);
+        self->m_Height = static_cast<uint32_t>(height);
+
+        if (self->m_ResizeCallback)
+            self->m_ResizeCallback(self->m_Width, self->m_Height);
+
+        if (self->m_EventBus)
+            self->m_EventBus->Publish(WindowResizeEvent{ self->m_Width, self->m_Height });
+    });
+
+    // Window close
+    glfwSetWindowCloseCallback(m_Handle, [](GLFWwindow* w)
+    {
+        auto* self = static_cast<Window*>(glfwGetWindowUserPointer(w));
+        if (self && self->m_EventBus)
+            self->m_EventBus->Publish(WindowCloseEvent{});
+    });
+
+    // Keyboard
+    glfwSetKeyCallback(m_Handle, [](GLFWwindow* w, int key, int /*scancode*/,
+                                     int action, int /*mods*/)
+    {
+        auto* self = static_cast<Window*>(glfwGetWindowUserPointer(w));
+        if (!self || !self->m_EventBus) return;
+
+        if (action == GLFW_PRESS)
+            self->m_EventBus->Publish(KeyPressedEvent{ static_cast<Key::Code>(key), false });
+        else if (action == GLFW_REPEAT)
+            self->m_EventBus->Publish(KeyPressedEvent{ static_cast<Key::Code>(key), true });
+        else if (action == GLFW_RELEASE)
+            self->m_EventBus->Publish(KeyReleasedEvent{ static_cast<Key::Code>(key) });
+    });
+
+    // Character input (Unicode codepoints for text input)
+    glfwSetCharCallback(m_Handle, [](GLFWwindow* w, unsigned int codepoint)
+    {
+        auto* self = static_cast<Window*>(glfwGetWindowUserPointer(w));
+        if (self && self->m_EventBus)
+            self->m_EventBus->Publish(CharTypedEvent{ codepoint });
+    });
+
+    // Mouse buttons
+    glfwSetMouseButtonCallback(m_Handle, [](GLFWwindow* w, int button,
+                                             int action, int /*mods*/)
+    {
+        auto* self = static_cast<Window*>(glfwGetWindowUserPointer(w));
+        if (!self || !self->m_EventBus) return;
+
+        if (action == GLFW_PRESS)
+            self->m_EventBus->Publish(MouseButtonPressedEvent{ static_cast<Mouse::Code>(button) });
+        else
+            self->m_EventBus->Publish(MouseButtonReleasedEvent{ static_cast<Mouse::Code>(button) });
+    });
+
+    // Scroll — both feed the Input accumulator AND publish an event.
+    glfwSetScrollCallback(m_Handle, [](GLFWwindow* w, double xoffset, double yoffset)
+    {
+        Input::AccumulateScroll(static_cast<float>(yoffset));
+
+        auto* self = static_cast<Window*>(glfwGetWindowUserPointer(w));
+        if (self && self->m_EventBus)
+            self->m_EventBus->Publish(MouseScrolledEvent{
+                static_cast<float>(xoffset),
+                static_cast<float>(yoffset)
+            });
+    });
 }

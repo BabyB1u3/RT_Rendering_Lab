@@ -17,6 +17,7 @@
 #include <cstdint>
 
 struct GLFWwindow;
+class EventBus;
 
 struct WindowProps
 {
@@ -56,9 +57,17 @@ public:
     /// Register a callback invoked when the framebuffer is resized.
     void SetResizeCallback(ResizeCallback callback);
 
+    /// Give Window a reference to the EventBus so GLFW callbacks can
+    /// publish events (WindowResize, KeyPressed, MouseScrolled, etc.).
+    void SetEventBus(EventBus* bus);
+
 private:
     void Init(const WindowProps &props);
     void Shutdown();
+
+    /// Install all GLFW callbacks that publish events into the EventBus.
+    /// Called from SetEventBus() after the bus pointer is set.
+    void InstallCallbacks();
 
 private:
     GLFWwindow *m_Handle = nullptr;  // Non-owning; destroyed manually in Shutdown().
@@ -67,4 +76,5 @@ private:
     bool m_VSync = true;
 
     ResizeCallback m_ResizeCallback;
+    EventBus* m_EventBus = nullptr;  // Non-owning. Lifetime managed by Application.
 };
