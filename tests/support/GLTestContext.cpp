@@ -5,6 +5,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include "core/FileSystem.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/interface/IRenderCommand.h"
 #include "graphics/opengl/GLGraphicsDevice.h"
@@ -41,6 +42,8 @@ GlTestContext::GlTestContext()
         glfwTerminate();
         throw std::runtime_error("gladLoadGLLoader failed");
     }
+
+    FileSystem::Init();
 
     SetDevice(CreateRef<GLGraphicsDevice>());
     GetDevice()->GetRenderCommand()->Init();

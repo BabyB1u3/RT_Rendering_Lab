@@ -59,7 +59,7 @@ RT_Rendering_Lab/
 │   └── support/        # GLTestContext, MathTestUtils, TestLayer
 ├── docs/
 │   └── roadmap.md
-├── vendor/             # Third-party: GLFW, GLM (submodules), Glad, STB, ImGui
+├── vendor/             # Third-party: GLFW, GLM, ImGui (submodules), Glad, STB
 └── CMakeLists.txt
 ```
 
@@ -84,19 +84,42 @@ cd RT_Rendering_Lab
 
 > If you already cloned without `--recursive`, run `git submodule update --init --recursive`.
 
+Current pinned submodule versions:
+
+- `GLFW`: `3.4.0`
+- `GLM`: `1.0.3`
+- `Dear ImGui`: `1.92.6` (`docking` branch)
+
 ### Build with Presets
 
 The project ships with CMake presets for common configurations:
 
 ```bash
-# Visual Studio 2022 — Debug
+# Visual Studio 2026 — Debug
 cmake --preset windows-vs-debug
 cmake --build build/windows-vs-debug
+
+# Visual Studio 2026 — Fast debug iteration
+cmake --preset windows-vs-debug-fast
+cmake --build --preset build-windows-debug-fast --parallel
 
 # Ninja — Release
 cmake --preset ninja-release
 cmake --build build/ninja-release
+
+# Ninja — Fast debug iteration (requires Ninja installed)
+cmake --preset ninja-debug-fast
+cmake --build --preset build-ninja-debug-fast
 ```
+
+`windows-vs-debug-fast` and `ninja-debug-fast` are tuned for shorter edit-build-run loops:
+
+- tests disabled (`GLAB_BUILD_TESTS=OFF`)
+- unity build enabled (`GLAB_ENABLE_UNITY_BUILD=ON`)
+- precompiled headers enabled (`GLAB_ENABLE_PCH=ON`)
+- Dear ImGui demo translation unit skipped (`GLAB_BUILD_IMGUI_DEMO=OFF`)
+
+The unity build keeps OpenGL / GLFW-heavy translation units out of unity batches to avoid header-order conflicts while still speeding up most of the project.
 
 ### Build Manually
 
@@ -137,6 +160,10 @@ Integration tests create a hidden OpenGL context — they require a GPU or softw
 | `GLAB_BUILD_TESTS` | `ON` | Build the test suite |
 | `GLAB_ENABLE_WARNINGS` | `ON` | Enable strict compiler warnings |
 | `GLAB_ENABLE_ASAN` | `OFF` | Enable AddressSanitizer (non-MSVC) |
+| `GLAB_ENABLE_PCH` | `ON` | Enable precompiled headers for local C++ targets |
+| `GLAB_ENABLE_UNITY_BUILD` | `OFF` | Merge selected `.cpp` files into unity batches for faster full builds |
+| `GLAB_ENABLE_MSVC_MP` | `ON` | Enable MSVC multi-processor compilation (`/MP`) |
+| `GLAB_BUILD_IMGUI_DEMO` | `OFF` | Compile `imgui_demo.cpp` into the Dear ImGui static library |
 
 ---
 
@@ -144,11 +171,11 @@ Integration tests create a hidden OpenGL context — they require a GPU or softw
 
 | Library | Purpose | Source |
 |---------|---------|--------|
-| [GLFW](https://github.com/glfw/glfw) | Windowing & input | Git submodule |
-| [GLM](https://github.com/g-truc/glm) | Linear algebra | Git submodule |
+| [GLFW](https://github.com/glfw/glfw) | Windowing & input | Git submodule (`vendor/glfw`, `3.4.0`) |
+| [GLM](https://github.com/g-truc/glm) | Linear algebra | Git submodule (`vendor/glm`, `1.0.3`) |
 | [Glad](https://glad.dav1d.de/) | OpenGL 4.6 loader | `vendor/glad/` |
 | [STB Image](https://github.com/nothings/stb) | Image loading | `vendor/stb/` |
-| [Dear ImGui](https://github.com/ocornut/imgui) | Debug GUI | `vendor/imgui/` |
+| [Dear ImGui](https://github.com/ocornut/imgui) | Debug GUI | Git submodule (`vendor/imgui`, `1.92.6`, `docking` branch) |
 | [spdlog](https://github.com/gabime/spdlog) | Logging | `vendor/spdlog/` |
 | [Google Test](https://github.com/google/googletest) | Testing framework | CMake FetchContent |
 

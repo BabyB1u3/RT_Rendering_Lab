@@ -10,8 +10,8 @@
 /// The pass owns a depth-only Framebuffer (no color attachment).
 
 #include <cstdint>
+#include <filesystem>
 #include <memory>
-#include <string>
 
 #include "core/Base.h"
 #include "RenderPass.h"
@@ -24,7 +24,7 @@ class ShadowPass : public RenderPass
 {
 public:
     ShadowPass(uint32_t width, uint32_t height,
-               const std::string& shaderPath);
+               const std::filesystem::path& shaderStem);
 
     void Resize(unsigned int width, unsigned int height) override;
     void Execute(const RenderContext& ctx) override;

@@ -8,6 +8,7 @@
 /// based on platform/config.
 
 #include <cstdint>
+#include <filesystem>
 #include <string>
 
 #include "core/Base.h"
@@ -44,7 +45,7 @@ public:
 	// --- Shaders ---
 	virtual Ref<IShader> CreateShaderFromSource(const std::string &name, const std::string &vertexSrc, const std::string &fragmentSrc, const std::string &geometrySrc = "") = 0;
 	virtual Ref<IShader> CreateShaderFromFiles(const std::string &name, const std::string &vertexPath, const std::string &fragmentPath, const std::string &geometryPath = "") = 0;
-	virtual Ref<IShader> CreateShaderFromSingleFile(const std::string &filepath, const std::string &name = "") = 0;
+	virtual Ref<IShader> CreateShaderFromStem(const std::filesystem::path &stemPath, const std::string &name = "") = 0;
 
 	// --- Framebuffers ---
 	virtual Ref<IFramebuffer> CreateFramebuffer(const FramebufferSpecification &spec) = 0;

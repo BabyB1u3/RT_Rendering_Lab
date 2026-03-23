@@ -22,7 +22,7 @@
 #include "scene/SceneData.h"
 
 ForwardPass::ForwardPass(uint32_t width, uint32_t height, bool renderToTarget,
-                         const std::string& shaderPath, const glm::vec4& clearColor)
+                         const std::filesystem::path& shaderStem, const glm::vec4& clearColor)
     : m_Width(width), m_Height(height), m_RenderToTarget(renderToTarget), m_ClearColor(clearColor)
 {
     if (m_RenderToTarget)
@@ -37,7 +37,7 @@ ForwardPass::ForwardPass(uint32_t width, uint32_t height, bool renderToTarget,
         m_Framebuffer = GetDevice()->CreateFramebuffer(fbSpec);
     }
 
-    m_Shader = GetDevice()->CreateShaderFromSingleFile(shaderPath, "ForwardLit");
+    m_Shader = GetDevice()->CreateShaderFromStem(shaderStem, "ForwardLit");
 
     // 1x1 white fallback texture for when no shadow map is provided.
     // Sampling r = 1.0 means currentDepth - bias > 1.0 is always false -> no shadow.

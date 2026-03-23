@@ -10,8 +10,8 @@
 /// This pass does not own a framebuffer — it renders to whatever is currently
 /// bound (typically the default back buffer).
 
+#include <filesystem>
 #include <memory>
-#include <string>
 
 #include "core/Base.h"
 #include "RenderPass.h"
@@ -23,7 +23,7 @@ class ITexture2D;
 class TexturePreviewPass : public RenderPass
 {
 public:
-    TexturePreviewPass(const std::string& shaderPath);
+    TexturePreviewPass(const std::filesystem::path& shaderStem);
 
     void Resize(unsigned int width, unsigned int height) override;
     void Execute(const RenderContext& ctx) override;

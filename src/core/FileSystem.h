@@ -13,9 +13,11 @@
 /// After Init(), all asset/shader paths are resolved relative to the
 /// discovered root, so neither demos nor render passes need hardcoded paths.
 
+#include <cstdint>
 #include <filesystem>
 #include <string>
 #include <string_view>
+#include <vector>
 
 class FileSystem
 {
@@ -27,11 +29,14 @@ public:
     static const std::filesystem::path &GetRootPath();
     /// Resolve a path relative to the assets directory (e.g., "textures/wood.png").
     static std::filesystem::path GetAssetPath(std::string_view relativePath);
-    /// Shorthand for GetAssetPath("shaders/<name>.glsl"). Appends .glsl if omitted.
-    static std::filesystem::path GetShaderPath(std::string_view shaderName);
+    /// Returns the shader stem path: {root}/assets/shaders/{shaderName} (no extension).
+    /// Backends append their own extensions (e.g., ".vert.spv", ".frag.spv").
+    static std::filesystem::path GetShaderStem(std::string_view shaderName);
 
     /// Read an entire text file into a string. Throws on failure.
     static std::string ReadTextFile(const std::filesystem::path &path);
+    /// Read an entire binary file into a byte vector. Throws on failure.
+    static std::vector<uint8_t> ReadBinaryFile(const std::filesystem::path &path);
     /// Check whether a file or directory exists.
     static bool Exists(const std::filesystem::path &path);
 
