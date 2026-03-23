@@ -350,7 +350,7 @@ Now in `src/core/FileSystem.h/.cpp`. Cross-platform path discovery with `Init()`
 
 ### KeyCode / MouseCode ✅ (Implemented)
 
-Now in `src/core/KeyCode.h` and `src/core/MouseCode.h`. Typed enums (`Key::Code`, `Mouse::Code`) matching GLFW values, per design doc Layer 0. No GLFW header dependency outside `Input.cpp` / `Window.cpp`.
+Now in `src/core/input/KeyCode.h` and `src/core/input/MouseCode.h`. Typed enums (`Key::Code`, `Mouse::Code`) matching GLFW values, per design doc Layer 0. No GLFW header dependency outside `src/core/input/Input.cpp` / `src/core/app/Window.cpp`.
 
 ### Event System (when needed)
 
