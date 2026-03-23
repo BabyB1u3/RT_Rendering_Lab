@@ -49,6 +49,10 @@ target_link_libraries(rtrlab_integration_tests
         GTest::gtest_main
 )
 
+if(TARGET CompileShaders)
+    add_dependencies(rtrlab_integration_tests CompileShaders)
+endif()
+
 target_include_directories(rtrlab_integration_tests
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/support

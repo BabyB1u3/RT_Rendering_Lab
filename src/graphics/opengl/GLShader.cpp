@@ -61,8 +61,20 @@ std::string GLShader::TranspileSpirvToGlsl(const std::vector<uint8_t> &spirvByte
 	opts.version = 460;
 	opts.es = false;
 	opts.vulkan_semantics = false;
-	opts.enable_420pack_extension = true;
+	opts.enable_420pack_extension = false;
 	compiler.set_common_options(opts);
+
+	// Strip binding decorations from plain (non-opaque) uniforms.
+	// glslang's --auto-map-bindings assigns bindings to ALL uniforms,
+	// but desktop GLSL only supports binding qualifiers on opaque types
+	// (samplers, images, UBOs). Emitting them on plain uniforms causes
+	// "unknown layout specifier 'binding'" errors on many drivers.
+	auto resources = compiler.get_shader_resources();
+	for (auto &u : resources.gl_plain_uniforms)
+	{
+		compiler.unset_decoration(u.id, spv::DecorationBinding);
+		compiler.unset_decoration(u.id, spv::DecorationLocation);
+	}
 
 	return compiler.compile();
 }
