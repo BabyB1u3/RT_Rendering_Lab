@@ -3,6 +3,8 @@
 // Forward shading pass: Blinn-Phong lighting with PCF shadow sampling.
 // Migrated from ForwardLit.vert + ForwardLit.frag (GLSL 460).
 
+import shadow;
+
 // --- Samplers (remain as plain uniforms in GLSL output) ---
 uniform Sampler2D u_ShadowMap;
 uniform Sampler2D u_AlbedoMap;
@@ -57,36 +59,6 @@ VertexOutput vertexMain(VertexInput input)
 
 // --- Fragment stage ---
 
-float ComputeShadow(float4 lightSpacePosition, float3 normal, float3 lightDir)
-{
-    float3 projCoords = lightSpacePosition.xyz / lightSpacePosition.w;
-    projCoords = projCoords * 0.5 + 0.5;
-
-    if (projCoords.z > 1.0)
-        return 0.0;
-
-    float currentDepth = projCoords.z;
-    float bias = max(0.0001, 0.002 * (1.0 - dot(normalize(normal), normalize(-lightDir))));
-
-    // 3x3 PCF for soft shadow edges
-    float shadow = 0.0;
-    int2 texSize;
-    u_ShadowMap.GetDimensions(texSize.x, texSize.y);
-    float2 texelSize = 1.0 / float2(texSize);
-
-    for (int x = -1; x <= 1; x++)
-    {
-        for (int y = -1; y <= 1; y++)
-        {
-            float pcfDepth = u_ShadowMap.Sample(projCoords.xy + float2(x, y) * texelSize).r;
-            shadow += (currentDepth - bias > pcfDepth) ? 1.0 : 0.0;
-        }
-    }
-    shadow /= 9.0;
-
-    return shadow;
-}
-
 [shader("fragment")]
 float4 fragmentMain(VertexOutput input) : SV_Target
 {
@@ -98,7 +70,7 @@ float4 fragmentMain(VertexOutput input) : SV_Target
         albedo *= u_AlbedoMap.Sample(input.texCoord).rgb;
 
     float NdotL  = max(dot(normal, -lightDir), 0.0);
-    float shadow = ComputeShadow(input.lightSpacePosition, normal, lightDir);
+    float shadow = ComputeShadow(u_ShadowMap, input.lightSpacePosition, normal, lightDir);
 
     float3 ambient = u_AmbientStrength * albedo;
     float3 diffuse = (1.0 - shadow) * NdotL * albedo * u_LightColor * u_LightIntensity;
