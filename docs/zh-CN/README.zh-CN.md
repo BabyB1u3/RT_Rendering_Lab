@@ -43,7 +43,10 @@
 ```
 RT_Rendering_Lab/
 ├── src/
-│   ├── core/           # 应用程序、窗口、输入、时间、日志、文件系统
+│   ├── core/           # 核心运行时工具与系统
+│   │   ├── app/        # Application、Window、Layer、LayerStack
+│   │   ├── event/      # EventBus、Events、ScopedConnection
+│   │   └── input/      # Input、InputAction、KeyCode、MouseCode
 │   ├── graphics/       # 抽象接口（interface/I*.h）、OpenGL 后端（opengl/GL*）、网格、材质
 │   ├── renderer/       # 场景渲染器、ForwardPass、ShadowPass、TexturePreviewPass
 │   ├── scene/          # 相机、调试相机控制器、光源、变换、场景数据

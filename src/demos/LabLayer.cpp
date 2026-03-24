@@ -2,8 +2,9 @@
 
 #include <utility>
 
-#include "core/Application.h"
-#include "core/Input.h"
+#include "core/app/Application.h"
+#include "core/event/Events.h"
+#include "core/input/Input.h"
 #include "core/Logger.h"
 #include "DemoBase.h"
 #include "DemoRegistry.h"
@@ -101,4 +102,7 @@ void LabLayer::SetActiveDemo(Scope<DemoBase> demo, const std::string &name)
     m_ActiveDemo = std::move(demo);
     m_ActiveDemoName = name;
     LOG_INFO("Active demo: {}", m_ActiveDemoName);
+
+    Application::Get().GetEventBus().Publish(
+        DemoSwitchedEvent{ m_SelectedDemoIndex, m_ActiveDemoName.c_str() });
 }

@@ -58,6 +58,14 @@ target_compile_options(spdlog INTERFACE
 )
 
 # ----------------------------
+# nlohmann/json (header-only, single-include)
+# ----------------------------
+add_library(nlohmann_json INTERFACE)
+target_include_directories(nlohmann_json INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/nlohmann
+)
+
+# ----------------------------
 # Dear ImGui
 # ----------------------------
 set(GLAB_IMGUI_SOURCES

@@ -13,7 +13,7 @@
 ///   Begin() starts a new ImGui frame; End() calls ImGui::Render() and
 ///   dispatches the draw data to the OpenGL3 backend.
 
-#include "core/Layer.h"
+#include "core/app/Layer.h"
 
 class ImGuiLayer : public Layer
 {
