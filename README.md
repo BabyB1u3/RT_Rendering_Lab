@@ -43,7 +43,10 @@ It provides a lightweight framework where different rendering techniques can be 
 ```
 RT_Rendering_Lab/
 ├── src/
-│   ├── core/           # Application, Window, Input, Time, Logger, FileSystem
+│   ├── core/           # Core runtime utilities and systems
+│   │   ├── app/        # Application, Window, Layer, LayerStack
+│   │   ├── event/      # EventBus, Events, ScopedConnection
+│   │   └── input/      # Input, InputAction, KeyCode, MouseCode
 │   ├── graphics/       # Abstract interfaces (interface/I*.h), OpenGL backend (opengl/GL*), Mesh, Material
 │   ├── renderer/       # SceneRenderer, ForwardPass, ShadowPass, TexturePreviewPass
 │   ├── scene/          # Camera, DebugCameraController, Light, Transform, SceneData

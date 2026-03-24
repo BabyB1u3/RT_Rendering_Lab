@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "core/input/InputAction.h"
 #include "demos/DemoBase.h"
 #include "renderer/SceneRenderer.h"
 #include "scene/Camera.h"
@@ -53,6 +54,6 @@ private:
     Ref<Material> m_DefaultMaterial;
     Ref<ITexture2D> m_WhiteTexture;
 
+    InputActionMap m_InputMap;
     SceneRendererOutput m_OutputMode = SceneRendererOutput::FinalColor;
-    bool m_RightMouseLooking = true;
 };

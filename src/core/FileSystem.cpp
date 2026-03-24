@@ -16,12 +16,17 @@
 #endif
 
 std::filesystem::path FileSystem::s_RootPath;
+std::filesystem::path FileSystem::s_SavedDir;
 bool FileSystem::s_Initialized = false;
+bool FileSystem::s_SavedDirResolved = false;
+
+static constexpr const char *kAppName = "RTRLab";
 
 void FileSystem::Init()
 {
     s_RootPath = DiscoverRootPath();
     s_Initialized = true;
+
     LOG_INFO("FileSystem initialized - root: {}", s_RootPath.string());
 }
 
@@ -37,20 +42,113 @@ std::filesystem::path FileSystem::GetAssetPath(std::string_view relativePath)
 
 std::filesystem::path FileSystem::GetCompiledShaderDir()
 {
-    // Primary: assets/shaders/compiled/ (deployment and POST_BUILD copy)
     auto assetDir = s_RootPath / GLAB_ASSET_DIR / "shaders" / "compiled";
     if (std::filesystem::exists(assetDir))
         return assetDir;
 
 #ifdef GLAB_SHADER_BUILD_DIR
-    // Fallback: CMake build directory (development, before first POST_BUILD)
     std::filesystem::path buildDir(GLAB_SHADER_BUILD_DIR);
     if (std::filesystem::exists(buildDir))
         return buildDir;
 #endif
 
-    return assetDir; // return canonical path even if missing (error reported at load time)
+    return assetDir;
 }
+
+// ── Saved directory ──────────────────────────────────────────────────
+
+void FileSystem::ResolveSavedDir()
+{
+    if (s_SavedDirResolved)
+        return;
+
+#ifdef GLAB_ROOT_DIR
+    // Development: saved/ in source tree root (persists across clean builds)
+    s_SavedDir = std::filesystem::path(GLAB_ROOT_DIR) / "saved";
+#else
+    // Release: platform user directory
+    s_SavedDir = GetPlatformUserDataDir(kAppName);
+#endif
+
+    std::filesystem::create_directories(s_SavedDir / "configs");
+    s_SavedDirResolved = true;
+
+    LOG_INFO("Saved directory: {}", s_SavedDir.string());
+}
+
+const std::filesystem::path &FileSystem::GetSavedDir()
+{
+    ResolveSavedDir();
+    return s_SavedDir;
+}
+
+std::filesystem::path FileSystem::GetSavedPath(std::string_view relativePath)
+{
+    return GetSavedDir() / relativePath;
+}
+
+std::filesystem::path FileSystem::GetSavedConfigPath(std::string_view relativePath)
+{
+    return GetSavedDir() / "configs" / relativePath;
+}
+
+std::filesystem::path FileSystem::ResolveConfigPath(std::string_view relativePath)
+{
+    // 1. User-editable config in saved/configs/
+    auto savedPath = GetSavedConfigPath(relativePath);
+    if (std::filesystem::exists(savedPath))
+        return savedPath;
+
+    // 2. Shipped default in assets/configs/
+    auto defaultPath = GetAssetPath("configs") / relativePath;
+    if (std::filesystem::exists(defaultPath))
+    {
+        // Auto-copy to saved/configs/ so the user has an editable file
+        std::filesystem::create_directories(savedPath.parent_path());
+        std::error_code ec;
+        std::filesystem::copy_file(defaultPath, savedPath, ec);
+        if (ec)
+        {
+            LOG_WARN("Failed to copy default config '{}' to saved: {}",
+                     relativePath, ec.message());
+            return defaultPath; // still usable, just not editable in-place
+        }
+        LOG_INFO("Copied default config to saved: {}", savedPath.string());
+        return savedPath;
+    }
+
+    // 3. Not found anywhere
+    return {};
+}
+
+// ── Platform user data directory ─────────────────────────────────────
+
+std::filesystem::path FileSystem::GetPlatformUserDataDir(std::string_view appName)
+{
+#ifdef _WIN32
+    if (const char *dir = std::getenv("LOCALAPPDATA"))
+        return std::filesystem::path(dir) / appName;
+    // Fallback: next to exe
+    return s_RootPath / "saved";
+
+#elif defined(__APPLE__)
+    if (const char *home = std::getenv("HOME"))
+        return std::filesystem::path(home) / "Library" / "Application Support" / appName;
+    return s_RootPath / "saved";
+
+#elif defined(__linux__)
+    if (const char *xdg = std::getenv("XDG_DATA_HOME"))
+        return std::filesystem::path(xdg) / appName;
+    if (const char *home = std::getenv("HOME"))
+        return std::filesystem::path(home) / ".local" / "share" / appName;
+    return s_RootPath / "saved";
+
+#else
+    return s_RootPath / "saved";
+#endif
+}
+
+// ── File I/O ─────────────────────────────────────────────────────────
 
 std::string FileSystem::ReadTextFile(const std::filesystem::path &path)
 {
@@ -109,7 +207,6 @@ std::filesystem::path FileSystem::FindRootFromExecutable()
     if (exePath.empty())
         return {};
 
-    // Walk up from the executable directory, looking for an "assets" folder
     std::filesystem::path dir = exePath.parent_path();
     constexpr int kMaxDepth = 5;
     for (int i = 0; i < kMaxDepth; ++i)

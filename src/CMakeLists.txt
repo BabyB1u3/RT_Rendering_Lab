@@ -1,12 +1,14 @@
 ﻿set(GLAB_CORE_SOURCES
-    core/Application.cpp
+    core/app/Application.cpp
     core/FileSystem.cpp
-    core/Input.cpp
-    core/Layer.cpp
-    core/LayerStack.cpp
+    core/input/Input.cpp
+    core/input/InputAction.cpp
+    core/input/InputNames.cpp
+    core/app/Layer.cpp
+    core/app/LayerStack.cpp
     core/Logger.cpp
     core/Time.cpp
-    core/Window.cpp
+    core/app/Window.cpp
 
     graphics/Material.cpp
     graphics/Mesh.cpp
@@ -44,17 +46,21 @@
 )
 
 set(GLAB_CORE_HEADERS
-    core/Application.h
+    core/app/Application.h
     core/Base.h
     core/FileSystem.h
-    core/Input.h
-    core/KeyCode.h
-    core/Layer.h
-    core/LayerStack.h
-    core/MouseCode.h
+    core/event/EventBus.h
+    core/event/Events.h
+    core/input/Input.h
+    core/input/InputAction.h
+    core/input/KeyCode.h
+    core/event/ScopedConnection.h
+    core/app/Layer.h
+    core/app/LayerStack.h
+    core/input/MouseCode.h
     core/Logger.h
     core/Time.h
-    core/Window.h
+    core/app/Window.h
 
     graphics/Buffers.h
     graphics/Framebuffer.h
@@ -120,9 +126,9 @@ add_library(RTRLabCore STATIC
 )
 
 set_source_files_properties(
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/Application.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/Input.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/Window.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/app/Application.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/input/Input.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/app/Window.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLFramebuffer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLGraphicsDevice.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLIndexBuffer.cpp
@@ -147,6 +153,7 @@ target_link_libraries(RTRLabCore PUBLIC
     stb
     spdlog
     imgui
+    nlohmann_json
     OpenGL::GL
 )
 

@@ -4,7 +4,9 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
-#include "core/Application.h"
+#include "core/app/Application.h"
+#include "core/FileSystem.h"
+#include "core/input/Input.h"
 
 ImGuiLayer::ImGuiLayer()
     : Layer("ImGuiLayer")
@@ -19,6 +21,11 @@ void ImGuiLayer::OnAttach()
     ImGuiIO &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+    // Store imgui.ini in the user config directory (persistent static string
+    // because ImGui holds a raw pointer to IniFilename).
+    static std::string iniPath = FileSystem::GetSavedConfigPath("imgui.ini").string();
+    io.IniFilename = iniPath.c_str();
 
     ImGui::StyleColorsDark();
 
@@ -41,6 +48,12 @@ void ImGuiLayer::Begin()
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+
+    // Forward ImGui's capture state to the Input polling layer so that
+    // game/demo code does not respond to keys/mouse meant for UI widgets.
+    ImGuiIO& io = ImGui::GetIO();
+    Input::SetKeyboardCaptured(io.WantCaptureKeyboard);
+    Input::SetMouseCaptured(io.WantCaptureMouse);
 }
 
 void ImGuiLayer::End()

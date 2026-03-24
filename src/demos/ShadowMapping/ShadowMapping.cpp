@@ -9,10 +9,8 @@
 
 #include <imgui.h>
 
-#include "core/Input.h"
-#include "core/KeyCode.h"
+#include "core/FileSystem.h"
 #include "core/Logger.h"
-#include "core/MouseCode.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/Material.h"
 #include "graphics/MeshFactory.h"
@@ -58,6 +56,32 @@ void ShadowMapping::OnAttach()
     m_DefaultMaterial->SetFloat("u_SpecularPower", 32.0f);
     m_DefaultMaterial->SetFloat("u_AmbientStrength", 0.15f);
 
+    // Input bindings — resolve config: user overrides → shipped defaults → hardcoded
+    {
+        constexpr auto kInputCfg = "input/ShadowMapping.json";
+        auto resolved = FileSystem::ResolveConfigPath(kInputCfg);
+        if (!resolved.empty() && m_InputMap.LoadFromFile(resolved.string()))
+        {
+            // loaded successfully
+        }
+        else
+        {
+            m_InputMap.BindAxis("MoveForward",  Key::W, Key::S);
+            m_InputMap.BindAxis("MoveRight",    Key::D, Key::A);
+            m_InputMap.BindAxis("MoveUp",       Key::E, Key::Q);
+            m_InputMap.BindAxis("LookX",        InputActionMap::MouseAxis::X);
+            m_InputMap.BindAxis("LookY",        InputActionMap::MouseAxis::Y);
+
+            m_InputMap.BindAction("ShowFinalColor",  Key::D1);
+            m_InputMap.BindAction("ShowShadowMap",   Key::D2);
+            m_InputMap.BindAction("ToggleLookMode",  InputSource::FromMouseButton(Mouse::Right));
+            m_InputMap.BindAxis("Zoom",              InputActionMap::MouseAxis::ScrollY);
+
+            // Save defaults so the user has an editable config file
+            m_InputMap.SaveToFile(FileSystem::GetSavedConfigPath(kInputCfg).string());
+        }
+    }
+
     BuildScene();
 }
 
@@ -76,10 +100,10 @@ void ShadowMapping::OnUpdate(double dt)
 {
     HandleCameraInput(dt);
 
-    if (Input::IsKeyPressed(Key::D1))
+    if (m_InputMap.WasActionPressedThisFrame("ShowFinalColor"))
         m_OutputMode = SceneRendererOutput::FinalColor;
 
-    if (Input::IsKeyPressed(Key::D2))
+    if (m_InputMap.WasActionPressedThisFrame("ShowShadowMap"))
         m_OutputMode = SceneRendererOutput::ShadowMap;
 }
 
@@ -198,24 +222,28 @@ void ShadowMapping::BuildScene()
 
 void ShadowMapping::HandleCameraInput(double dt)
 {
-    if (Input::IsKeyPressed(Key::W))
-        m_CameraController.MoveForward(dt);
-    if (Input::IsKeyPressed(Key::S))
-        m_CameraController.MoveBackward(dt);
-    if (Input::IsKeyPressed(Key::A))
-        m_CameraController.MoveLeft(dt);
-    if (Input::IsKeyPressed(Key::D))
-        m_CameraController.MoveRight(dt);
-    if (Input::IsKeyPressed(Key::Q))
-        m_CameraController.MoveDown(dt);
-    if (Input::IsKeyPressed(Key::E))
-        m_CameraController.MoveUp(dt);
+    float forward = m_InputMap.GetAxis("MoveForward");
+    float right   = m_InputMap.GetAxis("MoveRight");
+    float up      = m_InputMap.GetAxis("MoveUp");
 
-    if (m_RightMouseLooking)
+    if (forward > 0.0f)  m_CameraController.MoveForward(dt);
+    if (forward < 0.0f)  m_CameraController.MoveBackward(dt);
+    if (right > 0.0f)    m_CameraController.MoveRight(dt);
+    if (right < 0.0f)    m_CameraController.MoveLeft(dt);
+    if (up > 0.0f)       m_CameraController.MoveUp(dt);
+    if (up < 0.0f)       m_CameraController.MoveDown(dt);
+
+    // Right-click to look around
+    if (m_InputMap.IsActionDown("ToggleLookMode"))
     {
-        std::pair<float, float> mouseDeltaPair = Input::GetMouseDelta();
-        glm::vec2 mouseDelta(mouseDeltaPair.first, mouseDeltaPair.second);
-        if (mouseDelta.x != 0.0f || mouseDelta.y != 0.0f)
-            m_CameraController.OnMouseDelta(mouseDelta.x, -mouseDelta.y);
+        float lookX = m_InputMap.GetAxis("LookX");
+        float lookY = m_InputMap.GetAxis("LookY");
+        if (lookX != 0.0f || lookY != 0.0f)
+            m_CameraController.OnMouseDelta(lookX, -lookY);
     }
+
+    // Scroll to zoom (adjust FOV)
+    float scroll = m_InputMap.GetAxis("Zoom");
+    if (scroll != 0.0f)
+        m_CameraController.OnMouseScroll(scroll);
 }
