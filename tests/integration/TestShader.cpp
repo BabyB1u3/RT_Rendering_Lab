@@ -43,6 +43,14 @@ void main()
 }
 )";
 
+namespace
+{
+std::filesystem::path GetCompiledGlslPath(const std::string& shaderName, const std::string& stage)
+{
+	return FileSystem::GetCompiledShaderDir() / "glsl" / (shaderName + "." + stage + ".glsl");
+}
+}
+
 TEST_F(ShaderIntegrationTests, CreateFromSourceProducesValidProgram)
 {
 	auto shader = GetDevice()->CreateShaderFromSource("TestShader", kVertexSrc, kFragmentSrc);
@@ -65,15 +73,14 @@ TEST_F(ShaderIntegrationTests, BindAndUniformSettersDoNotCrash)
 	SUCCEED();
 }
 
-TEST_F(ShaderIntegrationTests, CreateFromStem_LoadsForwardLitFromSPIRV)
+TEST_F(ShaderIntegrationTests, CreateShader_LoadsForwardLitFromCompiledGlsl)
 {
-	auto stem = FileSystem::GetShaderStem("ForwardLit");
-	if (!FileSystem::Exists(stem.string() + ".vert.spv"))
+	if (!FileSystem::Exists(GetCompiledGlslPath("ForwardLit", "vert")))
 	{
-		GTEST_SKIP() << "SPIR-V artifacts not found (GLAB_COMPILE_SHADERS=OFF?)";
+		GTEST_SKIP() << "Compiled GLSL artifacts not found (GLAB_COMPILE_SHADERS=OFF?)";
 	}
 
-	auto shader = GetDevice()->CreateShaderFromStem(stem, "ForwardLit");
+	auto shader = GetDevice()->CreateShader("ForwardLit");
 	ASSERT_NE(shader, nullptr);
 	EXPECT_EQ(shader->GetName(), "ForwardLit");
 
@@ -84,15 +91,14 @@ TEST_F(ShaderIntegrationTests, CreateFromStem_LoadsForwardLitFromSPIRV)
 	shader->Unbind();
 }
 
-TEST_F(ShaderIntegrationTests, CreateFromStem_LoadsShadowDepthFromSPIRV)
+TEST_F(ShaderIntegrationTests, CreateShader_LoadsShadowDepthFromCompiledGlsl)
 {
-	auto stem = FileSystem::GetShaderStem("ShadowDepth");
-	if (!FileSystem::Exists(stem.string() + ".vert.spv"))
+	if (!FileSystem::Exists(GetCompiledGlslPath("ShadowDepth", "vert")))
 	{
-		GTEST_SKIP() << "SPIR-V artifacts not found";
+		GTEST_SKIP() << "Compiled GLSL artifacts not found";
 	}
 
-	auto shader = GetDevice()->CreateShaderFromStem(stem, "ShadowDepth");
+	auto shader = GetDevice()->CreateShader("ShadowDepth");
 	ASSERT_NE(shader, nullptr);
 
 	shader->Bind();
@@ -101,15 +107,14 @@ TEST_F(ShaderIntegrationTests, CreateFromStem_LoadsShadowDepthFromSPIRV)
 	shader->Unbind();
 }
 
-TEST_F(ShaderIntegrationTests, CreateFromStem_LoadsTexturePreviewFromSPIRV)
+TEST_F(ShaderIntegrationTests, CreateShader_LoadsTexturePreviewFromCompiledGlsl)
 {
-	auto stem = FileSystem::GetShaderStem("TexturePreview");
-	if (!FileSystem::Exists(stem.string() + ".vert.spv"))
+	if (!FileSystem::Exists(GetCompiledGlslPath("TexturePreview", "vert")))
 	{
-		GTEST_SKIP() << "SPIR-V artifacts not found";
+		GTEST_SKIP() << "Compiled GLSL artifacts not found";
 	}
 
-	auto shader = GetDevice()->CreateShaderFromStem(stem, "TexturePreview");
+	auto shader = GetDevice()->CreateShader("TexturePreview");
 	ASSERT_NE(shader, nullptr);
 
 	shader->Bind();

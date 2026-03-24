@@ -71,6 +71,7 @@ endfunction()
 
 find_package(OpenGL REQUIRED)
 
+include(cmake/SetupSlang.cmake)
 include(cmake/CompileShaders.cmake)
 
 add_subdirectory(vendor)

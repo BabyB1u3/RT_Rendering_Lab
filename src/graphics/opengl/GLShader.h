@@ -4,7 +4,6 @@
 /// @brief OpenGL shader program implementation of IShader with uniform caching.
 
 #include <cstdint>
-#include <filesystem>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -41,6 +40,7 @@ public:
 	void SetFloat4(const std::string &name, const glm::vec4 &value) override;
 	void SetMat3(const std::string &name, const glm::mat3 &value) override;
 	void SetMat4(const std::string &name, const glm::mat4 &value) override;
+	void SetUniformBlock(uint32_t binding, const void *data, uint32_t size) override;
 
 	// --- GL-specific (non-virtual) ---
 	uint32_t GetRendererID() const { return m_RendererID; }
@@ -58,14 +58,12 @@ public:
 		const std::string &fragmentPath,
 		const std::string &geometryPath = "");
 
-	static Ref<GLShader> CreateFromStem(
-		const std::filesystem::path &stemPath,
-		const std::string &name = "");
+	/// Load pre-compiled GLSL produced by slangc from the build output directory.
+	static Ref<GLShader> CreateFromCompiledGlsl(const std::string &name);
 
 private:
 	GLShader(uint32_t program, std::string name);
 
-	static std::string TranspileSpirvToGlsl(const std::vector<uint8_t> &spirvBytes);
 	static uint32_t CompileStage(uint32_t stage, const std::string &source, const std::string &debugName);
 	static uint32_t LinkProgram(const std::string &name, const std::vector<uint32_t> &shaderIDs);
 
@@ -75,4 +73,5 @@ private:
 	uint32_t m_RendererID = 0;
 	std::string m_Name;
 	std::unordered_map<std::string, int> m_UniformLocationCache;
+	std::unordered_map<uint32_t, uint32_t> m_UBOCache; // binding → GL buffer ID
 };

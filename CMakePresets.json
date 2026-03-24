@@ -21,7 +21,9 @@
       "generator": "Visual Studio 18 2026",
       "binaryDir": "${sourceDir}/build/windows-vs-release",
       "cacheVariables": {
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/windows-vs-release"
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/windows-vs-release",
+        "GLAB_BUILD_TESTS": "OFF",
+        "GLAB_BUILD_IMGUI_DEMO": "OFF"
       }
     },
     {
@@ -31,6 +33,18 @@
       "binaryDir": "${sourceDir}/build/windows-vs-debug-fast",
       "cacheVariables": {
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/windows-vs-debug-fast",
+        "GLAB_BUILD_TESTS": "OFF",
+        "GLAB_ENABLE_UNITY_BUILD": "ON",
+        "GLAB_BUILD_IMGUI_DEMO": "OFF"
+      }
+    },
+    {
+      "name": "windows-vs-release-fast",
+      "displayName": "Windows VS2026 Release Fast",
+      "generator": "Visual Studio 18 2026",
+      "binaryDir": "${sourceDir}/build/windows-vs-release-fast",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/windows-vs-release-fast",
         "GLAB_BUILD_TESTS": "OFF",
         "GLAB_ENABLE_UNITY_BUILD": "ON",
         "GLAB_BUILD_IMGUI_DEMO": "OFF"
@@ -47,6 +61,18 @@
       }
     },
     {
+      "name": "ninja-release",
+      "displayName": "Ninja Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/ninja-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ninja-release",
+        "GLAB_BUILD_TESTS": "OFF",
+        "GLAB_BUILD_IMGUI_DEMO": "OFF"
+      }
+    },
+    {
       "name": "ninja-debug-fast",
       "displayName": "Ninja Debug Fast",
       "generator": "Ninja",
@@ -60,13 +86,16 @@
       }
     },
     {
-      "name": "ninja-release",
-      "displayName": "Ninja Release",
+      "name": "ninja-release-fast",
+      "displayName": "Ninja Release Fast",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/ninja-release",
+      "binaryDir": "${sourceDir}/build/ninja-release-fast",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ninja-release"
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ninja-release-fast",
+        "GLAB_BUILD_TESTS": "OFF",
+        "GLAB_ENABLE_UNITY_BUILD": "ON",
+        "GLAB_BUILD_IMGUI_DEMO": "OFF"
       }
     }
   ],
@@ -87,16 +116,25 @@
       "configuration": "Debug"
     },
     {
+      "name": "build-windows-release-fast",
+      "configurePreset": "windows-vs-release-fast",
+      "configuration": "Release"
+    },
+    {
       "name": "build-ninja-debug",
       "configurePreset": "ninja-debug"
+    },
+    {
+      "name": "build-ninja-release",
+      "configurePreset": "ninja-release"
     },
     {
       "name": "build-ninja-debug-fast",
       "configurePreset": "ninja-debug-fast"
     },
     {
-      "name": "build-ninja-release",
-      "configurePreset": "ninja-release"
+      "name": "build-ninja-release-fast",
+      "configurePreset": "ninja-release-fast"
     }
   ],
   "testPresets": [
@@ -107,19 +145,8 @@
       "output": { "outputOnFailure": true }
     },
     {
-      "name": "test-windows-release",
-      "configurePreset": "windows-vs-release",
-      "configuration": "Release",
-      "output": { "outputOnFailure": true }
-    },
-    {
       "name": "test-ninja-debug",
       "configurePreset": "ninja-debug",
-      "output": { "outputOnFailure": true }
-    },
-    {
-      "name": "test-ninja-release",
-      "configurePreset": "ninja-release",
       "output": { "outputOnFailure": true }
     }
   ]

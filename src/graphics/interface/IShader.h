@@ -27,4 +27,8 @@ public:
 	virtual void SetFloat4(const std::string &name, const glm::vec4 &value) = 0;
 	virtual void SetMat3(const std::string &name, const glm::mat3 &value) = 0;
 	virtual void SetMat4(const std::string &name, const glm::mat4 &value) = 0;
+
+	/// Upload data to a uniform block at the specified binding point.
+	/// Maps to UBO on OpenGL, descriptor set buffer on Vulkan.
+	virtual void SetUniformBlock(uint32_t binding, const void *data, uint32_t size) = 0;
 };

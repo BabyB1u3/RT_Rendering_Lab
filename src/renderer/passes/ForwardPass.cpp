@@ -22,7 +22,7 @@
 #include "scene/SceneData.h"
 
 ForwardPass::ForwardPass(uint32_t width, uint32_t height, bool renderToTarget,
-                         const std::filesystem::path& shaderStem, const glm::vec4& clearColor)
+                         const glm::vec4& clearColor)
     : m_Width(width), m_Height(height), m_RenderToTarget(renderToTarget), m_ClearColor(clearColor)
 {
     if (m_RenderToTarget)
@@ -37,7 +37,7 @@ ForwardPass::ForwardPass(uint32_t width, uint32_t height, bool renderToTarget,
         m_Framebuffer = GetDevice()->CreateFramebuffer(fbSpec);
     }
 
-    m_Shader = GetDevice()->CreateShaderFromStem(shaderStem, "ForwardLit");
+    m_Shader = GetDevice()->CreateShader("ForwardLit");
 
     // 1x1 white fallback texture for when no shadow map is provided.
     // Sampling r = 1.0 means currentDepth - bias > 1.0 is always false -> no shadow.
@@ -83,16 +83,50 @@ void ForwardPass::Execute(const RenderContext& ctx)
     const auto& scene = ctx.View.Scene;
 
     m_Shader->Bind();
-    m_Shader->SetMat4("u_ViewProjection", camera.GetViewProjection());
-    m_Shader->SetMat4("u_LightViewProjection", ctx.Resources.LightViewProjection);
-    m_Shader->SetFloat3("u_CameraPosition", camera.GetPosition());
-    m_Shader->SetFloat3("u_LightDirection", scene.MainDirectionalLight.Direction);
-    m_Shader->SetFloat3("u_LightColor", scene.MainDirectionalLight.Color);
-    m_Shader->SetFloat("u_LightIntensity", scene.MainDirectionalLight.Intensity);
 
+    // Slang UBO layout (binding 0, std140, row_major):
+    //   mat4 u_ViewProjection       offset   0
+    //   mat4 u_Model                offset  64
+    //   mat4 u_NormalMatrix         offset 128
+    //   mat4 u_LightViewProjection  offset 192
+    //   vec3 u_CameraPosition       offset 256  (+ 4 pad)
+    //   vec3 u_LightDirection       offset 272  (+ 4 pad)
+    //   vec3 u_LightColor           offset 288
+    //   float u_LightIntensity      offset 300
+    //   vec3 u_Albedo               offset 304
+    //   float u_SpecularPower       offset 316
+    //   float u_AmbientStrength     offset 320
+    //   bool(int) u_UseAlbedoMap    offset 324
+    struct alignas(16) ForwardParams
+    {
+        glm::mat4 ViewProjection;       // 0
+        glm::mat4 Model;                // 64
+        glm::mat4 NormalMatrix;         // 128
+        glm::mat4 LightViewProjection;  // 192
+        glm::vec3 CameraPosition;       // 256
+        float     _pad0{};              // 268
+        glm::vec3 LightDirection;       // 272
+        float     _pad1{};              // 284
+        glm::vec3 LightColor;           // 288
+        float     LightIntensity;       // 300
+        glm::vec3 Albedo;               // 304
+        float     SpecularPower;        // 316
+        float     AmbientStrength;      // 320
+        int32_t   UseAlbedoMap;         // 324  (std140 bool = 4 bytes)
+        float     _pad2[2]{};           // 328  (pad to 336 = multiple of 16)
+    };
+
+    ForwardParams params{};
+    params.ViewProjection      = camera.GetViewProjection();
+    params.LightViewProjection = ctx.Resources.LightViewProjection;
+    params.CameraPosition      = camera.GetPosition();
+    params.LightDirection      = scene.MainDirectionalLight.Direction;
+    params.LightColor          = scene.MainDirectionalLight.Color;
+    params.LightIntensity      = scene.MainDirectionalLight.Intensity;
+
+    // Samplers: ShadowMap at binding 1, AlbedoMap at binding 2
     const auto &shadow = ctx.Resources.ShadowMap ? ctx.Resources.ShadowMap : m_FallbackShadowMap;
-    shadow->Bind(static_cast<uint32_t>(TextureSlot::ShadowMap));
-    m_Shader->SetInt("u_ShadowMap", static_cast<int>(TextureSlot::ShadowMap));
+    shadow->Bind(1);
 
     for (const auto &item : scene.RenderItems)
     {
@@ -103,15 +137,26 @@ void ForwardPass::Execute(const RenderContext& ctx)
         }
 
         glm::mat4 model = item.Transform.GetMatrix();
+        params.Model        = model;
+        params.NormalMatrix  = glm::transpose(glm::inverse(model));
 
-        m_Shader->SetMat4("u_Model", model);
-        // Normal matrix = transpose(inverse(mat3(model))).
-        // Precomputed on CPU to avoid per-fragment inverse in the shader.
-        // Handles non-uniform scale correctly.
-        m_Shader->SetMat3("u_NormalMatrix", glm::mat3(glm::transpose(glm::inverse(model))));
+        // Read material properties
+        params.Albedo           = item.Material->GetVec3("u_Albedo", glm::vec3(1.0f));
+        params.SpecularPower    = item.Material->GetFloat("u_SpecularPower", 32.0f);
+        params.AmbientStrength  = item.Material->GetFloat("u_AmbientStrength", 0.1f);
 
-        item.Material->UploadToShader(m_Shader);
+        auto albedoTex = item.Material->GetTexture(TextureSlot::Albedo);
+        if (albedoTex)
+        {
+            albedoTex->Bind(2);
+            params.UseAlbedoMap = 1;
+        }
+        else
+        {
+            params.UseAlbedoMap = 0;
+        }
 
+        m_Shader->SetUniformBlock(0, &params, sizeof(params));
         RenderCommand::DrawIndexed(item.Mesh->GetVertexArray());
     }
 

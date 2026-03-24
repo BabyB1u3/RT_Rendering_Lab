@@ -35,9 +35,21 @@ std::filesystem::path FileSystem::GetAssetPath(std::string_view relativePath)
     return s_RootPath / GLAB_ASSET_DIR / relativePath;
 }
 
-std::filesystem::path FileSystem::GetShaderStem(std::string_view shaderName)
+std::filesystem::path FileSystem::GetCompiledShaderDir()
 {
-    return GetAssetPath("shaders/" + std::string(shaderName));
+    // Primary: assets/shaders/compiled/ (deployment and POST_BUILD copy)
+    auto assetDir = s_RootPath / GLAB_ASSET_DIR / "shaders" / "compiled";
+    if (std::filesystem::exists(assetDir))
+        return assetDir;
+
+#ifdef GLAB_SHADER_BUILD_DIR
+    // Fallback: CMake build directory (development, before first POST_BUILD)
+    std::filesystem::path buildDir(GLAB_SHADER_BUILD_DIR);
+    if (std::filesystem::exists(buildDir))
+        return buildDir;
+#endif
+
+    return assetDir; // return canonical path even if missing (error reported at load time)
 }
 
 std::string FileSystem::ReadTextFile(const std::filesystem::path &path)

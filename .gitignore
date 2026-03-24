@@ -18,5 +18,3 @@ compile_commands.json
 *.pdb
 *.ilk
 
-# SPIR-V build artifacts (transitional: generated in source tree for R3)
-assets/shaders/*.spv

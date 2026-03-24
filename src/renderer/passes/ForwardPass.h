@@ -16,7 +16,6 @@
 /// ensuring that sampling produces depth=1.0 → no shadow.
 
 #include <cstdint>
-#include <filesystem>
 #include <memory>
 
 #include <glm/glm.hpp>
@@ -32,7 +31,6 @@ class ForwardPass : public RenderPass
 {
 public:
     ForwardPass(uint32_t width, uint32_t height, bool renderToTarget,
-                const std::filesystem::path& shaderStem,
                 const glm::vec4& clearColor = { 0.1f, 0.1f, 0.12f, 1.0f });
 
     void Resize(unsigned int width, unsigned int height) override;
