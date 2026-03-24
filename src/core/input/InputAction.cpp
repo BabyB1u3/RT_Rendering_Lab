@@ -1,5 +1,10 @@
 #include "core/input/InputAction.h"
 #include "core/input/Input.h"
+#include "core/input/InputNames.h"
+#include "core/Logger.h"
+
+#include <json.hpp>
+#include <fstream>
 
 // --- Registration ---
 
@@ -34,6 +39,242 @@ void InputActionMap::Unbind(const std::string &name)
 {
     m_Actions.erase(name);
     m_Axes.erase(name);
+}
+
+void InputActionMap::Clear()
+{
+    m_Actions.clear();
+    m_Axes.clear();
+}
+
+// --- Serialization ---
+
+namespace
+{
+    const char *SourceTypeName(InputSource::Type type)
+    {
+        switch (type)
+        {
+        case InputSource::Type::Key:           return "Key";
+        case InputSource::Type::MouseButton:   return "MouseButton";
+        case InputSource::Type::GamepadButton: return "GamepadButton";
+        case InputSource::Type::GamepadAxis:   return "GamepadAxis";
+        }
+        return "Key";
+    }
+
+    InputSource::Type ParseSourceType(const std::string &str)
+    {
+        if (str == "MouseButton")   return InputSource::Type::MouseButton;
+        if (str == "GamepadButton") return InputSource::Type::GamepadButton;
+        if (str == "GamepadAxis")   return InputSource::Type::GamepadAxis;
+        return InputSource::Type::Key;
+    }
+
+    const char *MouseAxisName(InputActionMap::MouseAxis axis)
+    {
+        switch (axis)
+        {
+        case InputActionMap::MouseAxis::X:       return "X";
+        case InputActionMap::MouseAxis::Y:       return "Y";
+        case InputActionMap::MouseAxis::ScrollY: return "ScrollY";
+        }
+        return "X";
+    }
+
+    InputActionMap::MouseAxis ParseMouseAxis(const std::string &str)
+    {
+        if (str == "Y")       return InputActionMap::MouseAxis::Y;
+        if (str == "ScrollY") return InputActionMap::MouseAxis::ScrollY;
+        return InputActionMap::MouseAxis::X;
+    }
+
+    // Resolve a code name to its numeric value depending on source type.
+    std::string SourceCodeToName(InputSource::Type type, uint16_t code)
+    {
+        if (type == InputSource::Type::MouseButton)
+            return Mouse::ToName(static_cast<Mouse::Code>(code));
+        return Key::ToName(static_cast<Key::Code>(code));
+    }
+
+    uint16_t SourceCodeFromName(InputSource::Type type, const std::string &name)
+    {
+        if (type == InputSource::Type::MouseButton)
+            return Mouse::FromName(name);
+        return Key::FromName(name);
+    }
+} // namespace
+
+bool InputActionMap::SaveToFile(const std::string &path) const
+{
+    using json = nlohmann::json;
+
+    json root;
+
+    // Serialize actions
+    json actionsObj = json::object();
+    for (const auto &[name, sources] : m_Actions)
+    {
+        json arr = json::array();
+        for (const auto &src : sources)
+        {
+            json srcObj;
+            srcObj["type"] = SourceTypeName(src.SourceType);
+            srcObj["code"] = SourceCodeToName(src.SourceType, src.Code);
+            if (src.DeviceIndex != 0)
+                srcObj["device"] = src.DeviceIndex;
+            arr.push_back(std::move(srcObj));
+        }
+        actionsObj[name] = std::move(arr);
+    }
+    root["actions"] = std::move(actionsObj);
+
+    // Serialize axes
+    json axesObj = json::object();
+    for (const auto &[name, entry] : m_Axes)
+    {
+        json axisObj;
+        if (entry.kind == AxisEntry::Kind::KeyPair)
+        {
+            axisObj["kind"] = "KeyPair";
+            axisObj["positive"] = Key::ToName(static_cast<Key::Code>(entry.keyPair.Positive.Code));
+            axisObj["negative"] = Key::ToName(static_cast<Key::Code>(entry.keyPair.Negative.Code));
+        }
+        else
+        {
+            axisObj["kind"] = "MouseAxis";
+            axisObj["mouseAxis"] = MouseAxisName(entry.mouseAxis);
+        }
+        axesObj[name] = std::move(axisObj);
+    }
+    root["axes"] = std::move(axesObj);
+
+    std::ofstream file(path);
+    if (!file.is_open())
+    {
+        LOG_ERROR("InputActionMap: failed to open '{}' for writing", path);
+        return false;
+    }
+
+    file << root.dump(2);
+    return file.good();
+}
+
+bool InputActionMap::LoadFromFile(const std::string &path)
+{
+    using json = nlohmann::json;
+
+    std::ifstream file(path);
+    if (!file.is_open())
+        return false;
+
+    json root;
+    try
+    {
+        root = json::parse(file);
+    }
+    catch (const json::parse_error &e)
+    {
+        LOG_ERROR("InputActionMap: JSON parse error in '{}': {}", path, e.what());
+        return false;
+    }
+
+    // Parse into temporaries so we don't corrupt state on partial failure.
+    std::unordered_map<std::string, std::vector<InputSource>> newActions;
+    std::unordered_map<std::string, AxisEntry> newAxes;
+
+    // Parse actions
+    if (root.contains("actions") && root["actions"].is_object())
+    {
+        for (auto &[name, arr] : root["actions"].items())
+        {
+            if (!arr.is_array())
+                continue;
+
+            std::vector<InputSource> sources;
+            for (auto &srcObj : arr)
+            {
+                if (!srcObj.is_object())
+                    continue;
+
+                auto type = ParseSourceType(srcObj.value("type", "Key"));
+                auto codeName = srcObj.value("code", "");
+                uint16_t code = SourceCodeFromName(type, codeName);
+
+                if (type == InputSource::Type::Key && code == Key::InvalidCode)
+                {
+                    LOG_WARN("InputActionMap: unknown key '{}' in action '{}'", codeName, name);
+                    continue;
+                }
+                if (type == InputSource::Type::MouseButton && code == Mouse::InvalidCode)
+                {
+                    LOG_WARN("InputActionMap: unknown mouse button '{}' in action '{}'", codeName, name);
+                    continue;
+                }
+
+                InputSource src;
+                src.SourceType = type;
+                src.Code = code;
+                src.DeviceIndex = srcObj.value("device", 0);
+                sources.push_back(src);
+            }
+
+            if (!sources.empty())
+                newActions[name] = std::move(sources);
+        }
+    }
+
+    // Parse axes
+    if (root.contains("axes") && root["axes"].is_object())
+    {
+        for (auto &[name, axisObj] : root["axes"].items())
+        {
+            if (!axisObj.is_object())
+                continue;
+
+            auto kindStr = axisObj.value("kind", "");
+
+            if (kindStr == "KeyPair")
+            {
+                auto posName = axisObj.value("positive", "");
+                auto negName = axisObj.value("negative", "");
+                auto posCode = Key::FromName(posName);
+                auto negCode = Key::FromName(negName);
+
+                if (posCode == Key::InvalidCode || negCode == Key::InvalidCode)
+                {
+                    LOG_WARN("InputActionMap: invalid KeyPair axis '{}' (positive='{}', negative='{}')",
+                             name, posName, negName);
+                    continue;
+                }
+
+                AxisEntry entry{};
+                entry.kind = AxisEntry::Kind::KeyPair;
+                entry.keyPair.Positive = InputSource::FromKey(posCode);
+                entry.keyPair.Negative = InputSource::FromKey(negCode);
+                newAxes[name] = entry;
+            }
+            else if (kindStr == "MouseAxis")
+            {
+                AxisEntry entry{};
+                entry.kind = AxisEntry::Kind::MouseAxis;
+                entry.mouseAxis = ParseMouseAxis(axisObj.value("mouseAxis", "X"));
+                newAxes[name] = entry;
+            }
+            else
+            {
+                LOG_WARN("InputActionMap: unknown axis kind '{}' for '{}'", kindStr, name);
+            }
+        }
+    }
+
+    // Commit
+    m_Actions = std::move(newActions);
+    m_Axes = std::move(newAxes);
+
+    LOG_INFO("InputActionMap: loaded {} actions, {} axes from '{}'",
+             m_Actions.size(), m_Axes.size(), path);
+    return true;
 }
 
 // --- Queries ---

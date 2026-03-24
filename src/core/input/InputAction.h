@@ -76,6 +76,18 @@ public:
     /// Remove all bindings for a given action or axis name.
     void Unbind(const std::string &name);
 
+    /// Remove all actions and axes.
+    void Clear();
+
+    // --- Serialization ---
+
+    /// Save all bindings to a JSON file. Returns true on success.
+    bool SaveToFile(const std::string &path) const;
+
+    /// Load bindings from a JSON file, replacing current bindings.
+    /// Returns true on success. On failure, existing bindings are unchanged.
+    bool LoadFromFile(const std::string &path);
+
     // --- Queries (called per frame in OnUpdate) ---
 
     /// True if ANY bound source for this action is currently held.
