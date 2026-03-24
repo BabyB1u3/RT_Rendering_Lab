@@ -80,7 +80,7 @@ No compile-time absolute paths are needed — `FindRootFromExecutable()` locates
 
 | # | Problem | Impact |
 |---|---------|--------|
-| P1 | `GLAB_ROOT_DIR` leaks the build machine's absolute path into the binary | Harmless (fallback only) but messy; triggers security scanners |
+| ~~P1~~ | ~~`GLAB_ROOT_DIR` leaks the build machine's absolute path into the binary~~ | By design: Debug-only, enables `saved/` in source tree. Release builds have no compile-time paths. |
 | P2 | POST_BUILD copies the entire `assets/` directory every build, including `.slang` source | Slow on large asset sets; ships source files unnecessarily |
 | P3 | No asset cooking / compression | Textures are raw PNG/JPG at runtime; no mip-chain precompute |
 | P4 | No archive packaging | Cannot distribute as a single file; directory structure is exposed |
@@ -90,34 +90,23 @@ No compile-time absolute paths are needed — `FindRootFromExecutable()` locates
 
 ## 3. Phased Evolution Plan
 
-### Phase A — Incremental Copy & Source-Path Elimination
+### Phase A — Incremental Copy & Build Optimization
 
-**Goal**: Stop leaking compile-time paths; make POST_BUILD efficient.
+**Goal**: Make POST_BUILD efficient; clean up shipped artifacts.
+
+**Note**: `GLAB_ROOT_DIR` and `GLAB_SHADER_BUILD_DIR` are intentionally kept as
+Debug-only compile defines. They enable `saved/` to live in the source tree during
+development (persists across clean builds) and provide a shader fallback path.
+Since Debug binaries are never distributed, the embedded absolute paths are harmless.
 
 **Changes**:
 
-1. **Remove `GLAB_ROOT_DIR`**. Instead, set `VS_DEBUGGER_WORKING_DIRECTORY` to the
-   *exe output directory* (where POST_BUILD already copies assets). This makes the
-   VS debugger and command-line execution use the same path — `FindRootFromExecutable()`
-   is the only discovery strategy needed in normal use.
-
-2. **Incremental POST_BUILD copy**. Replace `copy_directory` (which is unconditional)
+1. **Incremental POST_BUILD copy**. Replace `copy_directory` (which is unconditional)
    with a CMake script that uses `file(COPY ... PATTERN)` or a custom stamp-file approach
    to skip unchanged files. Alternatively, use `cmake -E copy_if_different` per file.
 
-3. **Exclude `.slang` from POST_BUILD copy** (and install). Source shaders are
+2. **Exclude `.slang` from POST_BUILD copy** (and install). Source shaders are
    development-only artifacts; only compiled output is needed at runtime.
-
-**FileSystem after Phase A**:
-
-```
-Discovery order:
-  1. RTRL_ROOT env var           ← CI / overrides
-  2. Walk up from exe            ← works everywhere
-  3. CWD                         ← last resort
-```
-
-No more compile-time defines for paths.
 
 ### Phase B — Asset Cooking Pipeline
 
