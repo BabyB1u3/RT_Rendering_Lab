@@ -488,15 +488,18 @@ void ShadowMapping::OnUpdate(double dt)
   Different demos can have completely different bindings.
 - String-keyed for readability and flexibility. For a rendering lab, the overhead of
   `unordered_map` lookup is negligible compared to draw calls.
-- No config file for now. Bindings are registered in code. Config-file-driven
-  rebinding is a future extension (see Layer 2 extensions below).
+- Bindings can be registered in code or loaded from JSON config files.
+  `InputActionMap::SaveToFile()` / `LoadFromFile()` serialize bindings using
+  human-readable key names via `InputNames.h` (bidirectional `Key::Code` ↔
+  string mapping). Config files live in `assets/configs/` (shipped defaults)
+  and are auto-copied to `saved/configs/` (user-editable) on first access
+  via `FileSystem::ResolveConfigPath()`.
 - Axis returns `float` in [-1, +1] for key pairs, or raw pixel delta for mouse.
   The consumer decides how to scale it (sensitivity, dt, etc.) — unless Layer 3
   modifiers are applied.
 
 **Future extensions to this layer**:
 
-- **Serialization**: save/load bindings to JSON for runtime rebinding UI.
 - **Hashed action names**: replace `std::string` keys with compile-time hashed
   integers (`constexpr uint32_t hash("MoveForward")`) for zero-overhead lookup
   in hot paths.
@@ -1969,6 +1972,7 @@ src/
 │   │   ├── MouseCode.h                        # Layer 0
 │   │   ├── Input.h / Input.cpp                # Layer 1
 │   │   ├── InputAction.h / InputAction.cpp    # Layer 2
+│   │   ├── InputNames.h / InputNames.cpp      # Layer 2 (Key/Mouse ↔ string)
 │   │   ├── InputModifier.h                    # Layer 3 (header-only)
 │   │   ├── InputTrigger.h / InputTrigger.cpp  # Layer 3
 │   │   ├── InputContext.h / InputContext.cpp   # Layer 4

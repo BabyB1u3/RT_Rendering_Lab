@@ -1,8 +1,9 @@
 # Resource Packaging & Virtual File System — Design Document
 
 This document describes how RTRLab discovers, organizes, and packages runtime
-resources (assets, compiled shaders, configuration) across the full lifecycle:
-development, testing, installation, and future distribution.
+resources (assets, compiled shaders, configuration) and manages user-writable
+data (settings, saves, caches) across the full lifecycle: development, testing,
+installation, and future distribution.
 
 ---
 
@@ -231,13 +232,94 @@ dist/RTRLab/
 
 ---
 
-## 4. Directory Layout Summary
+## 4. Saved Directory & Config Resolution
+
+All runtime-writable files (user settings, saves, logs, caches) live under a
+single **saved** directory, separate from the read-only install/assets directory.
+This follows the standard AAA game architecture:
+
+```
+Install directory (read-only):  assets + executable + shipped defaults
+User directory (writable):      user settings + saves + logs + caches
+```
+
+### 4.1 Saved Directory Location
+
+| Context | Location | Rationale |
+|---------|----------|-----------|
+| Development (`GLAB_ROOT_DIR` defined) | `{source_root}/saved/` | Persists across clean builds |
+| Release (Windows) | `%LOCALAPPDATA%/RTRLab/` | Standard per-user writable location |
+| Release (macOS) | `~/Library/Application Support/RTRLab/` | Platform convention |
+| Release (Linux) | `$XDG_DATA_HOME/RTRLab/` or `~/.local/share/RTRLab/` | XDG spec |
+
+### 4.2 Saved Directory Structure
+
+```
+saved/
+  configs/           ← user-editable settings (input bindings, imgui.ini, etc.)
+  saves/             ← save data (future)
+  logs/              ← runtime logs (future)
+  cache/             ← caches (future)
+```
+
+### 4.3 Config Resolution Chain
+
+Shipped default configs live in `assets/configs/` (read-only, will be packed
+into `.pak` in Phase D). User-editable copies live in `saved/configs/`.
+
+`FileSystem::ResolveConfigPath(relativePath)` resolves as follows:
+
+1. **`saved/configs/{relativePath}`** exists → return it (user override)
+2. **`assets/configs/{relativePath}`** exists → auto-copy to `saved/configs/`,
+   return the copy (first-run initialization)
+3. Neither exists → return empty path (caller falls back to hardcoded defaults)
+
+**Write path**: All config writes go to `saved/configs/` via
+`FileSystem::GetSavedConfigPath()`. The assets directory is never written to.
+
+**Reset to defaults**: Delete the file (or entire directory) under
+`saved/configs/`. Next launch auto-copies fresh defaults from assets.
+
+### 4.4 FileSystem API
+
+```cpp
+class FileSystem
+{
+public:
+    static void Init();
+
+    // Read-only assets (install directory)
+    static const std::filesystem::path &GetRootPath();
+    static std::filesystem::path GetAssetPath(std::string_view relativePath);
+    static std::filesystem::path GetCompiledShaderDir();
+
+    // Saved (writable, per-user)
+    static const std::filesystem::path &GetSavedDir();
+    static std::filesystem::path GetSavedPath(std::string_view relativePath);
+    static std::filesystem::path GetSavedConfigPath(std::string_view relativePath);
+
+    // Config resolution (saved → assets, auto-copy on first access)
+    static std::filesystem::path ResolveConfigPath(std::string_view relativePath);
+
+    // File I/O
+    static std::string ReadTextFile(const std::filesystem::path &path);
+    static std::vector<uint8_t> ReadBinaryFile(const std::filesystem::path &path);
+    static bool Exists(const std::filesystem::path &path);
+};
+```
+
+---
+
+## 5. Directory Layout Summary
 
 ### Development (source tree + build tree)
 
 ```
 RT_Rendering_Lab/                     ← source root
   assets/
+    configs/
+      input/ShadowMapping.json        ← shipped default configs
+      input/MaterialPlayground.json
     shaders/
       ForwardLit.slang                ← shader source (editable)
       ShadowDepth.slang
@@ -245,11 +327,16 @@ RT_Rendering_Lab/                     ← source root
       modules/
     textures/
     models/
+  saved/                              ← runtime writable (gitignored)
+    configs/
+      input/ShadowMapping.json        ← user-editable copy (auto-created)
+      imgui.ini
   build/                              ← CMake build tree
     shaders/glsl/                     ← slangc output
     bin/Debug/
       RTRLab.exe
       assets/                         ← POST_BUILD copy
+        configs/input/                ← shipped defaults
         shaders/
           *.slang                     ← copied source (Phase A will exclude)
           compiled/glsl/              ← compiled shaders
@@ -263,6 +350,7 @@ RT_Rendering_Lab/                     ← source root
 RTRLab/                               ← install prefix
   RTRLab.exe
   assets/
+    configs/input/                    ← shipped defaults (read-only)
     shaders/
       compiled/
         glsl/                         ← Phase A
@@ -272,17 +360,21 @@ RTRLab/                               ← install prefix
     models/
 ```
 
+User configs at runtime: `%LOCALAPPDATA%/RTRLab/configs/`
+
 ### Shipped (Phase D)
 
 ```
 RTRLab/
   RTRLab.exe
-  data.pak                            ← everything in one archive
+  data.pak                            ← everything in one archive (incl. default configs)
 ```
+
+User configs at runtime: `%LOCALAPPDATA%/RTRLab/configs/`
 
 ---
 
-## 5. Timeline Alignment
+## 6. Timeline Alignment
 
 | Phase | Depends on | Aligns with roadmap |
 |-------|------------|---------------------|
@@ -293,7 +385,7 @@ RTRLab/
 
 ---
 
-## 6. Risk & Alternatives
+## 7. Risk & Alternatives
 
 | Risk | Mitigation |
 |------|-----------|
