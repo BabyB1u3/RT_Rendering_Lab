@@ -3,6 +3,7 @@
     core/FileSystem.cpp
     core/input/Input.cpp
     core/input/InputAction.cpp
+    core/input/InputNames.cpp
     core/app/Layer.cpp
     core/app/LayerStack.cpp
     core/Logger.cpp
