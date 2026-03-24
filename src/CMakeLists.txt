@@ -152,6 +152,7 @@ target_link_libraries(RTRLabCore PUBLIC
     stb
     spdlog
     imgui
+    nlohmann_json
     OpenGL::GL
 )
 
