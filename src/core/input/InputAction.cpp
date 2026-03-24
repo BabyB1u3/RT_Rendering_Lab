@@ -221,7 +221,7 @@ bool InputActionMap::LoadFromFile(const std::string &path)
                 InputSource src;
                 src.SourceType = type;
                 src.Code = code;
-                src.DeviceIndex = srcObj.value("device", 0);
+                src.DeviceIndex = static_cast<uint8_t>(srcObj.value("device", 0));
                 sources.push_back(src);
             }
 
