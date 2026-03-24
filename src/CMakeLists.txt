@@ -154,7 +154,7 @@ target_compile_definitions(RTRLabCore PUBLIC
     GLM_ENABLE_EXPERIMENTAL
     GLAB_ASSET_DIR="assets"
     GLAB_ROOT_DIR="${CMAKE_SOURCE_DIR}"
-    GLAB_SHADER_OUTPUT_DIR="${CMAKE_BINARY_DIR}/shaders"
+    GLAB_SHADER_BUILD_DIR="${CMAKE_BINARY_DIR}/shaders"
 )
 
 if(GLAB_ENABLE_PCH)
@@ -209,12 +209,14 @@ if(TARGET CompileShaders)
 endif()
 
 add_custom_command(TARGET RTRLab POST_BUILD
+    # Copy source assets (textures, models, etc.)
     COMMAND ${CMAKE_COMMAND} -E copy_directory
             ${CMAKE_SOURCE_DIR}/assets
             $<TARGET_FILE_DIR:RTRLab>/assets
+    # Merge compiled shaders into assets/shaders/compiled/
     COMMAND ${CMAKE_COMMAND} -E copy_directory
             ${CMAKE_BINARY_DIR}/shaders
-            $<TARGET_FILE_DIR:RTRLab>/shaders
+            $<TARGET_FILE_DIR:RTRLab>/assets/shaders/compiled
 )
 
 set_target_properties(RTRLab PROPERTIES
@@ -226,3 +228,18 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES
     ${GLAB_CORE_HEADERS}
     main.cpp
 )
+
+# ============================================================================
+# Install rules — `cmake --install . --prefix <dir>` produces a self-contained
+# deployable directory with no compile-time absolute paths required.
+# ============================================================================
+install(TARGETS RTRLab RUNTIME DESTINATION .)
+
+# Source assets (textures, models, etc.), excluding .slang source files
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/assets/
+        DESTINATION assets
+        PATTERN "*.slang" EXCLUDE)
+
+# Compiled shaders (Slang → GLSL / SPIR-V / MSL) merged under assets/
+install(DIRECTORY ${CMAKE_BINARY_DIR}/shaders/
+        DESTINATION assets/shaders/compiled)

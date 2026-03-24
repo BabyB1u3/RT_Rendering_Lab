@@ -31,8 +31,8 @@ public:
     static std::filesystem::path GetAssetPath(std::string_view relativePath);
 
     /// Returns the directory containing build-time compiled shader artifacts.
-    /// In development: uses GLAB_SHADER_OUTPUT_DIR (CMake build dir).
-    /// In deployment:  falls back to {root}/shaders/.
+    /// Looks in {root}/assets/shaders/compiled/ (deployment / POST_BUILD copy),
+    /// falling back to the CMake build directory during development.
     static std::filesystem::path GetCompiledShaderDir();
 
     /// Read an entire text file into a string. Throws on failure.
