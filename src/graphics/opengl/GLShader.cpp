@@ -1,13 +1,11 @@
 #include "GLShader.h"
 
 #include <array>
-#include <cstring>
 #include <stdexcept>
 #include <vector>
 
 #include <glad/glad.h>
 #include <glm/gtc/type_ptr.hpp>
-#include <spirv_glsl.hpp>
 
 #include "core/FileSystem.h"
 #include "core/Logger.h"
@@ -19,6 +17,11 @@ GLShader::GLShader(uint32_t program, std::string name)
 
 GLShader::~GLShader()
 {
+	for (auto &[binding, ubo] : m_UBOCache)
+	{
+		if (ubo != 0)
+			glDeleteBuffers(1, &ubo);
+	}
 	if (m_RendererID != 0)
 		glDeleteProgram(m_RendererID);
 }
@@ -26,7 +29,8 @@ GLShader::~GLShader()
 GLShader::GLShader(GLShader &&other) noexcept
 	: m_RendererID(other.m_RendererID),
 	  m_Name(std::move(other.m_Name)),
-	  m_UniformLocationCache(std::move(other.m_UniformLocationCache))
+	  m_UniformLocationCache(std::move(other.m_UniformLocationCache)),
+	  m_UBOCache(std::move(other.m_UBOCache))
 {
 	other.m_RendererID = 0;
 }
@@ -36,47 +40,21 @@ GLShader &GLShader::operator=(GLShader &&other) noexcept
 	if (this == &other)
 		return *this;
 
+	for (auto &[binding, ubo] : m_UBOCache)
+	{
+		if (ubo != 0)
+			glDeleteBuffers(1, &ubo);
+	}
 	if (m_RendererID != 0)
 		glDeleteProgram(m_RendererID);
 
 	m_RendererID = other.m_RendererID;
 	m_Name = std::move(other.m_Name);
 	m_UniformLocationCache = std::move(other.m_UniformLocationCache);
+	m_UBOCache = std::move(other.m_UBOCache);
 
 	other.m_RendererID = 0;
 	return *this;
-}
-
-std::string GLShader::TranspileSpirvToGlsl(const std::vector<uint8_t> &spirvBytes)
-{
-	if (spirvBytes.size() % 4 != 0)
-		throw std::runtime_error("SPIR-V binary size is not a multiple of 4 bytes");
-
-	std::vector<uint32_t> words(spirvBytes.size() / 4);
-	std::memcpy(words.data(), spirvBytes.data(), spirvBytes.size());
-
-	spirv_cross::CompilerGLSL compiler(std::move(words));
-
-	spirv_cross::CompilerGLSL::Options opts;
-	opts.version = 460;
-	opts.es = false;
-	opts.vulkan_semantics = false;
-	opts.enable_420pack_extension = false;
-	compiler.set_common_options(opts);
-
-	// Strip binding decorations from plain (non-opaque) uniforms.
-	// glslang's --auto-map-bindings assigns bindings to ALL uniforms,
-	// but desktop GLSL only supports binding qualifiers on opaque types
-	// (samplers, images, UBOs). Emitting them on plain uniforms causes
-	// "unknown layout specifier 'binding'" errors on many drivers.
-	auto resources = compiler.get_shader_resources();
-	for (auto &u : resources.gl_plain_uniforms)
-	{
-		compiler.unset_decoration(u.id, spv::DecorationBinding);
-		compiler.unset_decoration(u.id, spv::DecorationLocation);
-	}
-
-	return compiler.compile();
 }
 
 uint32_t GLShader::CompileStage(uint32_t stage, const std::string &source, const std::string &debugName)
@@ -173,39 +151,33 @@ Ref<GLShader> GLShader::CreateFromFiles(
 	return CreateFromSource(name, vertexSource, fragmentSource, geometrySource);
 }
 
-Ref<GLShader> GLShader::CreateFromStem(const std::filesystem::path &stemPath, const std::string &name)
+Ref<GLShader> GLShader::CreateFromCompiledGlsl(const std::string &name)
 {
-	auto vertSpvPath = stemPath.string() + ".vert.spv";
-	auto fragSpvPath = stemPath.string() + ".frag.spv";
+	auto baseDir = FileSystem::GetCompiledShaderDir() / "glsl";
+	auto vertPath = baseDir / (name + ".vert.glsl");
+	auto fragPath = baseDir / (name + ".frag.glsl");
 
-	if (!FileSystem::Exists(vertSpvPath))
+	if (!FileSystem::Exists(vertPath))
 		throw std::runtime_error(
-			"Shader artifact missing: " + vertSpvPath +
+			"Compiled GLSL vertex shader missing: " + vertPath.string() +
 			"\nEnable GLAB_COMPILE_SHADERS and rebuild, or build the CompileShaders target.");
-	if (!FileSystem::Exists(fragSpvPath))
+	if (!FileSystem::Exists(fragPath))
 		throw std::runtime_error(
-			"Shader artifact missing: " + fragSpvPath +
+			"Compiled GLSL fragment shader missing: " + fragPath.string() +
 			"\nEnable GLAB_COMPILE_SHADERS and rebuild, or build the CompileShaders target.");
 
-	auto vertSpv = FileSystem::ReadBinaryFile(vertSpvPath);
-	auto fragSpv = FileSystem::ReadBinaryFile(fragSpvPath);
+	std::string vertSrc = FileSystem::ReadTextFile(vertPath);
+	std::string fragSrc = FileSystem::ReadTextFile(fragPath);
 
-	std::string vertGlsl = TranspileSpirvToGlsl(vertSpv);
-	std::string fragGlsl = TranspileSpirvToGlsl(fragSpv);
+	LOG_TRACE("Slang-compiled vertex shader ({}):\n{}", name, vertSrc);
+	LOG_TRACE("Slang-compiled fragment shader ({}):\n{}", name, fragSrc);
 
-	LOG_TRACE("SPIRV-Cross transpiled vertex shader ({}):\n{}", stemPath.stem().string(), vertGlsl);
-	LOG_TRACE("SPIRV-Cross transpiled fragment shader ({}):\n{}", stemPath.stem().string(), fragGlsl);
+	std::string geomSrc;
+	auto geomPath = baseDir / (name + ".geom.glsl");
+	if (FileSystem::Exists(geomPath))
+		geomSrc = FileSystem::ReadTextFile(geomPath);
 
-	std::string geomGlsl;
-	auto geomSpvPath = stemPath.string() + ".geom.spv";
-	if (FileSystem::Exists(geomSpvPath))
-	{
-		auto geomSpv = FileSystem::ReadBinaryFile(geomSpvPath);
-		geomGlsl = TranspileSpirvToGlsl(geomSpv);
-	}
-
-	std::string shaderName = name.empty() ? stemPath.stem().string() : name;
-	return CreateFromSource(shaderName, vertGlsl, fragGlsl, geomGlsl);
+	return CreateFromSource(name, vertSrc, fragSrc, geomSrc);
 }
 
 void GLShader::Bind() const
@@ -272,4 +244,22 @@ void GLShader::SetMat3(const std::string &name, const glm::mat3 &value)
 void GLShader::SetMat4(const std::string &name, const glm::mat4 &value)
 {
 	glProgramUniformMatrix4fv(m_RendererID, GetUniformLocation(name), 1, GL_FALSE, glm::value_ptr(value));
+}
+
+void GLShader::SetUniformBlock(uint32_t binding, const void *data, uint32_t size)
+{
+	auto it = m_UBOCache.find(binding);
+	if (it == m_UBOCache.end())
+	{
+		GLuint ubo = 0;
+		glCreateBuffers(1, &ubo);
+		glNamedBufferStorage(ubo, size, data, GL_DYNAMIC_STORAGE_BIT);
+		glBindBufferBase(GL_UNIFORM_BUFFER, binding, ubo);
+		m_UBOCache[binding] = ubo;
+	}
+	else
+	{
+		glNamedBufferSubData(it->second, 0, size, data);
+		glBindBufferBase(GL_UNIFORM_BUFFER, binding, it->second);
+	}
 }

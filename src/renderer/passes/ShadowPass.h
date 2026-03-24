@@ -10,7 +10,6 @@
 /// The pass owns a depth-only Framebuffer (no color attachment).
 
 #include <cstdint>
-#include <filesystem>
 #include <memory>
 
 #include "core/Base.h"
@@ -23,8 +22,7 @@ class ITexture2D;
 class ShadowPass : public RenderPass
 {
 public:
-    ShadowPass(uint32_t width, uint32_t height,
-               const std::filesystem::path& shaderStem);
+    ShadowPass(uint32_t width, uint32_t height);
 
     void Resize(unsigned int width, unsigned int height) override;
     void Execute(const RenderContext& ctx) override;

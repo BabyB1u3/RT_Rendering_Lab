@@ -11,10 +11,10 @@
 #include "graphics/interface/ITexture2D.h"
 #include "renderer/RenderContext.h"
 
-TexturePreviewPass::TexturePreviewPass(const std::filesystem::path& shaderStem)
+TexturePreviewPass::TexturePreviewPass()
 {
     m_FullscreenQuad = MeshFactory::CreateFullscreenQuad();
-    m_Shader = GetDevice()->CreateShaderFromStem(shaderStem, "TexturePreview");
+    m_Shader = GetDevice()->CreateShader("TexturePreview");
 }
 
 void TexturePreviewPass::Resize(unsigned int width, unsigned int height)
@@ -54,9 +54,12 @@ void TexturePreviewPass::Execute(const RenderContext& ctx)
 
     m_Shader->Bind();
 
-    texture->Bind(0);
-    m_Shader->SetInt("u_Texture", 0);
-    m_Shader->SetBool("u_IsDepthTexture", isDepth);
+    // Slang GLSL layout: sampler2D at binding 1, UBO (GlobalParams) at binding 0
+    texture->Bind(1);
+
+    // std140 layout: bool maps to a 4-byte int (0 or 1)
+    int32_t isDepthInt = isDepth ? 1 : 0;
+    m_Shader->SetUniformBlock(0, &isDepthInt, sizeof(isDepthInt));
 
     RenderCommand::DrawIndexed(m_FullscreenQuad->GetVertexArray());
 }

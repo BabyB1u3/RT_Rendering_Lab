@@ -29,9 +29,11 @@ public:
     static const std::filesystem::path &GetRootPath();
     /// Resolve a path relative to the assets directory (e.g., "textures/wood.png").
     static std::filesystem::path GetAssetPath(std::string_view relativePath);
-    /// Returns the shader stem path: {root}/assets/shaders/{shaderName} (no extension).
-    /// Backends append their own extensions (e.g., ".vert.spv", ".frag.spv").
-    static std::filesystem::path GetShaderStem(std::string_view shaderName);
+
+    /// Returns the directory containing build-time compiled shader artifacts.
+    /// Looks in {root}/assets/shaders/compiled/ (deployment / POST_BUILD copy),
+    /// falling back to the CMake build directory during development.
+    static std::filesystem::path GetCompiledShaderDir();
 
     /// Read an entire text file into a string. Throws on failure.
     static std::string ReadTextFile(const std::filesystem::path &path);
