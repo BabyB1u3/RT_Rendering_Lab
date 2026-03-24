@@ -24,7 +24,7 @@ void ImGuiLayer::OnAttach()
 
     // Store imgui.ini in the user config directory (persistent static string
     // because ImGui holds a raw pointer to IniFilename).
-    static std::string iniPath = FileSystem::GetUserConfigPath("imgui.ini").string();
+    static std::string iniPath = FileSystem::GetSavedConfigPath("imgui.ini").string();
     io.IniFilename = iniPath.c_str();
 
     ImGui::StyleColorsDark();

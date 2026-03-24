@@ -87,8 +87,8 @@ void MaterialPlayground::OnAttach()
             m_InputMap.BindAction("ToggleLookMode",  InputSource::FromMouseButton(Mouse::Right));
             m_InputMap.BindAxis("Zoom",              InputActionMap::MouseAxis::ScrollY);
 
-            // Save defaults to user config dir for future customization
-            m_InputMap.SaveToFile(FileSystem::GetUserConfigPath(kInputCfg).string());
+            // Save defaults so the user has an editable config file
+            m_InputMap.SaveToFile(FileSystem::GetSavedConfigPath(kInputCfg).string());
         }
     }
 

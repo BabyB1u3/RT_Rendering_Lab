@@ -16,10 +16,9 @@
 #endif
 
 std::filesystem::path FileSystem::s_RootPath;
-std::filesystem::path FileSystem::s_UserConfigDir;
-ConfigStorageMode FileSystem::s_ConfigMode = ConfigStorageMode::Portable;
+std::filesystem::path FileSystem::s_SavedDir;
 bool FileSystem::s_Initialized = false;
-bool FileSystem::s_ConfigDirResolved = false;
+bool FileSystem::s_SavedDirResolved = false;
 
 static constexpr const char *kAppName = "RTRLab";
 
@@ -27,20 +26,6 @@ void FileSystem::Init()
 {
     s_RootPath = DiscoverRootPath();
     s_Initialized = true;
-
-    // Check env var for config mode override
-    if (const char *envMode = std::getenv("RTRL_CONFIG_MODE"))
-    {
-        std::string mode(envMode);
-        if (mode == "portable")
-            s_ConfigMode = ConfigStorageMode::Portable;
-        else if (mode == "local")
-            s_ConfigMode = ConfigStorageMode::UserLocal;
-        else if (mode == "roaming")
-            s_ConfigMode = ConfigStorageMode::UserRoaming;
-        else
-            LOG_WARN("Unknown RTRL_CONFIG_MODE='{}', using Portable", mode);
-    }
 
     LOG_INFO("FileSystem initialized - root: {}", s_RootPath.string());
 }
@@ -57,116 +42,113 @@ std::filesystem::path FileSystem::GetAssetPath(std::string_view relativePath)
 
 std::filesystem::path FileSystem::GetCompiledShaderDir()
 {
-    // Primary: assets/shaders/compiled/ (deployment and POST_BUILD copy)
     auto assetDir = s_RootPath / GLAB_ASSET_DIR / "shaders" / "compiled";
     if (std::filesystem::exists(assetDir))
         return assetDir;
 
 #ifdef GLAB_SHADER_BUILD_DIR
-    // Fallback: CMake build directory (development, before first POST_BUILD)
     std::filesystem::path buildDir(GLAB_SHADER_BUILD_DIR);
     if (std::filesystem::exists(buildDir))
         return buildDir;
 #endif
 
-    return assetDir; // return canonical path even if missing (error reported at load time)
+    return assetDir;
 }
 
-// ── Writable configuration ────────────────────────────────────────────
+// ── Saved directory ──────────────────────────────────────────────────
 
-void FileSystem::SetConfigStorageMode(ConfigStorageMode mode)
+void FileSystem::ResolveSavedDir()
 {
-    s_ConfigMode = mode;
-    s_ConfigDirResolved = false; // force re-resolve on next access
-}
-
-ConfigStorageMode FileSystem::GetConfigStorageMode()
-{
-    return s_ConfigMode;
-}
-
-void FileSystem::ResolveUserConfigDir()
-{
-    if (s_ConfigDirResolved)
+    if (s_SavedDirResolved)
         return;
 
-    switch (s_ConfigMode)
-    {
-    case ConfigStorageMode::Portable:
-        s_UserConfigDir = s_RootPath / "configs";
-        break;
-    case ConfigStorageMode::UserLocal:
-        s_UserConfigDir = GetPlatformUserDataDir(kAppName, /*roaming=*/false);
-        break;
-    case ConfigStorageMode::UserRoaming:
-        s_UserConfigDir = GetPlatformUserDataDir(kAppName, /*roaming=*/true);
-        break;
-    }
+#ifdef GLAB_ROOT_DIR
+    // Development: saved/ in source tree root (persists across clean builds)
+    s_SavedDir = std::filesystem::path(GLAB_ROOT_DIR) / "saved";
+#else
+    // Release: platform user directory
+    s_SavedDir = GetPlatformUserDataDir(kAppName);
+#endif
 
-    s_ConfigDirResolved = true;
-    LOG_INFO("Config directory ({}): {}",
-             s_ConfigMode == ConfigStorageMode::Portable  ? "Portable" :
-             s_ConfigMode == ConfigStorageMode::UserLocal  ? "UserLocal" :
-                                                            "UserRoaming",
-             s_UserConfigDir.string());
+    std::filesystem::create_directories(s_SavedDir / "configs");
+    s_SavedDirResolved = true;
+
+    LOG_INFO("Saved directory: {}", s_SavedDir.string());
 }
 
-const std::filesystem::path &FileSystem::GetUserConfigDir()
+const std::filesystem::path &FileSystem::GetSavedDir()
 {
-    ResolveUserConfigDir();
-    return s_UserConfigDir;
+    ResolveSavedDir();
+    return s_SavedDir;
 }
 
-std::filesystem::path FileSystem::GetUserConfigPath(std::string_view relativePath)
+std::filesystem::path FileSystem::GetSavedPath(std::string_view relativePath)
 {
-    return GetUserConfigDir() / relativePath;
+    return GetSavedDir() / relativePath;
+}
+
+std::filesystem::path FileSystem::GetSavedConfigPath(std::string_view relativePath)
+{
+    return GetSavedDir() / "configs" / relativePath;
 }
 
 std::filesystem::path FileSystem::ResolveConfigPath(std::string_view relativePath)
 {
-    // 1. User-writable config dir (may have user overrides)
-    auto userPath = GetUserConfigPath(relativePath);
-    if (std::filesystem::exists(userPath))
-        return userPath;
+    // 1. User-editable config in saved/configs/
+    auto savedPath = GetSavedConfigPath(relativePath);
+    if (std::filesystem::exists(savedPath))
+        return savedPath;
 
-    // 2. Default configs shipped with assets
+    // 2. Shipped default in assets/configs/
     auto defaultPath = GetAssetPath("configs") / relativePath;
     if (std::filesystem::exists(defaultPath))
-        return defaultPath;
+    {
+        // Auto-copy to saved/configs/ so the user has an editable file
+        std::filesystem::create_directories(savedPath.parent_path());
+        std::error_code ec;
+        std::filesystem::copy_file(defaultPath, savedPath, ec);
+        if (ec)
+        {
+            LOG_WARN("Failed to copy default config '{}' to saved: {}",
+                     relativePath, ec.message());
+            return defaultPath; // still usable, just not editable in-place
+        }
+        LOG_INFO("Copied default config to saved: {}", savedPath.string());
+        return savedPath;
+    }
 
-    // 3. Not found
+    // 3. Not found anywhere
     return {};
 }
 
-// ── Platform user data directory ──────────────────────────────────────
+// ── Platform user data directory ─────────────────────────────────────
 
-std::filesystem::path FileSystem::GetPlatformUserDataDir(std::string_view appName, bool roaming)
+std::filesystem::path FileSystem::GetPlatformUserDataDir(std::string_view appName)
 {
 #ifdef _WIN32
-    const char *envVar = roaming ? "APPDATA" : "LOCALAPPDATA";
-    if (const char *dir = std::getenv(envVar))
+    if (const char *dir = std::getenv("LOCALAPPDATA"))
         return std::filesystem::path(dir) / appName;
     // Fallback: next to exe
-    return s_RootPath / "configs";
+    return s_RootPath / "saved";
 
 #elif defined(__APPLE__)
     if (const char *home = std::getenv("HOME"))
         return std::filesystem::path(home) / "Library" / "Application Support" / appName;
-    return s_RootPath / "configs";
+    return s_RootPath / "saved";
 
 #elif defined(__linux__)
-    if (const char *xdg = std::getenv("XDG_CONFIG_HOME"))
+    if (const char *xdg = std::getenv("XDG_DATA_HOME"))
         return std::filesystem::path(xdg) / appName;
     if (const char *home = std::getenv("HOME"))
-        return std::filesystem::path(home) / ".config" / appName;
-    return s_RootPath / "configs";
+        return std::filesystem::path(home) / ".local" / "share" / appName;
+    return s_RootPath / "saved";
 
 #else
-    return s_RootPath / "configs";
+    return s_RootPath / "saved";
 #endif
 }
 
-// ── File I/O ──────────────────────────────────────────────────────────
+// ── File I/O ─────────────────────────────────────────────────────────
 
 std::string FileSystem::ReadTextFile(const std::filesystem::path &path)
 {
@@ -225,7 +207,6 @@ std::filesystem::path FileSystem::FindRootFromExecutable()
     if (exePath.empty())
         return {};
 
-    // Walk up from the executable directory, looking for an "assets" folder
     std::filesystem::path dir = exePath.parent_path();
     constexpr int kMaxDepth = 5;
     for (int i = 0; i < kMaxDepth; ++i)

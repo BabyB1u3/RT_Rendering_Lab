@@ -1,7 +1,7 @@
 #pragma once
 
 /// @file FileSystem.h
-/// @brief Cross-platform asset path resolution and file I/O.
+/// @brief Cross-platform asset path resolution, saved-data directory, and file I/O.
 ///
 /// Init() determines the project root once at startup by probing several
 /// locations in priority order:
@@ -13,31 +13,23 @@
 /// After Init(), all asset/shader paths are resolved relative to the
 /// discovered root, so neither demos nor render passes need hardcoded paths.
 ///
-/// ## Writable Configuration
+/// ## Saved Directory
 ///
-/// Runtime-generated config files (input bindings, imgui layout, etc.) live
-/// separately from read-only assets. Three storage modes are supported:
+/// All runtime-writable files (user configs, saves, logs, caches) live under
+/// a single "saved" directory:
 ///
-///   - Portable   — {root}/configs/          (next to exe / assets)
-///   - UserLocal  — platform user-local dir  (e.g., %LOCALAPPDATA%/RTRLab/)
-///   - UserRoaming— platform roaming dir     (e.g., %APPDATA%/RTRLab/)
+///   - Development (GLAB_ROOT_DIR defined): {source_root}/saved/
+///   - Release:                             platform user dir (e.g., %LOCALAPPDATA%/RTRLab/)
 ///
-/// Use ResolveConfigPath() for reading (searches user configs then default
-/// assets). Use GetUserConfigPath() for writing (always user-writable dir).
+/// Config resolution searches saved/configs/ first, then assets/configs/
+/// (shipped defaults). On first access, missing user configs are auto-copied
+/// from shipped defaults so users always have an editable file.
 
 #include <cstdint>
 #include <filesystem>
 #include <string>
 #include <string_view>
 #include <vector>
-
-/// Where runtime-writable configuration files are stored.
-enum class ConfigStorageMode : uint8_t
-{
-    Portable,    ///< {root}/configs/  — next to exe, good for dev & portable installs
-    UserLocal,   ///< Platform user-local dir (not synced across machines)
-    UserRoaming  ///< Platform roaming dir (synced in domain environments)
-};
 
 class FileSystem
 {
@@ -53,27 +45,20 @@ public:
     static std::filesystem::path GetAssetPath(std::string_view relativePath);
 
     /// Returns the directory containing build-time compiled shader artifacts.
-    /// Looks in {root}/assets/shaders/compiled/ (deployment / POST_BUILD copy),
-    /// falling back to the CMake build directory during development.
     static std::filesystem::path GetCompiledShaderDir();
 
-    // ── Writable configuration ────────────────────────────────────────
+    // ── Saved (writable) ─────────────────────────────────────────────
 
-    /// Set the config storage strategy. Must be called before first config
-    /// access (typically right after Init). Defaults to Portable.
-    /// Can be overridden by env var RTRL_CONFIG_MODE=portable|local|roaming.
-    static void SetConfigStorageMode(ConfigStorageMode mode);
-    static ConfigStorageMode GetConfigStorageMode();
+    /// Root of the saved directory (user configs, saves, logs, caches).
+    static const std::filesystem::path &GetSavedDir();
+    /// Resolve a relative path under saved/ (e.g., "logs/engine.log").
+    static std::filesystem::path GetSavedPath(std::string_view relativePath);
+    /// Resolve a relative path under saved/configs/ (e.g., "input/ShadowMapping.json").
+    static std::filesystem::path GetSavedConfigPath(std::string_view relativePath);
 
-    /// Root directory for user-writable config files.
-    static const std::filesystem::path &GetUserConfigDir();
-
-    /// Resolve a relative path under the user config directory (writable).
-    /// e.g., GetUserConfigPath("input/ShadowMapping.json")
-    static std::filesystem::path GetUserConfigPath(std::string_view relativePath);
-
-    /// Search for a config file: user config dir first, then assets/configs/.
-    /// Returns the first path that exists, or an empty path if neither found.
+    /// Search for a config file: saved/configs/ first, then assets/configs/.
+    /// If found only in assets/configs/, auto-copies to saved/configs/ so it
+    /// becomes user-editable. Returns the resolved path, or empty if not found.
     static std::filesystem::path ResolveConfigPath(std::string_view relativePath);
 
     // ── File I/O utilities ────────────────────────────────────────────
@@ -85,26 +70,16 @@ public:
     /// Check whether a file or directory exists.
     static bool Exists(const std::filesystem::path &path);
 
-    // ── Platform helpers ──────────────────────────────────────────────
-
-    /// Returns the platform-specific user data directory for an application.
-    ///   Windows Local:   %LOCALAPPDATA%/{appName}/
-    ///   Windows Roaming: %APPDATA%/{appName}/
-    ///   Linux:           $XDG_CONFIG_HOME/{appName}/  (fallback ~/.config/)
-    ///   macOS:           ~/Library/Application Support/{appName}/
-    static std::filesystem::path GetPlatformUserDataDir(std::string_view appName, bool roaming = false);
-
 private:
     static std::filesystem::path s_RootPath;
-    static std::filesystem::path s_UserConfigDir;
-    static ConfigStorageMode s_ConfigMode;
+    static std::filesystem::path s_SavedDir;
     static bool s_Initialized;
-    static bool s_ConfigDirResolved;
+    static bool s_SavedDirResolved;
 
-    /// Try all discovery strategies in priority order and return the first valid root.
     static std::filesystem::path DiscoverRootPath();
-    /// Walk up from the executable directory looking for an "assets" folder.
     static std::filesystem::path FindRootFromExecutable();
-    /// Resolve and cache the user config directory based on current mode.
-    static void ResolveUserConfigDir();
+    static void ResolveSavedDir();
+
+    /// Platform-specific user data directory (e.g., %LOCALAPPDATA%/appName/).
+    static std::filesystem::path GetPlatformUserDataDir(std::string_view appName);
 };

@@ -12,6 +12,9 @@ out
 CMakeUserPresets.json
 compile_commands.json
 
+# Runtime writable (user configs, saves, logs, caches)
+saved
+
 # MSVC artifacts
 *.exe
 *.obj
