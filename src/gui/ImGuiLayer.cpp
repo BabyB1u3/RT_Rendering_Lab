@@ -5,6 +5,7 @@
 #include <imgui_impl_opengl3.h>
 
 #include "core/app/Application.h"
+#include "core/FileSystem.h"
 #include "core/input/Input.h"
 
 ImGuiLayer::ImGuiLayer()
@@ -20,6 +21,11 @@ void ImGuiLayer::OnAttach()
     ImGuiIO &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+    // Store imgui.ini in the user config directory (persistent static string
+    // because ImGui holds a raw pointer to IniFilename).
+    static std::string iniPath = FileSystem::GetUserConfigPath("imgui.ini").string();
+    io.IniFilename = iniPath.c_str();
 
     ImGui::StyleColorsDark();
 
