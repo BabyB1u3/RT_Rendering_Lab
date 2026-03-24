@@ -1,12 +1,18 @@
 option(GLAB_COMPILE_SHADERS "Compile shaders at build time" ON)
+option(GLAB_SHADER_TARGET_GLSL  "Compile Slang shaders to GLSL 460"  ON)
+option(GLAB_SHADER_TARGET_SPIRV "Compile Slang shaders to SPIR-V"   OFF)
+option(GLAB_SHADER_TARGET_METAL "Compile Slang shaders to Metal Shading Language" OFF)
 
 # ============================================================================
-# Slang shader compilation (.slang -> GLSL 460 per stage)
+# Slang shader compilation (.slang -> backend-specific output per stage)
 # ============================================================================
-# Each .slang file is compiled twice: once for vertexMain, once for fragmentMain.
-# Output goes to ${CMAKE_BINARY_DIR}/shaders/glsl/<Name>.<stage>.glsl
+# Each .slang file is compiled per enabled target, once for vertexMain and
+# once for fragmentMain (Metal emits both stages into a single file).
 #
-# Future: add more backend targets here when additional render backends land.
+# Output layout:
+#   ${CMAKE_BINARY_DIR}/shaders/glsl/   <Name>.vert.glsl / .frag.glsl
+#   ${CMAKE_BINARY_DIR}/shaders/spirv/  <Name>.vert.spv  / .frag.spv
+#   ${CMAKE_BINARY_DIR}/shaders/metal/  <Name>.metal
 # ============================================================================
 
 function(glab_compile_shaders)
@@ -21,7 +27,7 @@ function(glab_compile_shaders)
     endif()
 
     set(SHADER_SOURCE_DIR "${CMAKE_SOURCE_DIR}/assets/shaders")
-    set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/shaders/glsl")
+    set(SHADER_BASE_DIR   "${CMAKE_BINARY_DIR}/shaders")
 
     # Shader modules (dependencies for -I search path)
     set(SLANG_MODULE_DIR "${SHADER_SOURCE_DIR}/modules")
@@ -40,41 +46,106 @@ function(glab_compile_shaders)
         # Collect module dependencies for rebuild tracking
         file(GLOB MODULE_DEPS "${SLANG_MODULE_DIR}/*.slang")
 
-        # --- Vertex stage ---
-        set(VERT_OUTPUT "${SHADER_OUTPUT_DIR}/${SHADER_NAME}.vert.glsl")
-        add_custom_command(
-            OUTPUT "${VERT_OUTPUT}"
-            COMMAND "${CMAKE_COMMAND}" -E make_directory "${SHADER_OUTPUT_DIR}"
-            COMMAND "${SLANGC}" "${INPUT}"
-                -target glsl
-                -profile glsl_460
-                -matrix-layout-column-major
-                -stage vertex -entry vertexMain
-                -I "${SLANG_MODULE_DIR}"
-                -o "${VERT_OUTPUT}"
-            DEPENDS "${INPUT}" ${MODULE_DEPS}
-            COMMENT "Slang -> GLSL vertex: ${SHADER_NAME}"
-            VERBATIM
-        )
+        # ── GLSL target ──
+        if(GLAB_SHADER_TARGET_GLSL)
+            set(GLSL_DIR "${SHADER_BASE_DIR}/glsl")
 
-        # --- Fragment stage ---
-        set(FRAG_OUTPUT "${SHADER_OUTPUT_DIR}/${SHADER_NAME}.frag.glsl")
-        add_custom_command(
-            OUTPUT "${FRAG_OUTPUT}"
-            COMMAND "${CMAKE_COMMAND}" -E make_directory "${SHADER_OUTPUT_DIR}"
-            COMMAND "${SLANGC}" "${INPUT}"
-                -target glsl
-                -profile glsl_460
-                -matrix-layout-column-major
-                -stage fragment -entry fragmentMain
-                -I "${SLANG_MODULE_DIR}"
-                -o "${FRAG_OUTPUT}"
-            DEPENDS "${INPUT}" ${MODULE_DEPS}
-            COMMENT "Slang -> GLSL fragment: ${SHADER_NAME}"
-            VERBATIM
-        )
+            set(VERT_OUTPUT "${GLSL_DIR}/${SHADER_NAME}.vert.glsl")
+            add_custom_command(
+                OUTPUT "${VERT_OUTPUT}"
+                COMMAND "${CMAKE_COMMAND}" -E make_directory "${GLSL_DIR}"
+                COMMAND "${SLANGC}" "${INPUT}"
+                    -target glsl
+                    -profile glsl_460
+                    -matrix-layout-column-major
+                    -stage vertex -entry vertexMain
+                    -I "${SLANG_MODULE_DIR}"
+                    -o "${VERT_OUTPUT}"
+                DEPENDS "${INPUT}" ${MODULE_DEPS}
+                COMMENT "Slang -> GLSL vertex: ${SHADER_NAME}"
+                VERBATIM
+            )
 
-        list(APPEND ALL_OUTPUTS "${VERT_OUTPUT}" "${FRAG_OUTPUT}")
+            set(FRAG_OUTPUT "${GLSL_DIR}/${SHADER_NAME}.frag.glsl")
+            add_custom_command(
+                OUTPUT "${FRAG_OUTPUT}"
+                COMMAND "${CMAKE_COMMAND}" -E make_directory "${GLSL_DIR}"
+                COMMAND "${SLANGC}" "${INPUT}"
+                    -target glsl
+                    -profile glsl_460
+                    -matrix-layout-column-major
+                    -stage fragment -entry fragmentMain
+                    -I "${SLANG_MODULE_DIR}"
+                    -o "${FRAG_OUTPUT}"
+                DEPENDS "${INPUT}" ${MODULE_DEPS}
+                COMMENT "Slang -> GLSL fragment: ${SHADER_NAME}"
+                VERBATIM
+            )
+
+            list(APPEND ALL_OUTPUTS "${VERT_OUTPUT}" "${FRAG_OUTPUT}")
+        endif()
+
+        # ── SPIR-V target ──
+        if(GLAB_SHADER_TARGET_SPIRV)
+            set(SPIRV_DIR "${SHADER_BASE_DIR}/spirv")
+
+            set(VERT_OUTPUT "${SPIRV_DIR}/${SHADER_NAME}.vert.spv")
+            add_custom_command(
+                OUTPUT "${VERT_OUTPUT}"
+                COMMAND "${CMAKE_COMMAND}" -E make_directory "${SPIRV_DIR}"
+                COMMAND "${SLANGC}" "${INPUT}"
+                    -target spirv
+                    -emit-spirv-directly
+                    -matrix-layout-column-major
+                    -stage vertex -entry vertexMain
+                    -I "${SLANG_MODULE_DIR}"
+                    -o "${VERT_OUTPUT}"
+                DEPENDS "${INPUT}" ${MODULE_DEPS}
+                COMMENT "Slang -> SPIR-V vertex: ${SHADER_NAME}"
+                VERBATIM
+            )
+
+            set(FRAG_OUTPUT "${SPIRV_DIR}/${SHADER_NAME}.frag.spv")
+            add_custom_command(
+                OUTPUT "${FRAG_OUTPUT}"
+                COMMAND "${CMAKE_COMMAND}" -E make_directory "${SPIRV_DIR}"
+                COMMAND "${SLANGC}" "${INPUT}"
+                    -target spirv
+                    -emit-spirv-directly
+                    -matrix-layout-column-major
+                    -stage fragment -entry fragmentMain
+                    -I "${SLANG_MODULE_DIR}"
+                    -o "${FRAG_OUTPUT}"
+                DEPENDS "${INPUT}" ${MODULE_DEPS}
+                COMMENT "Slang -> SPIR-V fragment: ${SHADER_NAME}"
+                VERBATIM
+            )
+
+            list(APPEND ALL_OUTPUTS "${VERT_OUTPUT}" "${FRAG_OUTPUT}")
+        endif()
+
+        # ── Metal target ──
+        if(GLAB_SHADER_TARGET_METAL)
+            set(METAL_DIR "${SHADER_BASE_DIR}/metal")
+
+            # Metal emits both stages into a single file
+            set(MTL_OUTPUT "${METAL_DIR}/${SHADER_NAME}.metal")
+            add_custom_command(
+                OUTPUT "${MTL_OUTPUT}"
+                COMMAND "${CMAKE_COMMAND}" -E make_directory "${METAL_DIR}"
+                COMMAND "${SLANGC}" "${INPUT}"
+                    -target metal
+                    -matrix-layout-column-major
+                    -I "${SLANG_MODULE_DIR}"
+                    -o "${MTL_OUTPUT}"
+                DEPENDS "${INPUT}" ${MODULE_DEPS}
+                COMMENT "Slang -> Metal: ${SHADER_NAME}"
+                VERBATIM
+            )
+
+            list(APPEND ALL_OUTPUTS "${MTL_OUTPUT}")
+        endif()
+
     endforeach()
 
     add_custom_target(CompileShaders ALL DEPENDS ${ALL_OUTPUTS})
