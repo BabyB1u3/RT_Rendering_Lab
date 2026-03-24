@@ -4,6 +4,7 @@
 #include "core/Logger.h"
 
 #include <json.hpp>
+#include <filesystem>
 #include <fstream>
 
 // --- Registration ---
@@ -148,6 +149,11 @@ bool InputActionMap::SaveToFile(const std::string &path) const
         axesObj[name] = std::move(axisObj);
     }
     root["axes"] = std::move(axesObj);
+
+    // Ensure parent directory exists
+    std::filesystem::path filePath(path);
+    if (filePath.has_parent_path())
+        std::filesystem::create_directories(filePath.parent_path());
 
     std::ofstream file(path);
     if (!file.is_open())

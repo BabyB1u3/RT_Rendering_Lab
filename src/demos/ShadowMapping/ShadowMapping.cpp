@@ -9,6 +9,7 @@
 
 #include <imgui.h>
 
+#include "core/FileSystem.h"
 #include "core/Logger.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/Material.h"
@@ -55,17 +56,23 @@ void ShadowMapping::OnAttach()
     m_DefaultMaterial->SetFloat("u_SpecularPower", 32.0f);
     m_DefaultMaterial->SetFloat("u_AmbientStrength", 0.15f);
 
-    // Input bindings
-    m_InputMap.BindAxis("MoveForward",  Key::W, Key::S);
-    m_InputMap.BindAxis("MoveRight",    Key::D, Key::A);
-    m_InputMap.BindAxis("MoveUp",       Key::E, Key::Q);
-    m_InputMap.BindAxis("LookX",        InputActionMap::MouseAxis::X);
-    m_InputMap.BindAxis("LookY",        InputActionMap::MouseAxis::Y);
+    // Input bindings — load from JSON, fall back to hardcoded defaults
+    auto inputCfg = FileSystem::GetAssetPath("config/input/ShadowMapping.json").string();
+    if (!m_InputMap.LoadFromFile(inputCfg))
+    {
+        m_InputMap.BindAxis("MoveForward",  Key::W, Key::S);
+        m_InputMap.BindAxis("MoveRight",    Key::D, Key::A);
+        m_InputMap.BindAxis("MoveUp",       Key::E, Key::Q);
+        m_InputMap.BindAxis("LookX",        InputActionMap::MouseAxis::X);
+        m_InputMap.BindAxis("LookY",        InputActionMap::MouseAxis::Y);
 
-    m_InputMap.BindAction("ShowFinalColor",  Key::D1);
-    m_InputMap.BindAction("ShowShadowMap",   Key::D2);
-    m_InputMap.BindAction("ToggleLookMode",  InputSource::FromMouseButton(Mouse::Right));
-    m_InputMap.BindAxis("Zoom",              InputActionMap::MouseAxis::ScrollY);
+        m_InputMap.BindAction("ShowFinalColor",  Key::D1);
+        m_InputMap.BindAction("ShowShadowMap",   Key::D2);
+        m_InputMap.BindAction("ToggleLookMode",  InputSource::FromMouseButton(Mouse::Right));
+        m_InputMap.BindAxis("Zoom",              InputActionMap::MouseAxis::ScrollY);
+
+        m_InputMap.SaveToFile(inputCfg);
+    }
 
     BuildScene();
 }
