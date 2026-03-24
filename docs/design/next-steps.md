@@ -1,10 +1,10 @@
 # Next Steps — Project Status & Development Plan
 
-Updated 2026-03-22. Single source of truth for project state, priorities, and architecture direction.
+Updated 2026-03-24. Single source of truth for project state, priorities, and architecture direction.
 
 > **Architecture Goal**: Multi-backend support (OpenGL on Windows/Linux, Metal on macOS, Vulkan optional).
 > Phase 4 (Multi-Backend Refactor) — R1 (Abstract Interface Layer), R2 (OpenGL Backend
-> Reorganization), and R3 (SPIR-V Shader Pipeline) are complete. Next up: R4 (Metal Backend).
+> Reorganization), and R3 (Slang Shader Pipeline) are complete. Next up: R4 (Metal Backend).
 > Phase 1 (Input Layer 1-2) and Phase 2 (model loading, normal mapping, skybox) remain in progress
 > but are not blocking — they operate on the renderer/demo layer.
 
@@ -20,8 +20,8 @@ Updated 2026-03-22. Single source of truth for project state, priorities, and ar
 | Phase 3 (Pass Unify) | Complete                                           |
 | **Phase 4 (Refactor)** | **R1 ✅, R2 ✅, R3 ✅ — R4 next**              |
 | Active Demos         | 2 (Shadow Mapping, Material Playground)            |
-| Shader Files         | 6 (.vert/.frag per shader, SPIR-V compiled)        |
-| Shader Pipeline      | GLSL → SPIR-V (glslang `-G`) → SPIRV-Cross → GLSL 460 |
+| Shader Files         | 3 (.slang source, compiled to GLSL 460 by slangc)  |
+| Shader Pipeline      | Slang → slangc → GLSL 460 (build-time, no runtime transpilation) |
 | Test Suite           | 78 / 78 passing (unit + integration, Google Test)  |
 | Rendering Pipeline   | Forward: ShadowPass -> ForwardPass -> TexturePreview |
 | Platform Support     | Windows only (OpenGL 4.6)                          |
@@ -36,7 +36,7 @@ Updated 2026-03-22. Single source of truth for project state, priorities, and ar
 - Material: textures + typed float/int/vec3/vec4 properties with `UploadToShader()`
 - `IRenderTarget`: backbuffer vs framebuffer wrapper, depth-only safe, integration-tested
 - `SceneRendererSpecification` / `SceneRendererOutput`: renderer tuning extracted into `SceneRendererTypes.h`
-- `FileSystem`: cross-platform path resolution, `GetAssetPath()`, `GetShaderStem()`, `ReadTextFile()`, `ReadBinaryFile()`, integrated into Application and all render passes
+- `FileSystem`: cross-platform path resolution, `GetAssetPath()`, `GetCompiledShaderDir()`, `ReadTextFile()`, `ReadBinaryFile()`, integrated into Application and all render passes
 - `Input`: polling-based keyboard/mouse via GLFW (`IsKeyPressed()`, `GetMousePosition()`, `GetMouseDelta()`)
 - `ImGuiLayer`: GLFW+OpenGL3 backend, auto-created as overlay in `Application`, `Begin()`/`End()` wrapping all `OnImGuiRender()` calls
 - `DemoSelectorPanel`: selectable list from `DemoRegistry::GetNames()`, integrated into `LabLayer` with runtime demo switching
@@ -51,7 +51,7 @@ Updated 2026-03-22. Single source of truth for project state, priorities, and ar
 - Input/Event system Layer 1-2 (double-buffered state, InputAction map) not yet implemented
 - No test coverage for `Material`, `SceneRenderer`, or individual passes
 - NVIDIA GL performance warning (id=131218): shader recompilation on first draw — cosmetic, not functional
-- Vulkan migration (R3b) — bare uniforms need UBO/push constant migration for Vulkan backend (see `docs/shader-vulkan-migration.md`)
+- Vulkan resource model (UBOs, push constants, descriptor sets) — needed for future Vulkan backend; Slang's structured resource model will simplify this migration (see `docs/design/shader-and-material-system.md`)
 
 ---
 
@@ -81,18 +81,16 @@ These were identified and fixed in the current sprint:
 - `MeshFactory::CreateSphere()` added — UV sphere with configurable stacks/slices
 - `MaterialPlayground` demo added: 5 spheres with distinct Blinn-Phong presets, ImGui per-sphere material editing
 - `SceneRenderer::GetSpecification()` mutable ref for runtime parameter tuning
-- **Phase 4 R3 — SPIR-V Shader Pipeline** complete:
-  - Split 3 monolithic `.glsl` files into 6 per-stage `.vert`/`.frag` files with explicit `layout(location)` qualifiers
-  - Added glslang as vendor submodule (pinned `vulkan-sdk-1.4.304.1`) for offline GLSL → SPIR-V compilation
-  - Added SPIRV-Cross as vendor submodule for runtime SPIR-V → GLSL 460 transpilation
-  - `cmake/CompileShaders.cmake` with `GLAB_COMPILE_SHADERS` option, uses `-G --auto-map-locations --auto-map-bindings`
-  - `FileSystem::GetShaderPath()` → `GetShaderStem()` (returns stem path, backend appends extensions)
-  - `FileSystem::ReadBinaryFile()` added for SPIR-V loading
-  - `IGraphicsDevice::CreateShaderFromStem()` replaces `CreateShaderFromSingleFile()`
-  - `GLShader::TranspileSpirvToGlsl()` with SPIRV-Cross: strips binding/location from plain uniforms
-  - All render passes updated to stem-based shader loading
-  - 3 new integration tests (SPIR-V roundtrip for ForwardLit, ShadowDepth, TexturePreview)
-  - Vulkan migration guide created (`docs/shader-vulkan-migration.md`)
+- **Phase 4 R3 — Slang Shader Pipeline** complete:
+  - Migrated from GLSL + glslang + SPIRV-Cross to Slang as single source language (see `docs/design/slang-migration.md`)
+  - 3 Slang shader files (`ForwardLit.slang`, `ShadowDepth.slang`, `TexturePreview.slang`) replace 6 GLSL files
+  - `cmake/SetupSlang.cmake` downloads slangc automatically; `cmake/CompileShaders.cmake` compiles to GLSL 460
+  - `FileSystem::GetCompiledShaderDir()` resolves compiled shader artifacts (deployment + dev fallback)
+  - `IGraphicsDevice::CreateShader(name)` replaces `CreateShaderFromStem()` — backend resolves artifact path internally
+  - `GLShader::CreateFromCompiledGlsl()` loads pre-compiled GLSL directly (no runtime transpilation)
+  - Removed glslang, SPIRV-Cross vendor submodules and all SPIR-V runtime code
+  - All render passes use `GetDevice()->CreateShader("ShaderName")` pattern
+  - 3 integration tests updated for compiled GLSL loading (ForwardLit, ShadowDepth, TexturePreview)
 
 ---
 
@@ -131,7 +129,7 @@ Items 1-7 completed. Phase 1 only remaining item is Layer 1-2 of Input/Event sys
 Continue with:
 
 3. Model loading (OBJ or glTF via Assimp/tinygltf)
-4. Normal mapping (TBN in vertex shader, modify `ForwardLit.glsl`)
+4. Normal mapping (TBN in vertex shader, modify `ForwardLit.slang`)
 5. Skybox / environment map
 
 Rationale: model loading unlocks real test assets; normal mapping and skybox are both more useful once real geometry exists.
@@ -286,34 +284,36 @@ Moved all OpenGL code into `src/graphics/opengl/` implementing the R1 interfaces
 - No `glad/glad.h` in interface or root graphics headers
 - No concrete GL types outside `opengl/`, `Application.cpp`, and backend-specific integration tests
 
-#### R3: Shader Pipeline (SPIR-V) ✅
+#### R3: Shader Pipeline (Slang) ✅
 
-**Goal**: Establish a single-source, multi-backend shader pipeline. GLSL source files are compiled to
-SPIR-V at build time (OpenGL semantics), then transpiled back to the target language at runtime.
+**Goal**: Establish a single-source, multi-backend shader pipeline. Slang replaces the previous
+GLSL + glslang + SPIRV-Cross toolchain with a single compiler that directly emits backend-specific output.
 
 **Completed:**
-- Split 3 monolithic `.glsl` files into 6 per-stage `.vert`/`.frag` with explicit `layout(location)` qualifiers
-- glslang vendored as submodule (`vulkan-sdk-1.4.304.1`) — compiles GLSL to SPIR-V with `-G` (OpenGL semantics)
-- SPIRV-Cross vendored as submodule — transpiles SPIR-V back to GLSL 460 at runtime
-- `cmake/CompileShaders.cmake` with `GLAB_COMPILE_SHADERS` option; `CompileShaders` target built from source
-- "Shader stem" abstraction: `FileSystem::GetShaderStem("ForwardLit")` returns path without extension; backend appends `.vert.spv`/`.frag.spv`
-- `IGraphicsDevice::CreateShaderFromStem()` replaces `CreateShaderFromSingleFile()`
-- `GLShader::TranspileSpirvToGlsl()` strips binding/location decorations from plain uniforms (driver compatibility)
-- `.spv` artifacts in source tree (transitional — will move to build tree in R4/R5)
-- 3 new integration tests with `GTEST_SKIP` guard when `.spv` files are absent
-- Vulkan migration guide: `docs/shader-vulkan-migration.md`
+- Migrated 3 shaders from GLSL to Slang (`ForwardLit.slang`, `ShadowDepth.slang`, `TexturePreview.slang`)
+- `cmake/SetupSlang.cmake` downloads slangc v2026.5 automatically per platform
+- `cmake/CompileShaders.cmake` compiles `.slang` → GLSL 460 (vertex + fragment separately) at build time
+- `FileSystem::GetCompiledShaderDir()` resolves compiled artifacts (deployment path with dev fallback)
+- `IGraphicsDevice::CreateShader(name)` — backend resolves artifact format internally
+- `GLShader::CreateFromCompiledGlsl()` loads pre-compiled GLSL (no runtime transpilation)
+- Removed glslang and SPIRV-Cross vendor submodules and all related runtime code
+- All render passes use `GetDevice()->CreateShader("ShaderName")` pattern
+- 3 integration tests verify compiled GLSL loading for each shader
+- Design document: `docs/design/slang-migration.md`
 
-**Scope note**: R3 is an OpenGL-first SPIR-V asset pipeline (R3a). It does NOT migrate to Vulkan resource
-model (UBOs, descriptor sets, push constants). That migration is documented in `docs/shader-vulkan-migration.md`
-for future R3b/R5.
+**Architecture note**: Slang can also emit SPIR-V, MSL, and HLSL from the same source files.
+Adding these targets to `CompileShaders.cmake` is straightforward when Metal (R4) or Vulkan (R5)
+backends are implemented. Slang's structured resource model (`ParameterBlock`, `cbuffer`) also
+simplifies the future UBO/descriptor set migration — see `docs/design/shader-and-material-system.md`.
 
 #### R4: Metal Backend
 
 Implement via metal-cpp in `src/graphics/metal/*.mm`. CMake selects backend at configure time.
+Slang already supports `-target metal` output — add MSL target to `CompileShaders.cmake`.
 
 #### R5: Vulkan Backend (Optional)
 
-Consumes SPIR-V directly. Primarily useful if OpenGL is to be phased out on Windows/Linux.
+Consumes SPIR-V directly (Slang `-target spirv`). Primarily useful if OpenGL is to be phased out on Windows/Linux.
 
 ### Phase 5 — Post-Refactor Features
 
@@ -346,7 +346,7 @@ Now in `src/gui/Panels/DemoSelectorPanel.h/.cpp`. Selectable list from `DemoRegi
 
 ### FileSystem ✅ (Implemented)
 
-Now in `src/core/FileSystem.h/.cpp`. Cross-platform path discovery with `Init()`, `GetRootPath()`, `GetAssetPath()`, `GetShaderStem()`, `ReadTextFile()`, `ReadBinaryFile()`, `Exists()`.
+Now in `src/core/FileSystem.h/.cpp`. Cross-platform path discovery with `Init()`, `GetRootPath()`, `GetAssetPath()`, `GetCompiledShaderDir()`, `ReadTextFile()`, `ReadBinaryFile()`, `Exists()`.
 
 ### KeyCode / MouseCode ✅ (Implemented)
 
@@ -360,9 +360,9 @@ Full Input/Event system architecture specified in `docs/design-input-event-syste
 
 ## 5. Items NOT to Focus on Now
 
-- Vulkan resource model migration (R3b — UBOs, push constants, descriptor sets; see `docs/shader-vulkan-migration.md`)
-- Metal backend implementation (R4 — next Phase 4 milestone)
-- Vulkan backend implementation (R5 — consumes SPIR-V directly)
+- Vulkan resource model migration (UBOs, push constants, descriptor sets — Slang's structured resource model simplifies this; see `docs/design/shader-and-material-system.md`)
+- Metal backend implementation (R4 — next Phase 4 milestone; Slang can emit MSL directly)
+- Vulkan backend implementation (R5 — Slang can emit SPIR-V directly)
 - Render graph (Phase 5+)
 - Backend-aware resource cache (Phase 5+)
 
