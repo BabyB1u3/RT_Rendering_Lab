@@ -1,9 +1,14 @@
 cmake_minimum_required(VERSION 3.20)
 
+set(GLAB_PROJECT_LANGUAGES C CXX)
+if(APPLE)
+    list(APPEND GLAB_PROJECT_LANGUAGES OBJCXX)
+endif()
+
 project(RTRLab
     VERSION 0.1.0
     DESCRIPTION "A C++ rendering playground"
-    LANGUAGES C CXX OBJC OBJCXX
+    LANGUAGES ${GLAB_PROJECT_LANGUAGES}
 )
 
 set(CMAKE_CXX_STANDARD 20)
