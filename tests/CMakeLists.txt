@@ -61,6 +61,7 @@ if(GLAB_BACKEND_OPENGL)
 
     add_executable(rtrlab_contract_tests_opengl
         contract/opengl/TestFramebuffer.cpp
+        contract/opengl/TestRenderPasses.cpp
         contract/opengl/TestRenderTarget.cpp
         support/GLTestContext.cpp
     )

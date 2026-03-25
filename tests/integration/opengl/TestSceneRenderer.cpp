@@ -2,6 +2,10 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
+
+#include <glad/glad.h>
+
 #include "GLTestContext.h"
 #include "core/FileSystem.h"
 #include "graphics/Framebuffer.h"
@@ -21,6 +25,15 @@ protected:
     static void TearDownTestSuite()
     {
         s_Context.reset();
+    }
+
+    static std::array<uint8_t, 4> ReadDefaultFramebufferPixel(int x, int y)
+    {
+        std::array<uint8_t, 4> pixel{0, 0, 0, 0};
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+        glReadBuffer(GL_BACK);
+        glReadPixels(x, y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel.data());
+        return pixel;
     }
 
     static void SkipIfCompiledShadersMissing()
@@ -80,4 +93,45 @@ TEST_F(SceneRendererIntegrationTests, RenderEmptySceneDoesNotThrow)
     Camera camera;
 
     EXPECT_NO_THROW(renderer.Render(scene, camera));
+}
+
+TEST_F(SceneRendererIntegrationTests, FinalColorModePresentsForwardClearColor)
+{
+    SkipIfCompiledShadersMissing();
+
+    SceneRendererSpecification spec;
+    spec.ClearColor = {0.2f, 0.4f, 0.6f, 1.0f};
+
+    SceneRenderer renderer(64, 64, spec);
+    renderer.SetOutputMode(SceneRendererOutput::FinalColor);
+
+    SceneData scene;
+    Camera camera;
+
+    ASSERT_NO_THROW(renderer.Render(scene, camera));
+
+    const auto pixel = ReadDefaultFramebufferPixel(32, 32);
+    EXPECT_NEAR(pixel[0], 51, 1);
+    EXPECT_NEAR(pixel[1], 102, 1);
+    EXPECT_NEAR(pixel[2], 153, 1);
+    EXPECT_EQ(pixel[3], 255);
+}
+
+TEST_F(SceneRendererIntegrationTests, ShadowMapModePresentsClearedShadowPreview)
+{
+    SkipIfCompiledShadersMissing();
+
+    SceneRenderer renderer(64, 64);
+    renderer.SetOutputMode(SceneRendererOutput::ShadowMap);
+
+    SceneData scene;
+    Camera camera;
+
+    ASSERT_NO_THROW(renderer.Render(scene, camera));
+
+    const auto pixel = ReadDefaultFramebufferPixel(32, 32);
+    EXPECT_NEAR(pixel[0], 255, 1);
+    EXPECT_NEAR(pixel[1], 255, 1);
+    EXPECT_NEAR(pixel[2], 255, 1);
+    EXPECT_EQ(pixel[3], 255);
 }
