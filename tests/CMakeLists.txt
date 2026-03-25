@@ -42,6 +42,7 @@ gtest_discover_tests(rtrlab_unit_tests)
 
 add_executable(rtrlab_contract_tests
     contract/TestEventBus.cpp
+    contract/TestFileSystem.cpp
     contract/TestLayerStackLifecycle.cpp
 )
 
