@@ -92,3 +92,35 @@ TEST(FileSystemContractTests, ResolveConfigPathReturnsEmptyWhenConfigIsMissing)
 
     EXPECT_TRUE(resolved.empty());
 }
+
+// ── Error path tests ─────────────────────────────────────────────────
+
+TEST(FileSystemContractTests, ReadTextFileThrowsOnMissingFile)
+{
+    FileSystem::Init();
+
+    try
+    {
+        FileSystem::ReadTextFile("definitely/missing/path.txt");
+        FAIL() << "Expected ReadTextFile to throw on missing file";
+    }
+    catch (const std::runtime_error &e)
+    {
+        EXPECT_NE(std::string(e.what()).find("Failed to open file"), std::string::npos);
+    }
+}
+
+TEST(FileSystemContractTests, ReadBinaryFileThrowsOnMissingFile)
+{
+    FileSystem::Init();
+
+    try
+    {
+        FileSystem::ReadBinaryFile("definitely/missing/binary.bin");
+        FAIL() << "Expected ReadBinaryFile to throw on missing file";
+    }
+    catch (const std::runtime_error &e)
+    {
+        EXPECT_NE(std::string(e.what()).find("Failed to open binary file"), std::string::npos);
+    }
+}

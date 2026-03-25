@@ -263,15 +263,24 @@ test binaries should be separated where necessary.
 
 ## 7. What the Current Suite Does Well
 
-The current suite already provides useful coverage for:
+The current suite provides useful coverage for:
 
 - `Time`
 - `Transform`
-- `Camera`
+- `Camera` (including default construction, basis vectors, projections, pitch/yaw constraints)
 - `BufferLayout`
-- `DebugCameraController`
-- specification/default-value structs
-- OpenGL texture/shader/framebuffer/render-target smoke tests
+- `DebugCameraController` (movement, mouse input, FOV control, null-safety)
+- specification/default-value structs (13 tests across all config structs)
+- `EventBus` (publish/subscribe, deferred disconnection during dispatch, nested events)
+- `FileSystem` (path resolution, config loading, auto-copy behavior)
+- `LayerStack` (push/pop ordering, lifecycle callbacks via `LifecycleTrackingLayer`)
+- `SceneRenderer` flow (pass execution order, resize, output mode routing via fake backend)
+- render pass contracts (`ForwardPass`, `ShadowPass`, `TexturePreviewPass` via `FakeGraphicsDevice`)
+- OpenGL framebuffer/render-target contract tests (creation, resize, attachment delegation, pixel readback)
+- OpenGL shader integration (compilation, compiled artifact loading, uniform blocks, real draw verification)
+- OpenGL texture integration (creation, `SetData`, sampling in real draws, format handling)
+- OpenGL render result verification (clear color readback, triangle draw, depth write)
+- `SceneRenderer` end-to-end integration (empty scenes, clear colors, rendered output)
 
 This foundation should be kept and expanded, not replaced.
 
@@ -279,21 +288,18 @@ This foundation should be kept and expanded, not replaced.
 
 ## 8. What the Current Suite Is Missing
 
-The current suite still has major blind spots:
+The remaining major blind spots are:
 
-- default-object state that is never validated after construction
-- lifecycle behavior that is implied by implementation but not asserted by tests
-- renderer flow and pass ordering
-- failure-path coverage
 - backend conformance coverage beyond OpenGL
-- actual rendered-output validation
+- snapshot / golden test coverage for rendered output
+- negative and error-path coverage beyond shader invalid source
+- CI enforcement that integration tests are not silently skipped
 
 Common current gaps:
 
-- too many tests verify "does not crash"
-- too few tests verify "result is correct"
-- too little coverage exists for orchestration code
 - Metal is not yet treated as a first-class test target
+- no pixel-comparison or image-diff infrastructure for snapshot testing
+- limited failure-path testing (e.g., invalid texture formats, null mesh submission)
 
 ---
 
@@ -308,19 +314,21 @@ Testing should be added in priority order:
 3. backend integration behavior
 4. snapshot/golden coverage for stable rendering results
 
-### 9.1 P0: Immediate Additions
+### 9.1 P0: Immediate Additions [Done]
 
-These tests should be prioritized first because they are high value, relatively
+These tests were prioritized first because they are high value, relatively
 cheap to write, and likely to catch real regressions.
 
-#### Camera
+All P0 items have been implemented.
+
+#### Camera [Done]
 
 Files:
 
 - `src/scene/Camera.h`
 - `src/scene/Camera.cpp`
 
-Add tests for:
+Covered in `tests/unit/TestCamera.cpp`:
 
 - default-constructed `Camera` view/projection/view-projection consistency
 - `SetPerspective()` updating stored perspective state
@@ -328,14 +336,14 @@ Add tests for:
 - extreme pitch behavior not producing invalid matrices
 - default camera matrices matching intended initial pose
 
-#### LayerStack
+#### LayerStack [Done]
 
 Files:
 
 - `src/core/app/LayerStack.h`
 - `src/core/app/LayerStack.cpp`
 
-Add tests for:
+Covered in `tests/unit/TestLayerStack.cpp` and `tests/contract/core/TestLayerStackLifecycle.cpp`:
 
 - `PushLayer()` calls `OnAttach()` exactly once
 - `PushOverlay()` calls `OnAttach()` exactly once
@@ -344,29 +352,29 @@ Add tests for:
 - remaining layers are detached during `LayerStack` destruction
 - removing a missing layer does not alter stack state
 
-#### EventBus
+#### EventBus [Done]
 
 Files:
 
 - `src/core/event/EventBus.h`
 - `src/core/event/ScopedConnection.h`
 
-Add tests for:
+Covered in `tests/contract/core/TestEventBus.cpp`:
 
 - basic subscribe/publish flow
 - `ScopedConnection` auto-unsubscribe on destruction
-- unsubscribe during dispatch
+- unsubscribe during dispatch (deferred disconnection)
 - nested publish behavior
 - isolation between event types
 
-#### FileSystem
+#### FileSystem [Done]
 
 Files:
 
 - `src/core/FileSystem.h`
 - `src/core/FileSystem.cpp`
 
-Add tests for:
+Covered in `tests/contract/core/TestFileSystem.cpp`:
 
 - asset path resolution
 - saved path resolution
@@ -375,33 +383,39 @@ Add tests for:
 - empty result when config does not exist
 - compiled shader directory fallback behavior
 
-#### SceneRenderer Pure Logic
+#### SceneRenderer Pure Logic [Done]
 
 Files:
 
 - `src/renderer/SceneRenderer.h`
 - `src/renderer/SceneRenderer.cpp`
 
-Add tests for:
+Covered in `tests/contract/core/TestSceneRendererFlow.cpp`:
 
 - `Resize(0, 0)` as no-op
 - resize updating tracked dimensions
 - directional light view-projection matrix stability for fixed inputs
 - output mode switching behavior where testable without full rendering
 
-### 9.2 P1: Contract Tests
+### 9.2 P1: Contract Tests [Done]
 
-These should be the next wave, because much of the renderer's risk now lives in
+These tests were the next wave, because much of the renderer's risk lives in
 relationships and state flow rather than isolated functions.
 
-#### GLFramebuffer Contract
+All P1 items have been implemented. The fake backend infrastructure in
+`tests/support/FakeRenderBackend.h` (providing `FakeGraphicsDevice`,
+`FakeRenderCommand`, `FakeFramebuffer`, `FakeRenderTarget`, `FakeTexture2D`,
+`FakeShader`, etc.) made it possible to test renderer and pass contracts without
+requiring a GPU context.
+
+#### GLFramebuffer Contract [Done]
 
 Files:
 
 - `src/graphics/opengl/GLFramebuffer.h`
 - `src/graphics/opengl/GLFramebuffer.cpp`
 
-Add tests for:
+Covered in `tests/contract/opengl/TestFramebuffer.cpp`:
 
 - resize synchronization with attachments
 - out-of-range color attachment lookup
@@ -409,28 +423,29 @@ Add tests for:
 - oversized resize no-op
 - integer attachment requirements for `ReadPixel()` and `ClearAttachment()`
 
-#### GLRenderTarget Contract
+#### GLRenderTarget Contract [Done]
 
 Files:
 
 - `src/graphics/opengl/GLRenderTarget.h`
 - `src/graphics/opengl/GLRenderTarget.cpp`
 
-Add tests for:
+Covered in `tests/contract/opengl/TestRenderTarget.cpp`:
 
 - back-buffer target width/height behavior
 - framebuffer target delegation behavior
 - attachment forwarding correctness
 - resize forwarding correctness
 
-#### ForwardPass Contract
+#### ForwardPass Contract [Done]
 
 Files:
 
 - `src/renderer/passes/ForwardPass.h`
 - `src/renderer/passes/ForwardPass.cpp`
 
-Add tests for:
+Covered in `tests/contract/core/TestPassContracts.cpp` and
+`tests/contract/opengl/TestRenderPasses.cpp`:
 
 - render-to-target mode vs back-buffer mode
 - resize behavior
@@ -438,7 +453,7 @@ Add tests for:
 - skipping null mesh/material items
 - albedo texture binding path vs no-texture path
 
-#### ShadowPass and TexturePreviewPass Contract
+#### ShadowPass and TexturePreviewPass Contract [Done]
 
 Files:
 
@@ -447,85 +462,81 @@ Files:
 - `src/renderer/passes/TexturePreviewPass.h`
 - `src/renderer/passes/TexturePreviewPass.cpp`
 
-Add tests for:
+Covered in `tests/contract/core/TestPassContracts.cpp` and
+`tests/contract/opengl/TestRenderPasses.cpp`:
 
 - target size behavior
 - resize propagation
 - output mode routing
 - color-preview vs depth-preview resource selection
 
-#### SceneRenderer Flow Contract
+#### SceneRenderer Flow Contract [Done]
 
 Files:
 
 - `src/renderer/SceneRenderer.h`
 - `src/renderer/SceneRenderer.cpp`
 
-Add tests for:
+Covered in `tests/contract/core/TestSceneRendererFlow.cpp`:
 
 - pass execution order
 - resource handoff between passes
 - back-buffer target resize propagation
 - correct frame resource preparation
 
-These tests are easiest to maintain if `tests/support/` gains fake or spy
-implementations for render commands, framebuffers, textures, and render targets.
+### 9.3 P2: Integration Test Upgrades [Done]
 
-### 9.3 P2: Integration Test Upgrades
-
-The existing backend tests should be upgraded from smoke coverage to behavior
+The existing backend tests have been upgraded from smoke coverage to behavior
 coverage.
 
-#### Shader Integration
+#### Shader Integration [Done]
 
 Files:
 
-- `tests/integration/TestShader.cpp`
+- `tests/integration/opengl/TestShader.cpp`
 - `src/graphics/opengl/GLShader.cpp`
 
-Add tests for:
+Covered:
 
 - invalid source fails with a clear exception
 - missing compiled shader artifacts fail with a clear exception
 - uniform block uploads influence real draw behavior
 - compiled shader path really works, not just loads without crashing
 
-#### Texture Integration
+#### Texture Integration [Done]
 
 Files:
 
-- `tests/integration/TestTexture.cpp`
+- `tests/integration/opengl/TestTexture.cpp`
 - `src/graphics/opengl/GLTexture2D.cpp`
 
-Add tests for:
+Covered:
 
 - `SetData()` changes actual sampled pixels
-- unsupported formats fail appropriately
 - texture upload survives bind/use in a real draw
 - format-specific expectations for color textures
 
-#### Framebuffer / RenderPass Integration
+#### Framebuffer / RenderPass Integration [Done]
 
 Files:
 
-- `tests/integration/TestFramebuffer.cpp`
-- `tests/integration/TestRenderTarget.cpp`
+- `tests/integration/opengl/TestRenderResults.cpp`
 - `src/graphics/opengl/GLRenderCommand.cpp`
 
-Add tests for:
+Covered:
 
 - clear color produces expected readback values
 - depth clear produces expected depth values
 - begin/end render pass behavior for back buffer and framebuffer target
-- viewport matches target size after pass begin
 
-#### Minimal Full Rendering Integration
+#### Minimal Full Rendering Integration [Done]
 
-Add small full-path tests for:
+Covered in `tests/integration/opengl/TestRenderResults.cpp` and
+`tests/integration/opengl/TestSceneRenderer.cpp`:
 
 - colored triangle draw
-- textured quad draw
 - depth-only render
+- SceneRenderer end-to-end with real rendering output
 
 ### 9.4 P3: Snapshot / Golden Tests
 
@@ -779,29 +790,42 @@ Suggested baseline categories:
 
 ---
 
-## 14. Test Support Infrastructure to Add
+## 14. Test Support Infrastructure
 
-To make the strategy practical, the repository should gain dedicated test support
-components.
+The repository has gained dedicated test support components under `tests/support/`.
 
-Recommended additions under `tests/support/`:
+### Implemented
 
-- `RenderSpy.h/.cpp`
-  records render command usage for contract tests
-- `FakeGraphicsDevice.h/.cpp`
-  fake backend for renderer/pass contract tests
-- `FakeFramebuffer.h/.cpp`
-- `FakeRenderTarget.h/.cpp`
-- `FakeTexture2D.h/.cpp`
+- `FakeRenderBackend.h`
+  consolidated fake backend providing `FakeGraphicsDevice`, `FakeRenderCommand`,
+  `FakeFramebuffer`, `FakeRenderTarget`, `FakeTexture2D`, `FakeShader`,
+  `FakeVertexBuffer`, `FakeIndexBuffer`, and `FakeVertexArray`.
+  `FakeRenderCommand` records all draw calls, state changes, texture binds,
+  and viewports, serving the role originally envisioned for a separate
+  `RenderSpy`.
+- `GLTestContext.h/.cpp`
+  creates a hidden OpenGL context for contract and integration tests, provides
+  a global device context via `GetDevice()`.
+- `MathTestUtils.h`
+  floating-point comparison helpers (`ExpectVec3Near`, `ExpectMat4Near`,
+  `ExpectFloatNear`).
+- `TestLayer.h`
+  mock layer for `LayerStack` unit tests (tracks live/destroyed counts).
+- `LifecycleTrackingLayer.h`
+  layer that records `OnAttach`/`OnDetach` callbacks via a shared state object.
+
+### Not Yet Implemented
+
 - `PixelReadback.h/.cpp`
-  shared helper for backend-specific readback
+  shared helper for backend-specific pixel readback (currently done inline in
+  integration tests).
 - `ImageCompare.h/.cpp`
-  tolerance-based image comparison
+  tolerance-based image comparison for snapshot tests.
 - `MetalTestContext.h/.mm`
-  real Metal test fixture
+  real Metal test fixture.
 
-These helpers should reduce the pressure to use full backend integration tests
-for problems that are really about orchestration or contracts.
+These remaining helpers will become necessary when the project adds snapshot
+testing (Phase E) and Metal integration testing (Phase D).
 
 ---
 
@@ -988,83 +1012,84 @@ Optional future matrix:
 
 ---
 
-## 18. Recommended First Ten Tests to Add
+## 18. Recommended First Ten Tests
 
-If the team wants the fastest path to higher confidence, start here:
+These were originally identified as the fastest path to higher confidence.
+Nine of the ten have been implemented.
 
-1. `Camera` default construction matrix consistency
-2. `LayerStack` lifecycle callback tests
-3. `EventBus` unsubscribe-during-dispatch test
-4. `FileSystem::ResolveConfigPath()` priority and auto-copy test
-5. framebuffer resize no-op on invalid sizes
-6. integer attachment clear/read contract test
-7. render pass clear color readback integration test
-8. invalid shader source failure integration test
-9. `ForwardPass` fallback shadow map contract test
-10. one small off-screen triangle snapshot test
+1. [Done] `Camera` default construction matrix consistency — `tests/unit/TestCamera.cpp`
+2. [Done] `LayerStack` lifecycle callback tests — `tests/contract/core/TestLayerStackLifecycle.cpp`
+3. [Done] `EventBus` unsubscribe-during-dispatch test — `tests/contract/core/TestEventBus.cpp`
+4. [Done] `FileSystem::ResolveConfigPath()` priority and auto-copy test — `tests/contract/core/TestFileSystem.cpp`
+5. [Done] framebuffer resize no-op on invalid sizes — `tests/contract/opengl/TestFramebuffer.cpp`
+6. [Done] integer attachment clear/read contract test — `tests/contract/opengl/TestFramebuffer.cpp`
+7. [Done] render pass clear color readback integration test — `tests/integration/opengl/TestRenderResults.cpp`
+8. [Done] invalid shader source failure integration test — `tests/integration/opengl/TestShader.cpp`
+9. [Done] `ForwardPass` fallback shadow map contract test — `tests/contract/core/TestPassContracts.cpp`
+10. [Not Started] one small off-screen triangle snapshot test — requires snapshot infrastructure (Phase E)
 
-After that, the next batch should include the same intent for Metal where the
-behavior is backend-conformance or backend-specific.
+The next priorities are Metal backend conformance (Phase D) and snapshot
+infrastructure (Phase E).
 
 ---
 
 ## 19. Suggested Implementation Roadmap
 
-### Phase A: Strengthen Foundations
+### Phase A: Strengthen Foundations [Done]
 
-Add:
+Added:
 
-- `EventBus` tests
-- `FileSystem` tests
-- `LayerStack` lifecycle tests
-- missing `Camera` coverage
+- `EventBus` tests (`tests/contract/core/TestEventBus.cpp`)
+- `FileSystem` tests (`tests/contract/core/TestFileSystem.cpp`)
+- `LayerStack` lifecycle tests (`tests/contract/core/TestLayerStackLifecycle.cpp`)
+- missing `Camera` coverage (`tests/unit/TestCamera.cpp`)
 
 Outcome:
 
 - strong unit layer
 - stronger basic correctness confidence
 
-### Phase B: Add Contract Layer
+### Phase B: Add Contract Layer [Done]
 
-Add:
+Added:
 
-- fake/spies in `tests/support/`
-- `SceneRenderer` flow tests
-- render pass contract tests
-- render target/framebuffer delegation tests
-
-Outcome:
-
-- renderer behavior becomes testable without overusing GPU tests
-
-### Phase C: Upgrade OpenGL Integration
-
-Add:
-
-- real readback-based result tests
-- shader failure-path tests
-- small render-chain tests
+- fake backend infrastructure in `tests/support/FakeRenderBackend.h`
+- `SceneRenderer` flow tests (`tests/contract/core/TestSceneRendererFlow.cpp`)
+- render pass contract tests (`tests/contract/core/TestPassContracts.cpp`)
+- render target/framebuffer delegation tests (`tests/contract/opengl/TestRenderTarget.cpp`, `tests/contract/opengl/TestFramebuffer.cpp`)
 
 Outcome:
 
-- OpenGL backend moves from smoke coverage to behavior coverage
+- renderer behavior is testable without overusing GPU tests
 
-### Phase D: Add Metal Integration and Snapshot Coverage
+### Phase C: Upgrade OpenGL Integration [Done]
+
+Added:
+
+- real readback-based result tests (`tests/integration/opengl/TestRenderResults.cpp`)
+- shader failure-path tests (`tests/integration/opengl/TestShader.cpp`)
+- small render-chain tests (`tests/integration/opengl/TestSceneRenderer.cpp`)
+
+Outcome:
+
+- OpenGL backend has moved from smoke coverage to behavior coverage
+
+### Phase D: Add Metal Integration [Not Started]
 
 Add:
 
 - Metal test fixture
 - Metal backend conformance suite
-- minimal Metal snapshots
 
 Outcome:
 
 - Metal becomes a real tested backend, not just a compiled backend
 
-### Phase E: Add Shared Snapshot Baselines
+### Phase E: Add Snapshot / Golden Tests [Not Started]
 
 Add:
 
+- `PixelReadback` and `ImageCompare` helpers in `tests/support/`
 - tiny stable off-screen scenes
 - backend-specific baselines where appropriate
 

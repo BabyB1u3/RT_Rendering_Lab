@@ -205,3 +205,41 @@ TEST_F(TextureIntegrationTests, BindAndUnbindDoNotCrash)
     EXPECT_NO_THROW(texture->Bind(0));
     EXPECT_NO_THROW(texture->Unbind());
 }
+
+// ── Error path tests ─────────────────────────────────────────────────
+
+TEST_F(TextureIntegrationTests, CreateFromFileThrowsOnMissingFile)
+{
+    try
+    {
+        GetDevice()->CreateTexture2DFromFile("definitely/missing/texture.png");
+        FAIL() << "Expected CreateTexture2DFromFile to throw on missing file";
+    }
+    catch (const std::runtime_error &e)
+    {
+        EXPECT_NE(std::string(e.what()).find("Failed to load texture"), std::string::npos);
+    }
+}
+
+TEST_F(TextureIntegrationTests, SetDataOnRedIntegerFormatThrows)
+{
+    TextureSpecification spec{};
+    spec.Width = 1;
+    spec.Height = 1;
+    spec.Format = TextureFormat::RedInteger;
+
+    auto texture = GetDevice()->CreateTexture2D(spec);
+    ASSERT_NE(texture, nullptr);
+
+    const int32_t value = 42;
+
+    try
+    {
+        texture->SetData(&value);
+        FAIL() << "Expected SetData on RedInteger texture to throw";
+    }
+    catch (const std::runtime_error &e)
+    {
+        EXPECT_NE(std::string(e.what()).find("ordinary color textures"), std::string::npos);
+    }
+}
