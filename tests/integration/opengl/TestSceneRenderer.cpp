@@ -7,6 +7,7 @@
 #include <glad/glad.h>
 
 #include "GLTestContext.h"
+#include "ShaderTestUtils.h"
 #include "core/FileSystem.h"
 #include "graphics/Framebuffer.h"
 #include "graphics/Material.h"
@@ -40,15 +41,7 @@ protected:
 
     static void SkipIfCompiledShadersMissing()
     {
-        const auto shaderDir = FileSystem::GetCompiledShaderDir() / "glsl";
-        const auto hasArtifacts = [&](const char *name)
-        {
-            return FileSystem::Exists(shaderDir / (std::string(name) + ".vert.glsl")) &&
-                   FileSystem::Exists(shaderDir / (std::string(name) + ".frag.glsl"));
-        };
-
-        if (!hasArtifacts("ForwardLit") || !hasArtifacts("ShadowDepth") || !hasArtifacts("TexturePreview"))
-            GTEST_SKIP() << "Compiled GLSL artifacts not found for SceneRenderer integration tests";
+        ShaderTestUtils::SkipOrFailIfShadersMissing("SceneRenderer integration tests require all shaders.");
     }
 
     inline static Scope<GlTestContext> s_Context;
@@ -155,11 +148,9 @@ TEST_F(SceneRendererIntegrationTests, FinalColorModePresentsRenderedSceneColor)
 
     SceneData scene;
     scene.MainDirectionalLight.Color = {0.0f, 0.0f, 0.0f};
-    scene.RenderItems.push_back({
-        MeshFactory::CreateFullscreenQuad(),
-        material,
-        {}
-    });
+    scene.RenderItems.push_back({MeshFactory::CreateFullscreenQuad(),
+                                 material,
+                                 {}});
 
     Camera camera;
 

@@ -6,6 +6,7 @@
 #include <glad/glad.h>
 
 #include "GLTestContext.h"
+#include "ShaderTestUtils.h"
 #include "core/FileSystem.h"
 #include "graphics/Framebuffer.h"
 #include "graphics/GraphicsDevice.h"
@@ -43,15 +44,7 @@ protected:
 
     static void SkipIfCompiledShadersMissing()
     {
-        const auto shaderDir = FileSystem::GetCompiledShaderDir() / "glsl";
-        const auto hasArtifacts = [&](const char *name)
-        {
-            return FileSystem::Exists(shaderDir / (std::string(name) + ".vert.glsl")) &&
-                   FileSystem::Exists(shaderDir / (std::string(name) + ".frag.glsl"));
-        };
-
-        if (!hasArtifacts("ForwardLit") || !hasArtifacts("ShadowDepth") || !hasArtifacts("TexturePreview"))
-            GTEST_SKIP() << "Compiled GLSL artifacts not found for render pass contract tests";
+        ShaderTestUtils::SkipOrFailIfShadersMissing("Render pass contract tests require all shaders.");
     }
 
     static std::array<uint8_t, 4> ReadRgbaPixel(const Ref<IFramebuffer> &framebuffer, int x, int y)
@@ -97,8 +90,8 @@ protected:
         spec.Width = width;
         spec.Height = height;
         spec.Attachments = withDepth
-            ? FramebufferAttachmentSpecification{{TextureFormat::RGBA8}, {TextureFormat::Depth24Stencil8}}
-            : FramebufferAttachmentSpecification{{TextureFormat::RGBA8}};
+                               ? FramebufferAttachmentSpecification{{TextureFormat::RGBA8}, {TextureFormat::Depth24Stencil8}}
+                               : FramebufferAttachmentSpecification{{TextureFormat::RGBA8}};
 
         return GetDevice()->CreateFramebuffer(spec);
     }
@@ -196,11 +189,9 @@ TEST_F(RenderPassContractTests, ForwardPassWithoutAlbedoTextureUsesMaterialAlbed
     SceneData scene;
     scene.MainDirectionalLight.Color = {0.0f, 0.0f, 0.0f};
     scene.MainDirectionalLight.Direction = {0.0f, 0.0f, -1.0f};
-    scene.RenderItems.push_back({
-        MeshFactory::CreateFullscreenQuad(),
-        material,
-        {}
-    });
+    scene.RenderItems.push_back({MeshFactory::CreateFullscreenQuad(),
+                                 material,
+                                 {}});
 
     Camera camera;
     SceneView view{scene, camera, 8, 8};
@@ -232,11 +223,9 @@ TEST_F(RenderPassContractTests, ForwardPassWithAlbedoTextureUsesTextureSample)
     SceneData scene;
     scene.MainDirectionalLight.Color = {0.0f, 0.0f, 0.0f};
     scene.MainDirectionalLight.Direction = {0.0f, 0.0f, -1.0f};
-    scene.RenderItems.push_back({
-        MeshFactory::CreateFullscreenQuad(),
-        material,
-        {}
-    });
+    scene.RenderItems.push_back({MeshFactory::CreateFullscreenQuad(),
+                                 material,
+                                 {}});
 
     Camera camera;
     SceneView view{scene, camera, 8, 8};

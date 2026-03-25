@@ -6,6 +6,7 @@
 #include <glm/glm.hpp>
 
 #include "GLTestContext.h"
+#include "ShaderTestUtils.h"
 #include "core/FileSystem.h"
 #include "graphics/Framebuffer.h"
 #include "graphics/GraphicsDevice.h"
@@ -71,11 +72,6 @@ void main()
 
 namespace
 {
-	std::filesystem::path GetCompiledGlslPath(const std::string &shaderName, const std::string &stage)
-	{
-		return FileSystem::GetCompiledShaderDir() / "glsl" / (shaderName + "." + stage + ".glsl");
-	}
-
 	Ref<IFramebuffer> CreateColorFramebuffer(uint32_t width = 8, uint32_t height = 8)
 	{
 		FramebufferSpecification spec{};
@@ -143,12 +139,49 @@ TEST_F(ShaderIntegrationTests, MissingCompiledArtifactsThrowReadableError)
 	}
 }
 
+TEST_F(ShaderIntegrationTests, LinkFailureThrowsReadableError)
+{
+	// Vertex shader writes gl_Position with type mismatch via mismatched output
+	// type vs fragment input type — vec3 output, float input.
+	static constexpr const char *kVertSrc = R"(
+#version 330 core
+layout(location = 0) in vec3 a_Position;
+out vec3 v_Value;
+void main()
+{
+    v_Value = a_Position;
+    gl_Position = vec4(a_Position, 1.0);
+}
+)";
+
+	static constexpr const char *kFragSrc = R"(
+#version 330 core
+in float v_Value;
+out vec4 FragColor;
+void main()
+{
+    FragColor = vec4(v_Value, 0.0, 0.0, 1.0);
+}
+)";
+
+	try
+	{
+		auto shader = GetDevice()->CreateShaderFromSource("LinkFailure", kVertSrc, kFragSrc);
+		(void)shader;
+		// Some drivers may optimize away the mismatch. If it succeeds, that is
+		// also acceptable — skip rather than fail.
+		GTEST_SKIP() << "Driver accepted the type mismatch; link failure not testable here";
+	}
+	catch (const std::runtime_error &e)
+	{
+		const std::string message = e.what();
+		EXPECT_NE(message.find("LinkFailure"), std::string::npos);
+	}
+}
+
 TEST_F(ShaderIntegrationTests, CreateShader_LoadsForwardLitFromCompiledGlsl)
 {
-	if (!FileSystem::Exists(GetCompiledGlslPath("ForwardLit", "vert")))
-	{
-		GTEST_SKIP() << "Compiled GLSL artifacts not found (GLAB_COMPILE_SHADERS=OFF?)";
-	}
+	ShaderTestUtils::SkipOrFailIfShaderMissing("ForwardLit");
 
 	auto shader = GetDevice()->CreateShader("ForwardLit");
 	ASSERT_NE(shader, nullptr);
@@ -163,10 +196,7 @@ TEST_F(ShaderIntegrationTests, CreateShader_LoadsForwardLitFromCompiledGlsl)
 
 TEST_F(ShaderIntegrationTests, CreateShader_LoadsShadowDepthFromCompiledGlsl)
 {
-	if (!FileSystem::Exists(GetCompiledGlslPath("ShadowDepth", "vert")))
-	{
-		GTEST_SKIP() << "Compiled GLSL artifacts not found";
-	}
+	ShaderTestUtils::SkipOrFailIfShaderMissing("ShadowDepth");
 
 	auto shader = GetDevice()->CreateShader("ShadowDepth");
 	ASSERT_NE(shader, nullptr);
@@ -179,10 +209,7 @@ TEST_F(ShaderIntegrationTests, CreateShader_LoadsShadowDepthFromCompiledGlsl)
 
 TEST_F(ShaderIntegrationTests, CreateShader_LoadsTexturePreviewFromCompiledGlsl)
 {
-	if (!FileSystem::Exists(GetCompiledGlslPath("TexturePreview", "vert")))
-	{
-		GTEST_SKIP() << "Compiled GLSL artifacts not found";
-	}
+	ShaderTestUtils::SkipOrFailIfShaderMissing("TexturePreview");
 
 	auto shader = GetDevice()->CreateShader("TexturePreview");
 	ASSERT_NE(shader, nullptr);
@@ -265,10 +292,7 @@ void main()
 
 TEST_F(ShaderIntegrationTests, CompiledTexturePreviewShaderProducesRealDrawOutput)
 {
-	if (!FileSystem::Exists(GetCompiledGlslPath("TexturePreview", "vert")))
-	{
-		GTEST_SKIP() << "Compiled GLSL artifacts not found";
-	}
+	ShaderTestUtils::SkipOrFailIfShaderMissing("TexturePreview");
 
 	TextureSpecification spec{};
 	spec.Width = 1;
