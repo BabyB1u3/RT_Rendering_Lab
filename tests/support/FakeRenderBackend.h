@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <utility>
 #include <vector>
@@ -283,12 +284,19 @@ public:
         LastUniformBinding = binding;
         LastUniformData = data;
         LastUniformSize = size;
+        ++UniformUploadCount;
+        LastUniformBytes.resize(size);
+
+        if (size > 0 && data)
+            std::memcpy(LastUniformBytes.data(), data, size);
     }
 
 public:
     uint32_t LastUniformBinding = 0;
     const void *LastUniformData = nullptr;
     uint32_t LastUniformSize = 0;
+    uint32_t UniformUploadCount = 0;
+    std::vector<std::byte> LastUniformBytes;
 
 private:
     std::string m_Name;

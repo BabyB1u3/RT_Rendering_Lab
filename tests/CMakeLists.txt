@@ -48,6 +48,7 @@ add_executable(rtrlab_contract_tests
     contract/core/TestEventBus.cpp
     contract/core/TestFileSystem.cpp
     contract/core/TestLayerStackLifecycle.cpp
+    contract/core/TestPassContracts.cpp
     contract/core/TestSceneRendererFlow.cpp
 )
 
@@ -66,6 +67,10 @@ if(GLAB_BACKEND_OPENGL)
         contract/opengl/TestRenderTarget.cpp
         support/GLTestContext.cpp
     )
+
+    if(TARGET CompileShaders)
+        add_dependencies(rtrlab_contract_tests_opengl CompileShaders)
+    endif()
 
     glab_configure_test_target(rtrlab_contract_tests_opengl)
 
