@@ -40,6 +40,41 @@ endif()
 
 gtest_discover_tests(rtrlab_unit_tests)
 
+add_executable(rtrlab_contract_tests
+    contract/TestEventBus.cpp
+    contract/TestLayerStackLifecycle.cpp
+)
+
+target_link_libraries(rtrlab_contract_tests
+    PRIVATE
+        RTRLabCore
+        GTest::gtest_main
+)
+
+target_include_directories(rtrlab_contract_tests
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/support
+        ${CMAKE_SOURCE_DIR}/src
+)
+
+if(GLAB_ENABLE_PCH)
+    target_precompile_headers(rtrlab_contract_tests PRIVATE
+        "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/pch.h>"
+    )
+endif()
+
+glab_enable_build_speedups(rtrlab_contract_tests)
+
+if(GLAB_ENABLE_WARNINGS)
+    glab_set_warnings(rtrlab_contract_tests)
+endif()
+
+if(GLAB_ENABLE_ASAN)
+    glab_enable_sanitizers(rtrlab_contract_tests)
+endif()
+
+gtest_discover_tests(rtrlab_contract_tests)
+
 if(GLAB_BACKEND_OPENGL)
     add_executable(rtrlab_integration_tests
         integration/TestShader.cpp
