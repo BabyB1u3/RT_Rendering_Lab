@@ -91,6 +91,13 @@ void Camera::RecalculateBasis()
     forward.z = std::sin(glm::radians(m_Yaw)) * std::cos(glm::radians(m_Pitch));
 
     m_Forward = glm::normalize(forward);
-    m_Right = glm::normalize(glm::cross(m_Forward, m_WorldUp));
+
+    // When forward aligns with world-up, the usual cross product degenerates to
+    // zero. Switch to a stable fallback axis so the basis stays well-defined.
+    glm::vec3 referenceUp = m_WorldUp;
+    if (std::abs(glm::dot(m_Forward, m_WorldUp)) > 0.999f)
+        referenceUp = glm::vec3(0.0f, 0.0f, 1.0f);
+
+    m_Right = glm::normalize(glm::cross(m_Forward, referenceUp));
     m_Up = glm::normalize(glm::cross(m_Right, m_Forward));
 }
