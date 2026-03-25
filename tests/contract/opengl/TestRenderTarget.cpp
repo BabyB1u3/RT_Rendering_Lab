@@ -46,6 +46,18 @@ TEST_F(RenderTargetIntegrationTests, BackBufferReturnsNullAttachments)
     EXPECT_EQ(target->GetDepthAttachment(), nullptr);
 }
 
+TEST_F(RenderTargetIntegrationTests, BackBufferResizeUpdatesDimensionsAndKeepsNullAttachments)
+{
+    auto target = GetDevice()->CreateRenderTargetBackBuffer(800, 600);
+
+    target->Resize(1024, 512);
+
+    EXPECT_EQ(target->GetWidth(), 1024u);
+    EXPECT_EQ(target->GetHeight(), 512u);
+    EXPECT_EQ(target->GetColorAttachment(), nullptr);
+    EXPECT_EQ(target->GetDepthAttachment(), nullptr);
+}
+
 TEST_F(RenderTargetIntegrationTests, BackBufferBeginEndRenderPassDoNotCrash)
 {
     auto target = GetDevice()->CreateRenderTargetBackBuffer(800, 600);
@@ -118,6 +130,46 @@ TEST_F(RenderTargetIntegrationTests, FromFramebufferDelegatesAttachments)
 
     EXPECT_NE(target->GetColorAttachment(), nullptr);
     EXPECT_NE(target->GetDepthAttachment(), nullptr);
+    EXPECT_EQ(target->GetColorAttachment(), fb->GetColorAttachment());
+    EXPECT_EQ(target->GetDepthAttachment(), fb->GetDepthAttachment());
+}
+
+TEST_F(RenderTargetIntegrationTests, FromFramebufferResizeDelegatesToFramebuffer)
+{
+    FramebufferSpecification spec{};
+    spec.Width = 128;
+    spec.Height = 96;
+    spec.Attachments = {
+        TextureFormat::RGBA8,
+        TextureFormat::Depth24Stencil8};
+
+    auto fb = GetDevice()->CreateFramebuffer(spec);
+    auto target = GetDevice()->CreateRenderTargetFromFramebuffer(fb);
+
+    target->Resize(300, 200);
+
+    EXPECT_EQ(fb->GetSpecification().Width, 300u);
+    EXPECT_EQ(fb->GetSpecification().Height, 200u);
+    EXPECT_EQ(target->GetWidth(), 300u);
+    EXPECT_EQ(target->GetHeight(), 200u);
+}
+
+TEST_F(RenderTargetIntegrationTests, FromFramebufferTracksFramebufferResizes)
+{
+    FramebufferSpecification spec{};
+    spec.Width = 40;
+    spec.Height = 24;
+    spec.Attachments = {
+        TextureFormat::RGBA8,
+        TextureFormat::Depth24Stencil8};
+
+    auto fb = GetDevice()->CreateFramebuffer(spec);
+    auto target = GetDevice()->CreateRenderTargetFromFramebuffer(fb);
+
+    fb->Resize(64, 48);
+
+    EXPECT_EQ(target->GetWidth(), 64u);
+    EXPECT_EQ(target->GetHeight(), 48u);
     EXPECT_EQ(target->GetColorAttachment(), fb->GetColorAttachment());
     EXPECT_EQ(target->GetDepthAttachment(), fb->GetDepthAttachment());
 }

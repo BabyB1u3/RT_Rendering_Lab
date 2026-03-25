@@ -24,7 +24,9 @@ required when features are added or bugs are fixed.
 The current repository already has useful early tests:
 
 - unit tests under `tests/unit`
-- OpenGL integration tests under `tests/integration`
+- shared contract tests under `tests/contract/core`
+- OpenGL contract tests under `tests/contract/opengl`
+- OpenGL integration tests under `tests/integration/opengl`
 - common helpers under `tests/support`
 
 These tests are valuable, but they mostly reflect the needs of the project's
@@ -248,6 +250,7 @@ Suggested future CMake targets:
 
 - `rtrlab_unit_tests`
 - `rtrlab_contract_tests`
+- `rtrlab_contract_tests_opengl`
 - `rtrlab_integration_tests_opengl`
 - `rtrlab_integration_tests_metal`
 - `rtrlab_snapshot_tests_opengl`
@@ -1110,7 +1113,9 @@ It should aim for:
 ## References
 
 - `tests/unit`
-- `tests/integration`
+- `tests/contract/core`
+- `tests/contract/opengl`
+- `tests/integration/opengl`
 - `tests/support`
 - `src/renderer/SceneRenderer.cpp`
 - `src/renderer/passes/ForwardPass.cpp`

@@ -156,9 +156,14 @@ cmake --build build/windows-vs-debug
 ctest --test-dir build/windows-vs-debug
 ```
 
-Test executables: `rtrlab_unit_tests`, `rtrlab_integration_tests`.
+Test executables:
 
-Integration tests create a hidden OpenGL context — they require a GPU or software renderer.
+- `rtrlab_unit_tests`
+- `rtrlab_contract_tests`
+- `rtrlab_contract_tests_opengl`
+- `rtrlab_integration_tests_opengl`
+
+OpenGL contract and integration tests create a hidden OpenGL context — they require a GPU or software renderer.
 
 ### CMake Options
 
