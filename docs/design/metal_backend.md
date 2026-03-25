@@ -325,12 +325,16 @@ that stores vertex/index buffer references and the `MTLVertexDescriptor`.
 | `m_IndexBuffer` | `Ref<IIndexBuffer>` | Bound index buffer |
 
 **`Bind()` behavior**: Unlike OpenGL, `Bind()` does not issue GPU commands. Instead,
-it registers this VAO as the "current" on the `MetalRenderCommand`. When
-`DrawIndexed()` is called, the render command:
+it registers this VAO as the "current" on the `MetalRenderCommand`.
 
-1. Reads the current VAO's `MTLVertexDescriptor` to look up / create the PSO.
+The current RHI still passes an explicit VAO to `DrawIndexed(vao, count)`, so the
+Metal implementation treats that parameter as authoritative when present and also
+refreshes the "current VAO" cache from it. `DrawArrays()` uses the cached VAO when
+one has been bound previously. In both cases, the render command:
+
+1. Reads the active VAO's `MTLVertexDescriptor` to look up / create the PSO.
 2. Calls `[encoder setVertexBuffer:offset:atIndex:]` for each vertex buffer.
-3. Calls `drawIndexedPrimitives` with the index buffer.
+3. Uses the VAO's index buffer for indexed draws.
 
 **`AddVertexBuffer()` implementation**: Translates `BufferLayout` elements to
 `MTLVertexAttributeDescriptor` entries:
@@ -386,8 +390,9 @@ in `SetData()` and `CreateFromFile()`.
 
 **Mipmap generation**: Use `MTLBlitCommandEncoder.generateMipmaps(for:)`.
 
-**`Bind(slot)`**: Does not directly bind. Instead, stores the slot; the render
-command calls `[encoder setFragmentTexture:atIndex:]` before draw.
+**`Bind(slot)`**: No-op in the current RHI. Texture binding is driven by
+`IRenderCommand::SetTexture(slot, texture)`, and the render command applies the
+native Metal texture/sampler state before the draw call.
 
 ### 4.8 `MetalFramebuffer` : `IFramebuffer`
 

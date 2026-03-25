@@ -2,6 +2,7 @@
 
 #import <Metal/Metal.h>
 
+#include <cstring>
 #include <stdexcept>
 
 #include "core/Logger.h"
@@ -67,6 +68,11 @@ MetalVertexBuffer::~MetalVertexBuffer() = default;
 
 void MetalVertexBuffer::SetData(const void *data, uint32_t size, uint32_t offset)
 {
+	if (offset + size > m_AllocatedSize)
+	{
+		throw std::out_of_range("MetalVertexBuffer::SetData: write exceeds allocated buffer size");
+	}
+
 	uint8_t *dst = static_cast<uint8_t *>(m_Impl->buffer.contents);
 	if (!dst)
 	{

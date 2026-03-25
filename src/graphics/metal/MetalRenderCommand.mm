@@ -134,8 +134,7 @@ void MetalRenderCommand::BeginRenderPass(const Ref<IRenderTarget> &target,
 	}
 	else if (auto colorAtt = target->GetColorAttachment(0))
 	{
-		colorTex = (__bridge id<MTLTexture>)
-		    static_cast<MetalTexture2D *>(colorAtt.get())->GetMTLTexture();
+		colorTex = (__bridge id<MTLTexture>)AsMetal<MetalTexture2D>(colorAtt)->GetMTLTexture();
 		m_Impl->currentColorFormat = colorTex ? colorTex.pixelFormat : MTLPixelFormatInvalid;
 	}
 
@@ -153,8 +152,7 @@ void MetalRenderCommand::BeginRenderPass(const Ref<IRenderTarget> &target,
 
 	if (auto depthAtt = target->GetDepthAttachment())
 	{
-		depthTex = (__bridge id<MTLTexture>)
-		    static_cast<MetalTexture2D *>(depthAtt.get())->GetMTLTexture();
+		depthTex = (__bridge id<MTLTexture>)AsMetal<MetalTexture2D>(depthAtt)->GetMTLTexture();
 	}
 
 	if (depthTex)
@@ -243,7 +241,18 @@ void MetalRenderCommand::DrawIndexed(const Ref<IVertexArray> &vao, uint32_t inde
 		return;
 	}
 
-	auto *metalVAO = AsMetal<MetalVertexArray>(vao);
+	MetalVertexArray *metalVAO = m_Impl->currentVAO;
+	if (vao)
+	{
+		metalVAO = AsMetal<MetalVertexArray>(vao);
+		m_Impl->currentVAO = metalVAO;
+	}
+
+	if (!metalVAO)
+	{
+		LOG_WARN("MetalRenderCommand::DrawIndexed: no active vertex array");
+		return;
+	}
 
 	// ── Pipeline state object ─────────────────────────────────────────────────
 	void *pso = m_Impl->currentShader->GetOrCreatePSO(
@@ -303,10 +312,14 @@ void MetalRenderCommand::DrawArrays(uint32_t /*mode*/, uint32_t first, uint32_t 
 		return;
 	}
 
-	// Pipeline state + depth state (no VAO / vertex descriptor for array draws)
+	void *vertexDescriptor = nullptr;
+	if (m_Impl->currentVAO)
+		vertexDescriptor = m_Impl->currentVAO->GetMTLVertexDescriptor();
+
+	// Pipeline state + depth state
 	void *pso = m_Impl->currentShader->GetOrCreatePSO(
 	    (__bridge void *)m_Impl->device,
-	    nullptr, // no vertex descriptor
+	    vertexDescriptor,
 	    static_cast<uint32_t>(m_Impl->currentColorFormat),
 	    static_cast<uint32_t>(m_Impl->currentDepthFormat),
 	    m_Impl->currentPipelineState);
@@ -317,6 +330,18 @@ void MetalRenderCommand::DrawArrays(uint32_t /*mode*/, uint32_t first, uint32_t 
 	id<MTLDepthStencilState> ds = GetOrCreateDepthState(
 	    m_Impl->device, m_Impl->depthStateCache, m_Impl->currentPipelineState);
 	[m_Impl->encoder setDepthStencilState:ds];
+
+	if (m_Impl->currentVAO)
+	{
+		const auto &vbs = m_Impl->currentVAO->GetVertexBuffers();
+		for (uint32_t slot = 0; slot < static_cast<uint32_t>(vbs.size()); ++slot)
+		{
+			auto *vb = AsMetal<MetalVertexBuffer>(vbs[slot]);
+			[m_Impl->encoder setVertexBuffer:(__bridge id<MTLBuffer>)vb->GetMTLBuffer()
+			                          offset:vb->GetCurrentOffset()
+			                         atIndex:slot];
+		}
+	}
 
 	m_Impl->currentShader->FlushUniforms((__bridge void *)m_Impl->encoder);
 

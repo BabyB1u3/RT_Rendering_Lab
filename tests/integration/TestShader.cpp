@@ -2,7 +2,7 @@
 #include <memory>
 #include <glm/glm.hpp>
 
-#include "GlTestContext.h"
+#include "GLTestContext.h"
 #include "core/FileSystem.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/interface/IShader.h"

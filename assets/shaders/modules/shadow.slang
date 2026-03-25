@@ -9,6 +9,7 @@ module shadow;
 /// Returns 0.0 (fully lit) to 1.0 (fully shadowed).
 public float ComputeShadow(
     Sampler2D    shadowMap,
+    float2       shadowMapTexelSize,
     float4       lightSpacePosition,
     float3       normal,
     float3       lightDir)
@@ -23,9 +24,7 @@ public float ComputeShadow(
     float bias = max(0.0001, 0.002 * (1.0 - dot(normalize(normal), normalize(-lightDir))));
 
     float shadow = 0.0;
-    int2 texSize;
-    shadowMap.GetDimensions(texSize.x, texSize.y);
-    float2 texelSize = 1.0 / float2(texSize);
+    float2 texelSize = shadowMapTexelSize;
 
     for (int x = -1; x <= 1; x++)
     {

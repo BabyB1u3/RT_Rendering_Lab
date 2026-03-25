@@ -1,4 +1,4 @@
-#include "GlTestContext.h"
+#include "GLTestContext.h"
 
 #include <stdexcept>
 

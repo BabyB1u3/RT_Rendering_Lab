@@ -2,6 +2,9 @@
 
 #import <Metal/Metal.h>
 
+#include <algorithm>
+#include <cmath>
+#include <cstring>
 #include <stdexcept>
 #include <vector>
 
@@ -159,6 +162,8 @@ Ref<MetalTexture2D> MetalTexture2D::CreateFromFile(const std::string &path, bool
 }
 
 // ─── ITexture2D ───────────────────────────────────────────────────────────────
+
+MetalTexture2D::~MetalTexture2D() = default;
 
 void MetalTexture2D::SetData(const void *data)
 {

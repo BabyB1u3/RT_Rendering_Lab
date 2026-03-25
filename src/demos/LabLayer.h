@@ -25,6 +25,7 @@ class LabLayer : public Layer
 {
 public:
     LabLayer();
+    ~LabLayer() override;
 
     void OnAttach() override;
     void OnDetach() override;

@@ -112,6 +112,7 @@ void ForwardPass::Execute(const RenderContext &ctx)
     //   float u_SpecularPower       offset 316
     //   float u_AmbientStrength     offset 320
     //   bool(int) u_UseAlbedoMap    offset 324
+    //   vec2 u_ShadowMapTexelSize   offset 328
     struct alignas(16) ForwardParams
     {
         glm::mat4 ViewProjection;      // 0
@@ -128,7 +129,7 @@ void ForwardPass::Execute(const RenderContext &ctx)
         float SpecularPower;           // 316
         float AmbientStrength;         // 320
         int32_t UseAlbedoMap;          // 324  (std140 bool = 4 bytes)
-        float _pad2[2]{};              // 328  (pad to 336 = multiple of 16)
+        glm::vec2 ShadowMapTexelSize;  // 328
     };
 
     ForwardParams params{};
@@ -142,6 +143,9 @@ void ForwardPass::Execute(const RenderContext &ctx)
     // P4: Explicit texture binding — shadow map at slot 1
     const auto &shadow = ctx.Resources.ShadowMap ? ctx.Resources.ShadowMap : m_FallbackShadowMap;
     RenderCommand::SetTexture(1, shadow);
+    params.ShadowMapTexelSize = {
+        1.0f / static_cast<float>(shadow->GetWidth()),
+        1.0f / static_cast<float>(shadow->GetHeight())};
 
     for (const auto &item : scene.RenderItems)
     {

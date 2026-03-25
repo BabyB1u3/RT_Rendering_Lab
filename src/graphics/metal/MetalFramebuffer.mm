@@ -2,10 +2,13 @@
 
 #import <Metal/Metal.h>
 
+#include <algorithm>
+#include <cstring>
 #include <stdexcept>
 
 #include "core/Logger.h"
 #include "graphics/GraphicsDevice.h"
+#include "graphics/metal/MetalCast.h"
 #include "graphics/metal/MetalGraphicsDevice.h"
 #include "graphics/metal/MetalTexture2D.h"
 #include "graphics/metal/MetalTypes.h"
@@ -49,7 +52,7 @@ int MetalFramebuffer::ReadPixel(uint32_t attachmentIndex, int x, int y) const
 	if (attachmentIndex >= m_ColorAttachments.size())
 		return -1;
 
-	auto *metalTex      = static_cast<MetalTexture2D *>(m_ColorAttachments[attachmentIndex].get());
+	auto *metalTex      = AsMetal<MetalTexture2D>(m_ColorAttachments[attachmentIndex]);
 	id<MTLTexture> tex  = (__bridge id<MTLTexture>)metalTex->GetMTLTexture();
 	auto *dev           = static_cast<MetalGraphicsDevice *>(GetDevice().get());
 	id<MTLDevice>       device = (__bridge id<MTLDevice>)dev->GetMTLDevice();

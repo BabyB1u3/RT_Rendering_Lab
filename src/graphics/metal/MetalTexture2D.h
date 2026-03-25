@@ -25,8 +25,8 @@ public:
 	TextureFormat GetFormat() const override { return m_Spec.Format; }
 
 	/// No-op in Metal — binding is driven by MetalRenderCommand::SetTexture.
-	void Bind(uint32_t slot = 0) const override {}
-	void Unbind(uint32_t slot = 0) const override {}
+	void Bind(uint32_t /*slot*/ = 0) const override {}
+	void Unbind(uint32_t /*slot*/ = 0) const override {}
 
 	void SetData(const void *data) override;
 

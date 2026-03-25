@@ -35,6 +35,15 @@ void ImGuiLayer::OnAttach()
     GLFWwindow *window = Application::Get().GetWindow().GetNativeHandle();
 #ifdef GLAB_BACKEND_METAL
     ImGui_ImplGlfw_InitForOther(window, true);
+    // Phase 1 keeps ImGui renderer-less on Metal, but NewFrame still expects
+    // the font atlas to exist. Build it CPU-side so UI code can run safely.
+    unsigned char* pixels = nullptr;
+    int width = 0;
+    int height = 0;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    (void)pixels;
+    (void)width;
+    (void)height;
 #else
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     // GLSL 460 matches the OpenGL 4.6 core context created in Window.
