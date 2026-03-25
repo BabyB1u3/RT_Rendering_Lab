@@ -23,7 +23,7 @@ protected:
 	inline static Scope<GlTestContext> s_Context;
 };
 
-static const char* kVertexSrc = R"(
+static const char *kVertexSrc = R"(
 #version 330 core
 layout(location = 0) in vec3 a_Position;
 uniform mat4 u_MVP;
@@ -33,7 +33,7 @@ void main()
 }
 )";
 
-static const char* kFragmentSrc = R"(
+static const char *kFragmentSrc = R"(
 #version 330 core
 out vec4 FragColor;
 uniform vec4 u_Color;
@@ -45,10 +45,10 @@ void main()
 
 namespace
 {
-std::filesystem::path GetCompiledGlslPath(const std::string& shaderName, const std::string& stage)
-{
-	return FileSystem::GetCompiledShaderDir() / "glsl" / (shaderName + "." + stage + ".glsl");
-}
+	std::filesystem::path GetCompiledGlslPath(const std::string &shaderName, const std::string &stage)
+	{
+		return FileSystem::GetCompiledShaderDir() / "glsl" / (shaderName + "." + stage + ".glsl");
+	}
 }
 
 TEST_F(ShaderIntegrationTests, CreateFromSourceProducesValidProgram)
@@ -71,6 +71,19 @@ TEST_F(ShaderIntegrationTests, BindAndUniformSettersDoNotCrash)
 	shader->Unbind();
 
 	SUCCEED();
+}
+
+TEST_F(ShaderIntegrationTests, InvalidSourceThrowsReadableCompileError)
+{
+	EXPECT_THROW(
+		{
+			auto shader = GetDevice()->CreateShaderFromSource(
+				"BrokenShader",
+				"#version 330 core\nthis is not valid glsl",
+				kFragmentSrc);
+			(void)shader;
+		},
+		std::runtime_error);
 }
 
 TEST_F(ShaderIntegrationTests, CreateShader_LoadsForwardLitFromCompiledGlsl)

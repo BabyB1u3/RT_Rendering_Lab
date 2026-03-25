@@ -29,8 +29,7 @@ TEST_F(FramebufferIntegrationTests, CreateFramebufferWithColorAttachments)
     spec.Width = 128;
     spec.Height = 128;
     spec.Attachments = {
-        TextureFormat::RGBA8
-    };
+        TextureFormat::RGBA8};
 
     auto framebuffer = GetDevice()->CreateFramebuffer(spec);
 
@@ -47,8 +46,7 @@ TEST_F(FramebufferIntegrationTests, CreateFramebufferWithDepthAttachments)
     spec.Width = 128;
     spec.Height = 128;
     spec.Attachments = {
-        TextureFormat::Depth
-    };
+        TextureFormat::Depth};
 
     auto framebuffer = GetDevice()->CreateFramebuffer(spec);
 
@@ -66,8 +64,7 @@ TEST_F(FramebufferIntegrationTests, CreateFramebufferWithColorAndDepthAttachment
     spec.Height = 128;
     spec.Attachments = {
         TextureFormat::RGBA8,
-        TextureFormat::Depth24Stencil8
-    };
+        TextureFormat::Depth24Stencil8};
 
     auto framebuffer = GetDevice()->CreateFramebuffer(spec);
 
@@ -86,8 +83,7 @@ TEST_F(FramebufferIntegrationTests, ResizeUpdatesAttachmentSizes)
     spec.Height = 64;
     spec.Attachments = {
         TextureFormat::RGBA8,
-        TextureFormat::Depth24Stencil8
-    };
+        TextureFormat::Depth24Stencil8};
 
     auto framebuffer = GetDevice()->CreateFramebuffer(spec);
     framebuffer->Resize(256, 128);
@@ -108,11 +104,29 @@ TEST_F(FramebufferIntegrationTests, BindAndUnbindDoNotCrash)
     spec.Height = 32;
     spec.Attachments = {
         TextureFormat::RGBA8,
-        TextureFormat::Depth24Stencil8
-    };
+        TextureFormat::Depth24Stencil8};
 
     auto framebuffer = GetDevice()->CreateFramebuffer(spec);
 
     EXPECT_NO_THROW(framebuffer->Bind());
     EXPECT_NO_THROW(framebuffer->Unbind());
+}
+
+TEST_F(FramebufferIntegrationTests, RedIntegerAttachmentCanBeClearedAndReadBack)
+{
+    FramebufferSpecification spec{};
+    spec.Width = 8;
+    spec.Height = 8;
+    spec.Attachments = {
+        TextureFormat::RedInteger,
+        TextureFormat::Depth24Stencil8};
+
+    auto framebuffer = GetDevice()->CreateFramebuffer(spec);
+
+    ASSERT_NE(framebuffer, nullptr);
+
+    framebuffer->ClearAttachment(0, 1337);
+
+    EXPECT_EQ(framebuffer->ReadPixel(0, 4, 4), 1337);
+    EXPECT_EQ(framebuffer->ReadPixel(0, 0, 0), 1337);
 }

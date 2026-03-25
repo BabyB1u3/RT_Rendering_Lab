@@ -82,6 +82,8 @@ if(GLAB_BACKEND_OPENGL)
         integration/TestTexture.cpp
         integration/TestFramebuffer.cpp
         integration/TestRenderTarget.cpp
+        integration/TestRenderResults.cpp
+        integration/TestSceneRenderer.cpp
 
         support/GLTestContext.cpp
     )
