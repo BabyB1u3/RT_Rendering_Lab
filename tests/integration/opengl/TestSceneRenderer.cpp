@@ -9,6 +9,8 @@
 #include "GLTestContext.h"
 #include "core/FileSystem.h"
 #include "graphics/Framebuffer.h"
+#include "graphics/Material.h"
+#include "graphics/MeshFactory.h"
 #include "graphics/interface/IFramebuffer.h"
 #include "renderer/passes/ForwardPass.h"
 #include "scene/Camera.h"
@@ -133,5 +135,69 @@ TEST_F(SceneRendererIntegrationTests, ShadowMapModePresentsClearedShadowPreview)
     EXPECT_NEAR(pixel[0], 255, 1);
     EXPECT_NEAR(pixel[1], 255, 1);
     EXPECT_NEAR(pixel[2], 255, 1);
+    EXPECT_EQ(pixel[3], 255);
+}
+
+TEST_F(SceneRendererIntegrationTests, FinalColorModePresentsRenderedSceneColor)
+{
+    SkipIfCompiledShadersMissing();
+
+    SceneRendererSpecification spec;
+    spec.ClearColor = {0.0f, 0.0f, 0.0f, 1.0f};
+
+    SceneRenderer renderer(64, 64, spec);
+    renderer.SetOutputMode(SceneRendererOutput::FinalColor);
+
+    auto material = CreateRef<Material>();
+    material->SetVec3("u_Albedo", {0.0f, 1.0f, 0.0f});
+    material->SetFloat("u_AmbientStrength", 1.0f);
+    material->SetFloat("u_SpecularPower", 1.0f);
+
+    SceneData scene;
+    scene.MainDirectionalLight.Color = {0.0f, 0.0f, 0.0f};
+    scene.RenderItems.push_back({
+        MeshFactory::CreateFullscreenQuad(),
+        material,
+        {}
+    });
+
+    Camera camera;
+
+    ASSERT_NO_THROW(renderer.Render(scene, camera));
+
+    const auto pixel = ReadDefaultFramebufferPixel(32, 32);
+    EXPECT_LT(pixel[0], 20);
+    EXPECT_GT(pixel[1], 200);
+    EXPECT_LT(pixel[2], 20);
+    EXPECT_EQ(pixel[3], 255);
+}
+
+TEST_F(SceneRendererIntegrationTests, ShadowMapModePresentsRenderedShadowDepth)
+{
+    SkipIfCompiledShadersMissing();
+
+    SceneRenderer renderer(64, 64);
+    renderer.SetOutputMode(SceneRendererOutput::ShadowMap);
+
+    auto material = CreateRef<Material>();
+    material->SetVec3("u_Albedo", {1.0f, 1.0f, 1.0f});
+
+    RenderItem item;
+    item.Mesh = MeshFactory::CreateCube();
+    item.Material = material;
+    item.Transform.Scale = {4.0f, 4.0f, 4.0f};
+
+    SceneData scene;
+    scene.RenderItems.push_back(item);
+
+    Camera camera;
+
+    ASSERT_NO_THROW(renderer.Render(scene, camera));
+
+    const auto pixel = ReadDefaultFramebufferPixel(32, 32);
+    EXPECT_EQ(pixel[0], pixel[1]);
+    EXPECT_EQ(pixel[1], pixel[2]);
+    EXPECT_LT(pixel[0], 250);
+    EXPECT_GT(pixel[0], 0);
     EXPECT_EQ(pixel[3], 255);
 }
