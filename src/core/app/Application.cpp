@@ -70,6 +70,9 @@ void Application::Run()
         // and some drivers return a 0×0 framebuffer which would cause GL errors.
         if (!m_Minimized)
         {
+            // P1: Begin frame — Metal/Vulkan create command buffer here.
+            RenderCommand::BeginFrame();
+
             // Phase 1: logic update (input, physics, animation, etc.)
             for (auto &layer : m_LayerStack)
                 layer->OnUpdate(Time::GetDeltaTime());
@@ -84,6 +87,9 @@ void Application::Run()
             for (auto &layer : m_LayerStack)
                 layer->OnImGuiRender();
             m_ImGuiLayer->End();
+
+            // P1: End frame — Metal/Vulkan commit command buffer and present here.
+            RenderCommand::EndFrame();
         }
 
         m_Window->SwapBuffers();

@@ -22,7 +22,7 @@
 #include "scene/SceneData.h"
 
 ForwardPass::ForwardPass(uint32_t width, uint32_t height, bool renderToTarget,
-                         const glm::vec4& clearColor)
+                         const glm::vec4 &clearColor)
     : m_Width(width), m_Height(height), m_RenderToTarget(renderToTarget), m_ClearColor(clearColor)
 {
     if (m_RenderToTarget)
@@ -35,6 +35,7 @@ ForwardPass::ForwardPass(uint32_t width, uint32_t height, bool renderToTarget,
             {TextureFormat::Depth24Stencil8}};
 
         m_Framebuffer = GetDevice()->CreateFramebuffer(fbSpec);
+        m_RenderTarget = GetDevice()->CreateRenderTargetFromFramebuffer(m_Framebuffer);
     }
 
     m_Shader = GetDevice()->CreateShader("ForwardLit");
@@ -62,25 +63,39 @@ void ForwardPass::Resize(unsigned int width, unsigned int height)
         m_Framebuffer->Resize(width, height);
 }
 
-void ForwardPass::Execute(const RenderContext& ctx)
+void ForwardPass::Execute(const RenderContext &ctx)
 {
     assert(m_Shader && "ForwardPass shader is null");
 
+    // Determine render target: own FBO or back buffer from context
     auto target = m_RenderToTarget
-        ? GetDevice()->CreateRenderTargetFromFramebuffer(m_Framebuffer)
-        : GetDevice()->CreateRenderTargetBackBuffer(m_Width, m_Height);
-    target->Bind();
+                      ? m_RenderTarget
+                      : ctx.Resources.BackBuffer;
 
-    RenderCommand::EnableBlend(false);
-    RenderCommand::EnableDepthTest(true);
-    RenderCommand::EnableCullFace(true);
+    // P2: Explicit render pass descriptor — clear color + depth
+    RenderPassDescriptor rpDesc;
+    rpDesc.ColorLoadAction = LoadAction::Clear;
+    rpDesc.ColorStoreAction = StoreAction::Store;
+    rpDesc.ClearColor = m_ClearColor;
+    rpDesc.DepthLoadAction = LoadAction::Clear;
+    rpDesc.DepthStoreAction = StoreAction::Store;
+    rpDesc.ClearDepth = 1.0f;
+
+    RenderCommand::BeginRenderPass(target, rpDesc);
+
+    // P3: Pipeline state — opaque geometry, back-face culling
+    PipelineState pso;
+    pso.DepthTestEnabled = true;
+    pso.DepthWriteEnabled = true;
+    pso.BlendEnabled = false;
+    pso.CullFaceEnabled = true;
+    pso.CullFront = false;
+    RenderCommand::SetPipelineState(pso);
 
     RenderCommand::SetViewport(0, 0, target->GetWidth(), target->GetHeight());
-    RenderCommand::SetClearColor(m_ClearColor);
-    RenderCommand::Clear(true, true, false);
 
-    const auto& camera = ctx.View.Camera;
-    const auto& scene = ctx.View.Scene;
+    const auto &camera = ctx.View.Camera;
+    const auto &scene = ctx.View.Scene;
 
     m_Shader->Bind();
 
@@ -99,34 +114,34 @@ void ForwardPass::Execute(const RenderContext& ctx)
     //   bool(int) u_UseAlbedoMap    offset 324
     struct alignas(16) ForwardParams
     {
-        glm::mat4 ViewProjection;       // 0
-        glm::mat4 Model;                // 64
-        glm::mat4 NormalMatrix;         // 128
-        glm::mat4 LightViewProjection;  // 192
-        glm::vec3 CameraPosition;       // 256
-        float     _pad0{};              // 268
-        glm::vec3 LightDirection;       // 272
-        float     _pad1{};              // 284
-        glm::vec3 LightColor;           // 288
-        float     LightIntensity;       // 300
-        glm::vec3 Albedo;               // 304
-        float     SpecularPower;        // 316
-        float     AmbientStrength;      // 320
-        int32_t   UseAlbedoMap;         // 324  (std140 bool = 4 bytes)
-        float     _pad2[2]{};           // 328  (pad to 336 = multiple of 16)
+        glm::mat4 ViewProjection;      // 0
+        glm::mat4 Model;               // 64
+        glm::mat4 NormalMatrix;        // 128
+        glm::mat4 LightViewProjection; // 192
+        glm::vec3 CameraPosition;      // 256
+        float _pad0{};                 // 268
+        glm::vec3 LightDirection;      // 272
+        float _pad1{};                 // 284
+        glm::vec3 LightColor;          // 288
+        float LightIntensity;          // 300
+        glm::vec3 Albedo;              // 304
+        float SpecularPower;           // 316
+        float AmbientStrength;         // 320
+        int32_t UseAlbedoMap;          // 324  (std140 bool = 4 bytes)
+        float _pad2[2]{};              // 328  (pad to 336 = multiple of 16)
     };
 
     ForwardParams params{};
-    params.ViewProjection      = camera.GetViewProjection();
+    params.ViewProjection = camera.GetViewProjection();
     params.LightViewProjection = ctx.Resources.LightViewProjection;
-    params.CameraPosition      = camera.GetPosition();
-    params.LightDirection      = scene.MainDirectionalLight.Direction;
-    params.LightColor          = scene.MainDirectionalLight.Color;
-    params.LightIntensity      = scene.MainDirectionalLight.Intensity;
+    params.CameraPosition = camera.GetPosition();
+    params.LightDirection = scene.MainDirectionalLight.Direction;
+    params.LightColor = scene.MainDirectionalLight.Color;
+    params.LightIntensity = scene.MainDirectionalLight.Intensity;
 
-    // Samplers: ShadowMap at binding 1, AlbedoMap at binding 2
+    // P4: Explicit texture binding — shadow map at slot 1
     const auto &shadow = ctx.Resources.ShadowMap ? ctx.Resources.ShadowMap : m_FallbackShadowMap;
-    shadow->Bind(1);
+    RenderCommand::SetTexture(1, shadow);
 
     for (const auto &item : scene.RenderItems)
     {
@@ -137,18 +152,19 @@ void ForwardPass::Execute(const RenderContext& ctx)
         }
 
         glm::mat4 model = item.Transform.GetMatrix();
-        params.Model        = model;
-        params.NormalMatrix  = glm::transpose(glm::inverse(model));
+        params.Model = model;
+        params.NormalMatrix = glm::transpose(glm::inverse(model));
 
         // Read material properties
-        params.Albedo           = item.Material->GetVec3("u_Albedo", glm::vec3(1.0f));
-        params.SpecularPower    = item.Material->GetFloat("u_SpecularPower", 32.0f);
-        params.AmbientStrength  = item.Material->GetFloat("u_AmbientStrength", 0.1f);
+        params.Albedo = item.Material->GetVec3("u_Albedo", glm::vec3(1.0f));
+        params.SpecularPower = item.Material->GetFloat("u_SpecularPower", 32.0f);
+        params.AmbientStrength = item.Material->GetFloat("u_AmbientStrength", 0.1f);
 
         auto albedoTex = item.Material->GetTexture(TextureSlot::Albedo);
         if (albedoTex)
         {
-            albedoTex->Bind(2);
+            // P4: Explicit texture binding — albedo at slot 2
+            RenderCommand::SetTexture(2, albedoTex);
             params.UseAlbedoMap = 1;
         }
         else
@@ -160,5 +176,5 @@ void ForwardPass::Execute(const RenderContext& ctx)
         RenderCommand::DrawIndexed(item.Mesh->GetVertexArray());
     }
 
-    target->Unbind();
+    RenderCommand::EndRenderPass();
 }

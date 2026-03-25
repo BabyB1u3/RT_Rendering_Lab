@@ -7,31 +7,40 @@
 /// GetDevice()->GetRenderCommand(). Render passes call these instead of
 /// interacting with the backend directly.
 
+#include <cstdint>
+
 #include <glm/glm.hpp>
 
 #include "core/Base.h"
+#include "graphics/RenderTypes.h"
 
+class IRenderTarget;
+class ITexture2D;
 class IVertexArray;
 
 class RenderCommand
 {
 public:
-    /// Set initial GL state: enable blending (src alpha, one-minus-src alpha) and depth test.
-    static void Init();
+	/// One-time initialization (e.g. default GL state).
+	static void Init();
 
-    static void SetClearColor(const glm::vec4 &color);
-    /// Clear the active framebuffer. Each flag controls one buffer bit.
-    static void Clear(bool color = true, bool depth = true, bool stencil = false);
+	// --- Frame lifecycle ---
+	static void BeginFrame();
+	static void EndFrame();
 
-    static void SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height);
+	// --- Render pass ---
+	static void BeginRenderPass(const Ref<IRenderTarget> &target, const RenderPassDescriptor &desc);
+	static void EndRenderPass();
 
-    static void EnableDepthTest(bool enabled);
-    static void EnableBlend(bool enabled);
-    static void EnableCullFace(bool enabled);
-    /// @param front  true = cull front faces (used in shadow pass), false = cull back faces.
-    static void SetCullFace(bool front);
+	// --- Pipeline state ---
+	static void SetPipelineState(const PipelineState &state);
 
-    /// Draw indexed triangles. If indexCount is 0, uses the full index buffer.
-    static void DrawIndexed(const Ref<IVertexArray> &vao, uint32_t indexCount = 0);
-    static void DrawArrays(uint32_t mode, uint32_t first, uint32_t count);
+	static void SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height);
+
+	// --- Resource binding ---
+	static void SetTexture(uint32_t slot, const Ref<ITexture2D> &texture);
+
+	/// Draw indexed triangles. If indexCount is 0, uses the full index buffer.
+	static void DrawIndexed(const Ref<IVertexArray> &vao, uint32_t indexCount = 0);
+	static void DrawArrays(uint32_t mode, uint32_t first, uint32_t count);
 };

@@ -25,6 +25,7 @@
 
 class Camera;
 class IFramebuffer;
+class IRenderTarget;
 class ITexture2D;
 class ShadowPass;
 class ForwardPass;
@@ -69,4 +70,7 @@ private:
     Ref<ShadowPass> m_ShadowPass;
     Ref<ForwardPass> m_ForwardPass;
     Ref<TexturePreviewPass> m_TexturePreviewPass;
+
+    /// Cached back buffer render target (P5). Resized on viewport change.
+    Ref<IRenderTarget> m_BackBufferTarget;
 };

@@ -16,6 +16,7 @@
 #include "RenderPass.h"
 
 class IFramebuffer;
+class IRenderTarget;
 class IShader;
 class ITexture2D;
 
@@ -25,7 +26,7 @@ public:
     ShadowPass(uint32_t width, uint32_t height);
 
     void Resize(unsigned int width, unsigned int height) override;
-    void Execute(const RenderContext& ctx) override;
+    void Execute(const RenderContext &ctx) override;
 
     Ref<IFramebuffer> GetFramebuffer() const { return m_Framebuffer; }
     Ref<ITexture2D> GetDepthTexture() const;
@@ -35,5 +36,6 @@ private:
     uint32_t m_Height = 0;
 
     Ref<IFramebuffer> m_Framebuffer;
+    Ref<IRenderTarget> m_RenderTarget; ///< Cached (P5)
     Ref<IShader> m_Shader;
 };
