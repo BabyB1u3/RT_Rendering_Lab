@@ -3,6 +3,7 @@
 /// @file GraphicsInterfaces.h
 /// @brief Convenience header — includes all graphics abstraction interfaces.
 
+#include "graphics/RenderTypes.h"
 #include "ITexture2D.h"
 #include "IVertexBuffer.h"
 #include "IIndexBuffer.h"

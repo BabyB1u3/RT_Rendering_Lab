@@ -57,4 +57,11 @@ public:
 
 	// --- Render Commands ---
 	virtual Ref<IRenderCommand> GetRenderCommand() = 0;
+
+	/// Called when the window framebuffer is resized. Default: no-op.
+	virtual void OnResize(uint32_t width, uint32_t height)
+	{
+		(void)width;
+		(void)height;
+	}
 };

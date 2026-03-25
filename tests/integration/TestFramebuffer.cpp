@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <memory>
 
-#include "GlTestContext.h"
+#include "GLTestContext.h"
 #include "graphics/Framebuffer.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/interface/IFramebuffer.h"

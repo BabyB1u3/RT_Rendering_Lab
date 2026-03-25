@@ -11,7 +11,11 @@
 #include "gui/ImGuiLayer.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/RenderCommand.h"
+#ifdef GLAB_BACKEND_METAL
+#include "graphics/metal/MetalGraphicsDevice.h"
+#else
 #include "graphics/opengl/GLGraphicsDevice.h"
+#endif
 
 Application *Application::s_Instance = nullptr;
 
@@ -35,7 +39,11 @@ Application::Application(const ApplicationSpecification &spec)
                                 { OnWindowResize(width, height); });
     m_Window->SetEventBus(&m_EventBus);
 
+#ifdef GLAB_BACKEND_METAL
+    SetDevice(CreateRef<MetalGraphicsDevice>(m_Window->GetNativeHandle()));
+#else
     SetDevice(CreateRef<GLGraphicsDevice>());
+#endif
     RenderCommand::Init();
 
     Input::Initialize(m_Window->GetNativeHandle());
@@ -70,6 +78,9 @@ void Application::Run()
         // and some drivers return a 0×0 framebuffer which would cause GL errors.
         if (!m_Minimized)
         {
+            // P1: Begin frame — Metal/Vulkan create command buffer here.
+            RenderCommand::BeginFrame();
+
             // Phase 1: logic update (input, physics, animation, etc.)
             for (auto &layer : m_LayerStack)
                 layer->OnUpdate(Time::GetDeltaTime());
@@ -84,6 +95,9 @@ void Application::Run()
             for (auto &layer : m_LayerStack)
                 layer->OnImGuiRender();
             m_ImGuiLayer->End();
+
+            // P1: End frame — Metal/Vulkan commit command buffer and present here.
+            RenderCommand::EndFrame();
         }
 
         m_Window->SwapBuffers();
@@ -115,6 +129,7 @@ void Application::OnWindowResize(uint32_t width, uint32_t height)
 
     m_Minimized = false;
     RenderCommand::SetViewport(0, 0, width, height);
+    GetDevice()->OnResize(width, height);
 
     for (auto &layer : m_LayerStack)
         layer->OnResize(width, height);

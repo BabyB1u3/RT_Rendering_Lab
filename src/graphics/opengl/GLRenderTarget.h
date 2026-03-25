@@ -28,21 +28,16 @@ public:
 	static Ref<GLRenderTarget> CreateFromFramebuffer(const Ref<IFramebuffer> &fb);
 
 	// --- IRenderTarget interface ---
-	void Bind() const override;
-	void Unbind() const override;
 	void Resize(uint32_t width, uint32_t height) override;
 
 	uint32_t GetWidth() const override;
 	uint32_t GetHeight() const override;
 
 	bool IsBackBuffer() const override { return m_IsBackBuffer; }
+	Ref<IFramebuffer> GetFramebuffer() const override { return m_Framebuffer; }
 
 	Ref<ITexture2D> GetColorAttachment(uint32_t index = 0) const override;
 	Ref<ITexture2D> GetDepthAttachment() const override;
-
-	// --- GL-specific (non-virtual) ---
-	bool IsFramebuffer() const { return !m_IsBackBuffer; }
-	const Ref<IFramebuffer> &GetFramebuffer() const { return m_Framebuffer; }
 
 private:
 	GLRenderTarget() = default;

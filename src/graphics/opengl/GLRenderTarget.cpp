@@ -2,8 +2,6 @@
 
 #include <cassert>
 
-#include <glad/glad.h>
-
 #include "graphics/Framebuffer.h" // FramebufferSpecification (full definition)
 
 Ref<GLRenderTarget> GLRenderTarget::CreateBackBuffer(uint32_t width, uint32_t height)
@@ -23,24 +21,6 @@ Ref<GLRenderTarget> GLRenderTarget::CreateFromFramebuffer(const Ref<IFramebuffer
 	target->m_IsBackBuffer = false;
 	target->m_Framebuffer = fb;
 	return target;
-}
-
-void GLRenderTarget::Bind() const
-{
-	if (m_IsBackBuffer)
-	{
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	}
-	else
-	{
-		assert(m_Framebuffer && "Framebuffer target is null");
-		m_Framebuffer->Bind();
-	}
-}
-
-void GLRenderTarget::Unbind() const
-{
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void GLRenderTarget::Resize(uint32_t width, uint32_t height)

@@ -27,6 +27,7 @@ ShadowPass::ShadowPass(uint32_t width, uint32_t height)
         {TextureFormat::Depth}};
 
     m_Framebuffer = GetDevice()->CreateFramebuffer(fbSpec);
+    m_RenderTarget = GetDevice()->CreateRenderTargetFromFramebuffer(m_Framebuffer);
 
     m_Shader = GetDevice()->CreateShader("ShadowDepth");
 }
@@ -49,21 +50,31 @@ Ref<ITexture2D> ShadowPass::GetDepthTexture() const
     return m_Framebuffer->GetDepthAttachment();
 }
 
-void ShadowPass::Execute(const RenderContext& ctx)
+void ShadowPass::Execute(const RenderContext &ctx)
 {
     assert(m_Framebuffer && "ShadowPass framebuffer is null");
     assert(m_Shader && "ShadowPass shader is null");
 
-    auto target = GetDevice()->CreateRenderTargetFromFramebuffer(m_Framebuffer);
-    target->Bind();
+    // P2: Explicit render pass descriptor — clear depth, no color attachment
+    RenderPassDescriptor rpDesc;
+    rpDesc.ColorLoadAction = LoadAction::DontCare;
+    rpDesc.ColorStoreAction = StoreAction::DontCare;
+    rpDesc.DepthLoadAction = LoadAction::Clear;
+    rpDesc.DepthStoreAction = StoreAction::Store;
+    rpDesc.ClearDepth = 1.0f;
 
-    RenderCommand::EnableBlend(false);
-    RenderCommand::EnableDepthTest(true);
-    RenderCommand::EnableCullFace(true);
-    RenderCommand::SetCullFace(true); // Cull front faces to reduce shadow acne
+    RenderCommand::BeginRenderPass(m_RenderTarget, rpDesc);
 
-    RenderCommand::SetViewport(0, 0, target->GetWidth(), target->GetHeight());
-    RenderCommand::Clear(false, true, false);
+    // P3: Pipeline state — depth only, cull front faces to reduce shadow acne
+    PipelineState pso;
+    pso.DepthTestEnabled = true;
+    pso.DepthWriteEnabled = true;
+    pso.BlendEnabled = false;
+    pso.CullFaceEnabled = true;
+    pso.CullFront = true;
+    RenderCommand::SetPipelineState(pso);
+
+    RenderCommand::SetViewport(0, 0, m_RenderTarget->GetWidth(), m_RenderTarget->GetHeight());
 
     m_Shader->Bind();
 
@@ -92,6 +103,5 @@ void ShadowPass::Execute(const RenderContext& ctx)
         RenderCommand::DrawIndexed(item.Mesh->GetVertexArray());
     }
 
-    RenderCommand::SetCullFace(false); // Restore to cull back faces
-    target->Unbind();
+    RenderCommand::EndRenderPass();
 }

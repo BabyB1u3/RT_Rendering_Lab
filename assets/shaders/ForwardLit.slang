@@ -24,6 +24,7 @@ uniform float3 u_Albedo;
 uniform float  u_SpecularPower;
 uniform float  u_AmbientStrength;
 uniform bool   u_UseAlbedoMap;
+uniform float2 u_ShadowMapTexelSize;
 
 // --- Vertex stage ---
 
@@ -70,7 +71,12 @@ float4 fragmentMain(VertexOutput input) : SV_Target
         albedo *= u_AlbedoMap.Sample(input.texCoord).rgb;
 
     float NdotL  = max(dot(normal, -lightDir), 0.0);
-    float shadow = ComputeShadow(u_ShadowMap, input.lightSpacePosition, normal, lightDir);
+    float shadow = ComputeShadow(
+        u_ShadowMap,
+        u_ShadowMapTexelSize,
+        input.lightSpacePosition,
+        normal,
+        lightDir);
 
     float3 ambient = u_AmbientStrength * albedo;
     float3 diffuse = (1.0 - shadow) * NdotL * albedo * u_LightColor * u_LightIntensity;

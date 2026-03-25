@@ -24,6 +24,7 @@
 #include "RenderPass.h"
 
 class IFramebuffer;
+class IRenderTarget;
 class IShader;
 class ITexture2D;
 
@@ -31,10 +32,10 @@ class ForwardPass : public RenderPass
 {
 public:
     ForwardPass(uint32_t width, uint32_t height, bool renderToTarget,
-                const glm::vec4& clearColor = { 0.1f, 0.1f, 0.12f, 1.0f });
+                const glm::vec4 &clearColor = {0.1f, 0.1f, 0.12f, 1.0f});
 
     void Resize(unsigned int width, unsigned int height) override;
-    void Execute(const RenderContext& ctx) override;
+    void Execute(const RenderContext &ctx) override;
 
     Ref<IFramebuffer> GetFramebuffer() const { return m_Framebuffer; }
 
@@ -44,7 +45,8 @@ private:
     bool m_RenderToTarget = true;
 
     Ref<IFramebuffer> m_Framebuffer;
-    glm::vec4 m_ClearColor = { 0.1f, 0.1f, 0.12f, 1.0f };
+    Ref<IRenderTarget> m_RenderTarget; ///< Cached (P5)
+    glm::vec4 m_ClearColor = {0.1f, 0.1f, 0.12f, 1.0f};
 
     Ref<IShader> m_Shader;
     Ref<ITexture2D> m_FallbackShadowMap;

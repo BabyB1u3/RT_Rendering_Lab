@@ -9,6 +9,7 @@
 
 #include "graphics/GraphicsDevice.h"
 #include "graphics/interface/IFramebuffer.h"
+#include "graphics/interface/IRenderTarget.h"
 #include "renderer/RenderContext.h"
 #include "renderer/passes/ForwardPass.h"
 #include "renderer/passes/ShadowPass.h"
@@ -27,6 +28,9 @@ SceneRenderer::SceneRenderer(uint32_t width, uint32_t height, const SceneRendere
     // TexturePreview uses the Slang pipeline (compiled GLSL from build dir)
     m_TexturePreviewPass = CreateRef<TexturePreviewPass>();
 
+    // Cache back buffer target (P5 — avoid per-frame allocation)
+    m_BackBufferTarget = GetDevice()->CreateRenderTargetBackBuffer(width, height);
+
     LOG_INFO("SceneRenderer initialized ({}x{})", width, height);
 }
 
@@ -44,6 +48,9 @@ void SceneRenderer::Resize(uint32_t width, uint32_t height)
 
     if (m_TexturePreviewPass)
         m_TexturePreviewPass->Resize(width, height);
+
+    if (m_BackBufferTarget)
+        m_BackBufferTarget->Resize(width, height);
 }
 
 glm::mat4 SceneRenderer::BuildDirectionalLightViewProjection(const DirectionalLight &light) const
@@ -83,9 +90,8 @@ void SceneRenderer::Render(const SceneData &scene, const Camera &camera)
     FrameResources resources;
     resources.LightViewProjection = BuildDirectionalLightViewProjection(scene.MainDirectionalLight);
     resources.ShadowMap = m_ShadowPass->GetDepthTexture();
-    resources.ShadowTarget = GetDevice()->CreateRenderTargetFromFramebuffer(m_ShadowPass->GetFramebuffer());
     resources.SceneColor = m_ForwardPass->GetFramebuffer()->GetColorAttachment(0);
-    resources.SceneTarget = GetDevice()->CreateRenderTargetFromFramebuffer(m_ForwardPass->GetFramebuffer());
+    resources.BackBuffer = m_BackBufferTarget;
 
     RenderContext ctx{view, m_Spec, std::move(resources), m_OutputMode};
 

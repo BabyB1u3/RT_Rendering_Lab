@@ -1,9 +1,11 @@
 #include <gtest/gtest.h>
 #include <memory>
 
-#include "GlTestContext.h"
+#include "GLTestContext.h"
 #include "graphics/Framebuffer.h"
 #include "graphics/GraphicsDevice.h"
+#include "graphics/RenderCommand.h"
+#include "graphics/RenderTypes.h"
 #include "graphics/interface/IFramebuffer.h"
 #include "graphics/interface/IRenderTarget.h"
 #include "graphics/interface/ITexture2D.h"
@@ -44,22 +46,26 @@ TEST_F(RenderTargetIntegrationTests, BackBufferReturnsNullAttachments)
     EXPECT_EQ(target->GetDepthAttachment(), nullptr);
 }
 
-TEST_F(RenderTargetIntegrationTests, BackBufferBindUnbindDoNotCrash)
+TEST_F(RenderTargetIntegrationTests, BackBufferBeginEndRenderPassDoNotCrash)
 {
     auto target = GetDevice()->CreateRenderTargetBackBuffer(800, 600);
 
-    EXPECT_NO_THROW(target->Bind());
-    EXPECT_NO_THROW(target->Unbind());
+    RenderPassDescriptor desc;
+    desc.ColorLoadAction = LoadAction::Clear;
+    desc.ClearColor = {0.0f, 0.0f, 0.0f, 1.0f};
+
+    EXPECT_NO_THROW(RenderCommand::BeginRenderPass(target, desc));
+    EXPECT_NO_THROW(RenderCommand::EndRenderPass());
 }
 
 TEST_F(RenderTargetIntegrationTests, BackBufferIsNotFramebuffer)
 {
     auto target = GetDevice()->CreateRenderTargetBackBuffer(800, 600);
-    auto* glTarget = dynamic_cast<GLRenderTarget*>(target.get());
+    auto *glTarget = dynamic_cast<GLRenderTarget *>(target.get());
 
     ASSERT_NE(glTarget, nullptr);
     EXPECT_TRUE(glTarget->IsBackBuffer());
-    EXPECT_FALSE(glTarget->IsFramebuffer());
+    EXPECT_FALSE(glTarget->IsBackBuffer() == false);
     EXPECT_EQ(glTarget->GetFramebuffer(), nullptr);
 }
 
@@ -72,8 +78,7 @@ TEST_F(RenderTargetIntegrationTests, FromFramebufferCreation)
     spec.Height = 256;
     spec.Attachments = {
         TextureFormat::RGBA8,
-        TextureFormat::Depth24Stencil8
-    };
+        TextureFormat::Depth24Stencil8};
 
     auto fb = GetDevice()->CreateFramebuffer(spec);
     auto target = GetDevice()->CreateRenderTargetFromFramebuffer(fb);
@@ -88,15 +93,15 @@ TEST_F(RenderTargetIntegrationTests, FromFramebufferIsFramebuffer)
     FramebufferSpecification spec{};
     spec.Width = 128;
     spec.Height = 128;
-    spec.Attachments = { TextureFormat::RGBA8 };
+    spec.Attachments = {TextureFormat::RGBA8};
 
     auto fb = GetDevice()->CreateFramebuffer(spec);
     auto target = GetDevice()->CreateRenderTargetFromFramebuffer(fb);
-    auto* glTarget = dynamic_cast<GLRenderTarget*>(target.get());
+    auto *glTarget = dynamic_cast<GLRenderTarget *>(target.get());
 
     ASSERT_NE(glTarget, nullptr);
     EXPECT_FALSE(glTarget->IsBackBuffer());
-    EXPECT_TRUE(glTarget->IsFramebuffer());
+    EXPECT_NE(glTarget->GetFramebuffer(), nullptr);
 }
 
 TEST_F(RenderTargetIntegrationTests, FromFramebufferDelegatesAttachments)
@@ -106,8 +111,7 @@ TEST_F(RenderTargetIntegrationTests, FromFramebufferDelegatesAttachments)
     spec.Height = 128;
     spec.Attachments = {
         TextureFormat::RGBA8,
-        TextureFormat::Depth24Stencil8
-    };
+        TextureFormat::Depth24Stencil8};
 
     auto fb = GetDevice()->CreateFramebuffer(spec);
     auto target = GetDevice()->CreateRenderTargetFromFramebuffer(fb);
@@ -124,8 +128,7 @@ TEST_F(RenderTargetIntegrationTests, FromFramebufferDepthOnly)
     spec.Width = 512;
     spec.Height = 512;
     spec.Attachments = {
-        TextureFormat::Depth
-    };
+        TextureFormat::Depth};
 
     auto fb = GetDevice()->CreateFramebuffer(spec);
     auto target = GetDevice()->CreateRenderTargetFromFramebuffer(fb);
@@ -134,19 +137,23 @@ TEST_F(RenderTargetIntegrationTests, FromFramebufferDepthOnly)
     EXPECT_NE(target->GetDepthAttachment(), nullptr);
 }
 
-TEST_F(RenderTargetIntegrationTests, FromFramebufferBindUnbindDoNotCrash)
+TEST_F(RenderTargetIntegrationTests, FromFramebufferBeginEndRenderPassDoNotCrash)
 {
     FramebufferSpecification spec{};
     spec.Width = 32;
     spec.Height = 32;
     spec.Attachments = {
         TextureFormat::RGBA8,
-        TextureFormat::Depth24Stencil8
-    };
+        TextureFormat::Depth24Stencil8};
 
     auto fb = GetDevice()->CreateFramebuffer(spec);
     auto target = GetDevice()->CreateRenderTargetFromFramebuffer(fb);
 
-    EXPECT_NO_THROW(target->Bind());
-    EXPECT_NO_THROW(target->Unbind());
+    RenderPassDescriptor desc;
+    desc.ColorLoadAction = LoadAction::Clear;
+    desc.ClearColor = {0.1f, 0.1f, 0.1f, 1.0f};
+    desc.DepthLoadAction = LoadAction::Clear;
+
+    EXPECT_NO_THROW(RenderCommand::BeginRenderPass(target, desc));
+    EXPECT_NO_THROW(RenderCommand::EndRenderPass());
 }

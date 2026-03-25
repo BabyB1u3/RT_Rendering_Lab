@@ -16,6 +16,8 @@ LabLayer::LabLayer()
 {
 }
 
+LabLayer::~LabLayer() = default;
+
 void LabLayer::OnAttach()
 {
     Input::Initialize(Application::Get().GetWindow().GetNativeHandle());

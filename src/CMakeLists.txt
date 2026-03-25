@@ -16,15 +16,6 @@
     graphics/RenderCommand.cpp
 
     graphics/GraphicsDevice.cpp
-    graphics/opengl/GLTexture2D.cpp
-    graphics/opengl/GLVertexBuffer.cpp
-    graphics/opengl/GLIndexBuffer.cpp
-    graphics/opengl/GLVertexArray.cpp
-    graphics/opengl/GLShader.cpp
-    graphics/opengl/GLFramebuffer.cpp
-    graphics/opengl/GLRenderTarget.cpp
-    graphics/opengl/GLRenderCommand.cpp
-    graphics/opengl/GLGraphicsDevice.cpp
 
     renderer/SceneRenderer.cpp
 
@@ -71,16 +62,6 @@ set(GLAB_CORE_HEADERS
     graphics/Texture.h
 
     graphics/GraphicsDevice.h
-    graphics/opengl/GLCast.h
-    graphics/opengl/GLTexture2D.h
-    graphics/opengl/GLVertexBuffer.h
-    graphics/opengl/GLIndexBuffer.h
-    graphics/opengl/GLVertexArray.h
-    graphics/opengl/GLShader.h
-    graphics/opengl/GLFramebuffer.h
-    graphics/opengl/GLRenderTarget.h
-    graphics/opengl/GLRenderCommand.h
-    graphics/opengl/GLGraphicsDevice.h
 
     graphics/interface/ITexture2D.h
     graphics/interface/IVertexBuffer.h
@@ -120,27 +101,88 @@ set(GLAB_CORE_HEADERS
     gui/Panels/DemoSelectorPanel.h
 )
 
+if(GLAB_BACKEND_OPENGL)
+    list(APPEND GLAB_CORE_SOURCES
+        graphics/opengl/GLTexture2D.cpp
+        graphics/opengl/GLVertexBuffer.cpp
+        graphics/opengl/GLIndexBuffer.cpp
+        graphics/opengl/GLVertexArray.cpp
+        graphics/opengl/GLShader.cpp
+        graphics/opengl/GLFramebuffer.cpp
+        graphics/opengl/GLRenderTarget.cpp
+        graphics/opengl/GLRenderCommand.cpp
+        graphics/opengl/GLGraphicsDevice.cpp
+    )
+
+    list(APPEND GLAB_CORE_HEADERS
+        graphics/opengl/GLCast.h
+        graphics/opengl/GLTexture2D.h
+        graphics/opengl/GLVertexBuffer.h
+        graphics/opengl/GLIndexBuffer.h
+        graphics/opengl/GLVertexArray.h
+        graphics/opengl/GLShader.h
+        graphics/opengl/GLFramebuffer.h
+        graphics/opengl/GLRenderTarget.h
+        graphics/opengl/GLRenderCommand.h
+        graphics/opengl/GLGraphicsDevice.h
+    )
+endif()
+
+if(GLAB_BACKEND_METAL)
+    set(GLAB_METAL_SOURCES
+        graphics/metal/MetalGraphicsDevice.mm
+        graphics/metal/MetalRenderCommand.mm
+        graphics/metal/MetalShader.mm
+        graphics/metal/MetalVertexBuffer.mm
+        graphics/metal/MetalIndexBuffer.mm
+        graphics/metal/MetalVertexArray.mm
+        graphics/metal/MetalTexture2D.mm
+        graphics/metal/MetalFramebuffer.mm
+        graphics/metal/MetalRenderTarget.mm
+    )
+
+    set(GLAB_METAL_HEADERS
+        graphics/metal/MetalCast.h
+        graphics/metal/MetalTypes.h
+        graphics/metal/MetalGraphicsDevice.h
+        graphics/metal/MetalRenderCommand.h
+        graphics/metal/MetalShader.h
+        graphics/metal/MetalVertexBuffer.h
+        graphics/metal/MetalIndexBuffer.h
+        graphics/metal/MetalVertexArray.h
+        graphics/metal/MetalTexture2D.h
+        graphics/metal/MetalFramebuffer.h
+        graphics/metal/MetalRenderTarget.h
+    )
+
+    set_source_files_properties(${GLAB_METAL_SOURCES}
+        PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON
+    )
+endif()
+
 add_library(RTRLabCore STATIC
     ${GLAB_CORE_SOURCES}
     ${GLAB_CORE_HEADERS}
 )
 
-set_source_files_properties(
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/app/Application.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/input/Input.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/app/Window.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLFramebuffer.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLGraphicsDevice.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLIndexBuffer.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLRenderCommand.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLRenderTarget.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLShader.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLTexture2D.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLVertexArray.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLVertexBuffer.cpp
-    PROPERTIES
-        SKIP_UNITY_BUILD_INCLUSION ON
-)
+if(GLAB_BACKEND_OPENGL)
+    set_source_files_properties(
+        ${CMAKE_CURRENT_SOURCE_DIR}/core/app/Application.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/core/input/Input.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/core/app/Window.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLFramebuffer.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLGraphicsDevice.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLIndexBuffer.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLRenderCommand.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLRenderTarget.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLShader.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLTexture2D.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLVertexArray.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLVertexBuffer.cpp
+        PROPERTIES
+            SKIP_UNITY_BUILD_INCLUSION ON
+    )
+endif()
 
 target_include_directories(RTRLabCore PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -148,14 +190,36 @@ target_include_directories(RTRLabCore PUBLIC
 
 target_link_libraries(RTRLabCore PUBLIC
     glfw
-    glad
     glm
     stb
     spdlog
     imgui
     nlohmann_json
-    OpenGL::GL
 )
+
+if(GLAB_BACKEND_OPENGL)
+    target_link_libraries(RTRLabCore PUBLIC
+        glad
+        OpenGL::GL
+    )
+endif()
+
+if(GLAB_BACKEND_METAL)
+    target_sources(RTRLabCore PRIVATE
+        ${GLAB_METAL_SOURCES}
+        ${GLAB_METAL_HEADERS}
+    )
+
+    target_link_libraries(RTRLabCore PUBLIC
+        "-framework Metal"
+        "-framework QuartzCore"
+        "-framework AppKit"
+    )
+
+    target_compile_definitions(RTRLabCore PUBLIC
+        GLAB_BACKEND_METAL
+    )
+endif()
 
 target_compile_definitions(RTRLabCore PUBLIC
     GLM_ENABLE_EXPERIMENTAL
@@ -233,6 +297,8 @@ set_target_properties(RTRLab PROPERTIES
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES
     ${GLAB_CORE_SOURCES}
     ${GLAB_CORE_HEADERS}
+    ${GLAB_METAL_SOURCES}
+    ${GLAB_METAL_HEADERS}
     main.cpp
 )
 

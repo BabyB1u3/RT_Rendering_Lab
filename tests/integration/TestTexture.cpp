@@ -2,7 +2,7 @@
 #include <memory>
 #include <array>
 
-#include "GlTestContext.h"
+#include "GLTestContext.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/Texture.h"
 #include "graphics/interface/ITexture2D.h"

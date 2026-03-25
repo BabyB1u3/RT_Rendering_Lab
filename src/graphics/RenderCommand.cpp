@@ -8,14 +8,29 @@ void RenderCommand::Init()
 	GetDevice()->GetRenderCommand()->Init();
 }
 
-void RenderCommand::SetClearColor(const glm::vec4 &color)
+void RenderCommand::BeginFrame()
 {
-	GetDevice()->GetRenderCommand()->SetClearColor(color);
+	GetDevice()->GetRenderCommand()->BeginFrame();
 }
 
-void RenderCommand::Clear(bool color, bool depth, bool stencil)
+void RenderCommand::EndFrame()
 {
-	GetDevice()->GetRenderCommand()->Clear(color, depth, stencil);
+	GetDevice()->GetRenderCommand()->EndFrame();
+}
+
+void RenderCommand::BeginRenderPass(const Ref<IRenderTarget> &target, const RenderPassDescriptor &desc)
+{
+	GetDevice()->GetRenderCommand()->BeginRenderPass(target, desc);
+}
+
+void RenderCommand::EndRenderPass()
+{
+	GetDevice()->GetRenderCommand()->EndRenderPass();
+}
+
+void RenderCommand::SetPipelineState(const PipelineState &state)
+{
+	GetDevice()->GetRenderCommand()->SetPipelineState(state);
 }
 
 void RenderCommand::SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
@@ -23,24 +38,9 @@ void RenderCommand::SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t
 	GetDevice()->GetRenderCommand()->SetViewport(x, y, width, height);
 }
 
-void RenderCommand::EnableDepthTest(bool enabled)
+void RenderCommand::SetTexture(uint32_t slot, const Ref<ITexture2D> &texture)
 {
-	GetDevice()->GetRenderCommand()->EnableDepthTest(enabled);
-}
-
-void RenderCommand::EnableBlend(bool enabled)
-{
-	GetDevice()->GetRenderCommand()->EnableBlend(enabled);
-}
-
-void RenderCommand::EnableCullFace(bool enabled)
-{
-	GetDevice()->GetRenderCommand()->EnableCullFace(enabled);
-}
-
-void RenderCommand::SetCullFace(bool front)
-{
-	GetDevice()->GetRenderCommand()->SetCullFace(front);
+	GetDevice()->GetRenderCommand()->SetTexture(slot, texture);
 }
 
 void RenderCommand::DrawIndexed(const Ref<IVertexArray> &vao, uint32_t indexCount)

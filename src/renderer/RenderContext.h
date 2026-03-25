@@ -9,10 +9,11 @@
 //                  simply construct a different SceneView.
 //
 //   FrameResources — (inter-pass shared outputs)
-//                    Each pass still owns its framebuffer internally.
-//                    FrameResources holds Ref<ITexture2D> pointing to attachment
-//                    textures so that downstream passes can sample upstream outputs.
-//                    Extension: add output textures / targets here when new passes
+//                    Each pass still owns its framebuffer and render target
+//                    internally. FrameResources holds Ref<ITexture2D> pointing
+//                    to attachment textures so that downstream passes can sample
+//                    upstream outputs.
+//                    Extension: add output textures here when new passes
 //                    are introduced.
 //
 //   RenderContext  — (everything a pass needs)
@@ -35,8 +36,8 @@
 #include "renderer/SceneRendererTypes.h"
 
 class Camera;
-class ITexture2D;
 class IRenderTarget;
+class ITexture2D;
 struct SceneData;
 
 struct SceneView
@@ -51,11 +52,14 @@ struct FrameResources
 {
     glm::mat4 LightViewProjection{1.0f};
 
+    /// Shadow depth texture produced by ShadowPass.
     Ref<ITexture2D> ShadowMap;
-    Ref<IRenderTarget> ShadowTarget;
 
+    /// Scene color texture produced by ForwardPass.
     Ref<ITexture2D> SceneColor;
-    Ref<IRenderTarget> SceneTarget;
+
+    /// Back buffer render target for final output (owned by SceneRenderer).
+    Ref<IRenderTarget> BackBuffer;
 };
 
 struct RenderContext

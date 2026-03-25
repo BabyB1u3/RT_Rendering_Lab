@@ -2,7 +2,10 @@
 
 #include <glad/glad.h>
 
+#include "graphics/interface/IFramebuffer.h"
 #include "graphics/interface/IIndexBuffer.h"
+#include "graphics/interface/IRenderTarget.h"
+#include "graphics/interface/ITexture2D.h"
 #include "GLCast.h"
 #include "GLVertexArray.h"
 
@@ -13,21 +16,78 @@ void GLRenderCommand::Init()
 	glEnable(GL_DEPTH_TEST);
 }
 
-void GLRenderCommand::SetClearColor(const glm::vec4 &color)
+void GLRenderCommand::BeginRenderPass(const Ref<IRenderTarget> &target, const RenderPassDescriptor &desc)
 {
-	glClearColor(color.r, color.g, color.b, color.a);
+	// Bind the framebuffer (or default FBO 0 for back buffer)
+	auto fb = target->GetFramebuffer();
+	if (fb)
+		fb->Bind();
+	else
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	// Build clear mask from load actions.
+	// OpenGL quirk: glClear is affected by write masks. If a previous pass
+	// disabled depth/color writes via glDepthMask(GL_FALSE) or glColorMask,
+	// the clear silently does nothing for that buffer. We must temporarily
+	// enable writes before clearing, then let SetPipelineState restore them.
+	GLbitfield clearMask = 0;
+
+	if (desc.ColorLoadAction == LoadAction::Clear)
+	{
+		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		glClearColor(desc.ClearColor.r, desc.ClearColor.g, desc.ClearColor.b, desc.ClearColor.a);
+		clearMask |= GL_COLOR_BUFFER_BIT;
+	}
+
+	if (desc.DepthLoadAction == LoadAction::Clear)
+	{
+		glDepthMask(GL_TRUE);
+		glClearDepth(static_cast<double>(desc.ClearDepth));
+		clearMask |= GL_DEPTH_BUFFER_BIT;
+	}
+
+	if (desc.StencilLoadAction == LoadAction::Clear)
+	{
+		glStencilMask(0xFF);
+		glClearStencil(static_cast<GLint>(desc.ClearStencil));
+		clearMask |= GL_STENCIL_BUFFER_BIT;
+	}
+
+	if (clearMask)
+		glClear(clearMask);
 }
 
-void GLRenderCommand::Clear(bool color, bool depth, bool stencil)
+void GLRenderCommand::EndRenderPass()
 {
-	GLbitfield mask = 0;
-	if (color)
-		mask |= GL_COLOR_BUFFER_BIT;
-	if (depth)
-		mask |= GL_DEPTH_BUFFER_BIT;
-	if (stencil)
-		mask |= GL_STENCIL_BUFFER_BIT;
-	glClear(mask);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void GLRenderCommand::SetPipelineState(const PipelineState &state)
+{
+	// Depth
+	if (state.DepthTestEnabled)
+		glEnable(GL_DEPTH_TEST);
+	else
+		glDisable(GL_DEPTH_TEST);
+
+	glDepthMask(state.DepthWriteEnabled ? GL_TRUE : GL_FALSE);
+
+	// Blend
+	if (state.BlendEnabled)
+		glEnable(GL_BLEND);
+	else
+		glDisable(GL_BLEND);
+
+	// Cull face
+	if (state.CullFaceEnabled)
+	{
+		glEnable(GL_CULL_FACE);
+		glCullFace(state.CullFront ? GL_FRONT : GL_BACK);
+	}
+	else
+	{
+		glDisable(GL_CULL_FACE);
+	}
 }
 
 void GLRenderCommand::SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
@@ -36,33 +96,12 @@ void GLRenderCommand::SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32
 			   static_cast<GLsizei>(width), static_cast<GLsizei>(height));
 }
 
-void GLRenderCommand::EnableDepthTest(bool enabled)
+void GLRenderCommand::SetTexture(uint32_t slot, const Ref<ITexture2D> &texture)
 {
-	if (enabled)
-		glEnable(GL_DEPTH_TEST);
+	if (texture)
+		texture->Bind(slot);
 	else
-		glDisable(GL_DEPTH_TEST);
-}
-
-void GLRenderCommand::EnableBlend(bool enabled)
-{
-	if (enabled)
-		glEnable(GL_BLEND);
-	else
-		glDisable(GL_BLEND);
-}
-
-void GLRenderCommand::EnableCullFace(bool enabled)
-{
-	if (enabled)
-		glEnable(GL_CULL_FACE);
-	else
-		glDisable(GL_CULL_FACE);
-}
-
-void GLRenderCommand::SetCullFace(bool front)
-{
-	glCullFace(front ? GL_FRONT : GL_BACK);
+		glBindTextureUnit(slot, 0);
 }
 
 void GLRenderCommand::DrawIndexed(const Ref<IVertexArray> &vao, uint32_t indexCount)
