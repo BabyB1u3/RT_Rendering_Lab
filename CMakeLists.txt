@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.20)
 
 project(RTRLab
     VERSION 0.1.0
-    DESCRIPTION "A C++ OpenGL rendering playground"
-    LANGUAGES C CXX
+    DESCRIPTION "A C++ rendering playground"
+    LANGUAGES C CXX OBJCXX
 )
 
 set(CMAKE_CXX_STANDARD 20)
@@ -34,6 +34,14 @@ option(GLAB_ENABLE_PCH "Enable precompiled headers for local C++ targets" ON)
 option(GLAB_ENABLE_UNITY_BUILD "Enable unity builds for local C++ targets" OFF)
 option(GLAB_ENABLE_MSVC_MP "Enable MSVC multi-processor compilation (/MP)" ON)
 option(GLAB_BUILD_IMGUI_DEMO "Build Dear ImGui demo translation unit" OFF)
+
+if(APPLE)
+    set(GLAB_BACKEND_METAL ON)
+    set(GLAB_BACKEND_OPENGL OFF)
+else()
+    set(GLAB_BACKEND_METAL OFF)
+    set(GLAB_BACKEND_OPENGL ON)
+endif()
 
 function(glab_set_warnings target_name)
     if(MSVC)
@@ -69,7 +77,9 @@ function(glab_enable_build_speedups target_name)
     endif()
 endfunction()
 
-find_package(OpenGL REQUIRED)
+if(GLAB_BACKEND_OPENGL)
+    find_package(OpenGL REQUIRED)
+endif()
 
 include(cmake/SetupSlang.cmake)
 include(cmake/CompileShaders.cmake)

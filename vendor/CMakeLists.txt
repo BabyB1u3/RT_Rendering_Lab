@@ -74,8 +74,13 @@ set(GLAB_IMGUI_SOURCES
     imgui/imgui_tables.cpp
     imgui/imgui_widgets.cpp
     imgui/backends/imgui_impl_glfw.cpp
-    imgui/backends/imgui_impl_opengl3.cpp
 )
+
+if(GLAB_BACKEND_OPENGL)
+    list(APPEND GLAB_IMGUI_SOURCES
+        imgui/backends/imgui_impl_opengl3.cpp
+    )
+endif()
 
 if(GLAB_BUILD_IMGUI_DEMO)
     list(APPEND GLAB_IMGUI_SOURCES
@@ -94,7 +99,12 @@ target_include_directories(imgui PUBLIC
 
 target_link_libraries(imgui PRIVATE
     glfw
-    glad
 )
+
+if(GLAB_BACKEND_OPENGL)
+    target_link_libraries(imgui PRIVATE
+        glad
+    )
+endif()
 
 glab_enable_parallel_compilation(imgui)

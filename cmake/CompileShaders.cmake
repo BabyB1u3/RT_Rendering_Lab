@@ -38,6 +38,18 @@ function(glab_compile_shaders)
         ForwardLit
     )
 
+    if(GLAB_BACKEND_METAL)
+        set(GLAB_SHADER_TARGET_METAL ON)
+        set(GLAB_SHADER_TARGET_GLSL OFF)
+        set(GLAB_SHADER_TARGET_SPIRV OFF)
+    endif()
+
+    if(GLAB_BACKEND_OPENGL)
+        set(GLAB_SHADER_TARGET_GLSL ON)
+        set(GLAB_SHADER_TARGET_METAL OFF)
+        set(GLAB_SHADER_TARGET_SPIRV OFF)
+    endif()
+
     set(ALL_OUTPUTS "")
 
     foreach(SHADER_NAME ${SLANG_SHADERS})
