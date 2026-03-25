@@ -6,6 +6,13 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/constants.hpp>
 
+Camera::Camera()
+{
+    RecalculateBasis();
+    RecalculateProjection();
+    RecalculateView();
+}
+
 Camera::Camera(float verticalFovDegrees, float aspectRatio, float nearClip, float farClip)
     : m_VerticalFovDegrees(verticalFovDegrees),
       m_AspectRatio(aspectRatio),

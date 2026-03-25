@@ -18,7 +18,7 @@
 class Camera
 {
 public:
-    Camera() = default;
+    Camera();
     Camera(float verticalFovDegrees, float aspectRatio, float nearClip, float farClip);
 
     void SetPerspective(float verticalFovDegrees, float aspectRatio, float nearClip, float farClip);

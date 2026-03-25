@@ -18,6 +18,25 @@ TEST(CameraTests, DefaultBasisVectorsAreOrthogonalAndNormalized)
     EXPECT_NEAR(glm::dot(camera.GetRight(), camera.GetUp()), 0.0f, 1e-4f);
 }
 
+TEST(CameraTests, DefaultConstructionBuildsConsistentViewAndProjection)
+{
+    Camera camera;
+
+    glm::mat4 expectedView = glm::lookAt(
+        camera.GetPosition(),
+        camera.GetPosition() + camera.GetForward(),
+        camera.GetUp());
+    glm::mat4 expectedProjection = glm::perspective(
+        glm::radians(camera.GetVerticalFovDegrees()),
+        camera.GetAspectRatio(),
+        camera.GetNearClip(),
+        camera.GetFarClip());
+
+    ExpectMat4Near(camera.GetView(), expectedView);
+    ExpectMat4Near(camera.GetProjection(), expectedProjection);
+    ExpectMat4Near(camera.GetViewProjection(), expectedProjection * expectedView);
+}
+
 TEST(CameraTests, SetPositionUpdatesStoredPosition)
 {
     Camera camera;
