@@ -1,11 +1,24 @@
 #include <gtest/gtest.h>
+#include <glad/glad.h>
 #include <memory>
+#include <array>
+#include <cstdint>
 #include <glm/glm.hpp>
 
 #include "GLTestContext.h"
 #include "core/FileSystem.h"
+#include "graphics/Framebuffer.h"
 #include "graphics/GraphicsDevice.h"
+#include "graphics/MeshFactory.h"
+#include "graphics/RenderCommand.h"
+#include "graphics/RenderTypes.h"
+#include "graphics/Texture.h"
+#include "graphics/interface/IFramebuffer.h"
+#include "graphics/interface/IRenderTarget.h"
 #include "graphics/interface/IShader.h"
+#include "graphics/interface/ITexture2D.h"
+#include "graphics/opengl/GLCast.h"
+#include "graphics/opengl/GLFramebuffer.h"
 
 class ShaderIntegrationTests : public ::testing::Test
 {
@@ -18,6 +31,19 @@ protected:
 	static void TearDownTestSuite()
 	{
 		s_Context.reset();
+	}
+
+	static std::array<uint8_t, 4> ReadRgbaPixel(const Ref<IFramebuffer> &framebuffer, int x, int y)
+	{
+		auto *glFramebuffer = AsGL<GLFramebuffer>(framebuffer);
+		std::array<uint8_t, 4> pixel{0, 0, 0, 0};
+
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, glFramebuffer->GetRendererID());
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
+		glReadPixels(x, y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel.data());
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+
+		return pixel;
 	}
 
 	inline static Scope<GlTestContext> s_Context;
@@ -49,6 +75,15 @@ namespace
 	{
 		return FileSystem::GetCompiledShaderDir() / "glsl" / (shaderName + "." + stage + ".glsl");
 	}
+
+	Ref<IFramebuffer> CreateColorFramebuffer(uint32_t width = 8, uint32_t height = 8)
+	{
+		FramebufferSpecification spec{};
+		spec.Width = width;
+		spec.Height = height;
+		spec.Attachments = {TextureFormat::RGBA8};
+		return GetDevice()->CreateFramebuffer(spec);
+	}
 }
 
 TEST_F(ShaderIntegrationTests, CreateFromSourceProducesValidProgram)
@@ -75,15 +110,37 @@ TEST_F(ShaderIntegrationTests, BindAndUniformSettersDoNotCrash)
 
 TEST_F(ShaderIntegrationTests, InvalidSourceThrowsReadableCompileError)
 {
-	EXPECT_THROW(
-		{
-			auto shader = GetDevice()->CreateShaderFromSource(
-				"BrokenShader",
-				"#version 330 core\nthis is not valid glsl",
-				kFragmentSrc);
-			(void)shader;
-		},
-		std::runtime_error);
+	try
+	{
+		auto shader = GetDevice()->CreateShaderFromSource(
+			"BrokenShader",
+			"#version 330 core\nthis is not valid glsl",
+			kFragmentSrc);
+		(void)shader;
+		FAIL() << "Expected shader compilation to throw";
+	}
+	catch (const std::runtime_error &e)
+	{
+		const std::string message = e.what();
+		EXPECT_NE(message.find("Shader compilation failed"), std::string::npos);
+		EXPECT_NE(message.find("BrokenShader [vertex]"), std::string::npos);
+	}
+}
+
+TEST_F(ShaderIntegrationTests, MissingCompiledArtifactsThrowReadableError)
+{
+	try
+	{
+		auto shader = GetDevice()->CreateShader("DefinitelyMissingShaderForIntegrationCoverage");
+		(void)shader;
+		FAIL() << "Expected missing compiled shader artifacts to throw";
+	}
+	catch (const std::runtime_error &e)
+	{
+		const std::string message = e.what();
+		EXPECT_NE(message.find("Compiled GLSL vertex shader missing"), std::string::npos);
+		EXPECT_NE(message.find("DefinitelyMissingShaderForIntegrationCoverage.vert.glsl"), std::string::npos);
+	}
 }
 
 TEST_F(ShaderIntegrationTests, CreateShader_LoadsForwardLitFromCompiledGlsl)
@@ -133,4 +190,125 @@ TEST_F(ShaderIntegrationTests, CreateShader_LoadsTexturePreviewFromCompiledGlsl)
 	shader->Bind();
 	shader->SetBool("u_IsDepthTexture", false);
 	shader->Unbind();
+}
+
+TEST_F(ShaderIntegrationTests, UniformBlockUploadInfluencesRealDrawOutput)
+{
+	static constexpr const char *kUboVertexSrc = R"(
+#version 330 core
+layout(location = 0) in vec3 a_Position;
+void main()
+{
+    gl_Position = vec4(a_Position, 1.0);
+}
+)";
+
+	static constexpr const char *kUboFragmentSrc = R"(
+#version 420 core
+layout(std140, binding = 0) uniform ColorBlock
+{
+    vec4 u_Color;
+};
+out vec4 FragColor;
+void main()
+{
+    FragColor = u_Color;
+}
+)";
+
+	auto framebuffer = CreateColorFramebuffer();
+	auto target = GetDevice()->CreateRenderTargetFromFramebuffer(framebuffer);
+	auto shader = GetDevice()->CreateShaderFromSource("UniformBlockDraw", kUboVertexSrc, kUboFragmentSrc);
+	auto quad = MeshFactory::CreateFullscreenQuad();
+
+	RenderPassDescriptor desc;
+	desc.ClearColor = {0.0f, 0.0f, 0.0f, 1.0f};
+	desc.DepthLoadAction = LoadAction::DontCare;
+	desc.DepthStoreAction = StoreAction::DontCare;
+
+	PipelineState pso;
+	pso.DepthTestEnabled = false;
+	pso.DepthWriteEnabled = false;
+	pso.BlendEnabled = false;
+	pso.CullFaceEnabled = false;
+
+	const glm::vec4 red(1.0f, 0.0f, 0.0f, 1.0f);
+	RenderCommand::BeginRenderPass(target, desc);
+	RenderCommand::SetPipelineState(pso);
+	RenderCommand::SetViewport(0, 0, 8, 8);
+	shader->Bind();
+	shader->SetUniformBlock(0, &red, sizeof(red));
+	RenderCommand::DrawIndexed(quad->GetVertexArray());
+	RenderCommand::EndRenderPass();
+
+	const auto redPixel = ReadRgbaPixel(framebuffer, 4, 4);
+	EXPECT_GT(redPixel[0], 200);
+	EXPECT_LT(redPixel[1], 20);
+	EXPECT_LT(redPixel[2], 20);
+	EXPECT_EQ(redPixel[3], 255);
+
+	const glm::vec4 blue(0.0f, 0.0f, 1.0f, 1.0f);
+	RenderCommand::BeginRenderPass(target, desc);
+	RenderCommand::SetPipelineState(pso);
+	RenderCommand::SetViewport(0, 0, 8, 8);
+	shader->Bind();
+	shader->SetUniformBlock(0, &blue, sizeof(blue));
+	RenderCommand::DrawIndexed(quad->GetVertexArray());
+	RenderCommand::EndRenderPass();
+
+	const auto bluePixel = ReadRgbaPixel(framebuffer, 4, 4);
+	EXPECT_LT(bluePixel[0], 20);
+	EXPECT_LT(bluePixel[1], 20);
+	EXPECT_GT(bluePixel[2], 200);
+	EXPECT_EQ(bluePixel[3], 255);
+}
+
+TEST_F(ShaderIntegrationTests, CompiledTexturePreviewShaderProducesRealDrawOutput)
+{
+	if (!FileSystem::Exists(GetCompiledGlslPath("TexturePreview", "vert")))
+	{
+		GTEST_SKIP() << "Compiled GLSL artifacts not found";
+	}
+
+	TextureSpecification spec{};
+	spec.Width = 1;
+	spec.Height = 1;
+	spec.Format = TextureFormat::RGBA8;
+
+	auto texture = GetDevice()->CreateTexture2D(spec);
+	const std::array<uint8_t, 4> pixels = {32, 160, 224, 255};
+	texture->SetData(pixels.data());
+
+	auto framebuffer = CreateColorFramebuffer();
+	auto target = GetDevice()->CreateRenderTargetFromFramebuffer(framebuffer);
+	auto shader = GetDevice()->CreateShader("TexturePreview");
+	auto quad = MeshFactory::CreateFullscreenQuad();
+
+	RenderPassDescriptor desc;
+	desc.ClearColor = {0.0f, 0.0f, 0.0f, 1.0f};
+	desc.DepthLoadAction = LoadAction::DontCare;
+	desc.DepthStoreAction = StoreAction::DontCare;
+
+	PipelineState pso;
+	pso.DepthTestEnabled = false;
+	pso.DepthWriteEnabled = false;
+	pso.BlendEnabled = false;
+	pso.CullFaceEnabled = false;
+
+	const int32_t isDepthTexture = 0;
+
+	RenderCommand::BeginRenderPass(target, desc);
+	RenderCommand::SetPipelineState(pso);
+	RenderCommand::SetViewport(0, 0, 8, 8);
+	shader->Bind();
+	RenderCommand::SetTexture(1, texture);
+	shader->SetUniformBlock(0, &isDepthTexture, sizeof(isDepthTexture));
+	RenderCommand::DrawIndexed(quad->GetVertexArray());
+	RenderCommand::EndRenderPass();
+
+	const auto pixel = ReadRgbaPixel(framebuffer, 4, 4);
+	EXPECT_NEAR(pixel[0], pixels[0], 1);
+	EXPECT_NEAR(pixel[1], pixels[1], 1);
+	EXPECT_NEAR(pixel[2], pixels[2], 1);
+	EXPECT_EQ(pixel[3], 255);
 }
