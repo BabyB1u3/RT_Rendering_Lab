@@ -44,6 +44,7 @@ public:
 	Ref<IRenderTarget>  CreateRenderTargetBackBuffer(uint32_t width, uint32_t height) override;
 	Ref<IRenderTarget>  CreateRenderTargetFromFramebuffer(const Ref<IFramebuffer> &fb) override;
 	Ref<IRenderCommand> GetRenderCommand() override;
+	void OnResize(uint32_t width, uint32_t height) override;
 
 	// --- Metal-internal (call only from .mm files) ---
 	/// Returns id<MTLDevice> as void*.

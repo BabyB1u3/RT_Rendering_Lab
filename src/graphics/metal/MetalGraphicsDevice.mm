@@ -165,6 +165,12 @@ Ref<IRenderCommand> MetalGraphicsDevice::GetRenderCommand()
 	return m_Impl->renderCommand;
 }
 
+void MetalGraphicsDevice::OnResize(uint32_t width, uint32_t height)
+{
+	m_Impl->layer.drawableSize = CGSizeMake(static_cast<CGFloat>(width),
+	                                        static_cast<CGFloat>(height));
+}
+
 // ─── Metal-internal ───────────────────────────────────────────────────────────
 
 void *MetalGraphicsDevice::GetMTLDevice() const
