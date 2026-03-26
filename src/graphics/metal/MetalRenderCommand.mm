@@ -16,6 +16,7 @@
 #include "graphics/metal/MetalTypes.h"
 #include "graphics/metal/MetalVertexArray.h"
 #include "graphics/metal/MetalVertexBuffer.h"
+#include "gui/MetalImGuiBridge.h"
 
 // ─── Impl ─────────────────────────────────────────────────────────────────────
 
@@ -404,4 +405,24 @@ void MetalRenderCommand::SetCurrentShader(MetalShader *shader)
 void MetalRenderCommand::SetCurrentVAO(MetalVertexArray *vao)
 {
 	m_Impl->currentVAO = vao;
+}
+
+void MetalRenderCommand::BeginImGuiFrame()
+{
+	void *drawableTexture = m_Impl->drawable ? (__bridge void *)m_Impl->drawable.texture : nullptr;
+	MetalImGuiBridge::NewFrame(drawableTexture);
+}
+
+void MetalRenderCommand::RenderImGui(void *drawData)
+{
+	if (m_Impl->encoder)
+	{
+		[m_Impl->encoder endEncoding];
+		m_Impl->encoder = nil;
+	}
+
+	void *drawableTexture = m_Impl->drawable ? (__bridge void *)m_Impl->drawable.texture : nullptr;
+	MetalImGuiBridge::RenderDrawData(drawData,
+	                                 (__bridge void *)m_Impl->commandBuffer,
+	                                 drawableTexture);
 }

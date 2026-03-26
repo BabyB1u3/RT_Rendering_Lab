@@ -34,6 +34,7 @@
     gui/ImGuiLayer.cpp
     gui/Panels/DebugPanel.cpp
     gui/Panels/DemoSelectorPanel.cpp
+    gui/MetalImGuiBridge.h
 )
 
 set(GLAB_CORE_HEADERS
@@ -139,6 +140,7 @@ if(GLAB_BACKEND_METAL)
         graphics/metal/MetalTexture2D.mm
         graphics/metal/MetalFramebuffer.mm
         graphics/metal/MetalRenderTarget.mm
+        gui/MetalImGuiBridge.mm
     )
 
     set(GLAB_METAL_HEADERS
@@ -153,6 +155,7 @@ if(GLAB_BACKEND_METAL)
         graphics/metal/MetalTexture2D.h
         graphics/metal/MetalFramebuffer.h
         graphics/metal/MetalRenderTarget.h
+        gui/MetalImGuiBridge.h
     )
 
     set_source_files_properties(${GLAB_METAL_SOURCES}

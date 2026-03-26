@@ -82,6 +82,12 @@ if(GLAB_BACKEND_OPENGL)
     )
 endif()
 
+if(GLAB_BACKEND_METAL)
+    list(APPEND GLAB_IMGUI_SOURCES
+        imgui/backends/imgui_impl_metal.mm
+    )
+endif()
+
 if(GLAB_BUILD_IMGUI_DEMO)
     list(APPEND GLAB_IMGUI_SOURCES
         imgui/imgui_demo.cpp
