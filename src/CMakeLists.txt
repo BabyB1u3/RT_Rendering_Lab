@@ -49,6 +49,8 @@ set(GLAB_CORE_HEADERS
     core/event/Events.h
     core/input/Input.h
     core/input/InputAction.h
+    core/input/InputModifier.h
+    core/input/InputTrigger.h
     core/input/KeyCode.h
     core/event/ScopedConnection.h
     core/app/Layer.h

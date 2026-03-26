@@ -9,11 +9,14 @@
 ///
 /// Each demo/layer owns its own InputActionMap instance with its own bindings.
 
+#include <memory>
 #include <string>
 #include <vector>
 #include <unordered_map>
 #include "core/input/KeyCode.h"
 #include "core/input/MouseCode.h"
+#include "core/input/InputModifier.h"
+#include "core/input/InputTrigger.h"
 
 /// An InputSource can be a key, mouse button, or (future) gamepad button.
 struct InputSource
@@ -76,8 +79,21 @@ public:
     /// Remove all bindings for a given action or axis name.
     void Unbind(const std::string &name);
 
-    /// Remove all actions and axes.
+    /// Remove all actions and axes (also clears modifiers and triggers).
     void Clear();
+
+    // --- Modifiers & Triggers ---
+
+    /// Add a modifier to an axis. Modifiers are applied in insertion order.
+    void AddModifier(const std::string &axisName, std::unique_ptr<InputModifier> modifier);
+
+    /// Set the trigger for an action. Replaces any existing trigger.
+    /// Pass nullptr to revert to default (pressed) behavior.
+    void SetTrigger(const std::string &actionName, std::unique_ptr<InputTrigger> trigger);
+
+    /// Per-frame update: applies axis modifiers and advances trigger state machines.
+    /// Must be called once per frame if modifiers or triggers are in use.
+    void Update(float dt);
 
     // --- Queries (called per frame in OnUpdate) ---
 
@@ -91,7 +107,16 @@ public:
     bool WasActionReleasedThisFrame(const std::string &name) const;
 
     /// Returns a float in [-1, +1] for key axes, or raw delta for mouse axes.
+    /// If modifiers are attached and Update() has been called, returns the modified value.
     float GetAxis(const std::string &name) const;
+
+    /// True if the action's trigger condition was met this frame.
+    /// Requires Update(dt) to have been called. Falls back to WasActionPressedThisFrame()
+    /// if no trigger is set.
+    bool WasActionTriggeredThisFrame(const std::string &name) const;
+
+    /// Returns the current trigger state for an action (None, Ongoing, or Triggered).
+    TriggerState GetActionTriggerState(const std::string &name) const;
 
     // --- Internal types (public for serialization traits) ---
 
@@ -120,9 +145,27 @@ private:
     /// Check if a single InputSource was released this frame.
     static bool WasSourceReleasedThisFrame(const InputSource &source);
 
+    /// Compute the raw (unmodified) axis value.
+    float ComputeRawAxis(const AxisEntry &entry) const;
+
     // Action name -> list of sources (OR: any one triggers the action)
     std::unordered_map<std::string, std::vector<InputSource>> m_Actions;
 
     // Axis name -> binding
     std::unordered_map<std::string, AxisEntry> m_Axes;
+
+    // Axis name -> ordered modifier chain
+    std::unordered_map<std::string, std::vector<std::unique_ptr<InputModifier>>> m_Modifiers;
+
+    // Action name -> trigger (nullptr = default pressed behavior)
+    std::unordered_map<std::string, std::unique_ptr<InputTrigger>> m_Triggers;
+
+    // Cached trigger states, updated by Update()
+    std::unordered_map<std::string, TriggerState> m_TriggerStates;
+
+    // Cached modified axis values, updated by Update()
+    std::unordered_map<std::string, float> m_CachedAxisValues;
+
+    // Delta time from last Update() call, used by GetAxis() for modifier application
+    float m_LastDt = 0.0f;
 };

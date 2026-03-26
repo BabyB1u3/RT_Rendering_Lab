@@ -40,6 +40,70 @@ void InputActionMap::Clear()
 {
     m_Actions.clear();
     m_Axes.clear();
+    m_Modifiers.clear();
+    m_Triggers.clear();
+    m_TriggerStates.clear();
+    m_CachedAxisValues.clear();
+}
+
+void InputActionMap::AddModifier(const std::string &axisName, std::unique_ptr<InputModifier> modifier)
+{
+    m_Modifiers[axisName].push_back(std::move(modifier));
+}
+
+void InputActionMap::SetTrigger(const std::string &actionName, std::unique_ptr<InputTrigger> trigger)
+{
+    if (trigger)
+        m_Triggers[actionName] = std::move(trigger);
+    else
+        m_Triggers.erase(actionName);
+}
+
+void InputActionMap::Update(float dt)
+{
+    m_LastDt = dt;
+
+    // Evaluate axis modifiers and cache results.
+    m_CachedAxisValues.clear();
+    for (const auto &[name, entry] : m_Axes)
+    {
+        float value = ComputeRawAxis(entry);
+
+        auto modIt = m_Modifiers.find(name);
+        if (modIt != m_Modifiers.end())
+        {
+            for (const auto &mod : modIt->second)
+                value = mod->Apply(value, dt);
+        }
+
+        m_CachedAxisValues[name] = value;
+    }
+
+    // Advance trigger state machines.
+    for (auto &[name, trigger] : m_Triggers)
+    {
+        auto actIt = m_Actions.find(name);
+        if (actIt == m_Actions.end())
+        {
+            m_TriggerStates[name] = TriggerState::None;
+            continue;
+        }
+
+        bool down = false;
+        bool pressed = false;
+        bool released = false;
+        for (const auto &src : actIt->second)
+        {
+            if (IsSourceDown(src))
+                down = true;
+            if (WasSourcePressedThisFrame(src))
+                pressed = true;
+            if (WasSourceReleasedThisFrame(src))
+                released = true;
+        }
+
+        m_TriggerStates[name] = trigger->Evaluate(down, pressed, released, dt);
+    }
 }
 
 // --- Queries ---
@@ -88,12 +152,41 @@ bool InputActionMap::WasActionReleasedThisFrame(const std::string &name) const
 
 float InputActionMap::GetAxis(const std::string &name) const
 {
+    // If Update() was called this frame, return the cached (modifier-applied) value.
+    auto cachedIt = m_CachedAxisValues.find(name);
+    if (cachedIt != m_CachedAxisValues.end())
+        return cachedIt->second;
+
+    // Fall back to raw computation (no modifiers, or Update() not called).
     auto it = m_Axes.find(name);
     if (it == m_Axes.end())
         return 0.0f;
 
-    const AxisEntry &entry = it->second;
+    return ComputeRawAxis(it->second);
+}
 
+bool InputActionMap::WasActionTriggeredThisFrame(const std::string &name) const
+{
+    auto it = m_TriggerStates.find(name);
+    if (it != m_TriggerStates.end())
+        return it->second == TriggerState::Triggered;
+
+    // No trigger set — fall back to default pressed behavior.
+    return WasActionPressedThisFrame(name);
+}
+
+TriggerState InputActionMap::GetActionTriggerState(const std::string &name) const
+{
+    auto it = m_TriggerStates.find(name);
+    if (it != m_TriggerStates.end())
+        return it->second;
+
+    // No trigger set — emulate pressed trigger.
+    return WasActionPressedThisFrame(name) ? TriggerState::Triggered : TriggerState::None;
+}
+
+float InputActionMap::ComputeRawAxis(const AxisEntry &entry) const
+{
     if (entry.kind == AxisEntry::Kind::KeyPair)
     {
         float value = 0.0f;
