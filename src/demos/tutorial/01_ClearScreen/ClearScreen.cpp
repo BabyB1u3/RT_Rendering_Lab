@@ -31,11 +31,9 @@ void ClearScreen::OnRender()
     desc.ColorLoadAction = LoadAction::Clear;
     desc.ClearColor = {m_ClearColor.r, m_ClearColor.g, m_ClearColor.b, 1.0f};
 
-    RenderCommand::BeginFrame();
     RenderCommand::BeginRenderPass(m_BackBuffer, desc);
     RenderCommand::SetViewport(0, 0, m_ViewportWidth, m_ViewportHeight);
     RenderCommand::EndRenderPass();
-    RenderCommand::EndFrame();
 }
 
 void ClearScreen::OnImGuiRender()

@@ -188,6 +188,17 @@ void Window::SetResizeCallback(ResizeCallback callback)
     m_ResizeCallback = std::move(callback);
 }
 
+void Window::SetRefreshCallback(RefreshCallback callback)
+{
+    m_RefreshCallback = std::move(callback);
+    glfwSetWindowRefreshCallback(m_Handle, [](GLFWwindow *w)
+    {
+        auto *self = static_cast<Window *>(glfwGetWindowUserPointer(w));
+        if (self && self->m_RefreshCallback)
+            self->m_RefreshCallback();
+    });
+}
+
 void Window::SetEventBus(EventBus* bus)
 {
     m_EventBus = bus;

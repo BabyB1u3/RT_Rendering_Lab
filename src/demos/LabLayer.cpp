@@ -90,15 +90,15 @@ void LabLayer::RegisterBuiltInDemos()
             return CreateScope<ClearScreen>(window.GetWidth(), window.GetHeight()); });
 
     // --- Showcase demos ---
-    DemoRegistry::Register("Shadow Mapping", []()
-                           {
-        const auto& window = Application::Get().GetWindow();
-        return CreateScope<ShadowMapping>(window.GetWidth(), window.GetHeight()); });
+    // DemoRegistry::Register("Shadow Mapping", []()
+    //                        {
+    //     const auto& window = Application::Get().GetWindow();
+    //     return CreateScope<ShadowMapping>(window.GetWidth(), window.GetHeight()); });
 
-    DemoRegistry::Register("Material Playground", []()
-                           {
-        const auto& window = Application::Get().GetWindow();
-        return CreateScope<MaterialPlayground>(window.GetWidth(), window.GetHeight()); });
+    // DemoRegistry::Register("Material Playground", []()
+    //                        {
+    //     const auto& window = Application::Get().GetWindow();
+    //     return CreateScope<MaterialPlayground>(window.GetWidth(), window.GetHeight()); });
 
     m_DemosRegistered = true;
 }
