@@ -1,6 +1,6 @@
 # Input System & Event System — Design Document
 
-Updated 2026-03-14. Describes the **complete end-state** architecture for these two systems,
+Updated 2026-03-25. Describes the **complete end-state** architecture for these two systems,
 from the minimal foundation through to production game-engine features.
 Then defines a **phased implementation plan** aligned with the current project stage.
 
@@ -183,6 +183,9 @@ namespace Mouse
 - Values are GLFW-identical so the translation layer is zero-cost.
 - Namespace (`Key::`, `Mouse::`) instead of class scope — shorter call sites
   (`Key::W` vs `KeyCode::Key::W`).
+- This also means `Key::Code` / `Mouse::Code` are **not** generic named enum types.
+  They keep using `InputNames.h` for serialization/debug names rather than the default
+  `magic_enum` path used by newer internal `enum class` types.
 
 ---
 
@@ -494,6 +497,15 @@ void ShadowMapping::OnUpdate(double dt)
   string mapping). Config files live in `assets/configs/` (shipped defaults)
   and are auto-copied to `saved/configs/` (user-editable) on first access
   via `FileSystem::ResolveConfigPath()`.
+- After migration to the shared serialization framework, the same external format is
+  preserved: `Key::Code` / `Mouse::Code` still flow through `InputNames.h`, while
+  internal named enums such as `InputSource::Type`, `MouseAxis`, and future trigger/
+  device enums can use shared `magic_enum`-backed enum helpers to remove repetitive
+  string conversion code.
+- Recommended rollout:
+  1. add the dependency and shared enum helper without behavior changes;
+  2. use it first for `InputSource::Type` and `MouseAxis` inside input serialization;
+  3. expand later to trigger/device enums if they also become config-facing or editor-facing.
 - Axis returns `float` in [-1, +1] for key pairs, or raw pixel delta for mouse.
   The consumer decides how to scale it (sensitivity, dt, etc.) — unless Layer 3
   modifiers are applied.
