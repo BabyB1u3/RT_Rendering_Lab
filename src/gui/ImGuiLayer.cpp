@@ -4,6 +4,11 @@
 #include <imgui_impl_glfw.h>
 #ifndef GLAB_BACKEND_METAL
 #include <imgui_impl_opengl3.h>
+#else
+#include "gui/MetalImGuiBridge.h"
+#include "graphics/GraphicsDevice.h"
+#include "graphics/metal/MetalGraphicsDevice.h"
+#include "graphics/metal/MetalRenderCommand.h"
 #endif
 
 #include "core/app/Application.h"
@@ -35,15 +40,8 @@ void ImGuiLayer::OnAttach()
     GLFWwindow *window = Application::Get().GetWindow().GetNativeHandle();
 #ifdef GLAB_BACKEND_METAL
     ImGui_ImplGlfw_InitForOther(window, true);
-    // Phase 1 keeps ImGui renderer-less on Metal, but NewFrame still expects
-    // the font atlas to exist. Build it CPU-side so UI code can run safely.
-    unsigned char* pixels = nullptr;
-    int width = 0;
-    int height = 0;
-    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-    (void)pixels;
-    (void)width;
-    (void)height;
+    auto *metalDevice = static_cast<MetalGraphicsDevice *>(GetDevice().get());
+    MetalImGuiBridge::Init(metalDevice->GetMTLDevice());
 #else
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     // GLSL 460 matches the OpenGL 4.6 core context created in Window.
@@ -55,6 +53,8 @@ void ImGuiLayer::OnDetach()
 {
 #ifndef GLAB_BACKEND_METAL
     ImGui_ImplOpenGL3_Shutdown();
+#else
+    MetalImGuiBridge::Shutdown();
 #endif
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
@@ -64,6 +64,9 @@ void ImGuiLayer::Begin()
 {
 #ifndef GLAB_BACKEND_METAL
     ImGui_ImplOpenGL3_NewFrame();
+#else
+    auto *metalDevice = static_cast<MetalGraphicsDevice *>(GetDevice().get());
+    metalDevice->GetMetalRenderCommand()->BeginImGuiFrame();
 #endif
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
@@ -80,5 +83,8 @@ void ImGuiLayer::End()
     ImGui::Render();
 #ifndef GLAB_BACKEND_METAL
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+#else
+    auto *metalDevice = static_cast<MetalGraphicsDevice *>(GetDevice().get());
+    metalDevice->GetMetalRenderCommand()->RenderImGui(ImGui::GetDrawData());
 #endif
 }

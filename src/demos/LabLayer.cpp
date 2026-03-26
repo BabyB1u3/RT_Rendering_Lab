@@ -8,8 +8,10 @@
 #include "core/Logger.h"
 #include "DemoBase.h"
 #include "DemoRegistry.h"
-#include "demos/MaterialPlayground/MaterialPlayground.h"
-#include "demos/ShadowMapping/ShadowMapping.h"
+#include "demos/showcase/MaterialPlayground/MaterialPlayground.h"
+#include "demos/showcase/ShadowMapping/ShadowMapping.h"
+#include "demos/tutorial/01_ClearScreen/ClearScreen.h"
+#include "demos/tutorial/02_Triangle/Triangle.h"
 
 LabLayer::LabLayer()
     : Layer("LabLayer")
@@ -27,8 +29,8 @@ void LabLayer::OnAttach()
     if (!m_ActiveDemo)
     {
         // Default demo
-        LOG_INFO("Loading default demo: Shadow Mapping");
-        SetActiveDemo(DemoRegistry::Create("Shadow Mapping"), "Shadow Mapping");
+        LOG_INFO("Loading default demo: Clear Screen");
+        SetActiveDemo(DemoRegistry::Create("01 - Clear Screen"), "01 - Clear Screen");
     }
 
     if (m_ActiveDemo)
@@ -82,16 +84,27 @@ void LabLayer::RegisterBuiltInDemos()
 {
     if (m_DemosRegistered)
         return;
-
-    DemoRegistry::Register("Shadow Mapping", []()
+    // --- Tutorial demos ---
+    DemoRegistry::Register("01 - Clear Screen", []()
                            {
-        const auto& window = Application::Get().GetWindow();
-        return CreateScope<ShadowMapping>(window.GetWidth(), window.GetHeight()); });
+            const auto& window = Application::Get().GetWindow();
+            return CreateScope<ClearScreen>(window.GetWidth(), window.GetHeight()); });
 
-    DemoRegistry::Register("Material Playground", []()
+    DemoRegistry::Register("02 - Triangle", []()
                            {
-        const auto& window = Application::Get().GetWindow();
-        return CreateScope<MaterialPlayground>(window.GetWidth(), window.GetHeight()); });
+            const auto& window = Application::Get().GetWindow();
+            return CreateScope<Triangle>(window.GetWidth(), window.GetHeight()); });
+
+    // --- Showcase demos ---
+    // DemoRegistry::Register("Shadow Mapping", []()
+    //                        {
+    //     const auto& window = Application::Get().GetWindow();
+    //     return CreateScope<ShadowMapping>(window.GetWidth(), window.GetHeight()); });
+
+    // DemoRegistry::Register("Material Playground", []()
+    //                        {
+    //     const auto& window = Application::Get().GetWindow();
+    //     return CreateScope<MaterialPlayground>(window.GetWidth(), window.GetHeight()); });
 
     m_DemosRegistered = true;
 }
@@ -106,5 +119,5 @@ void LabLayer::SetActiveDemo(Scope<DemoBase> demo, const std::string &name)
     LOG_INFO("Active demo: {}", m_ActiveDemoName);
 
     Application::Get().GetEventBus().Publish(
-        DemoSwitchedEvent{ m_SelectedDemoIndex, m_ActiveDemoName.c_str() });
+        DemoSwitchedEvent{m_SelectedDemoIndex, m_ActiveDemoName.c_str()});
 }

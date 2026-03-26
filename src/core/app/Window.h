@@ -30,7 +30,8 @@ struct WindowProps
 class Window
 {
 public:
-    using ResizeCallback = std::function<void(uint32_t, uint32_t)>;
+    using ResizeCallback   = std::function<void(uint32_t, uint32_t)>;
+    using RefreshCallback  = std::function<void()>;
 
     explicit Window(const WindowProps &props = {});
     ~Window();
@@ -56,6 +57,9 @@ public:
 
     /// Register a callback invoked when the framebuffer is resized.
     void SetResizeCallback(ResizeCallback callback);
+    /// Register a callback invoked when the window needs to be redrawn
+    /// (e.g., during live resize on macOS).
+    void SetRefreshCallback(RefreshCallback callback);
 
     /// Give Window a reference to the EventBus so GLFW callbacks can
     /// publish events (WindowResize, KeyPressed, MouseScrolled, etc.).
@@ -75,6 +79,7 @@ private:
     uint32_t m_Height = 0;
     bool m_VSync = true;
 
-    ResizeCallback m_ResizeCallback;
+    ResizeCallback  m_ResizeCallback;
+    RefreshCallback m_RefreshCallback;
     EventBus* m_EventBus = nullptr;  // Non-owning. Lifetime managed by Application.
 };

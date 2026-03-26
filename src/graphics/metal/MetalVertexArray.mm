@@ -8,6 +8,7 @@
 #include "graphics/metal/MetalCast.h"
 #include "graphics/metal/MetalGraphicsDevice.h"
 #include "graphics/metal/MetalRenderCommand.h"
+#include "graphics/metal/MetalShader.h"
 #include "graphics/metal/MetalTypes.h"
 #include "graphics/metal/MetalVertexBuffer.h"
 
@@ -48,10 +49,13 @@ void MetalVertexArray::AddVertexBuffer(const Ref<IVertexBuffer> &vb)
 		return;
 	}
 
-	uint32_t slot = static_cast<uint32_t>(m_VertexBuffers.size());
+	// Vertex buffers are placed at buffer indices [kMetalVertexBufferBase, ...) to avoid
+	// conflicting with constant buffers at [0, kMetalVertexBufferBase).
+	uint32_t slot       = static_cast<uint32_t>(m_VertexBuffers.size());
+	uint32_t bufferSlot = kMetalVertexBufferBase + slot;
 
 	// Per-buffer layout (stride, step function)
-	MTLVertexBufferLayoutDescriptor *layoutDesc = m_Impl->vertexDescriptor.layouts[slot];
+	MTLVertexBufferLayoutDescriptor *layoutDesc = m_Impl->vertexDescriptor.layouts[bufferSlot];
 	layoutDesc.stride       = layout.GetStride();
 	layoutDesc.stepFunction = MTLVertexStepFunctionPerVertex;
 	layoutDesc.stepRate     = 1;
@@ -73,7 +77,7 @@ void MetalVertexArray::AddVertexBuffer(const Ref<IVertexBuffer> &vb)
 				auto *attr   = m_Impl->vertexDescriptor.attributes[m_Impl->attribIndex++];
 				attr.format      = fmt;
 				attr.offset      = element.Offset + r * vecSize;
-				attr.bufferIndex = slot;
+				attr.bufferIndex = bufferSlot;
 			}
 		}
 		else
@@ -81,7 +85,7 @@ void MetalVertexArray::AddVertexBuffer(const Ref<IVertexBuffer> &vb)
 			auto *attr   = m_Impl->vertexDescriptor.attributes[m_Impl->attribIndex++];
 			attr.format      = VertexFormatFromShaderDataType(element.Type);
 			attr.offset      = element.Offset;
-			attr.bufferIndex = slot;
+			attr.bufferIndex = bufferSlot;
 		}
 	}
 

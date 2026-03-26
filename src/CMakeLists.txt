@@ -7,6 +7,8 @@
     core/app/Layer.cpp
     core/app/LayerStack.cpp
     core/Logger.cpp
+    core/serialization/PropertyTree.cpp
+    core/serialization/JsonBackend.cpp
     core/Time.cpp
     core/app/Window.cpp
 
@@ -28,12 +30,15 @@
 
     demos/LabLayer.cpp
     demos/DemoRegistry.cpp
-    demos/MaterialPlayground/MaterialPlayground.cpp
-    demos/ShadowMapping/ShadowMapping.cpp
+    demos/showcase/MaterialPlayground/MaterialPlayground.cpp
+    demos/showcase/ShadowMapping/ShadowMapping.cpp
+    demos/tutorial/01_ClearScreen/ClearScreen.cpp
+    demos/tutorial/02_Triangle/Triangle.cpp
 
     gui/ImGuiLayer.cpp
     gui/Panels/DebugPanel.cpp
     gui/Panels/DemoSelectorPanel.cpp
+    gui/MetalImGuiBridge.h
 )
 
 set(GLAB_CORE_HEADERS
@@ -50,6 +55,13 @@ set(GLAB_CORE_HEADERS
     core/app/LayerStack.h
     core/input/MouseCode.h
     core/Logger.h
+    core/serialization/PropertyTree.h
+    core/serialization/SerializationTraits.h
+    core/serialization/BuiltinTraits.h
+    core/serialization/IFormatBackend.h
+    core/serialization/JsonBackend.h
+    core/serialization/Serialization.h
+    core/input/InputActionSerialization.h
     core/Time.h
     core/app/Window.h
 
@@ -93,8 +105,10 @@ set(GLAB_CORE_HEADERS
     demos/DemoBase.h
     demos/DemoRegistry.h
     demos/LabLayer.h
-    demos/MaterialPlayground/MaterialPlayground.h
-    demos/ShadowMapping/ShadowMapping.h
+    demos/showcase/MaterialPlayground/MaterialPlayground.h
+    demos/showcase/ShadowMapping/ShadowMapping.h
+    demos/tutorial/01_ClearScreen/ClearScreen.h
+    demos/tutorial/02_Triangle/Triangle.h
 
     gui/ImGuiLayer.h
     gui/Panels/DebugPanel.h
@@ -139,6 +153,7 @@ if(GLAB_BACKEND_METAL)
         graphics/metal/MetalTexture2D.mm
         graphics/metal/MetalFramebuffer.mm
         graphics/metal/MetalRenderTarget.mm
+        gui/MetalImGuiBridge.mm
     )
 
     set(GLAB_METAL_HEADERS
@@ -153,6 +168,7 @@ if(GLAB_BACKEND_METAL)
         graphics/metal/MetalTexture2D.h
         graphics/metal/MetalFramebuffer.h
         graphics/metal/MetalRenderTarget.h
+        gui/MetalImGuiBridge.h
     )
 
     set_source_files_properties(${GLAB_METAL_SOURCES}
@@ -195,6 +211,7 @@ target_link_libraries(RTRLabCore PUBLIC
     spdlog
     imgui
     nlohmann_json
+    magic_enum
 )
 
 if(GLAB_BACKEND_OPENGL)
