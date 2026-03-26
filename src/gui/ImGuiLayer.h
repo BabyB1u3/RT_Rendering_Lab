@@ -4,14 +4,15 @@
 /// @brief Layer subclass that manages the Dear ImGui lifecycle.
 ///
 /// Pushed as an *overlay* on the LayerStack so it renders on top of all normal
-/// layers. OnAttach() initializes the ImGui context and GLFW/OpenGL3 backends.
+/// layers. OnAttach() initializes the ImGui context and the active renderer
+/// backend (OpenGL3 or Metal).
 /// OnDetach() tears them down.
 ///
 /// Frame bracketing:
 ///   Application::Run() calls Begin() before any layer's OnImGuiRender(),
 ///   then End() after all layers have submitted their ImGui draw commands.
 ///   Begin() starts a new ImGui frame; End() calls ImGui::Render() and
-///   dispatches the draw data to the OpenGL3 backend.
+///   dispatches the draw data to the active renderer backend.
 
 #include "core/app/Layer.h"
 

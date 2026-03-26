@@ -49,6 +49,8 @@ public:
 	// --- Metal-internal (called by MetalShader::Bind and MetalVertexArray::Bind) ---
 	void SetCurrentShader(MetalShader *shader);
 	void SetCurrentVAO(MetalVertexArray *vao);
+	void BeginImGuiFrame();
+	void RenderImGui(void *drawData);
 
 private:
 	struct Impl;
