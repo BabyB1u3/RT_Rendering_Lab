@@ -1,11 +1,13 @@
 # Serialization System — Design Document
 
-Updated 2026-03-24. Describes a format-agnostic serialization framework that decouples
+Updated 2026-03-25. Describes a format-agnostic serialization framework that decouples
 data types from their on-disk representation, enabling JSON today and YAML / binary tomorrow.
 
 > **Design Philosophy**: Types declare *what* to serialize via lightweight trait specialization.
 > Format backends (JSON, YAML, binary) handle *how*. No macros, no inheritance tax, no runtime
 > type registration. Serialize into an intermediate `PropertyTree` — backends read/write that tree.
+> Named enum types may use `magic_enum` inside trait helpers for token conversion, but field-level
+> serialization remains explicit trait code rather than generalized structural reflection.
 
 ---
 
@@ -225,6 +227,25 @@ void Serialize(PropertyTree &tree, float v);
 void Serialize(PropertyTree &tree, double v);
 void Serialize(PropertyTree &tree, const std::string &v);
 // ... corresponding Deserialize overloads ...
+
+// --- Named enums -> string tokens ---
+
+template<typename E>
+    requires std::is_enum_v<E>
+void Serialize(PropertyTree &tree, E value);
+
+template<typename E>
+    requires std::is_enum_v<E>
+bool Deserialize(const PropertyTree &tree, E &value);
+
+// Default enum traits use magic_enum::enum_name / enum_cast so JSON/YAML/binary
+// backends can share one implementation for named enum types.
+//
+// Provide a custom overload instead of the default path when:
+//   - on-disk tokens must differ from C++ enumerator spellings,
+//   - alias values need a canonical external name,
+//   - the type is not a real named enum (e.g. Key::Code / Mouse::Code),
+//   - bitflag enums need list/bitmask encoding instead of a single token.
 
 // --- GLM types → JSON arrays ---
 
@@ -532,6 +553,47 @@ core/input/InputActionSerialization.h — Serialize/Deserialize for InputActionM
 6. Remove the old inline JSON code and the `#include <json.hpp>` from InputAction.cpp.
 
 **JSON format must not change** — existing config files must load without modification.
+In practice this means `InputSource::Type` and `MouseAxis` can use the default
+`magic_enum`-backed enum traits, while `Key::Code` / `Mouse::Code` continue to
+use `InputNames.h` so existing canonical names and aliases remain stable.
+
+### Recommended `magic_enum` Rollout Sequence
+
+To keep the adoption low-risk, introduce `magic_enum` in the following order:
+
+1. **Dependency + thin wrapper only**
+   - Add `magic_enum` as a header-only third-party dependency.
+   - Introduce one small engine-owned helper (for example `EnumUtils.h` or enum support inside
+     `BuiltinTraits.h`) so the rest of the codebase does **not** depend on raw `magic_enum`
+     APIs directly.
+   - Do **not** change existing runtime behavior yet.
+
+2. **First production use: InputActionMap serialization traits**
+   - Use the shared enum helper for `InputSource::Type` and `MouseAxis` inside
+     `InputActionSerialization.h`.
+   - Keep `Key::Code` / `Mouse::Code` on `InputNames.h` to preserve canonical names,
+     aliases, and byte-identical JSON output.
+   - This is the first place where `magic_enum` pays for itself immediately by removing
+     repeated enum/string conversion code.
+
+3. **Second wave: engine/editor-facing enums**
+   - Migrate enums such as `SceneRendererOutput`, renderer debug toggles, and future app/window
+     settings once they become config-facing or need repeated UI stringification.
+   - Typical uses: serialization tokens, log strings, ImGui combo/radio population.
+
+4. **Third wave: material and rendering configuration enums**
+   - Apply the same shared helper to future `ShadingModel`, `BlendMode`, and similar config-facing
+     enums once material presets/editor tooling land.
+   - For flags-style enums such as `MaterialFeatureFlag`, build a dedicated serializer/UI helper
+     on top of the enum metadata rather than treating them like a plain one-of enum.
+
+5. **Do not force adoption where it is a poor fit**
+   - Keep backend conversion switches (`TextureFormat -> GLenum`, `LoadAction -> MTLLoadAction`,
+     etc.) explicit.
+   - Keep non-enum code tables and alias-heavy input code mappings explicit.
+
+This ordering deliberately introduces the dependency **before** widespread usage, but delays
+meaningful behavioral changes until the `InputActionMap` serialization migration is underway.
 
 ---
 
@@ -554,6 +616,11 @@ Types that will likely need serialization, in rough priority order:
 serialized as data. Instead, serialize an **asset reference** (path string) and resolve it
 through the asset system on load. This is out of scope for Phase 1 but the PropertyTree
 design accommodates it naturally (store `"mesh": "meshes/cube.obj"` as a string).
+
+**Note on enums**: For future config-facing enums, the default path is to use the shared
+`magic_enum`-backed enum trait so every backend gets the same token mapping. If a token
+must remain stable across C++ renames, add an explicit per-type serializer instead of
+serializing raw enumerator spellings.
 
 ---
 
@@ -607,10 +674,12 @@ Zero behavior change, zero config format change.
 
 | Step | Deliverable | Test |
 |------|-------------|------|
+| 0a | Add `magic_enum` dependency + one engine-owned enum helper wrapper | Build succeeds; no behavior changes |
+| 0b | Decide and document enum usage rules (`enum class` default path, `Key::Code` / `Mouse::Code` opt-out) | Design review / docs updated |
 | 1a | `PropertyTree` with full variant API | Unit tests: construct, query, access, GetOr |
 | 1b | `JsonBackend` — bidirectional conversion | Round-trip test: `json string → tree → json string` preserves structure |
-| 1c | Builtin traits for primitives + glm::vec3 | Unit test per type |
-| 1d | `InputActionMap` Serialize/Deserialize traits | Load existing .json → serialize back → byte-identical output |
+| 1c | Builtin traits for primitives + glm::vec3 + shared enum helper entry points | Unit test per type |
+| 1d | `InputActionMap` Serialize/Deserialize traits using `magic_enum` for `InputSource::Type` / `MouseAxis` only | Load existing .json → serialize back → byte-identical output |
 | 1e | `Serialization::SaveToFile` / `LoadFromFile` | Integration test with temp file |
 | 1f | Remove old code from InputAction.cpp | All existing demos still load configs correctly |
 
@@ -685,4 +754,6 @@ Requires significant infrastructure (field name stringification, iteration).
 **Cons**: Not available in any compiler yet (C++26 at earliest). Cannot depend on it.
 
 **Verdict**: The trait-based design is forward-compatible — when reflection lands, traits can
-be auto-generated. No wasted work.
+be auto-generated. No wasted work. In the meantime, `magic_enum` is adopted only as a
+small helper for named enum token conversion; it does not replace explicit trait code or
+change the overall architecture.
