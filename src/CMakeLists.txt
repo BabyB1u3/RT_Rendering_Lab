@@ -7,6 +7,8 @@
     core/app/Layer.cpp
     core/app/LayerStack.cpp
     core/Logger.cpp
+    core/serialization/PropertyTree.cpp
+    core/serialization/JsonBackend.cpp
     core/Time.cpp
     core/app/Window.cpp
 
@@ -50,6 +52,13 @@ set(GLAB_CORE_HEADERS
     core/app/LayerStack.h
     core/input/MouseCode.h
     core/Logger.h
+    core/serialization/PropertyTree.h
+    core/serialization/SerializationTraits.h
+    core/serialization/BuiltinTraits.h
+    core/serialization/IFormatBackend.h
+    core/serialization/JsonBackend.h
+    core/serialization/Serialization.h
+    core/input/InputActionSerialization.h
     core/Time.h
     core/app/Window.h
 
@@ -195,6 +204,7 @@ target_link_libraries(RTRLabCore PUBLIC
     spdlog
     imgui
     nlohmann_json
+    magic_enum
 )
 
 if(GLAB_BACKEND_OPENGL)

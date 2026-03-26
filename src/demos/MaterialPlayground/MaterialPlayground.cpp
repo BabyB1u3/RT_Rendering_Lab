@@ -6,6 +6,8 @@
 
 #include "core/FileSystem.h"
 #include "core/Logger.h"
+#include "core/input/InputActionSerialization.h"
+#include "core/serialization/Serialization.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/Material.h"
 #include "graphics/MeshFactory.h"
@@ -70,25 +72,25 @@ void MaterialPlayground::OnAttach()
     {
         constexpr auto kInputCfg = "input/MaterialPlayground.json";
         auto resolved = FileSystem::ResolveConfigPath(kInputCfg);
-        if (!resolved.empty() && m_InputMap.LoadFromFile(resolved.string()))
+        if (!resolved.empty() && Serialization::LoadFromFile(m_InputMap, resolved))
         {
             // loaded successfully
         }
         else
         {
-            m_InputMap.BindAxis("MoveForward",  Key::W, Key::S);
-            m_InputMap.BindAxis("MoveRight",    Key::D, Key::A);
-            m_InputMap.BindAxis("MoveUp",       Key::E, Key::Q);
-            m_InputMap.BindAxis("LookX",        InputActionMap::MouseAxis::X);
-            m_InputMap.BindAxis("LookY",        InputActionMap::MouseAxis::Y);
+            m_InputMap.BindAxis("MoveForward", Key::W, Key::S);
+            m_InputMap.BindAxis("MoveRight", Key::D, Key::A);
+            m_InputMap.BindAxis("MoveUp", Key::E, Key::Q);
+            m_InputMap.BindAxis("LookX", InputActionMap::MouseAxis::X);
+            m_InputMap.BindAxis("LookY", InputActionMap::MouseAxis::Y);
 
-            m_InputMap.BindAction("ShowFinalColor",  Key::D1);
-            m_InputMap.BindAction("ShowShadowMap",   Key::D2);
-            m_InputMap.BindAction("ToggleLookMode",  InputSource::FromMouseButton(Mouse::Right));
-            m_InputMap.BindAxis("Zoom",              InputActionMap::MouseAxis::ScrollY);
+            m_InputMap.BindAction("ShowFinalColor", Key::D1);
+            m_InputMap.BindAction("ShowShadowMap", Key::D2);
+            m_InputMap.BindAction("ToggleLookMode", InputSource::FromMouseButton(Mouse::Right));
+            m_InputMap.BindAxis("Zoom", InputActionMap::MouseAxis::ScrollY);
 
             // Save defaults so the user has an editable config file
-            m_InputMap.SaveToFile(FileSystem::GetSavedConfigPath(kInputCfg).string());
+            Serialization::SaveToFile(m_InputMap, FileSystem::GetSavedConfigPath(kInputCfg));
         }
     }
 
@@ -222,15 +224,21 @@ void MaterialPlayground::SyncMaterialProperties()
 void MaterialPlayground::HandleCameraInput(double dt)
 {
     float forward = m_InputMap.GetAxis("MoveForward");
-    float right   = m_InputMap.GetAxis("MoveRight");
-    float up      = m_InputMap.GetAxis("MoveUp");
+    float right = m_InputMap.GetAxis("MoveRight");
+    float up = m_InputMap.GetAxis("MoveUp");
 
-    if (forward > 0.0f)  m_CameraController.MoveForward(dt);
-    if (forward < 0.0f)  m_CameraController.MoveBackward(dt);
-    if (right > 0.0f)    m_CameraController.MoveRight(dt);
-    if (right < 0.0f)    m_CameraController.MoveLeft(dt);
-    if (up > 0.0f)       m_CameraController.MoveUp(dt);
-    if (up < 0.0f)       m_CameraController.MoveDown(dt);
+    if (forward > 0.0f)
+        m_CameraController.MoveForward(dt);
+    if (forward < 0.0f)
+        m_CameraController.MoveBackward(dt);
+    if (right > 0.0f)
+        m_CameraController.MoveRight(dt);
+    if (right < 0.0f)
+        m_CameraController.MoveLeft(dt);
+    if (up > 0.0f)
+        m_CameraController.MoveUp(dt);
+    if (up < 0.0f)
+        m_CameraController.MoveDown(dt);
 
     // Right-click to look around
     if (m_InputMap.IsActionDown("ToggleLookMode"))

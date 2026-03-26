@@ -79,15 +79,6 @@ public:
     /// Remove all actions and axes.
     void Clear();
 
-    // --- Serialization ---
-
-    /// Save all bindings to a JSON file. Returns true on success.
-    bool SaveToFile(const std::string &path) const;
-
-    /// Load bindings from a JSON file, replacing current bindings.
-    /// Returns true on success. On failure, existing bindings are unchanged.
-    bool LoadFromFile(const std::string &path);
-
     // --- Queries (called per frame in OnUpdate) ---
 
     /// True if ANY bound source for this action is currently held.
@@ -102,6 +93,25 @@ public:
     /// Returns a float in [-1, +1] for key axes, or raw delta for mouse axes.
     float GetAxis(const std::string &name) const;
 
+    // --- Internal types (public for serialization traits) ---
+
+    struct AxisEntry
+    {
+        enum class Kind
+        {
+            KeyPair,
+            MouseAxis
+        };
+        Kind kind;
+        AxisBinding keyPair; // used when kind == KeyPair
+        MouseAxis mouseAxis; // used when kind == MouseAxis
+    };
+
+    // --- Read access for serialization ---
+
+    const std::unordered_map<std::string, std::vector<InputSource>> &GetActions() const { return m_Actions; }
+    const std::unordered_map<std::string, AxisEntry> &GetAxes() const { return m_Axes; }
+
 private:
     /// Check if a single InputSource is currently down.
     static bool IsSourceDown(const InputSource &source);
@@ -114,16 +124,5 @@ private:
     std::unordered_map<std::string, std::vector<InputSource>> m_Actions;
 
     // Axis name -> binding
-    struct AxisEntry
-    {
-        enum class Kind
-        {
-            KeyPair,
-            MouseAxis
-        };
-        Kind kind;
-        AxisBinding keyPair; // used when kind == KeyPair
-        MouseAxis mouseAxis; // used when kind == MouseAxis
-    };
     std::unordered_map<std::string, AxisEntry> m_Axes;
 };

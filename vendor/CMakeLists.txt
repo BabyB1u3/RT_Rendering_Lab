@@ -66,6 +66,14 @@ target_include_directories(nlohmann_json INTERFACE
 )
 
 # ----------------------------
+# magic_enum (header-only, single-include)
+# ----------------------------
+add_library(magic_enum INTERFACE)
+target_include_directories(magic_enum INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/magic_enum
+)
+
+# ----------------------------
 # Dear ImGui
 # ----------------------------
 set(GLAB_IMGUI_SOURCES
