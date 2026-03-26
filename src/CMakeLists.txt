@@ -28,8 +28,9 @@
 
     demos/LabLayer.cpp
     demos/DemoRegistry.cpp
-    demos/MaterialPlayground/MaterialPlayground.cpp
-    demos/ShadowMapping/ShadowMapping.cpp
+    demos/showcase/MaterialPlayground/MaterialPlayground.cpp
+    demos/showcase/ShadowMapping/ShadowMapping.cpp
+    demos/tutorial/01_ClearScreen/ClearScreen.cpp
 
     gui/ImGuiLayer.cpp
     gui/Panels/DebugPanel.cpp
@@ -94,8 +95,9 @@ set(GLAB_CORE_HEADERS
     demos/DemoBase.h
     demos/DemoRegistry.h
     demos/LabLayer.h
-    demos/MaterialPlayground/MaterialPlayground.h
-    demos/ShadowMapping/ShadowMapping.h
+    demos/showcase/MaterialPlayground/MaterialPlayground.h
+    demos/showcase/ShadowMapping/ShadowMapping.h
+    demos/tutorial/01_ClearScreen/ClearScreen.h
 
     gui/ImGuiLayer.h
     gui/Panels/DebugPanel.h
