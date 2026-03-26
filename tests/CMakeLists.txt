@@ -40,6 +40,8 @@ add_executable(rtrlab_unit_tests
     unit/TestBuffers.cpp
     unit/TestDefaultCameraController.cpp
     unit/TestSpecifications.cpp
+    unit/TestInputModifiers.cpp
+    unit/TestInputTriggers.cpp
 )
 
 glab_configure_test_target(rtrlab_unit_tests)
