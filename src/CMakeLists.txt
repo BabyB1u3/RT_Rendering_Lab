@@ -31,6 +31,7 @@
     demos/showcase/MaterialPlayground/MaterialPlayground.cpp
     demos/showcase/ShadowMapping/ShadowMapping.cpp
     demos/tutorial/01_ClearScreen/ClearScreen.cpp
+    demos/tutorial/02_Triangle/Triangle.cpp
 
     gui/ImGuiLayer.cpp
     gui/Panels/DebugPanel.cpp
@@ -98,6 +99,7 @@ set(GLAB_CORE_HEADERS
     demos/showcase/MaterialPlayground/MaterialPlayground.h
     demos/showcase/ShadowMapping/ShadowMapping.h
     demos/tutorial/01_ClearScreen/ClearScreen.h
+    demos/tutorial/02_Triangle/Triangle.h
 
     gui/ImGuiLayer.h
     gui/Panels/DebugPanel.h

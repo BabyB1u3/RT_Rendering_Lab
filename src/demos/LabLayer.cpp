@@ -11,6 +11,7 @@
 #include "demos/showcase/MaterialPlayground/MaterialPlayground.h"
 #include "demos/showcase/ShadowMapping/ShadowMapping.h"
 #include "demos/tutorial/01_ClearScreen/ClearScreen.h"
+#include "demos/tutorial/02_Triangle/Triangle.h"
 
 LabLayer::LabLayer()
     : Layer("LabLayer")
@@ -88,6 +89,11 @@ void LabLayer::RegisterBuiltInDemos()
                            {
             const auto& window = Application::Get().GetWindow();
             return CreateScope<ClearScreen>(window.GetWidth(), window.GetHeight()); });
+
+    DemoRegistry::Register("02 - Triangle", []()
+                           {
+            const auto& window = Application::Get().GetWindow();
+            return CreateScope<Triangle>(window.GetWidth(), window.GetHeight()); });
 
     // --- Showcase demos ---
     // DemoRegistry::Register("Shadow Mapping", []()
