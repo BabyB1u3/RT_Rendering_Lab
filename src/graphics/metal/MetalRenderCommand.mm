@@ -3,10 +3,13 @@
 #import <Metal/Metal.h>
 #import <QuartzCore/CAMetalLayer.h>
 
+#include <array>
 #include <unordered_map>
 
 #include "core/Logger.h"
+#include "graphics/Framebuffer.h"
 #include "graphics/RenderTypes.h"
+#include "graphics/interface/IFramebuffer.h"
 #include "graphics/interface/IRenderTarget.h"
 #include "graphics/interface/ITexture2D.h"
 #include "graphics/metal/MetalCast.h"
@@ -30,7 +33,13 @@ struct MetalRenderCommand::Impl
 	id<MTLRenderCommandEncoder>   encoder;
 	id<CAMetalDrawable>           drawable;
 
-	MTLPixelFormat currentColorFormat = MTLPixelFormatBGRA8Unorm;
+	std::array<MTLPixelFormat, 4> currentColorFormats = {
+	    MTLPixelFormatBGRA8Unorm,
+	    MTLPixelFormatInvalid,
+	    MTLPixelFormatInvalid,
+	    MTLPixelFormatInvalid
+	};
+	uint32_t currentColorAttachmentCount = 1;
 	MTLPixelFormat currentDepthFormat = MTLPixelFormatInvalid;
 
 	// True while encoding an offscreen (FBO) pass.
@@ -131,27 +140,56 @@ void MetalRenderCommand::BeginRenderPass(const Ref<IRenderTarget> &target,
 
 	MTLRenderPassDescriptor *rpDesc = [MTLRenderPassDescriptor new];
 
-	// ── Color attachment ──────────────────────────────────────────────────────
-	id<MTLTexture> colorTex = nil;
+	m_Impl->currentColorFormats.fill(MTLPixelFormatInvalid);
+	m_Impl->currentColorAttachmentCount = 0;
 
+	// ── Color attachments ─────────────────────────────────────────────────────
 	if (target->IsBackBuffer())
 	{
-		colorTex = m_Impl->drawable ? m_Impl->drawable.texture : nil;
-		m_Impl->currentColorFormat = m_Impl->layer.pixelFormat;
+		id<MTLTexture> colorTex = m_Impl->drawable ? m_Impl->drawable.texture : nil;
+		if (colorTex)
+		{
+			m_Impl->currentColorFormats[0] = m_Impl->layer.pixelFormat;
+			m_Impl->currentColorAttachmentCount = 1;
+			rpDesc.colorAttachments[0].texture     = colorTex;
+			rpDesc.colorAttachments[0].loadAction  = LoadActionToMTL(desc.ColorLoadAction);
+			rpDesc.colorAttachments[0].storeAction = StoreActionToMTL(desc.ColorStoreAction);
+			rpDesc.colorAttachments[0].clearColor  = MTLClearColorMake(
+			    desc.ClearColor.r, desc.ClearColor.g, desc.ClearColor.b, desc.ClearColor.a);
+		}
 	}
-	else if (auto colorAtt = target->GetColorAttachment(0))
+	else
 	{
-		colorTex = (__bridge id<MTLTexture>)AsMetal<MetalTexture2D>(colorAtt)->GetMTLTexture();
-		m_Impl->currentColorFormat = colorTex ? colorTex.pixelFormat : MTLPixelFormatInvalid;
-	}
+		const Ref<IFramebuffer> framebuffer = target->GetFramebuffer();
+		uint32_t colorAttachmentCount = 0;
+		if (framebuffer)
+		{
+			for (const auto &attachmentSpec : framebuffer->GetSpecification().Attachments.Attachments)
+			{
+				if (!IsDepthFormat(attachmentSpec.Format) && attachmentSpec.Format != TextureFormat::None)
+					++colorAttachmentCount;
+			}
+		}
 
-	if (colorTex)
-	{
-		rpDesc.colorAttachments[0].texture     = colorTex;
-		rpDesc.colorAttachments[0].loadAction  = LoadActionToMTL(desc.ColorLoadAction);
-		rpDesc.colorAttachments[0].storeAction = StoreActionToMTL(desc.ColorStoreAction);
-		rpDesc.colorAttachments[0].clearColor  = MTLClearColorMake(
-		    desc.ClearColor.r, desc.ClearColor.g, desc.ClearColor.b, desc.ClearColor.a);
+		for (uint32_t index = 0; index < colorAttachmentCount && index < m_Impl->currentColorFormats.size(); ++index)
+		{
+			auto colorAtt = target->GetColorAttachment(index);
+			if (!colorAtt)
+				continue;
+
+			id<MTLTexture> colorTex =
+			    (__bridge id<MTLTexture>)AsMetal<MetalTexture2D>(colorAtt)->GetMTLTexture();
+			if (!colorTex)
+				continue;
+
+			m_Impl->currentColorFormats[index] = colorTex.pixelFormat;
+			m_Impl->currentColorAttachmentCount = index + 1;
+			rpDesc.colorAttachments[index].texture     = colorTex;
+			rpDesc.colorAttachments[index].loadAction  = LoadActionToMTL(desc.ColorLoadAction);
+			rpDesc.colorAttachments[index].storeAction = StoreActionToMTL(desc.ColorStoreAction);
+			rpDesc.colorAttachments[index].clearColor  = MTLClearColorMake(
+			    desc.ClearColor.r, desc.ClearColor.g, desc.ClearColor.b, desc.ClearColor.a);
+		}
 	}
 
 	// ── Depth attachment ──────────────────────────────────────────────────────
@@ -284,7 +322,13 @@ void MetalRenderCommand::DrawIndexed(const Ref<IVertexArray> &vao, uint32_t inde
 	void *pso = m_Impl->currentShader->GetOrCreatePSO(
 	    (__bridge void *)m_Impl->device,
 	    metalVAO->GetMTLVertexDescriptor(),
-	    static_cast<uint32_t>(m_Impl->currentColorFormat),
+	    {
+	        static_cast<uint32_t>(m_Impl->currentColorFormats[0]),
+	        static_cast<uint32_t>(m_Impl->currentColorFormats[1]),
+	        static_cast<uint32_t>(m_Impl->currentColorFormats[2]),
+	        static_cast<uint32_t>(m_Impl->currentColorFormats[3])
+	    },
+	    m_Impl->currentColorAttachmentCount,
 	    static_cast<uint32_t>(m_Impl->currentDepthFormat),
 	    m_Impl->currentPipelineState);
 
@@ -354,7 +398,13 @@ void MetalRenderCommand::DrawArrays(uint32_t /*mode*/, uint32_t first, uint32_t 
 	void *pso = m_Impl->currentShader->GetOrCreatePSO(
 	    (__bridge void *)m_Impl->device,
 	    vertexDescriptor,
-	    static_cast<uint32_t>(m_Impl->currentColorFormat),
+	    {
+	        static_cast<uint32_t>(m_Impl->currentColorFormats[0]),
+	        static_cast<uint32_t>(m_Impl->currentColorFormats[1]),
+	        static_cast<uint32_t>(m_Impl->currentColorFormats[2]),
+	        static_cast<uint32_t>(m_Impl->currentColorFormats[3])
+	    },
+	    m_Impl->currentColorAttachmentCount,
 	    static_cast<uint32_t>(m_Impl->currentDepthFormat),
 	    m_Impl->currentPipelineState);
 

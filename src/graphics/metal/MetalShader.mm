@@ -3,6 +3,7 @@
 #import <Metal/Metal.h>
 
 #include <stdexcept>
+#include <array>
 #include <unordered_map>
 #include <vector>
 #include <functional>
@@ -22,7 +23,8 @@
 struct PSOKey
 {
 	uint64_t vertLayoutHash  = 0;
-	uint32_t colorFmt        = 0;
+	std::array<uint32_t, 4> colorFmts = {0, 0, 0, 0};
+	uint32_t colorAttachmentCount = 0;
 	uint32_t depthFmt        = 0;
 	bool     blendEnabled    = false;
 	bool     depthTest       = true;
@@ -33,7 +35,8 @@ struct PSOKey
 	bool operator==(const PSOKey &o) const
 	{
 		return vertLayoutHash == o.vertLayoutHash &&
-		       colorFmt       == o.colorFmt       &&
+		       colorFmts      == o.colorFmts      &&
+		       colorAttachmentCount == o.colorAttachmentCount &&
 		       depthFmt       == o.depthFmt       &&
 		       blendEnabled   == o.blendEnabled   &&
 		       depthTest      == o.depthTest      &&
@@ -48,7 +51,9 @@ struct PSOKeyHash
 	size_t operator()(const PSOKey &k) const
 	{
 		size_t h = std::hash<uint64_t>{}(k.vertLayoutHash);
-		h ^= std::hash<uint32_t>{}(k.colorFmt)     + 0x9e3779b9 + (h << 6) + (h >> 2);
+		for (uint32_t colorFmt : k.colorFmts)
+			h ^= std::hash<uint32_t>{}(colorFmt)    + 0x9e3779b9 + (h << 6) + (h >> 2);
+		h ^= std::hash<uint32_t>{}(k.colorAttachmentCount) + 0x9e3779b9 + (h << 6) + (h >> 2);
 		h ^= std::hash<uint32_t>{}(k.depthFmt)     + 0x9e3779b9 + (h << 6) + (h >> 2);
 		h ^= std::hash<bool>{}(k.blendEnabled)      + 0x9e3779b9 + (h << 6) + (h >> 2);
 		h ^= std::hash<bool>{}(k.depthTest)         + 0x9e3779b9 + (h << 6) + (h >> 2);
@@ -326,14 +331,16 @@ void MetalShader::SetUniformBlock(uint32_t binding, const void *data, uint32_t s
 
 // ─── Metal-internal ───────────────────────────────────────────────────────────
 
-void *MetalShader::GetOrCreatePSO(void     *mtlDevice,
-                                   void     *mtlVertDescriptor,
-                                   uint32_t  colorPixelFormat,
-                                   uint32_t  depthPixelFormat,
-                                   const PipelineState &ps)
+void *MetalShader::GetOrCreatePSO(void *mtlDevice,
+                                  void *mtlVertDescriptor,
+                                  const std::array<uint32_t, 4> &colorPixelFormats,
+                                  uint32_t colorAttachmentCount,
+                                  uint32_t depthPixelFormat,
+                                  const PipelineState &ps)
 {
 	PSOKey key;
-	key.colorFmt     = colorPixelFormat;
+	key.colorFmts    = colorPixelFormats;
+	key.colorAttachmentCount = colorAttachmentCount;
 	key.depthFmt     = depthPixelFormat;
 	key.blendEnabled = ps.BlendEnabled;
 	key.depthTest    = ps.DepthTestEnabled;
@@ -356,17 +363,21 @@ void *MetalShader::GetOrCreatePSO(void     *mtlDevice,
 	desc.fragmentFunction = m_Impl->fragmentFunction;
 	desc.vertexDescriptor = vertDesc;
 
-	// Color attachment
-	if (colorPixelFormat != (uint32_t)MTLPixelFormatInvalid)
+	// Color attachments
+	for (uint32_t index = 0; index < colorAttachmentCount && index < colorPixelFormats.size(); ++index)
 	{
-		desc.colorAttachments[0].pixelFormat = (MTLPixelFormat)colorPixelFormat;
+		uint32_t colorPixelFormat = colorPixelFormats[index];
+		if (colorPixelFormat == (uint32_t)MTLPixelFormatInvalid)
+			continue;
+
+		desc.colorAttachments[index].pixelFormat = (MTLPixelFormat)colorPixelFormat;
 		if (ps.BlendEnabled)
 		{
-			desc.colorAttachments[0].blendingEnabled             = YES;
-			desc.colorAttachments[0].sourceRGBBlendFactor        = MTLBlendFactorSourceAlpha;
-			desc.colorAttachments[0].destinationRGBBlendFactor   = MTLBlendFactorOneMinusSourceAlpha;
-			desc.colorAttachments[0].sourceAlphaBlendFactor      = MTLBlendFactorOne;
-			desc.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorZero;
+			desc.colorAttachments[index].blendingEnabled             = YES;
+			desc.colorAttachments[index].sourceRGBBlendFactor        = MTLBlendFactorSourceAlpha;
+			desc.colorAttachments[index].destinationRGBBlendFactor   = MTLBlendFactorOneMinusSourceAlpha;
+			desc.colorAttachments[index].sourceAlphaBlendFactor      = MTLBlendFactorOne;
+			desc.colorAttachments[index].destinationAlphaBlendFactor = MTLBlendFactorZero;
 		}
 	}
 

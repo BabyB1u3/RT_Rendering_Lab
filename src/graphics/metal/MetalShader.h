@@ -21,6 +21,7 @@
 /// Uses pImpl — no Metal types visible in this header.
 
 #include <cstdint>
+#include <array>
 #include <memory>
 #include <string>
 
@@ -76,12 +77,14 @@ public:
 	/// Look up or create a cached MTLRenderPipelineState.
 	/// @param mtlDevice         id<MTLDevice>        as void*
 	/// @param mtlVertDescriptor MTLVertexDescriptor* as void*
-	/// @param colorPixelFormat  MTLPixelFormat cast to uint32_t
+	/// @param colorPixelFormats Up to 4 MTLPixelFormats cast to uint32_t
+	/// @param colorAttachmentCount Number of active color attachments
 	/// @param depthPixelFormat  MTLPixelFormat cast to uint32_t
 	/// @param ps                immutable pipeline state (blend, depth, cull)
 	/// @return id<MTLRenderPipelineState> as void*, or nullptr on error
 	void *GetOrCreatePSO(void *mtlDevice, void *mtlVertDescriptor,
-	                     uint32_t colorPixelFormat, uint32_t depthPixelFormat,
+	                     const std::array<uint32_t, 4> &colorPixelFormats,
+	                     uint32_t colorAttachmentCount, uint32_t depthPixelFormat,
 	                     const PipelineState &ps);
 
 	/// Upload staging buffers and explicit uniform blocks to the current encoder.
