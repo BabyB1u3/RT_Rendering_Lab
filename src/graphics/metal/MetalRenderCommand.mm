@@ -32,6 +32,12 @@ struct MetalRenderCommand::Impl
 	MTLPixelFormat currentColorFormat = MTLPixelFormatBGRA8Unorm;
 	MTLPixelFormat currentDepthFormat = MTLPixelFormatInvalid;
 
+	// True while encoding an offscreen (FBO) pass.
+	// SetViewport applies a Y-flip for offscreen passes so Metal textures store
+	// data with the same row-0=bottom convention as OpenGL, keeping the Slang
+	// shader source identical across backends.
+	bool isOffscreenPass = false;
+
 	PipelineState currentPipelineState;
 
 	MetalShader      *currentShader = nullptr;
@@ -176,6 +182,8 @@ void MetalRenderCommand::BeginRenderPass(const Ref<IRenderTarget> &target,
 		m_Impl->currentDepthFormat = MTLPixelFormatInvalid;
 	}
 
+	m_Impl->isOffscreenPass = !target->IsBackBuffer();
+
 	m_Impl->encoder = [m_Impl->commandBuffer renderCommandEncoderWithDescriptor:rpDesc];
 	if (!m_Impl->encoder)
 	{
@@ -183,8 +191,12 @@ void MetalRenderCommand::BeginRenderPass(const Ref<IRenderTarget> &target,
 		return;
 	}
 
-	// Match OpenGL's default CCW front face / back-face culling convention.
-	[m_Impl->encoder setFrontFacingWinding:MTLWindingCounterClockwise];
+	// For back-buffer passes use the Metal-native CCW convention.
+	// For offscreen passes the viewport Y is negated (see SetViewport), which reverses
+	// the apparent winding seen by the rasterizer.  Switching to CW front-face keeps
+	// the same visible faces as OpenGL (CCW in view space), so culling still works.
+	[m_Impl->encoder setFrontFacingWinding:
+	    m_Impl->isOffscreenPass ? MTLWindingClockwise : MTLWindingCounterClockwise];
 }
 
 void MetalRenderCommand::EndRenderPass()
@@ -217,11 +229,24 @@ void MetalRenderCommand::SetViewport(uint32_t x, uint32_t y, uint32_t width, uin
 
 	MTLViewport vp;
 	vp.originX = static_cast<double>(x);
-	vp.originY = static_cast<double>(y);
 	vp.width   = static_cast<double>(width);
-	vp.height  = static_cast<double>(height);
 	vp.znear   = 0.0;
 	vp.zfar    = 1.0;
+
+	if (m_Impl->isOffscreenPass)
+	{
+		// Flip Y so that NDC Y=+1 maps to the bottom row of the Metal texture,
+		// matching OpenGL's row-0=bottom convention. This keeps TexturePreview
+		// (and any future blit/post-process) working without shader changes.
+		vp.originY = static_cast<double>(y + height);
+		vp.height  = -static_cast<double>(height);
+	}
+	else
+	{
+		vp.originY = static_cast<double>(y);
+		vp.height  = static_cast<double>(height);
+	}
+
 	[m_Impl->encoder setViewport:vp];
 }
 
@@ -271,26 +296,34 @@ void MetalRenderCommand::DrawIndexed(const Ref<IVertexArray> &vao, uint32_t inde
 	[m_Impl->encoder setDepthStencilState:ds];
 
 	// ── Vertex buffers ────────────────────────────────────────────────────────
+	// Bound at [kMetalVertexBufferBase, ...) to avoid conflicting with
+	// constant buffers at [0, kMetalVertexBufferBase). Must match the
+	// bufferIndex assignments in MetalVertexArray::AddVertexBuffer().
 	const auto &vbs = metalVAO->GetVertexBuffers();
 	for (uint32_t slot = 0; slot < static_cast<uint32_t>(vbs.size()); ++slot)
 	{
 		auto *vb = AsMetal<MetalVertexBuffer>(vbs[slot]);
 		[m_Impl->encoder setVertexBuffer:(__bridge id<MTLBuffer>)vb->GetMTLBuffer()
 		                          offset:vb->GetCurrentOffset()
-		                         atIndex:slot];
+		                         atIndex:kMetalVertexBufferBase + slot];
 	}
 
 	// ── Uniforms ──────────────────────────────────────────────────────────────
 	m_Impl->currentShader->FlushUniforms((__bridge void *)m_Impl->encoder);
 
 	// ── Textures ──────────────────────────────────────────────────────────────
+	// Slang MSL assigns texture indices 0-based independently of the GLSL/Vulkan
+	// binding space (where UBOs occupy the lower binding slots). Subtract the
+	// shader's textureBindingBase to map C++ slot → MSL [[texture(N)]].
+	uint32_t texBase = m_Impl->currentShader->GetTextureBindingBase();
 	for (const auto &[slot, tex] : m_Impl->boundTextures)
 	{
+		uint32_t metalSlot = (slot >= texBase) ? (slot - texBase) : slot;
 		auto *metalTex = AsMetal<MetalTexture2D>(tex);
 		[m_Impl->encoder setFragmentTexture:(__bridge id<MTLTexture>)metalTex->GetMTLTexture()
-		                            atIndex:slot];
+		                            atIndex:metalSlot];
 		[m_Impl->encoder setFragmentSamplerState:(__bridge id<MTLSamplerState>)metalTex->GetMTLSamplerState()
-		                                 atIndex:slot];
+		                                 atIndex:metalSlot];
 	}
 
 	// ── Draw call ─────────────────────────────────────────────────────────────
@@ -339,19 +372,21 @@ void MetalRenderCommand::DrawArrays(uint32_t /*mode*/, uint32_t first, uint32_t 
 			auto *vb = AsMetal<MetalVertexBuffer>(vbs[slot]);
 			[m_Impl->encoder setVertexBuffer:(__bridge id<MTLBuffer>)vb->GetMTLBuffer()
 			                          offset:vb->GetCurrentOffset()
-			                         atIndex:slot];
+			                         atIndex:kMetalVertexBufferBase + slot];
 		}
 	}
 
 	m_Impl->currentShader->FlushUniforms((__bridge void *)m_Impl->encoder);
 
+	uint32_t texBase2 = m_Impl->currentShader->GetTextureBindingBase();
 	for (const auto &[slot, tex] : m_Impl->boundTextures)
 	{
+		uint32_t metalSlot = (slot >= texBase2) ? (slot - texBase2) : slot;
 		auto *metalTex = AsMetal<MetalTexture2D>(tex);
 		[m_Impl->encoder setFragmentTexture:(__bridge id<MTLTexture>)metalTex->GetMTLTexture()
-		                            atIndex:slot];
+		                            atIndex:metalSlot];
 		[m_Impl->encoder setFragmentSamplerState:(__bridge id<MTLSamplerState>)metalTex->GetMTLSamplerState()
-		                                 atIndex:slot];
+		                                 atIndex:metalSlot];
 	}
 
 	[m_Impl->encoder drawPrimitives:MTLPrimitiveTypeTriangle

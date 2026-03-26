@@ -99,6 +99,12 @@ struct MetalShader::Impl
 	// Metal buffer binding indices
 	uint32_t vertexUniformBinding   = 1;   // default; overridden by JSON sidecar
 	uint32_t fragmentUniformBinding = 0;   // default; overridden by JSON sidecar
+
+	// Slang assigns MSL texture indices 0-based, while GLSL bindings include UBOs.
+	// textureBindingBase = number of UBO bindings before the first texture binding.
+	// Metal texture index = C++ slot - textureBindingBase.
+	// Default: 1 (one GlobalParams CB). Overridable via sidecar "textureBindingBase".
+	uint32_t textureBindingBase = 1;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -125,7 +131,8 @@ static uint64_t HashVertexDescriptor(MTLVertexDescriptor *desc)
 
 static void LoadReflectionSidecar(const std::string &name,
                                   ReflectionMap &vertex, ReflectionMap &fragment,
-                                  uint32_t &vertexBinding, uint32_t &fragmentBinding)
+                                  uint32_t &vertexBinding, uint32_t &fragmentBinding,
+                                  uint32_t &textureBase)
 {
 	auto path = FileSystem::GetCompiledShaderDir() / "metal" / (name + ".reflect.json");
 	if (!FileSystem::Exists(path))
@@ -140,6 +147,8 @@ static void LoadReflectionSidecar(const std::string &name,
 			vertexBinding = entry["vertexUniformBinding"].get<uint32_t>();
 		if (entry.contains("fragmentUniformBinding"))
 			fragmentBinding = entry["fragmentUniformBinding"].get<uint32_t>();
+		if (entry.contains("textureBindingBase"))
+			textureBase = entry["textureBindingBase"].get<uint32_t>();
 
 		if (entry.contains("vertex"))
 		{
@@ -195,7 +204,8 @@ Ref<MetalShader> MetalShader::CreateFromMSLSource(const std::string &name,
 	                      shader->m_Impl->vertexReflection,
 	                      shader->m_Impl->fragmentReflection,
 	                      shader->m_Impl->vertexUniformBinding,
-	                      shader->m_Impl->fragmentUniformBinding);
+	                      shader->m_Impl->fragmentUniformBinding,
+	                      shader->m_Impl->textureBindingBase);
 
 	LOG_INFO("MetalShader: loaded '{}'", name);
 	return Ref<MetalShader>(shader);
@@ -382,6 +392,11 @@ void *MetalShader::GetOrCreatePSO(void     *mtlDevice,
 	LOG_TRACE("MetalShader '{}': created new PSO (cache size: {})",
 	          m_Impl->name, m_Impl->psoCache.size());
 	return (__bridge void *)pso;
+}
+
+uint32_t MetalShader::GetTextureBindingBase() const
+{
+	return m_Impl->textureBindingBase;
 }
 
 void MetalShader::FlushUniforms(void *mtlEncoder)
