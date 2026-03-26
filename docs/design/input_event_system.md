@@ -1,6 +1,6 @@
 # Input System & Event System — Design Document
 
-Updated 2026-03-25. This document still describes the intended end-state architecture,
+Updated 2026-03-26. This document still describes the intended end-state architecture,
 but the inline status notes below now reflect the codebase as it exists today.
 Use the per-layer status callouts and phased plan as the source of truth for what is
 already implemented versus what is still planned.
@@ -74,11 +74,16 @@ Layers 0-2 and Layer 6 form the **core** — they are needed for a functional sy
 Layers 3-5 and 7-10 are **extensions** that bring the system to production-engine parity.
 Each layer only depends on layers below it.
 
-**Current implementation snapshot (2026-03-25)**:
+**Current implementation snapshot (2026-03-26)**:
 
 - Implemented and in active use: Layers 0, 1, 2, 6, 7, and the basic capture-flag form of Layer 8.
 - Planned but not implemented yet: Layers 3, 4, 5, 9, and 10.
 - Partially future-facing only: `InputSource::Type` already includes gamepad-related enum values, but runtime querying still only supports keyboard and mouse.
+- `InputActionMap` serialization has been migrated to the shared serialization framework
+  (`Serialization::SaveToFile` / `LoadFromFile` + `InputActionSerialization.h`); the old
+  member-function `SaveToFile()` / `LoadFromFile()` methods have been removed.
+- `Application::RenderFrame()` was extracted as a shared render path, also called from
+  `Window::RefreshCallback` for macOS live-resize rendering.
 
 ---
 
@@ -87,7 +92,7 @@ Each layer only depends on layers below it.
 **Goal**: Replace raw `int` key codes with typed enums. Remove GLFW header dependency
 from all code outside `Input.cpp` and `Window.cpp`.
 
-**Status (2026-03-25)**: Implemented. `KeyCode.h` and `MouseCode.h` are in active use
+**Status (2026-03-26)**: Implemented. `KeyCode.h` and `MouseCode.h` are in active use
 across input polling, window events, demo code, and input-binding serialization.
 
 ### KeyCode.h
@@ -205,7 +210,7 @@ namespace Mouse
 buttons. Additionally, track **edge detection** (pressed-this-frame / released-this-frame)
 via double-buffered state.
 
-**Status (2026-03-25)**: Implemented. `Application::Run()` calls `Input::BeginFrame()`
+**Status (2026-03-26)**: Implemented. `Application::Run()` calls `Input::BeginFrame()`
 once per frame before layer updates. The current implementation also accumulates scroll
 via GLFW callback, tracks mouse delta, and applies ImGui capture flags inside the polling
 queries.
@@ -362,7 +367,7 @@ at the top of the frame loop, before iterating layers.
 **Goal**: Decouple game/demo logic from physical key bindings. Provide two
 abstractions: **Actions** (discrete, boolean) and **Axes** (continuous, float).
 
-**Status (2026-03-25)**: Implemented for keyboard, mouse buttons, mouse delta, and
+**Status (2026-03-26)**: Implemented for keyboard, mouse buttons, mouse delta, and
 scroll. `ShadowMapping` and `MaterialPlayground` each own an `InputActionMap`, load
 bindings from `input/*.json`, and fall back to hardcoded defaults that are saved back
 to `saved/configs/` through `FileSystem::ResolveConfigPath()`. Gamepad-related source
@@ -514,20 +519,13 @@ void ShadowMapping::OnUpdate(double dt)
 - String-keyed for readability and flexibility. For a rendering lab, the overhead of
   `unordered_map` lookup is negligible compared to draw calls.
 - Bindings can be registered in code or loaded from JSON config files.
-  `InputActionMap::SaveToFile()` / `LoadFromFile()` serialize bindings using
-  human-readable key names via `InputNames.h` (bidirectional `Key::Code` ↔
-  string mapping). Config files live in `assets/configs/` (shipped defaults)
-  and are auto-copied to `saved/configs/` (user-editable) on first access
-  via `FileSystem::ResolveConfigPath()`.
-- After migration to the shared serialization framework, the same external format is
-  preserved: `Key::Code` / `Mouse::Code` still flow through `InputNames.h`, while
-  internal named enums such as `InputSource::Type`, `MouseAxis`, and future trigger/
-  device enums can use shared `magic_enum`-backed enum helpers to remove repetitive
-  string conversion code.
-- Recommended rollout:
-  1. add the dependency and shared enum helper without behavior changes;
-  2. use it first for `InputSource::Type` and `MouseAxis` inside input serialization;
-  3. expand later to trigger/device enums if they also become config-facing or editor-facing.
+  Serialization uses `Serialization::SaveToFile()` / `LoadFromFile()` with
+  ADL-based traits defined in `InputActionSerialization.h`. Human-readable
+  key names still flow through `InputNames.h` (bidirectional `Key::Code` ↔
+  string mapping). Internal named enums (`InputSource::Type`, `MouseAxis`)
+  use `magic_enum`-backed serialization helpers. Config files live in
+  `assets/configs/` (shipped defaults) and are auto-copied to `saved/configs/`
+  (user-editable) on first access via `FileSystem::ResolveConfigPath()`.
 - Axis returns `float` in [-1, +1] for key pairs, or raw pixel delta for mouse.
   The consumer decides how to scale it (sensitivity, dt, etc.) — unless Layer 3
   modifiers are applied.
@@ -554,7 +552,7 @@ void ShadowMapping::OnUpdate(double dt)
 **Goal**: Process raw input values through a configurable pipeline before they reach
 game logic. Inspired by Unreal Engine's Enhanced Input system.
 
-**Status (2026-03-25)**: Not implemented yet. Sensitivity, inversion, smoothing,
+**Status (2026-03-26)**: Not implemented yet. Sensitivity, inversion, smoothing,
 hold/tap behavior, and similar logic are still handled by individual consumers
 such as camera controllers or demo code.
 
@@ -856,7 +854,7 @@ public:
 **Goal**: Allow multiple `InputActionMap` instances to coexist with well-defined
 priority. Higher-priority contexts can block lower ones.
 
-**Status (2026-03-25)**: Not implemented yet. The project currently relies on one
+**Status (2026-03-26)**: Not implemented yet. The project currently relies on one
 `InputActionMap` per active demo plus global ImGui capture flags, without a shared
 priority stack or per-context consumption rules.
 
@@ -986,7 +984,7 @@ Frame N+1 (after Resume):
 **Goal**: Abstract away the source of input so the system can support keyboard,
 mouse, gamepad, and future devices without changing the action map or game logic.
 
-**Status (2026-03-25)**: Not implemented yet. Input still flows through the static
+**Status (2026-03-26)**: Not implemented yet. Input still flows through the static
 `Input` polling API backed directly by GLFW. The only currently usable devices are
 keyboard and mouse.
 
@@ -1168,7 +1166,7 @@ bool InputActionMap::IsSourceDown(const InputSource& source) const
 **Goal**: A lightweight publish-subscribe system for discrete, system-level
 notifications. NOT used for per-frame input polling.
 
-**Status (2026-03-25)**: Implemented. `Application` owns an `EventBus`,
+**Status (2026-03-26)**: Implemented. `Application` owns an `EventBus`,
 `Window` publishes GLFW-backed events into it, and `LabLayer` publishes
 `DemoSwitchedEvent`. The current bus is synchronous, type-safe, and covered by
 contract tests for subscription order, nested publish, and unsubscribe-during-dispatch.
@@ -1509,10 +1507,15 @@ m_OnResize = eventBus.Subscribe<WindowResizeEvent>(
 
 **Goal**: `Window` registers GLFW callbacks that produce events into the `EventBus`.
 
-**Status (2026-03-25)**: Implemented. `Window::SetEventBus()` installs callbacks for
-resize, close, key press/release, character input, mouse buttons, and scroll. The
-legacy resize callback path still exists alongside EventBus publication, so this layer
-is implemented but not yet fully unified around pub/sub only.
+**Status (2026-03-26)**: Implemented. `Window::SetEventBus()` installs callbacks for
+resize, close, key press/release, character input, mouse buttons, and scroll.
+Additionally, `Window::SetRefreshCallback()` was added for macOS live-resize
+rendering — on macOS, GLFW blocks the main loop during resize, so a refresh
+callback triggers `Application::RenderFrame()` to keep the display responsive.
+Three callback paths currently coexist: `ResizeCallback` (legacy, used by
+`Application::OnWindowResize`), `RefreshCallback` (macOS live resize), and
+`EventBus` (publishes `WindowResizeEvent`). Unifying these into a single
+EventBus-driven path is a remaining cleanup task.
 
 ### Window changes
 
@@ -1520,15 +1523,28 @@ is implemented but not yet fully unified around pub/sub only.
 class Window
 {
 public:
+    using ResizeCallback   = std::function<void(uint32_t, uint32_t)>;
+    using RefreshCallback  = std::function<void()>;
+
     // Existing API...
 
-    // New: give Window a reference to the EventBus so it can publish events.
+    // Give Window a reference to the EventBus so it can publish events.
     void SetEventBus(EventBus* bus);
 
+    // Legacy framebuffer resize callback (used by Application::OnWindowResize).
+    void SetResizeCallback(ResizeCallback callback);
+
+    // Window refresh callback — on macOS, GLFW blocks the main loop during
+    // live resize, so Application::RenderFrame() is called from here to keep
+    // the display responsive.
+    void SetRefreshCallback(RefreshCallback callback);
+
 private:
+    ResizeCallback  m_ResizeCallback;
+    RefreshCallback m_RefreshCallback;
     EventBus* m_EventBus = nullptr;
 
-    // Called from Init() after GLFW window creation.
+    // Called from SetEventBus() after the bus pointer is set.
     void InstallCallbacks();
 };
 ```
@@ -1607,11 +1623,13 @@ void Window::InstallCallbacks()
 **Goal**: When ImGui wants keyboard or mouse focus, block the Input polling layer
 so game/demo code doesn't respond to keys that are meant for UI widgets.
 
-**Status (2026-03-25)**: Partially implemented. `ImGuiLayer::Begin()` forwards
+**Status (2026-03-26)**: Partially implemented. `ImGuiLayer::Begin()` forwards
 `ImGuiIO::WantCaptureKeyboard` and `WantCaptureMouse` into `Input::SetKeyboardCaptured()`
-and `SetMouseCaptured()`, and polling queries respect those flags. Two important current
+and `SetMouseCaptured()`, and polling queries respect those flags. The render loop is now
+`Application::RenderFrame()` which sequences: `OnUpdate()` → `OnRender()` →
+`ImGuiLayer::Begin()` → `OnImGuiRender()` → `ImGuiLayer::End()`. Two important current
 limitations remain: the EventBus path is not blocked by ImGui, and because capture flags
-are updated during the ImGui phase after `OnUpdate()`, gameplay polling observes the
+are updated in `ImGuiLayer::Begin()` (after `OnUpdate()`), gameplay polling observes the
 previous frame's capture state rather than a same-frame routing decision.
 
 ### Approach: capture flag on Input, not event consumption
@@ -1654,7 +1672,7 @@ conditionally consumes all input.
 **Goal**: Support multi-key combinations, sequential inputs, and time-sensitive
 gestures as first-class action bindings.
 
-**Status (2026-03-25)**: Not implemented yet.
+**Status (2026-03-26)**: Not implemented yet.
 
 ### Chord (simultaneous keys)
 
@@ -1789,7 +1807,7 @@ m_InputMap.BindCombo("SpecialAttack", {
 **Goal**: Capture per-frame input state to a file, then replay it deterministically.
 Useful for automated testing, bug reproduction, and demo playback.
 
-**Status (2026-03-25)**: Not implemented yet.
+**Status (2026-03-26)**: Not implemented yet.
 
 ### Architecture
 
@@ -2035,33 +2053,47 @@ Game logic uses the left path. System notifications use the right path.
 src/
 ├── core/
 │   ├── input/
-│   │   ├── KeyCode.h                          # Layer 0
-│   │   ├── MouseCode.h                        # Layer 0
-│   │   ├── Input.h / Input.cpp                # Layer 1
-│   │   ├── InputAction.h / InputAction.cpp    # Layer 2
-│   │   ├── InputNames.h / InputNames.cpp      # Layer 2 (Key/Mouse ↔ string)
-│   │   ├── InputModifier.h                    # Layer 3 (header-only)
-│   │   ├── InputTrigger.h / InputTrigger.cpp  # Layer 3
-│   │   ├── InputContext.h / InputContext.cpp   # Layer 4
-│   │   ├── InputDevice.h                      # Layer 5 (interface)
-│   │   ├── KeyboardDevice.h / .cpp            # Layer 5
-│   │   ├── MouseDevice.h / .cpp               # Layer 5
-│   │   ├── GamepadDevice.h / .cpp             # Layer 5
-│   │   ├── InputDeviceManager.h / .cpp        # Layer 5
-│   │   ├── ChordBinding.h                     # Layer 9
-│   │   ├── ComboTracker.h / .cpp              # Layer 9
-│   │   ├── InputRecorder.h / .cpp             # Layer 10
-│   │   └── ReplayDevice.h / .cpp              # Layer 10
-│   ├── events/
-│   │   ├── ScopedConnection.h                 # Layer 6
-│   │   ├── EventBus.h                         # Layer 6 (header-only, templated)
-│   │   └── Events.h                           # Event struct definitions
-│   ├── Window.h / Window.cpp                  # Layer 7 (publishes events)
-│   ├── Application.h / Application.cpp        # Owns EventBus, calls BeginFrame
-│   └── ... (existing files unchanged)
+│   │   ├── KeyCode.h                              # Layer 0    ✅
+│   │   ├── MouseCode.h                            # Layer 0    ✅
+│   │   ├── Input.h / Input.cpp                    # Layer 1    ✅
+│   │   ├── InputAction.h / InputAction.cpp        # Layer 2    ✅
+│   │   ├── InputNames.h / InputNames.cpp          # Layer 2    ✅ (Key/Mouse ↔ string)
+│   │   ├── InputActionSerialization.h             # Layer 2    ✅ (ADL traits)
+│   │   ├── InputModifier.h                        # Layer 3    ⬜ (header-only)
+│   │   ├── InputTrigger.h / InputTrigger.cpp      # Layer 3    ⬜
+│   │   ├── InputContext.h / InputContext.cpp       # Layer 4    ⬜
+│   │   ├── InputDevice.h                          # Layer 5    ⬜ (interface)
+│   │   ├── KeyboardDevice.h / .cpp                # Layer 5    ⬜
+│   │   ├── MouseDevice.h / .cpp                   # Layer 5    ⬜
+│   │   ├── GamepadDevice.h / .cpp                 # Layer 5    ⬜
+│   │   ├── InputDeviceManager.h / .cpp            # Layer 5    ⬜
+│   │   ├── ChordBinding.h                         # Layer 9    ⬜
+│   │   ├── ComboTracker.h / .cpp                  # Layer 9    ⬜
+│   │   ├── InputRecorder.h / .cpp                 # Layer 10   ⬜
+│   │   └── ReplayDevice.h / .cpp                  # Layer 10   ⬜
+│   ├── event/
+│   │   ├── ScopedConnection.h                     # Layer 6    ✅
+│   │   ├── EventBus.h                             # Layer 6    ✅ (header-only, templated)
+│   │   └── Events.h                               # Event struct definitions ✅
+│   ├── app/
+│   │   ├── Window.h / Window.cpp                  # Layer 7    ✅ (publishes events)
+│   │   ├── Application.h / Application.cpp        # Owns EventBus, RenderFrame ✅
+│   │   ├── Layer.h / Layer.cpp                    # ✅
+│   │   └── LayerStack.h / LayerStack.cpp          # ✅
+│   └── ... (serialization, FileSystem, Logger, Time)
+├── demos/
+│   ├── DemoBase.h / DemoRegistry.h / LabLayer.h   # ✅
+│   ├── showcase/
+│   │   ├── MaterialPlayground/                    # ✅ (currently commented out in LabLayer)
+│   │   └── ShadowMapping/                         # ✅ (currently commented out in LabLayer)
+│   └── tutorial/
+│       ├── 01_ClearScreen/                        # ✅
+│       └── 02_Triangle/                           # ✅
 ├── gui/
-│   ├── ImGuiLayer.h / ImGuiLayer.cpp          # Layer 8
-│   └── ...
+│   ├── ImGuiLayer.h / ImGuiLayer.cpp              # Layer 8    ✅ (capture flags)
+│   └── Panels/
+├── tests/
+│   └── contract/core/TestEventBus.cpp             # Layer 6    ✅ (4 contract tests)
 ```
 
 ---
@@ -2070,7 +2102,7 @@ src/
 
 ### Phase A — Foundation (current project stage)
 
-**Status (2026-03-25)**: Done.
+**Status (2026-03-26)**: Done.
 
 Implement now. Prerequisite for everything else.
 
@@ -2088,100 +2120,170 @@ is clean for all future demos.
 
 ### Phase B — ImGuiLayer integration
 
-**Status (2026-03-25)**: Mostly done. `ScopedConnection`, `EventBus`, `Events`,
-window callback production, and `Input` capture flags are implemented. The remaining
-gap is that resize handling still keeps the legacy callback path in parallel instead
-of routing purely through the EventBus.
+**Status (2026-03-26)**: Mostly done. `ScopedConnection`, `EventBus`, `Events`,
+window callback production, and `Input` capture flags are implemented.
+`Window::SetRefreshCallback()` was added for macOS live-resize rendering, and
+`Application::RenderFrame()` was extracted so both the main loop and the refresh
+callback share the same render path. The remaining gap is that three notification
+paths coexist for resize: legacy `ResizeCallback`, `RefreshCallback`, and
+`EventBus::Publish<WindowResizeEvent>`. Unifying to EventBus-only is the last
+cleanup task for this phase.
 
-Implement when building ImGuiLayer.
-
-| Item | Layer | Rationale |
-|------|-------|-----------|
-| `ScopedConnection.h` | 6 | RAII event connection lifetime |
-| `EventBus.h` (with deferred removal) | 6 | ImGuiLayer + Application need pub/sub |
-| `Events.h` (struct definitions) | 6 | WindowResize, KeyPressed, etc. |
-| Window callback installation | 7 | Produce events from GLFW into the bus |
-| `Input` capture flags | 8 | Block polling when ImGui has focus |
-| Migrate `Window::m_ResizeCallback` to EventBus | 7 | Unify notification path |
+| Item | Layer | Rationale | Status |
+|------|-------|-----------|--------|
+| `ScopedConnection.h` | 6 | RAII event connection lifetime | ✅ Done |
+| `EventBus.h` (with deferred removal) | 6 | ImGuiLayer + Application need pub/sub | ✅ Done |
+| `Events.h` (struct definitions) | 6 | WindowResize, KeyPressed, etc. | ✅ Done |
+| Window callback installation | 7 | Produce events from GLFW into the bus | ✅ Done |
+| `Input` capture flags | 8 | Block polling when ImGui has focus | ✅ Done |
+| `Window::SetRefreshCallback` | 7 | macOS live-resize rendering | ✅ Done |
+| `Application::RenderFrame()` extraction | — | Shared render path for main loop + refresh | ✅ Done |
+| HiDPI framebuffer size init | 7 | `glfwGetFramebufferSize()` in `Window::Init()` | ✅ Done |
+| Migrate `Window::m_ResizeCallback` to EventBus | 7 | Unify notification path | ⬜ Remaining |
 
 ### Phase C — Action mapping
 
-**Status (2026-03-25)**: Mostly done. `InputActionMap` and `DemoSwitchedEvent` are
-implemented and already used by the demos. `RendererSettingsChangedEvent` is still
-only a placeholder in the design.
+**Status (2026-03-26)**: Mostly done. `InputActionMap` and `DemoSwitchedEvent` are
+implemented and in active use. `InputActionMap` serialization has been migrated to
+the shared serialization framework (`InputActionSerialization.h`). Demos have been
+reorganized into `demos/showcase/` (ShadowMapping, MaterialPlayground — currently
+commented out in `LabLayer` registration) and `demos/tutorial/` (ClearScreen,
+Triangle — the active demos). `RendererSettingsChangedEvent` is still only a
+placeholder in the design.
 
-Implement when adding second demo or runtime settings.
+| Item | Layer | Rationale | Status |
+|------|-------|-----------|--------|
+| `InputActionMap` | 2 | Demos define their own bindings | ✅ Done |
+| `InputActionSerialization.h` | 2 | ADL traits for serialization framework | ✅ Done |
+| `DemoSwitchedEvent` | 6 | Clean demo change notification | ✅ Done |
+| `RendererSettingsChangedEvent` | 6 | DebugPanel tweaks propagate cleanly | ⬜ Placeholder only |
 
-| Item | Layer | Rationale |
-|------|-------|-----------|
-| `InputActionMap` | 2 | Demos define their own bindings |
-| `DemoSwitchedEvent` | 6 | Clean demo change notification |
-| `RendererSettingsChangedEvent` | 6 | DebugPanel tweaks propagate cleanly |
+### Phase D — Resize callback unification + cleanup
 
-### Phase D — Input processing pipeline
+**Status (2026-03-26)**: Not started. This is the recommended next step.
 
-**Status (2026-03-25)**: Not started.
+**Why now**: Three coexisting resize notification paths (legacy `ResizeCallback`,
+`RefreshCallback`, `EventBus`) create subtle ordering bugs and duplicated logic.
+Cleaning this up is a prerequisite for confidently adding new features on top
+of the event system, and is a small, well-scoped task.
 
-Implement when polish matters (sensitivity settings, UI for input tuning).
+| Step | Layer | Description |
+|------|-------|-------------|
+| 1. `Application` subscribes to `WindowResizeEvent` via EventBus | 6+7 | Replace `SetResizeCallback` with `EventBus::Subscribe<WindowResizeEvent>` |
+| 2. Remove `Window::SetResizeCallback` / `m_ResizeCallback` | 7 | Dead code after step 1 |
+| 3. `RefreshCallback` integration | 7 | Ensure refresh path also fires through EventBus (or stays as a separate render-only path — decide and document) |
+| 4. Verify on macOS + Windows | — | Confirm live-resize, minimize/restore, and HiDPI all still work |
+| 5. Unit test: `WindowResizeEvent` subscriber receives correct dimensions | 6 | Add to `TestEventBus.cpp` |
 
-| Item | Layer | Rationale |
-|------|-------|-----------|
-| `InputModifier` base + built-ins | 3 | DeadZone, Sensitivity, Clamp, Negate, Smooth |
-| `InputTrigger` base + built-ins | 3 | Hold, Tap, Released triggers |
-| `InputActionMap::Update(dt)` | 3 | Advance trigger state machines per frame |
+**Acceptance criteria**: Only two paths remain — `EventBus` for notification and
+`RefreshCallback` for the render-during-resize workaround. No functional regression
+on either platform.
 
-### Phase E — Context stack
+### Phase E — Input processing pipeline (Modifiers & Triggers)
 
-**Status (2026-03-25)**: Not started.
+**Status (2026-03-26)**: Not started.
 
-Implement when multiple UI layers coexist (pause menu, debug console, gameplay).
+**When to implement**: When adding sensitivity / dead zone / hold / tap settings
+to demos, or when building an input-settings UI. Currently, sensitivity and
+inversion are baked into `DebugCameraController`; this phase moves that logic
+into the action map so it becomes configurable per-binding.
 
-| Item | Layer | Rationale |
-|------|-------|-----------|
-| `InputContextStack` | 4 | Priority-based action map activation |
-| ImGui as highest-priority context | 4+8 | Replace simple capture flags |
-| Per-context `ConsumesInput` logic | 4 | Modal UI blocks gameplay input |
+| Step | Layer | Description |
+|------|-------|-------------|
+| 1. `InputModifier` base class + built-ins | 3 | `DeadZone`, `Sensitivity`, `Clamp`, `Negate`, `Smooth` — header-only |
+| 2. `InputTrigger` base class + built-ins | 3 | `PressedTrigger`, `HoldTrigger`, `TapTrigger`, `ReleasedTrigger` |
+| 3. `InputActionMap::AddModifier()` / `SetTrigger()` | 2+3 | Integrate into existing action map |
+| 4. `InputActionMap::Update(dt)` | 3 | Advance trigger state machines; must be called once per frame |
+| 5. `WasActionTriggeredThisFrame()` / `GetActionTriggerState()` | 3 | Trigger-aware query API |
+| 6. Migrate camera controller sensitivity into modifier | 3 | `DebugCameraController` no longer owns sensitivity scaling |
+| 7. Unit tests | 3 | DeadZone zeroing, Hold timing, Tap window, modifier chaining |
 
-### Phase F — Device abstraction
+**Dependency**: None — can be implemented on current codebase.
 
-**Status (2026-03-25)**: Not started.
+### Phase F — Input Context Stack
 
-Implement when adding gamepad support or preparing for replay.
+**Status (2026-03-26)**: Not started.
 
-| Item | Layer | Rationale |
-|------|-------|-----------|
-| `InputDevice` interface | 5 | Abstract away GLFW dependency |
-| `KeyboardDevice`, `MouseDevice` | 5 | Concrete implementations |
-| `InputDeviceManager` | 5 | Device lifecycle and polling |
-| `GamepadDevice` | 5 | GLFW joystick/gamepad API |
-| Gamepad hot-plug events | 5+6 | `GamepadConnectedEvent` / `DisconnectedEvent` |
-| Refactor `InputActionMap` to query devices | 5 | Remove direct `Input::` static calls |
+**When to implement**: When multiple UI layers need to coexist with priority
+(pause menu, debug console, gameplay). Not needed while only one demo is active
+at a time with simple ImGui capture flags.
 
-### Phase G — Advanced input patterns
+| Step | Layer | Description |
+|------|-------|-------------|
+| 1. `InputContextStack` class | 4 | Priority-sorted vector of `InputContext` entries |
+| 2. `Push()` / `Pop()` / `SetActive()` | 4 | Manage context lifecycle |
+| 3. `Update(dt)` with consumption logic | 4 | Higher-priority contexts block lower ones |
+| 4. Cross-context query methods | 4 | `IsActionDown()`, `GetAxis()` across all active contexts |
+| 5. ImGui as highest-priority context | 4+8 | Replace simple capture flags with a proper context entry |
+| 6. Contract tests | 4 | Priority ordering, consumption blocking, activate/deactivate |
 
-**Status (2026-03-25)**: Not started.
+**Dependency**: Phase E (triggers need `Update(dt)` which the context stack calls).
 
-Implement when game mechanics demand it.
+### Phase G — Device abstraction
 
-| Item | Layer | Rationale |
-|------|-------|-----------|
-| `ChordBinding` | 9 | Ctrl+S, Ctrl+Shift+Z style shortcuts |
-| Chord blocking in context stack | 9+4 | Prevent single-key fire during chord |
-| `ComboTracker` | 9 | Sequential input patterns |
-| `DoubleTapTrigger` | 9+3 | Double-tap to dash / activate |
+**Status (2026-03-26)**: Not started.
 
-### Phase H — Recording & replay
+**When to implement**: When adding gamepad support or preparing for input
+recording/replay. This is a larger refactor that changes how `InputActionMap`
+queries physical state.
 
-**Status (2026-03-25)**: Not started.
+| Step | Layer | Description |
+|------|-------|-------------|
+| 1. `InputDevice` interface | 5 | `Poll()`, `GetInput()`, `GetAxis()`, `IsConnected()` |
+| 2. `KeyboardDevice` + `MouseDevice` | 5 | Extract current `Input` static state into device instances |
+| 3. `InputDeviceManager` | 5 | Owns devices, calls `PollAll()` once per frame |
+| 4. Refactor `InputActionMap::IsSourceDown()` | 5 | Query through device manager instead of `Input::` statics |
+| 5. `GamepadDevice` | 5 | Wrap `glfwGetGamepadState()` |
+| 6. Hot-plug events | 5+6 | `GamepadConnectedEvent` / `DisconnectedEvent` |
+| 7. Decide fate of `Input` static API | 5 | Keep as convenience facade, or deprecate in favor of devices |
 
-Implement when automated testing or demo playback is needed.
+**Dependency**: None strictly, but integrates cleanly after Phase F (context stack
+can route queries through device manager).
 
-| Item | Layer | Rationale |
-|------|-------|-----------|
-| `InputRecorder` | 10 | Capture per-frame input snapshots |
-| `ReplayDevice` | 10 | Feed recorded state through device abstraction |
-| Binary save/load | 10 | Persist recordings to disk |
-| Deterministic replay validation | 10 | Verify frame-accurate reproduction |
+### Phase H — Advanced input patterns
+
+**Status (2026-03-26)**: Not started.
+
+**When to implement**: When game mechanics demand chord shortcuts (Ctrl+S),
+sequential combos, or double-tap gestures.
+
+| Step | Layer | Description |
+|------|-------|-------------|
+| 1. `ChordBinding` | 9 | All sources must be active simultaneously |
+| 2. Chord blocking in context stack | 9+4 | Suppress single-key actions while chord is pending |
+| 3. `ComboTracker` | 9 | State machine for sequential input patterns |
+| 4. `DoubleTapTrigger` | 9+3 | Fires on second press within time window |
+
+**Dependency**: Phase E (triggers) and Phase F (context stack for chord blocking).
+
+### Phase I — Recording & replay
+
+**Status (2026-03-26)**: Not started.
+
+**When to implement**: When automated testing or demo playback is needed.
+
+| Step | Layer | Description |
+|------|-------|-------------|
+| 1. `InputRecorder` | 10 | Capture per-frame input snapshots to `InputFrame` |
+| 2. `ReplayDevice` | 10 | `InputDevice` implementation that feeds recorded state |
+| 3. Binary save/load | 10 | Persist recordings to disk (compact format) |
+| 4. Deterministic replay validation | 10 | Verify frame-accurate reproduction |
+
+**Dependency**: Phase G (device abstraction — `ReplayDevice` implements `InputDevice`).
+
+### Implementation order summary
+
+```
+Phase D  Resize unification         ← recommended next (small, cleanup)
+Phase E  Modifiers & Triggers       ← next feature work (independent)
+Phase F  Context Stack              ← after E (depends on Update(dt))
+Phase G  Device Abstraction         ← after F or standalone (large refactor)
+Phase H  Advanced Patterns          ← after E + F
+Phase I  Recording & Replay         ← after G
+```
+
+Phases D and E are independent and can be worked on in either order.
+Phases F–I form a dependency chain and should be done in sequence.
 
 ---
 
