@@ -1,8 +1,9 @@
 # Input System & Event System — Design Document
 
-Updated 2026-03-25. Describes the **complete end-state** architecture for these two systems,
-from the minimal foundation through to production game-engine features.
-Then defines a **phased implementation plan** aligned with the current project stage.
+Updated 2026-03-25. This document still describes the intended end-state architecture,
+but the inline status notes below now reflect the codebase as it exists today.
+Use the per-layer status callouts and phased plan as the source of truth for what is
+already implemented versus what is still planned.
 
 > **Design Philosophy**: Polling-first for continuous input, event-driven for discrete
 > notifications. Input Action Mapping decouples game logic from physical keys.
@@ -73,12 +74,21 @@ Layers 0-2 and Layer 6 form the **core** — they are needed for a functional sy
 Layers 3-5 and 7-10 are **extensions** that bring the system to production-engine parity.
 Each layer only depends on layers below it.
 
+**Current implementation snapshot (2026-03-25)**:
+
+- Implemented and in active use: Layers 0, 1, 2, 6, 7, and the basic capture-flag form of Layer 8.
+- Planned but not implemented yet: Layers 3, 4, 5, 9, and 10.
+- Partially future-facing only: `InputSource::Type` already includes gamepad-related enum values, but runtime querying still only supports keyboard and mouse.
+
 ---
 
 ## 2. Layer 0 — Key & Mouse Codes
 
 **Goal**: Replace raw `int` key codes with typed enums. Remove GLFW header dependency
 from all code outside `Input.cpp` and `Window.cpp`.
+
+**Status (2026-03-25)**: Implemented. `KeyCode.h` and `MouseCode.h` are in active use
+across input polling, window events, demo code, and input-binding serialization.
 
 ### KeyCode.h
 
@@ -194,6 +204,11 @@ namespace Mouse
 **Goal**: Per-frame polling of keyboard, mouse position, mouse delta, and mouse
 buttons. Additionally, track **edge detection** (pressed-this-frame / released-this-frame)
 via double-buffered state.
+
+**Status (2026-03-25)**: Implemented. `Application::Run()` calls `Input::BeginFrame()`
+once per frame before layer updates. The current implementation also accumulates scroll
+via GLFW callback, tracks mouse delta, and applies ImGui capture flags inside the polling
+queries.
 
 ### Input.h (revised)
 
@@ -346,6 +361,13 @@ at the top of the frame loop, before iterating layers.
 
 **Goal**: Decouple game/demo logic from physical key bindings. Provide two
 abstractions: **Actions** (discrete, boolean) and **Axes** (continuous, float).
+
+**Status (2026-03-25)**: Implemented for keyboard, mouse buttons, mouse delta, and
+scroll. `ShadowMapping` and `MaterialPlayground` each own an `InputActionMap`, load
+bindings from `input/*.json`, and fall back to hardcoded defaults that are saved back
+to `saved/configs/` through `FileSystem::ResolveConfigPath()`. Gamepad-related source
+types remain placeholders only; `IsSourceDown()` / edge queries currently handle
+keyboard and mouse buttons only.
 
 ### InputAction.h
 
@@ -531,6 +553,10 @@ void ShadowMapping::OnUpdate(double dt)
 
 **Goal**: Process raw input values through a configurable pipeline before they reach
 game logic. Inspired by Unreal Engine's Enhanced Input system.
+
+**Status (2026-03-25)**: Not implemented yet. Sensitivity, inversion, smoothing,
+hold/tap behavior, and similar logic are still handled by individual consumers
+such as camera controllers or demo code.
 
 ### Problem this solves
 
@@ -830,6 +856,10 @@ public:
 **Goal**: Allow multiple `InputActionMap` instances to coexist with well-defined
 priority. Higher-priority contexts can block lower ones.
 
+**Status (2026-03-25)**: Not implemented yet. The project currently relies on one
+`InputActionMap` per active demo plus global ImGui capture flags, without a shared
+priority stack or per-context consumption rules.
+
 ### Problem this solves
 
 Without a context stack:
@@ -955,6 +985,10 @@ Frame N+1 (after Resume):
 
 **Goal**: Abstract away the source of input so the system can support keyboard,
 mouse, gamepad, and future devices without changing the action map or game logic.
+
+**Status (2026-03-25)**: Not implemented yet. Input still flows through the static
+`Input` polling API backed directly by GLFW. The only currently usable devices are
+keyboard and mouse.
 
 ### Problem this solves
 
@@ -1133,6 +1167,11 @@ bool InputActionMap::IsSourceDown(const InputSource& source) const
 
 **Goal**: A lightweight publish-subscribe system for discrete, system-level
 notifications. NOT used for per-frame input polling.
+
+**Status (2026-03-25)**: Implemented. `Application` owns an `EventBus`,
+`Window` publishes GLFW-backed events into it, and `LabLayer` publishes
+`DemoSwitchedEvent`. The current bus is synchronous, type-safe, and covered by
+contract tests for subscription order, nested publish, and unsubscribe-during-dispatch.
 
 ### Design Principles
 
@@ -1470,6 +1509,11 @@ m_OnResize = eventBus.Subscribe<WindowResizeEvent>(
 
 **Goal**: `Window` registers GLFW callbacks that produce events into the `EventBus`.
 
+**Status (2026-03-25)**: Implemented. `Window::SetEventBus()` installs callbacks for
+resize, close, key press/release, character input, mouse buttons, and scroll. The
+legacy resize callback path still exists alongside EventBus publication, so this layer
+is implemented but not yet fully unified around pub/sub only.
+
 ### Window changes
 
 ```cpp
@@ -1563,6 +1607,13 @@ void Window::InstallCallbacks()
 **Goal**: When ImGui wants keyboard or mouse focus, block the Input polling layer
 so game/demo code doesn't respond to keys that are meant for UI widgets.
 
+**Status (2026-03-25)**: Partially implemented. `ImGuiLayer::Begin()` forwards
+`ImGuiIO::WantCaptureKeyboard` and `WantCaptureMouse` into `Input::SetKeyboardCaptured()`
+and `SetMouseCaptured()`, and polling queries respect those flags. Two important current
+limitations remain: the EventBus path is not blocked by ImGui, and because capture flags
+are updated during the ImGui phase after `OnUpdate()`, gameplay polling observes the
+previous frame's capture state rather than a same-frame routing decision.
+
 ### Approach: capture flag on Input, not event consumption
 
 ```cpp
@@ -1602,6 +1653,8 @@ conditionally consumes all input.
 
 **Goal**: Support multi-key combinations, sequential inputs, and time-sensitive
 gestures as first-class action bindings.
+
+**Status (2026-03-25)**: Not implemented yet.
 
 ### Chord (simultaneous keys)
 
@@ -1735,6 +1788,8 @@ m_InputMap.BindCombo("SpecialAttack", {
 
 **Goal**: Capture per-frame input state to a file, then replay it deterministically.
 Useful for automated testing, bug reproduction, and demo playback.
+
+**Status (2026-03-25)**: Not implemented yet.
 
 ### Architecture
 
@@ -2015,6 +2070,8 @@ src/
 
 ### Phase A — Foundation (current project stage)
 
+**Status (2026-03-25)**: Done.
+
 Implement now. Prerequisite for everything else.
 
 | Item | Layer | Rationale | Effort |
@@ -2031,6 +2088,11 @@ is clean for all future demos.
 
 ### Phase B — ImGuiLayer integration
 
+**Status (2026-03-25)**: Mostly done. `ScopedConnection`, `EventBus`, `Events`,
+window callback production, and `Input` capture flags are implemented. The remaining
+gap is that resize handling still keeps the legacy callback path in parallel instead
+of routing purely through the EventBus.
+
 Implement when building ImGuiLayer.
 
 | Item | Layer | Rationale |
@@ -2044,6 +2106,10 @@ Implement when building ImGuiLayer.
 
 ### Phase C — Action mapping
 
+**Status (2026-03-25)**: Mostly done. `InputActionMap` and `DemoSwitchedEvent` are
+implemented and already used by the demos. `RendererSettingsChangedEvent` is still
+only a placeholder in the design.
+
 Implement when adding second demo or runtime settings.
 
 | Item | Layer | Rationale |
@@ -2053,6 +2119,8 @@ Implement when adding second demo or runtime settings.
 | `RendererSettingsChangedEvent` | 6 | DebugPanel tweaks propagate cleanly |
 
 ### Phase D — Input processing pipeline
+
+**Status (2026-03-25)**: Not started.
 
 Implement when polish matters (sensitivity settings, UI for input tuning).
 
@@ -2064,6 +2132,8 @@ Implement when polish matters (sensitivity settings, UI for input tuning).
 
 ### Phase E — Context stack
 
+**Status (2026-03-25)**: Not started.
+
 Implement when multiple UI layers coexist (pause menu, debug console, gameplay).
 
 | Item | Layer | Rationale |
@@ -2073,6 +2143,8 @@ Implement when multiple UI layers coexist (pause menu, debug console, gameplay).
 | Per-context `ConsumesInput` logic | 4 | Modal UI blocks gameplay input |
 
 ### Phase F — Device abstraction
+
+**Status (2026-03-25)**: Not started.
 
 Implement when adding gamepad support or preparing for replay.
 
@@ -2087,6 +2159,8 @@ Implement when adding gamepad support or preparing for replay.
 
 ### Phase G — Advanced input patterns
 
+**Status (2026-03-25)**: Not started.
+
 Implement when game mechanics demand it.
 
 | Item | Layer | Rationale |
@@ -2097,6 +2171,8 @@ Implement when game mechanics demand it.
 | `DoubleTapTrigger` | 9+3 | Double-tap to dash / activate |
 
 ### Phase H — Recording & replay
+
+**Status (2026-03-25)**: Not started.
 
 Implement when automated testing or demo playback is needed.
 
