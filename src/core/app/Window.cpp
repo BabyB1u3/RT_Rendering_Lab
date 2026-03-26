@@ -68,7 +68,16 @@ void Window::Init(const WindowProps &props)
     if (!m_Handle)
         throw std::runtime_error("Failed to create GLFW window.");
 
-    LOG_INFO("Window created: {}x{} \"{}\"", props.Width, props.Height, props.Title);
+    // On HiDPI/Retina displays the framebuffer size (physical pixels) differs from
+    // the window size (logical points). Always store physical pixel dimensions so that
+    // viewport setup is correct from the very first frame.
+    int fbWidth = 0, fbHeight = 0;
+    glfwGetFramebufferSize(m_Handle, &fbWidth, &fbHeight);
+    m_Width  = static_cast<uint32_t>(fbWidth);
+    m_Height = static_cast<uint32_t>(fbHeight);
+
+    LOG_INFO("Window created: {}x{} (framebuffer {}x{}) \"{}\"",
+             props.Width, props.Height, m_Width, m_Height, props.Title);
 
 #ifndef GLAB_BACKEND_METAL
     glfwMakeContextCurrent(m_Handle);
