@@ -28,6 +28,47 @@ Resource Packaging doc (`resource_packaging.md`).
 - Mesh shaders, ray tracing, or Metal 3.2 features beyond what the RHI exposes.
 - Vulkan backend (separate effort, see roadmap R5).
 
+### 1.3 Current Repository Status (2026-03)
+
+The implementation in this repository has progressed beyond "design only", but it
+has not yet reached the full buffer/reflection architecture described later in
+this document.
+
+What is already implemented:
+
+- A working Metal backend exists for the core RHI objects (`IGraphicsDevice`,
+  `IRenderCommand`, `IShader`, `IVertexBuffer`, `IIndexBuffer`, `IVertexArray`,
+  `ITexture2D`, `IFramebuffer`, `IRenderTarget`).
+- Slang shaders are compiled to `.metal` at build time and loaded into
+  `MTLLibrary` objects at runtime.
+- `MetalShader` supports both:
+  - named setter staging buffers (`SetFloat`, `SetMat4`, etc.)
+  - raw `SetUniformBlock(binding, data, size)` uploads
+
+What is only partially implemented:
+
+- `MetalShader` already has code to load a `.reflect.json` sidecar for named
+  uniform offsets, but the current CMake shader build does not emit those files.
+- Application/render-pass code has started migrating to `SetUniformBlock()`, but
+  the payload is still typically a handwritten C++ struct.
+
+What is not implemented yet:
+
+- No `BindUniformBuffer()` / `SetPushConstants()` API exists in `IShader` yet.
+- No reflection-driven or generated packing helper exists for uniform blocks.
+- Shaders still rely on loose `uniform` declarations grouped into Slang's implicit
+  global parameter block rather than explicit `ParameterBlock<T>` resources.
+
+In other words, the repository is currently in a transitional state:
+
+- more advanced than the original OpenGL-only/name-based model
+- not yet at the final slot-based + reflection-packed architecture
+
+The later sections of this document should therefore be read as:
+
+- "implemented now" for the basic backend plumbing
+- "next migration target" for reflection-driven packing and slot-based resource APIs
+
 ---
 
 ## 2. Platform Integration
@@ -295,6 +336,13 @@ portable across backends. If application code passes a raw C++ struct, that stru
 must already match the layout that Slang generated for the current backend target.
 This is easy to get wrong when a block mixes matrices, `float3`, scalars, and bools.
 
+Current repository status:
+
+- OpenGL uses `SetUniformBlock()` with raw C++ structs and UBO uploads.
+- Metal uses `SetUniformBlock()` with raw byte uploads to `setVertexBytes` /
+  `setFragmentBytes`.
+- No shared packing layer currently sits between pass code and these backend calls.
+
 **Offset mapping**: Slang's reflection API (or a build-time metadata export) provides
 the byte offset of each named uniform within its constant buffer. A JSON sidecar
 per shader stores this mapping:
@@ -561,6 +609,13 @@ Practical note for the current codebase: `MetalShader` already looks for
 is wiring this file into `cmake/CompileShaders.cmake` for every Metal shader build.
 Until that sidecar is emitted, the backend cannot use reflection to pack or validate
 uniform blocks.
+
+This also means the current repository status is slightly asymmetric:
+
+- the Metal runtime is prepared for reflection-assisted named setters
+- the build pipeline is not yet producing the metadata those setters expect
+- the `SetUniformBlock()` path bypasses reflection entirely and therefore still
+  depends on manually packed bytes
 
 Alternatively, use Slang's C++ reflection API at load time (linked into the
 application). The JSON sidecar is simpler and avoids a Slang runtime dependency.
