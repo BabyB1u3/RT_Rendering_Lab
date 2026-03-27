@@ -1,19 +1,19 @@
 #include "GLTestContext.h"
 
-#include <stdexcept>
-
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
 #include "core/FileSystem.h"
+#include "core/diagnostics/Assert.h"
+#include "core/diagnostics/LogCategories.h"
+#include "core/diagnostics/LogMacros.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/interface/IRenderCommand.h"
 #include "graphics/opengl/GLGraphicsDevice.h"
 
 GlTestContext::GlTestContext()
 {
-    if (!glfwInit())
-        throw std::runtime_error("glfwInit failed");
+    RTRLAB_ASSERT_MSG(glfwInit(), "GLTestContext: glfwInit failed");
 
 #ifdef __APPLE__
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -29,18 +29,20 @@ GlTestContext::GlTestContext()
     m_Window = glfwCreateWindow(64, 64, "RTRLab Test Context", nullptr, nullptr);
     if (!m_Window)
     {
+        LOG_ERROR_CAT(LogCategory::Window, "GLTestContext: glfwCreateWindow failed");
         glfwTerminate();
-        throw std::runtime_error("glfwCreateWindow failed");
+        RTRLAB_ASSERT_MSG(m_Window != nullptr, "GLTestContext: glfwCreateWindow failed");
     }
 
     glfwMakeContextCurrent(m_Window);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
+        LOG_ERROR_CAT(LogCategory::Graphics, "GLTestContext: gladLoadGLLoader failed");
         glfwDestroyWindow(m_Window);
         m_Window = nullptr;
         glfwTerminate();
-        throw std::runtime_error("gladLoadGLLoader failed");
+        RTRLAB_ASSERT_MSG(false, "GLTestContext: gladLoadGLLoader failed");
     }
 
     FileSystem::Init();

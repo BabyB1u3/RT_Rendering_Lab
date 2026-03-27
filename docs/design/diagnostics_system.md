@@ -1435,10 +1435,14 @@ assert macros. Eliminate exceptions from engine code.
 | 3b | Migrate `Application.cpp` — replace throws with `RTRLAB_ASSERT` | Fatal path still terminates cleanly |
 | 3c | Migrate `Window.cpp` — replace throws with `RTRLAB_ASSERT` | Init failures still detected |
 | 3d | Migrate `FileSystem.cpp` — change return types to `std::optional` | Callers updated to check optional |
-| 3e | Migrate `GLShader.cpp` — compile/link return `bool` | Shader errors logged, no throw |
+| 3e | Migrate shader backends (`GLShader.cpp`, `MetalShader.mm`) — compile/load failures return null objects | Shader errors logged, no throw |
 | 3f | Migrate `GLTexture2D.cpp` — load returns null `Ref<>` on failure | Texture errors logged, no throw |
 | 3g | Migrate `DemoRegistry.cpp` — use `ERR_FAIL_COND_V_MSG` | Unknown demo returns nullptr gracefully |
 | 3h | Audit all `catch` blocks — keep only third-party boundary catches | No engine code throws |
+
+Phase 3 is complete when the only remaining `catch` sites are deliberate third-party boundaries,
+such as `nlohmann::json` parsing and optional reflection-sidecar parsing. Engine-owned control flow,
+resource creation, filesystem reads, and recoverable runtime errors should no longer rely on exceptions.
 
 ### Phase 4 — Crash handler
 
