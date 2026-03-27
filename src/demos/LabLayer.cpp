@@ -14,6 +14,7 @@
 #include "demos/showcase/ShadowMapping/ShadowMapping.h"
 #include "demos/tutorial/01_ClearScreen/ClearScreen.h"
 #include "demos/tutorial/02_Triangle/Triangle.h"
+#include "demos/tutorial/03_TexturedQuad/TexturedQuad.h"
 
 LabLayer::LabLayer()
     : Layer("LabLayer")
@@ -106,6 +107,11 @@ void LabLayer::RegisterBuiltInDemos()
                            {
             const auto& window = Application::Get().GetWindow();
             return CreateScope<Triangle>(window.GetWidth(), window.GetHeight()); });
+
+    DemoRegistry::Register("03 - Textured Quad", []()
+                           {
+            const auto& window = Application::Get().GetWindow();
+            return CreateScope<TexturedQuad>(window.GetWidth(), window.GetHeight()); });
 
     // --- Showcase demos ---
     // DemoRegistry::Register("Shadow Mapping", []()

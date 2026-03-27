@@ -41,6 +41,7 @@ set(GLAB_CORE_SOURCES
     demos/showcase/ShadowMapping/ShadowMapping.cpp
     demos/tutorial/01_ClearScreen/ClearScreen.cpp
     demos/tutorial/02_Triangle/Triangle.cpp
+    demos/tutorial/03_TexturedQuad/TexturedQuad.cpp
 
     gui/ImGuiLayer.cpp
     gui/panels/ConsolePanel.cpp
@@ -130,6 +131,7 @@ set(GLAB_CORE_HEADERS
     demos/showcase/ShadowMapping/ShadowMapping.h
     demos/tutorial/01_ClearScreen/ClearScreen.h
     demos/tutorial/02_Triangle/Triangle.h
+    demos/tutorial/03_TexturedQuad/TexturedQuad.h
 
     gui/ImGuiLayer.h
     gui/panels/ConsolePanel.h

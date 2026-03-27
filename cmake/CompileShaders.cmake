@@ -37,6 +37,7 @@ function(glab_compile_shaders)
         ShadowDepth
         ForwardLit
         FlatColor
+        UnlitTextured
     )
 
     if(GLAB_BACKEND_METAL)
