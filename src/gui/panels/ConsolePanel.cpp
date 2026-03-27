@@ -1,6 +1,8 @@
 #include "ConsolePanel.h"
 
 #include <array>
+#include <cstddef>
+#include <optional>
 #include <sstream>
 #include <string>
 
@@ -16,22 +18,18 @@
 
 namespace
 {
-    constexpr std::array kCategories = {
-        "All",
-        LogCategory::Core,
-        LogCategory::Graphics,
-        LogCategory::Renderer,
-        LogCategory::Shader,
-        LogCategory::Input,
-        LogCategory::FileSystem,
-        LogCategory::Window,
-        LogCategory::ImGui,
-        LogCategory::Demo,
-        LogCategory::Assert,
-        LogCategory::Ensure,
-        LogCategory::Error,
-        LogCategory::Crash,
-    };
+    constexpr auto BuildCategoryMenu()
+    {
+        std::array<const char *, LogCategory::KnownCategories.size() + 1> categories{};
+        categories[0] = "All";
+
+        for (size_t i = 0; i < LogCategory::KnownCategories.size(); ++i)
+            categories[i + 1] = LogCategory::KnownCategories[i];
+
+        return categories;
+    }
+
+    constexpr auto kCategories = BuildCategoryMenu();
 
     constexpr const char *kLevelNames[] = {"All", "Trace", "Info", "Warn", "Error", "Critical"};
 
@@ -98,15 +96,22 @@ namespace
         return std::nullopt;
     }
 
-    bool IsKnownCategory(const std::string &name)
+    std::optional<int> FindCategoryMenuIndex(const std::string &category)
     {
         for (size_t i = 1; i < kCategories.size(); ++i)
         {
-            if (name == kCategories[i])
-                return true;
+            if (category == kCategories[i])
+                return static_cast<int>(i);
         }
-        return false;
+
+        return std::nullopt;
     }
+
+    bool CanAddressCategoryFromConsole(const std::string &category)
+    {
+        return LogCategory::IsKnownCategory(category) || Diagnostics::Logger::HasLogger(category.c_str());
+    }
+
 } // namespace
 
 void ConsolePanel::OnImGuiRender()
@@ -138,8 +143,23 @@ void ConsolePanel::DrawMenuBar()
 
     ImGui::SameLine();
     ImGui::SetNextItemWidth(120);
+    const int previousCategoryFilter = m_CategoryFilter;
     ImGui::Combo("Category", &m_CategoryFilter, kCategories.data(),
                  static_cast<int>(kCategories.size()));
+    if (m_CategoryFilter != previousCategoryFilter)
+        m_CommandCategoryFilter.clear();
+
+    if (!m_CommandCategoryFilter.empty())
+    {
+        ImGui::SameLine();
+        ImGui::TextDisabled("Cmd: %s", m_CommandCategoryFilter.c_str());
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Clear Cmd Filter"))
+        {
+            m_CommandCategoryFilter.clear();
+            m_CategoryFilter = 0;
+        }
+    }
 
     ImGui::SameLine();
     ImGui::SetNextItemWidth(100);
@@ -166,7 +186,11 @@ void ConsolePanel::DrawLogEntries()
     const bool wasAtBottom = ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 1.0f;
 
     const auto entries = sink->GetEntries();
-    const char *categoryFilter = (m_CategoryFilter > 0) ? kCategories[m_CategoryFilter] : nullptr;
+    const char *categoryFilter = nullptr;
+    if (!m_CommandCategoryFilter.empty())
+        categoryFilter = m_CommandCategoryFilter.c_str();
+    else if (m_CategoryFilter > 0)
+        categoryFilter = kCategories[m_CategoryFilter];
     const auto levelFloor = kLevelValues[m_LevelFilter];
 
     for (const auto &entry : entries)
@@ -258,14 +282,14 @@ void ConsolePanel::ExecuteCommand(const std::string &command)
             Diagnostics::Logger::SetGlobalLevel(*level);
             LOG_INFO("Global log level set to {}", magic_enum::enum_name(*level));
         }
-        else if (IsKnownCategory(target))
+        else if (CanAddressCategoryFromConsole(target))
         {
             Diagnostics::Logger::SetLevel(target.c_str(), *level);
             LOG_INFO("Log level for '{}' set to {}", target, magic_enum::enum_name(*level));
         }
         else
         {
-            LOG_WARN("Unknown category: '{}'. Use * for global, or one of the known categories.", target);
+            LOG_WARN("Unknown category: '{}'. No logger registered with that name.", target);
         }
     }
     else if (token == "log.filter")
@@ -276,19 +300,26 @@ void ConsolePanel::ExecuteCommand(const std::string &command)
         if (target.empty() || target == "*")
         {
             m_CategoryFilter = 0;
+            m_CommandCategoryFilter.clear();
             LOG_INFO("Category filter cleared");
+        }
+        else if (CanAddressCategoryFromConsole(target))
+        {
+            if (const auto menuIndex = FindCategoryMenuIndex(target))
+            {
+                m_CategoryFilter = *menuIndex;
+                m_CommandCategoryFilter.clear();
+            }
+            else
+            {
+                m_CategoryFilter = 0;
+                m_CommandCategoryFilter = target;
+            }
+
+            LOG_INFO("Category filter set to '{}'", target);
         }
         else
         {
-            for (size_t i = 1; i < kCategories.size(); ++i)
-            {
-                if (target == kCategories[i])
-                {
-                    m_CategoryFilter = static_cast<int>(i);
-                    LOG_INFO("Category filter set to '{}'", target);
-                    return;
-                }
-            }
             LOG_WARN("Unknown category: {}", target);
         }
     }

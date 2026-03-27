@@ -12,6 +12,8 @@
 #include "core/diagnostics/LogMacros.h"
 #include "core/diagnostics/Logger.h"
 
+#include "gui/panels/ConsolePanel.h"
+
 namespace
 {
     const std::filesystem::path &ContractTestLogPath()
@@ -177,4 +179,92 @@ TEST_F(ImGuiConsoleSinkTests, ConsoleSinkIsRegisteredByLogger)
 
     Diagnostics::Logger::Shutdown();
     RemovePathIfExists(logPath);
+}
+
+// --- Logger::HasLogger tests ---
+
+class LoggerHasLoggerTests : public ::testing::Test
+{
+protected:
+    void SetUp() override
+    {
+        FileSystem::Init();
+        Diagnostics::Logger::Init(ContractTestLogPath());
+    }
+
+    void TearDown() override
+    {
+        Diagnostics::Logger::Shutdown();
+        RemovePathIfExists(ContractTestLogPath());
+    }
+};
+
+TEST_F(LoggerHasLoggerTests, ReturnsTrueForCategoryThatHasBeenUsed)
+{
+    // "Core" is created during Logger::Init, so it should exist.
+    EXPECT_TRUE(Diagnostics::Logger::HasLogger(LogCategory::Core));
+}
+
+TEST_F(LoggerHasLoggerTests, ReturnsTrueForDynamicCategoryAfterFirstLog)
+{
+    // A dynamic category doesn't exist until first use.
+    EXPECT_FALSE(Diagnostics::Logger::HasLogger("MyPlugin"));
+
+    // Trigger lazy creation via GetLogger (same path as LOG_*_CAT).
+    Diagnostics::Logger::GetLogger("MyPlugin");
+    EXPECT_TRUE(Diagnostics::Logger::HasLogger("MyPlugin"));
+}
+
+TEST_F(LoggerHasLoggerTests, ReturnsFalseForUnknownCategory)
+{
+    EXPECT_FALSE(Diagnostics::Logger::HasLogger("TotallyFakeCategory"));
+}
+
+TEST_F(LoggerHasLoggerTests, DoesNotCreateLoggerAsSideEffect)
+{
+    EXPECT_FALSE(Diagnostics::Logger::HasLogger("Ghost"));
+    // Call again: still false, proving no lazy creation happened.
+    EXPECT_FALSE(Diagnostics::Logger::HasLogger("Ghost"));
+}
+
+TEST_F(LoggerHasLoggerTests, ConsoleCommandAcceptsKnownCategoryBeforeFirstUse)
+{
+    EXPECT_FALSE(Diagnostics::Logger::HasLogger(LogCategory::Demo));
+
+    ConsolePanel panel;
+    panel.ExecuteCommand("log.level Demo warn");
+
+    EXPECT_TRUE(Diagnostics::Logger::HasLogger(LogCategory::Demo));
+}
+
+TEST_F(LoggerHasLoggerTests, ConsoleCommandRejectsUnknownCategoryWithoutCreatingLogger)
+{
+    ConsolePanel panel;
+    panel.ExecuteCommand("log.level Ghost warn");
+
+    EXPECT_FALSE(Diagnostics::Logger::HasLogger("Ghost"));
+}
+
+TEST_F(LoggerHasLoggerTests, ConsoleFilterAcceptsExistingDynamicCategory)
+{
+    Diagnostics::Logger::GetLogger("MyPlugin");
+
+    ConsolePanel panel;
+    panel.ExecuteCommand("log.filter MyPlugin");
+
+    EXPECT_EQ(panel.GetCategoryFilterIndex(), 0);
+    EXPECT_EQ(panel.GetCommandCategoryFilter(), "MyPlugin");
+}
+
+TEST(LogCategoriesTests, IsKnownCategoryRecognizesPredefinedNames)
+{
+    EXPECT_TRUE(LogCategory::IsKnownCategory(LogCategory::Core));
+    EXPECT_TRUE(LogCategory::IsKnownCategory(LogCategory::Demo));
+    EXPECT_TRUE(LogCategory::IsKnownCategory(LogCategory::Crash));
+}
+
+TEST(LogCategoriesTests, IsKnownCategoryRejectsUnknownNames)
+{
+    EXPECT_FALSE(LogCategory::IsKnownCategory("MyPlugin"));
+    EXPECT_FALSE(LogCategory::IsKnownCategory("DefinitelyNotReal"));
 }

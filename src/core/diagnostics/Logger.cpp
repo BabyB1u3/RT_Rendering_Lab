@@ -102,6 +102,15 @@ namespace Diagnostics
         return g_LogFilePath;
     }
 
+    bool Logger::HasLogger(const char *category)
+    {
+        if (!category)
+            return false;
+
+        std::lock_guard<std::mutex> lock(g_LoggerMutex);
+        return g_Initialized && spdlog::get(category) != nullptr;
+    }
+
     void Logger::SetLevel(const char *category, spdlog::level::level_enum level)
     {
         auto logger = GetLogger(category);

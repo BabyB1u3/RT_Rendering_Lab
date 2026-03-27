@@ -3,6 +3,9 @@
 /// @file LogCategories.h
 /// @brief Predefined diagnostics categories used by engine subsystems.
 
+#include <array>
+#include <string_view>
+
 namespace LogCategory
 {
     constexpr const char *Core = "Core";
@@ -18,4 +21,31 @@ namespace LogCategory
     constexpr const char *Ensure = "Ensure";
     constexpr const char *Error = "Error";
     constexpr const char *Crash = "Crash";
+
+    inline constexpr std::array<const char *, 13> KnownCategories = {
+        Core,
+        Graphics,
+        Renderer,
+        Shader,
+        Input,
+        FileSystem,
+        Window,
+        ImGui,
+        Demo,
+        Assert,
+        Ensure,
+        Error,
+        Crash,
+    };
+
+    constexpr bool IsKnownCategory(std::string_view category)
+    {
+        for (const char *knownCategory : KnownCategories)
+        {
+            if (category == knownCategory)
+                return true;
+        }
+
+        return false;
+    }
 }
