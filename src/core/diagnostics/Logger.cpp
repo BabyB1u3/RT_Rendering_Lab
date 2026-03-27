@@ -6,12 +6,14 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
+#include "core/diagnostics/ImGuiConsoleSink.h"
 #include "core/diagnostics/LogCategories.h"
 
 namespace Diagnostics
 {
 
     std::vector<spdlog::sink_ptr> Logger::s_Sinks;
+    Ref<ImGuiConsoleSink> Logger::s_ConsoleSink;
     spdlog::level::level_enum Logger::s_GlobalLevel = spdlog::level::trace;
 
     namespace
@@ -38,8 +40,9 @@ namespace Diagnostics
             g_LogFilePath.string(),
             kMaxLogFileSizeBytes,
             kMaxLogFiles);
+        s_ConsoleSink = std::make_shared<ImGuiConsoleSink>();
 
-        s_Sinks = {consoleSink, fileSink};
+        s_Sinks = {consoleSink, fileSink, s_ConsoleSink};
         g_Initialized = true;
         auto coreLogger = CreateRef<spdlog::logger>(
             LogCategory::Core,
@@ -65,6 +68,7 @@ namespace Diagnostics
                           { logger->flush(); });
         spdlog::drop_all();
         s_Sinks.clear();
+        s_ConsoleSink.reset();
         g_LogFilePath.clear();
         g_Initialized = false;
     }
@@ -114,6 +118,11 @@ namespace Diagnostics
 
         spdlog::apply_all([level](const std::shared_ptr<spdlog::logger> &logger)
                           { logger->set_level(level); });
+    }
+
+    Ref<ImGuiConsoleSink> Logger::GetConsoleSink()
+    {
+        return s_ConsoleSink;
     }
 
 } // namespace Diagnostics

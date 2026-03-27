@@ -10,6 +10,7 @@ set(GLAB_CORE_SOURCES
     core/diagnostics/Assert.cpp
     core/diagnostics/CrashHandler.cpp
     core/diagnostics/Debugger.cpp
+    core/diagnostics/ImGuiConsoleSink.cpp
     core/diagnostics/Logger.cpp
     core/serialization/PropertyTree.cpp
     core/serialization/JsonBackend.cpp
@@ -40,6 +41,7 @@ set(GLAB_CORE_SOURCES
     demos/tutorial/02_Triangle/Triangle.cpp
 
     gui/ImGuiLayer.cpp
+    gui/panels/ConsolePanel.cpp
     gui/panels/DebugPanel.cpp
     gui/panels/DemoSelectorPanel.cpp
     gui/backends/metal/MetalImGuiBridge.h
@@ -68,6 +70,7 @@ set(GLAB_CORE_HEADERS
     core/diagnostics/Debugger.h
     core/diagnostics/ErrorMacros.h
     core/diagnostics/LogCategories.h
+    core/diagnostics/ImGuiConsoleSink.h
     core/diagnostics/Logger.h
     core/diagnostics/LogMacros.h
     core/serialization/PropertyTree.h
@@ -126,6 +129,7 @@ set(GLAB_CORE_HEADERS
     demos/tutorial/02_Triangle/Triangle.h
 
     gui/ImGuiLayer.h
+    gui/panels/ConsolePanel.h
     gui/panels/DebugPanel.h
     gui/panels/DemoSelectorPanel.h
 )

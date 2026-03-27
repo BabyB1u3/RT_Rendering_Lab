@@ -15,6 +15,8 @@
 namespace Diagnostics
 {
 
+    class ImGuiConsoleSink;
+
     class Logger
     {
     public:
@@ -28,8 +30,11 @@ namespace Diagnostics
         static void SetLevel(const char *category, spdlog::level::level_enum level);
         static void SetGlobalLevel(spdlog::level::level_enum level);
 
+        static Ref<ImGuiConsoleSink> GetConsoleSink();
+
     private:
         static std::vector<spdlog::sink_ptr> s_Sinks;
+        static Ref<ImGuiConsoleSink> s_ConsoleSink;
         static spdlog::level::level_enum s_GlobalLevel;
     };
 

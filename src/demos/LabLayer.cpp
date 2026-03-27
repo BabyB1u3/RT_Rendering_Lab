@@ -79,6 +79,7 @@ void LabLayer::OnImGuiRender()
     }
 
     m_DebugPanel.OnImGuiRender();
+    m_ConsolePanel.OnImGuiRender();
 
     if (m_ActiveDemo)
         m_ActiveDemo->OnImGuiRender();

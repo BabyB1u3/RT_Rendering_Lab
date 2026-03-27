@@ -16,6 +16,7 @@
 
 #include "core/app/Layer.h"
 #include "core/Base.h"
+#include "gui/panels/ConsolePanel.h"
 #include "gui/panels/DebugPanel.h"
 #include "gui/panels/DemoSelectorPanel.h"
 
@@ -46,6 +47,7 @@ private:
     std::string m_ActiveDemoName;
     Scope<DemoBase> m_ActiveDemo;
 
+    ConsolePanel m_ConsolePanel;
     DebugPanel m_DebugPanel;
     DemoSelectorPanel m_DemoSelectorPanel;
 };
