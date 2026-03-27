@@ -289,6 +289,12 @@ Metal has no runtime uniform reflection like `glGetUniformLocation`. Strategy:
   `setVertexBuffer(buffer, offset, index)`. This is the target architecture
   described in `shader_material_system.md` Phase B.
 
+Important clarification: `SetUniformBlock(binding, data, size)` only standardizes
+the binding slot. It does **not** guarantee that the byte layout of `data` is
+portable across backends. If application code passes a raw C++ struct, that struct
+must already match the layout that Slang generated for the current backend target.
+This is easy to get wrong when a block mixes matrices, `float3`, scalars, and bools.
+
 **Offset mapping**: Slang's reflection API (or a build-time metadata export) provides
 the byte offset of each named uniform within its constant buffer. A JSON sidecar
 per shader stores this mapping:
@@ -308,8 +314,54 @@ per shader stores this mapping:
 }
 ```
 
-This sidecar is generated at build time by `slangc -dump-reflection` and consumed
+This sidecar is generated at build time by `slangc -reflection-json <path>` and consumed
 by `MetalShader` at load time.
+
+#### Cross-Backend Uniform Layout Pitfall
+
+The first real bug encountered on macOS exposed an important design lesson:
+sharing the same Slang source does **not** imply that a hardcoded C++ mirror
+struct is portable.
+
+Observed case: Tutorial 06 `BasicLight` uploaded a single block via
+`SetUniformBlock(0, &params, sizeof(params))`. The C++ struct was written to
+match the OpenGL/std140 offsets:
+
+- `u_LightIntensity` at byte 236
+- `u_Albedo` at byte 240
+- `u_SpecularPower` at byte 252
+- `u_AmbientStrength` at byte 256
+
+For the Metal target, Slang generated a different "natural" layout for the same
+shader:
+
+- `u_LightIntensity` at byte 240
+- `u_Albedo` at byte 256
+- `u_SpecularPower` at byte 272
+- `u_AmbientStrength` at byte 276
+
+The result was not a validation error or a crash. Rendering simply looked wrong:
+lighting colors were skewed, diffuse/specular response was broken, and only Metal
+reproduced the issue. The immediate fix was an Apple-specific struct layout with
+`static_assert` checks. That was acceptable as a hotfix, but it is **not** the
+desired architecture.
+
+Design conclusion:
+
+- Slot-based binding is necessary, but insufficient on its own.
+- The bytes inside a bound uniform block must come from Slang reflection or codegen,
+  not from handwritten backend-assumed padding rules.
+- Every place that currently does `SetUniformBlock(..., &cppStruct, sizeof(cppStruct))`
+  is carrying this risk until packing is reflection-driven.
+
+Recommended implementation path:
+
+1. Generate reflection metadata for every compiled backend artifact at build time.
+2. Load that metadata with the shader so each binding has an authoritative field layout.
+3. Replace handwritten mirror structs in demos/passes with a packed uniform-block helper
+   that writes by field name or generated field ID.
+4. Keep temporary backend-specific structs only as short-lived stopgaps while the
+   reflection-driven packer is being rolled out.
 
 ### 4.4 `MetalVertexArray` : `IVertexArray`
 
@@ -496,9 +548,19 @@ For name-based uniform setters to work, a build-time step extracts reflection:
 # Added to glab_compile_shaders() for Metal target
 add_custom_command(
     OUTPUT ${SHADER_NAME}.reflect.json
-    COMMAND slangc -target metal -dump-ir-ids -reflection-json ...
+    COMMAND slangc ${INPUT}
+        -target metal
+        -matrix-layout-column-major
+        -reflection-json ${SHADER_NAME}.reflect.json
+        -o ${SHADER_NAME}.metal
 )
 ```
+
+Practical note for the current codebase: `MetalShader` already looks for
+`compiled/metal/<ShaderName>.reflect.json` when loading a shader. The missing piece
+is wiring this file into `cmake/CompileShaders.cmake` for every Metal shader build.
+Until that sidecar is emitted, the backend cannot use reflection to pack or validate
+uniform blocks.
 
 Alternatively, use Slang's C++ reflection API at load time (linked into the
 application). The JSON sidecar is simpler and avoids a Slang runtime dependency.
@@ -766,6 +828,27 @@ As noted in `shader_material_system.md`, the long-term target is slot-based
 setters via reflection as a bridge, but the slot-based path should be prioritized
 as the next material system evolution - it maps directly to Metal's buffer
 binding model and eliminates the reflection sidecar.
+
+One more nuance is important here: moving to slot-based APIs does not, by itself,
+eliminate layout bugs. The following two concerns are separate and both must be solved:
+
+- Resource binding abstraction:
+  `BindUniformBuffer(slot)` / `SetUniformBlock(binding, ...)` lets all backends talk
+  about the same slots.
+- Buffer packing abstraction:
+  the bytes written into that buffer must come from reflection or generated layout
+  code, not from manually duplicated C++ structs.
+
+The target end state is therefore:
+
+1. Shader code declares resources in stable slots (`PerFrame`, `PerMaterial`, `PerPass`,
+   per-draw/push).
+2. Build-time or load-time reflection provides the exact byte layout for each block.
+3. C++ packs data through that reflected layout.
+4. Backends only bind buffers/textures; they do not reinterpret application structs.
+
+That is the point where "one shader source, one application-side upload path" becomes
+real across OpenGL, Vulkan, and Metal rather than just nominally shared.
 
 ---
 

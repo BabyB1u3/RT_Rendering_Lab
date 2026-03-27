@@ -110,6 +110,17 @@ How each backend implements this:
 | `BindTexture(slot, tex)` | `glBindTextureUnit(slot, ...)` | Descriptor write | `setFragmentTexture:atIndex:` |
 | `SetPushConstants(stage, data, size)` | Upload to a dedicated small UBO or use `glUniform*` | `vkCmdPushConstants` | `setVertexBytes` / `setFragmentBytes` |
 
+Important: slot-based binding solves the "where is this resource bound?" problem.
+It does **not** solve the "how are bytes packed inside this buffer?" problem.
+Those are separate concerns. A cross-platform renderer needs both:
+
+- Stable slot conventions across backends
+- A single source of truth for field offsets/sizes inside each uniform block
+
+If application code still hand-writes a C++ struct and passes it to
+`SetUniformBlock(binding, data, size)`, layout mismatches can still happen even
+when all backends agree on the binding slot.
+
 ### 2.3 Resource Slot Convention
 
 Shader resources are organized by update frequency, following a convention shared across all shaders:
@@ -145,9 +156,39 @@ named uniforms within uniform blocks. OpenGL can still access them via
 **Phase B (First Non-OpenGL Backend)**: Add `BindUniformBuffer()` and `BindTexture()` to `IShader`.
 OpenGL backend implements them. Material and render passes migrate to buffer-based uploads.
 Name-based setters become deprecated but remain for test convenience.
+At the same time, introduce reflected or generated packing metadata so that
+"buffer-based upload" does not merely become "memcpy a handwritten struct into a slot."
 
 **Phase C (Cleanup)**: Remove name-based setters from `IShader`. All uniform data goes through
 pre-packed buffers.
+
+#### 2.4.1 Concrete Lesson from the Metal Bring-Up
+
+The macOS bring-up exposed a subtle but important failure mode in the intermediate
+architecture. Tutorial 06 `BasicLight` already used the supposedly portable path:
+
+```cpp
+shader->SetUniformBlock(0, &params, sizeof(params));
+```
+
+However, `params` was still a manually maintained C++ mirror struct. That struct
+matched the OpenGL/std140 layout, but Slang produced a different layout for the
+Metal target once the block contained multiple `float3` values mixed with scalars.
+
+Result:
+
+- OpenGL rendered correctly
+- Metal rendered incorrect lighting with no API error
+
+This is a key architectural takeaway:
+
+- `SetUniformBlock()` is the right upload primitive
+- handwritten mirror structs are still a temporary workaround
+- true cross-backend reuse only arrives once the bytes inside the block are packed
+  from reflection or generated layout metadata
+
+The engine should therefore treat the current handwritten-struct approach as
+Phase A compatibility scaffolding, not as the target material/shader architecture.
 
 ---
 
@@ -365,6 +406,32 @@ SlangReflection* reflection = slangModule->getLayout();
 // Material uses this mapping to fill m_PackedData when properties change
 ```
 
+The same idea should be applied to pass-owned uniform data as well, not only
+material-owned data. In other words, `MaterialData`, `PerFrameData`, `PerPassData`,
+and temporary demo-specific blocks should all be packed from the same reflected
+layout source. Otherwise the engine ends up with two systems:
+
+- materials packed correctly from reflection
+- passes/demos still relying on fragile handwritten layout structs
+
+That split would reintroduce platform-specific bugs in exactly the places where
+`SetUniformBlock()` is supposed to make uploads portable.
+
+Recommended helper shape:
+
+```cpp
+PackedUniformBlock block(shader->GetUniformBlockLayout(/*binding=*/0));
+block.Write("u_ViewProjection", viewProjection);
+block.Write("u_Model", model);
+block.Write("u_LightColor", lightColor);
+block.Write("u_LightIntensity", lightIntensity);
+shader->SetUniformBlock(0, block.Data(), block.Size());
+```
+
+Whether this helper is backed by runtime reflection, build-time JSON sidecars,
+or generated C++ layout code is an implementation choice. The important property
+is that the pass no longer duplicates shader layout rules manually.
+
 This is detailed in `slang-migration.md` Section 8.
 
 ### 3.5 Responsibilities Summary
@@ -512,6 +579,17 @@ struct PerFrameUBO {
 };
 ```
 
+That fragility is not theoretical. It showed up during the Metal bring-up:
+
+- A Slang shader that rendered correctly on OpenGL used one C++ struct layout
+- The same shader compiled for Metal expected different offsets for later fields
+- `SetUniformBlock()` blindly copied the OpenGL-oriented bytes into Metal
+- Rendering was wrong even though the shader source and binding index were shared
+
+So the real failure mode is broader than "someone forgot to update a struct after
+editing the shader." A struct can be up to date relative to one backend and still
+be wrong for another backend if packing rules diverge.
+
 With reflection, the shader's resource layout is extracted automatically:
 
 ```cpp
@@ -522,6 +600,10 @@ With reflection, the shader's resource layout is extracted automatically:
 // Material stores properties in a flat byte buffer and fills it by name→offset mapping.
 // No C++ struct needs to mirror the shader layout.
 ```
+
+This is the point where the engine genuinely becomes backend-agnostic for uniform
+uploads. The shared Slang source describes the layout once; C++ consumes that layout
+instead of restating it.
 
 ### 6.2 Slang vs SPIRV-Cross Reflection
 
@@ -540,10 +622,14 @@ Slang reflection is strictly more capable. It can be used at:
 ### 6.3 Implementation Plan
 
 **Phase A (Slang migration)**: No reflection. Use hardcoded C++ structs that match shader layouts.
-This is the current approach and works fine for 3 shaders.
+This is acceptable for initial bring-up and very small shader counts, but it should
+now be considered explicitly temporary. The Metal bring-up demonstrated that "works
+for a few shaders" is not the same as "portable across backends."
 
-**Phase B (Buffer binding)**: Introduce Slang runtime reflection to validate that C++ structs match
-shader expectations at load time. Log warnings on mismatch.
+**Phase B (Buffer binding)**: Introduce Slang reflection metadata to validate and/or pack uniform
+buffers at load time. At minimum, log warnings when a handwritten struct disagrees
+with the shader layout. Preferably, stop uploading handwritten structs directly and
+instead pack bytes through a shared `PackedUniformBlock`-style helper.
 
 **Phase C (Full reflection)**: Material properties are dynamically mapped to shader buffer offsets
 via reflection. No hardcoded layout structs needed. Adding a property to a shader automatically
