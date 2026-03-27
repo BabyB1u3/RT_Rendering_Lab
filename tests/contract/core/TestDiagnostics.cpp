@@ -532,8 +532,7 @@ TEST_F(LoggerHasLoggerTests, EnsureMacroReportsOnlyOnceAcrossConcurrentCallers)
                                      std::this_thread::yield();
 
                                  for (int attempt = 0; attempt < 32; ++attempt)
-                                     EXPECT_FALSE(EmitEnsureOnceContractMessage());
-                             });
+                                     EXPECT_FALSE(EmitEnsureOnceContractMessage()); });
     }
 
     start.store(true, std::memory_order_release);
@@ -558,6 +557,27 @@ TEST_F(LoggerHasLoggerTests, ConsoleCommandCanEnableAndDisableJsonSink)
     panel.ExecuteCommand("log.json off");
     EXPECT_FALSE(Diagnostics::Logger::IsJsonSinkEnabled());
     EXPECT_TRUE(Diagnostics::Logger::GetJsonSinkPath().empty());
+
+    RemovePathIfExists(jsonPath);
+}
+
+TEST_F(LoggerHasLoggerTests, ConsoleCommandCanEnableJsonSinkAtPathWithSpaces)
+{
+    const auto jsonPath = FileSystem::GetSavedPath("logs/diagnostics contract spaced path.jsonl");
+    RemovePathIfExists(jsonPath);
+
+    ConsolePanel panel;
+    panel.ExecuteCommand("log.json on \"" + jsonPath.string() + "\"");
+    EXPECT_TRUE(Diagnostics::Logger::IsJsonSinkEnabled());
+    EXPECT_EQ(Diagnostics::Logger::GetJsonSinkPath(), jsonPath);
+
+    LOG_INFO_CAT(LogCategory::Core, "json-space-path");
+    Diagnostics::Logger::Shutdown();
+
+    std::ifstream input(jsonPath);
+    ASSERT_TRUE(input.is_open());
+    std::string contents((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+    EXPECT_NE(contents.find("json-space-path"), std::string::npos);
 
     RemovePathIfExists(jsonPath);
 }
