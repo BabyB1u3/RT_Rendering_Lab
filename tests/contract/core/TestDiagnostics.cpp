@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <filesystem>
+#include <thread>
 
 #include "core/FileSystem.h"
 #include "core/diagnostics/Assert.h"
@@ -32,6 +34,70 @@ namespace
     {
         ERR_FAIL_COND_V_MSG_CAT(LogCategory::Core, shouldFail, false, "diagnostics contract test");
         return true;
+    }
+
+    void EmitWarnOnceContractMessage()
+    {
+        LOG_WARN_ONCE_CAT(LogCategory::Core, "warn-once-contract");
+    }
+
+    void EmitWarnThrottleContractMessage(double intervalSeconds)
+    {
+        LOG_WARN_THROTTLE_CAT(LogCategory::Core, intervalSeconds, "warn-throttle-contract");
+    }
+
+    size_t CountEntriesWithMessage(const std::vector<Diagnostics::ConsoleLogEntry> &entries, const char *message)
+    {
+        size_t count = 0;
+        for (const auto &entry : entries)
+        {
+            if (entry.Message == message)
+                ++count;
+        }
+
+        return count;
+    }
+
+    /// Poll the async logger until the matching entry count stays unchanged for
+    /// a short quiet window, then return the final snapshot. This is stronger
+    /// than "wait until first match", because it can catch duplicate messages
+    /// that arrive a little later from the async queue.
+    std::vector<Diagnostics::ConsoleLogEntry> WaitForSettledEntries(
+        const Ref<Diagnostics::ImGuiConsoleSink> &sink,
+        const char *message,
+        size_t minCount,
+        int timeoutMs = 500,
+        int quietWindowMs = 40)
+    {
+        auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
+        std::vector<Diagnostics::ConsoleLogEntry> entries;
+        size_t lastCount = 0;
+        auto stableSince = std::chrono::steady_clock::time_point{};
+
+        while (std::chrono::steady_clock::now() < deadline)
+        {
+            Diagnostics::Logger::Flush();
+            entries = sink->GetEntries();
+            const size_t currentCount = CountEntriesWithMessage(entries, message);
+
+            if (currentCount != lastCount)
+            {
+                lastCount = currentCount;
+                stableSince = std::chrono::steady_clock::now();
+            }
+            else if (currentCount >= minCount &&
+                     stableSince != std::chrono::steady_clock::time_point{} &&
+                     (std::chrono::steady_clock::now() - stableSince) >= std::chrono::milliseconds(quietWindowMs))
+            {
+                return entries;
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+
+        Diagnostics::Logger::Flush();
+        entries = sink->GetEntries();
+        return entries;
     }
 }
 
@@ -254,6 +320,32 @@ TEST_F(LoggerHasLoggerTests, ConsoleFilterAcceptsExistingDynamicCategory)
 
     EXPECT_EQ(panel.GetCategoryFilterIndex(), 0);
     EXPECT_EQ(panel.GetCommandCategoryFilter(), "MyPlugin");
+}
+
+TEST_F(LoggerHasLoggerTests, WarnOnceMacroSuppressesSecondInvocationAtSameCallSite)
+{
+    auto sink = Diagnostics::Logger::GetConsoleSink();
+    ASSERT_NE(sink, nullptr);
+    sink->Clear();
+
+    EmitWarnOnceContractMessage();
+    EmitWarnOnceContractMessage();
+
+    const auto entries = WaitForSettledEntries(sink, "warn-once-contract", 1);
+    EXPECT_EQ(CountEntriesWithMessage(entries, "warn-once-contract"), 1u);
+}
+
+TEST_F(LoggerHasLoggerTests, WarnThrottleMacroSuppressesImmediateSecondInvocation)
+{
+    auto sink = Diagnostics::Logger::GetConsoleSink();
+    ASSERT_NE(sink, nullptr);
+    sink->Clear();
+
+    EmitWarnThrottleContractMessage(60.0);
+    EmitWarnThrottleContractMessage(60.0);
+
+    const auto entries = WaitForSettledEntries(sink, "warn-throttle-contract", 1);
+    EXPECT_EQ(CountEntriesWithMessage(entries, "warn-throttle-contract"), 1u);
 }
 
 TEST(LogCategoriesTests, IsKnownCategoryRecognizesPredefinedNames)

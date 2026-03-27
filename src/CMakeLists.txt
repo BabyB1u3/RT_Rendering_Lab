@@ -10,7 +10,9 @@ set(GLAB_CORE_SOURCES
     core/diagnostics/Assert.cpp
     core/diagnostics/CrashHandler.cpp
     core/diagnostics/Debugger.cpp
+    core/diagnostics/FrameFormatter.cpp
     core/diagnostics/ImGuiConsoleSink.cpp
+    core/diagnostics/JsonLineSink.cpp
     core/diagnostics/Logger.cpp
     core/serialization/PropertyTree.cpp
     core/serialization/JsonBackend.cpp
@@ -70,7 +72,9 @@ set(GLAB_CORE_HEADERS
     core/diagnostics/Debugger.h
     core/diagnostics/ErrorMacros.h
     core/diagnostics/LogCategories.h
+    core/diagnostics/FrameFormatter.h
     core/diagnostics/ImGuiConsoleSink.h
+    core/diagnostics/JsonLineSink.h
     core/diagnostics/Logger.h
     core/diagnostics/LogMacros.h
     core/serialization/PropertyTree.h
@@ -286,6 +290,9 @@ target_compile_definitions(RTRLabCore PUBLIC
     GLAB_ASSET_DIR="assets"
     $<$<CONFIG:Debug>:GLAB_ROOT_DIR="${CMAKE_SOURCE_DIR}">
     $<$<CONFIG:Debug>:GLAB_SHADER_BUILD_DIR="${CMAKE_BINARY_DIR}/shaders">
+    $<$<CONFIG:Debug>:RTRLAB_LOG_MIN_LEVEL=0>
+    $<$<CONFIG:Release>:RTRLAB_LOG_MIN_LEVEL=2>
+    $<$<CONFIG:RelWithDebInfo>:RTRLAB_LOG_MIN_LEVEL=1>
 )
 
 if(GLAB_ENABLE_PCH)

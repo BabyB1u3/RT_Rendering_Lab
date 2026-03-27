@@ -16,6 +16,7 @@ namespace Diagnostics
 {
 
     class ImGuiConsoleSink;
+    class JsonLineSink;
 
     class Logger
     {
@@ -33,10 +34,17 @@ namespace Diagnostics
 
         static Ref<ImGuiConsoleSink> GetConsoleSink();
 
+        static void EnableJsonSink(const std::filesystem::path &filePath);
+        static void DisableJsonSink();
+
     private:
         static std::vector<spdlog::sink_ptr> s_Sinks;
         static Ref<ImGuiConsoleSink> s_ConsoleSink;
+        static Ref<JsonLineSink> s_JsonSink;
         static spdlog::level::level_enum s_GlobalLevel;
     };
+
+    /// Monotonic clock in seconds. Used by throttle macros.
+    double GetMonotonicSeconds();
 
 } // namespace Diagnostics

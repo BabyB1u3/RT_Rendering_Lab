@@ -5,6 +5,7 @@
 #include "core/FileSystem.h"
 #include "core/diagnostics/Assert.h"
 #include "core/diagnostics/CrashHandler.h"
+#include "core/diagnostics/FrameFormatter.h"
 #include "core/diagnostics/LogCategories.h"
 #include "core/diagnostics/LogMacros.h"
 #include "core/diagnostics/Logger.h"
@@ -82,6 +83,8 @@ Application::~Application()
 
 void Application::RenderFrame()
 {
+    Diagnostics::IncrementFrameNumber();
+
     // P1: Begin frame - Metal/Vulkan create command buffer here.
     RenderCommand::BeginFrame();
 
