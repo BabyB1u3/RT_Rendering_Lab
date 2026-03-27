@@ -97,6 +97,16 @@ namespace
             return spdlog::level::warn;
         return std::nullopt;
     }
+
+    bool IsKnownCategory(const std::string &name)
+    {
+        for (size_t i = 1; i < kCategories.size(); ++i)
+        {
+            if (name == kCategories[i])
+                return true;
+        }
+        return false;
+    }
 } // namespace
 
 void ConsolePanel::OnImGuiRender()
@@ -244,10 +254,14 @@ void ConsolePanel::ExecuteCommand(const std::string &command)
             Diagnostics::Logger::SetGlobalLevel(*level);
             LOG_INFO("Global log level set to {}", magic_enum::enum_name(*level));
         }
-        else
+        else if (IsKnownCategory(target))
         {
             Diagnostics::Logger::SetLevel(target.c_str(), *level);
             LOG_INFO("Log level for '{}' set to {}", target, magic_enum::enum_name(*level));
+        }
+        else
+        {
+            LOG_WARN("Unknown category: '{}'. Use * for global, or one of the known categories.", target);
         }
     }
     else if (token == "log.filter")
