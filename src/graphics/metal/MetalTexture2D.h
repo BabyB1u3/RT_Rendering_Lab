@@ -9,7 +9,7 @@
 
 #include "core/Base.h"
 #include "graphics/Texture.h"
-#include "graphics/interface/ITexture2D.h"
+#include "graphics/interfaces/ITexture2D.h"
 
 class MetalTexture2D : public ITexture2D
 {

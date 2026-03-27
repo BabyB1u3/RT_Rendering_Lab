@@ -7,10 +7,10 @@
 #include "graphics/Buffers.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/RenderCommand.h"
-#include "graphics/interface/IRenderTarget.h"
-#include "graphics/interface/IShader.h"
-#include "graphics/interface/IVertexArray.h"
-#include "graphics/interface/IVertexBuffer.h"
+#include "graphics/interfaces/IRenderTarget.h"
+#include "graphics/interfaces/IShader.h"
+#include "graphics/interfaces/IVertexArray.h"
+#include "graphics/interfaces/IVertexBuffer.h"
 
 // NDC triangle — position (x, y, z) + color (r, g, b) per vertex.
 // clang-format off

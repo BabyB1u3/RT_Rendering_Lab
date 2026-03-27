@@ -11,7 +11,7 @@
 #include <glm/glm.hpp>
 
 #include "core/Base.h"
-#include "graphics/interface/IRenderCommand.h"
+#include "graphics/interfaces/IRenderCommand.h"
 
 class GLRenderCommand : public IRenderCommand
 {

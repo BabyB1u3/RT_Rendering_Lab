@@ -29,7 +29,7 @@
 
 #include "core/Base.h"
 #include "graphics/RenderTypes.h"
-#include "graphics/interface/IShader.h"
+#include "graphics/interfaces/IShader.h"
 
 /// Binding index convention — Vulkan descriptor model as canonical abstraction.
 ///

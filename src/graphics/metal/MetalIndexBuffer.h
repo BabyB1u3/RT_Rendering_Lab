@@ -7,7 +7,7 @@
 #include <memory>
 
 #include "core/Base.h"
-#include "graphics/interface/IIndexBuffer.h"
+#include "graphics/interfaces/IIndexBuffer.h"
 
 class MetalIndexBuffer : public IIndexBuffer
 {

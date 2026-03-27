@@ -2,10 +2,10 @@
 
 #include <glad/glad.h>
 
-#include "graphics/interface/IFramebuffer.h"
-#include "graphics/interface/IIndexBuffer.h"
-#include "graphics/interface/IRenderTarget.h"
-#include "graphics/interface/ITexture2D.h"
+#include "graphics/interfaces/IFramebuffer.h"
+#include "graphics/interfaces/IIndexBuffer.h"
+#include "graphics/interfaces/IRenderTarget.h"
+#include "graphics/interfaces/ITexture2D.h"
 #include "GLCast.h"
 #include "GLVertexArray.h"
 

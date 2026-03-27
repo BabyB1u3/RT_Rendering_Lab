@@ -1,4 +1,4 @@
-﻿set(GLAB_CORE_SOURCES
+set(GLAB_CORE_SOURCES
     core/app/Application.cpp
     core/FileSystem.cpp
     core/input/Input.cpp
@@ -8,6 +8,7 @@
     core/app/Layer.cpp
     core/app/LayerStack.cpp
     core/diagnostics/Assert.cpp
+    core/diagnostics/CrashHandler.cpp
     core/diagnostics/Debugger.cpp
     core/diagnostics/Logger.cpp
     core/serialization/PropertyTree.cpp
@@ -39,9 +40,9 @@
     demos/tutorial/02_Triangle/Triangle.cpp
 
     gui/ImGuiLayer.cpp
-    gui/Panels/DebugPanel.cpp
-    gui/Panels/DemoSelectorPanel.cpp
-    gui/MetalImGuiBridge.h
+    gui/debug_panels/DebugPanel.cpp
+    gui/debug_panels/DemoSelectorPanel.cpp
+    gui/backends/MetalImGuiBridge.h
 )
 
 set(GLAB_CORE_HEADERS
@@ -63,6 +64,7 @@ set(GLAB_CORE_HEADERS
     core/Logger.h
     core/diagnostics/Assert.h
     core/diagnostics/Callstack.h
+    core/diagnostics/CrashHandler.h
     core/diagnostics/Debugger.h
     core/diagnostics/ErrorMacros.h
     core/diagnostics/LogCategories.h
@@ -88,16 +90,16 @@ set(GLAB_CORE_HEADERS
 
     graphics/GraphicsDevice.h
 
-    graphics/interface/ITexture2D.h
-    graphics/interface/IVertexBuffer.h
-    graphics/interface/IIndexBuffer.h
-    graphics/interface/IVertexArray.h
-    graphics/interface/IShader.h
-    graphics/interface/IFramebuffer.h
-    graphics/interface/IRenderTarget.h
-    graphics/interface/IRenderCommand.h
-    graphics/interface/IGraphicsDevice.h
-    graphics/interface/GraphicsInterfaces.h
+    graphics/interfaces/ITexture2D.h
+    graphics/interfaces/IVertexBuffer.h
+    graphics/interfaces/IIndexBuffer.h
+    graphics/interfaces/IVertexArray.h
+    graphics/interfaces/IShader.h
+    graphics/interfaces/IFramebuffer.h
+    graphics/interfaces/IRenderTarget.h
+    graphics/interfaces/IRenderCommand.h
+    graphics/interfaces/IGraphicsDevice.h
+    graphics/interfaces/GraphicsInterfaces.h
 
     renderer/RenderContext.h
     renderer/RenderItem.h
@@ -124,8 +126,8 @@ set(GLAB_CORE_HEADERS
     demos/tutorial/02_Triangle/Triangle.h
 
     gui/ImGuiLayer.h
-    gui/Panels/DebugPanel.h
-    gui/Panels/DemoSelectorPanel.h
+    gui/debug_panels/DebugPanel.h
+    gui/debug_panels/DemoSelectorPanel.h
 )
 
 if(GLAB_BACKEND_OPENGL)
@@ -157,10 +159,12 @@ endif()
 
 if(WIN32)
     list(APPEND GLAB_CORE_SOURCES
+        core/diagnostics/CrashHandler_Win32.cpp
         core/diagnostics/Callstack_Win32.cpp
     )
 else()
     list(APPEND GLAB_CORE_SOURCES
+        core/diagnostics/CrashHandler_Posix.cpp
         core/diagnostics/Callstack_Posix.cpp
     )
 endif()
@@ -176,7 +180,7 @@ if(GLAB_BACKEND_METAL)
         graphics/metal/MetalTexture2D.mm
         graphics/metal/MetalFramebuffer.mm
         graphics/metal/MetalRenderTarget.mm
-        gui/MetalImGuiBridge.mm
+        gui/backends/MetalImGuiBridge.mm
     )
 
     set(GLAB_METAL_HEADERS
@@ -191,7 +195,7 @@ if(GLAB_BACKEND_METAL)
         graphics/metal/MetalTexture2D.h
         graphics/metal/MetalFramebuffer.h
         graphics/metal/MetalRenderTarget.h
-        gui/MetalImGuiBridge.h
+        gui/backends/MetalImGuiBridge.h
     )
 
     set_source_files_properties(${GLAB_METAL_SOURCES}
@@ -220,6 +224,12 @@ if(GLAB_BACKEND_OPENGL)
         ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLVertexBuffer.cpp
         PROPERTIES
             SKIP_UNITY_BUILD_INCLUSION ON
+    )
+endif()
+
+if(WIN32)
+    target_link_libraries(RTRLabCore PUBLIC
+        dbghelp
     )
 endif()
 
@@ -349,7 +359,7 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES
 )
 
 # ============================================================================
-# Install rules — `cmake --install . --prefix <dir>` produces a self-contained
+# Install rules - `cmake --install . --prefix <dir>` produces a self-contained
 # deployable directory with no compile-time absolute paths required.
 # ============================================================================
 install(TARGETS RTRLab RUNTIME DESTINATION .)
@@ -359,6 +369,6 @@ install(DIRECTORY ${CMAKE_SOURCE_DIR}/assets/
         DESTINATION assets
         PATTERN "*.slang" EXCLUDE)
 
-# Compiled shaders (Slang → GLSL / SPIR-V / MSL) merged under assets/
+# Compiled shaders (Slang -> GLSL / SPIR-V / MSL) merged under assets/
 install(DIRECTORY ${CMAKE_BINARY_DIR}/shaders/
         DESTINATION assets/shaders/compiled)

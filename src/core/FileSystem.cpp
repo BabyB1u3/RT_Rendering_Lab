@@ -54,7 +54,7 @@ std::filesystem::path FileSystem::GetCompiledShaderDir()
     return assetDir;
 }
 
-// ── Saved directory ──────────────────────────────────────────────────
+// --- Saved directory ---
 
 void FileSystem::ResolveSavedDir()
 {
@@ -118,7 +118,7 @@ std::filesystem::path FileSystem::ResolveConfigPath(std::string_view relativePat
     return {};
 }
 
-// ── Platform user data directory ─────────────────────────────────────
+// --- Platform user data directory ---
 
 std::filesystem::path FileSystem::GetPlatformUserDataDir(std::string_view appName)
 {
@@ -145,7 +145,7 @@ std::filesystem::path FileSystem::GetPlatformUserDataDir(std::string_view appNam
 #endif
 }
 
-// ── File I/O ─────────────────────────────────────────────────────────
+// --- File I/O ---
 
 std::optional<std::string> FileSystem::ReadTextFile(const std::filesystem::path &path)
 {
@@ -247,7 +247,7 @@ std::filesystem::path FileSystem::FindRootFromExecutable()
 
 std::filesystem::path FileSystem::DiscoverRootPath()
 {
-    // 1. Environment variable (highest priority — CI, testing, custom setups)
+    // 1. Environment variable (highest priority - CI, testing, custom setups)
     if (const char *envRoot = std::getenv("RTRL_ROOT"))
     {
         std::filesystem::path p(envRoot);
@@ -263,7 +263,7 @@ std::filesystem::path FileSystem::DiscoverRootPath()
             return std::filesystem::canonical(root);
     }
 
-    // 3. Compile-time root (source tree — development with VS debugger CWD)
+    // 3. Compile-time root (source tree - development with VS debugger CWD)
 #ifdef GLAB_ROOT_DIR
     {
         std::filesystem::path p(GLAB_ROOT_DIR);

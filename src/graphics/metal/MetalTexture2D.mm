@@ -18,7 +18,7 @@
 #include "graphics/metal/MetalGraphicsDevice.h"
 #include "graphics/metal/MetalTypes.h"
 
-// ─── Impl ─────────────────────────────────────────────────────────────────────
+// --- Impl ---
 
 struct MetalTexture2D::Impl
 {
@@ -26,7 +26,7 @@ struct MetalTexture2D::Impl
 	id<MTLSamplerState> sampler;
 };
 
-// ─── Internal helpers ─────────────────────────────────────────────────────────
+// --- Internal helpers ---
 
 static id<MTLDevice> GetMTLDevice()
 {
@@ -97,7 +97,7 @@ static void UploadTextureData(id<MTLDevice>  device,
 	[cmd waitUntilCompleted]; // synchronous for correctness; async in Phase 2
 }
 
-// ─── Factories ────────────────────────────────────────────────────────────────
+// --- Factories ---
 
 Ref<MetalTexture2D> MetalTexture2D::Create(const TextureSpecification &spec)
 {
@@ -186,13 +186,13 @@ Ref<MetalTexture2D> MetalTexture2D::CreateFromFile(const std::string &path, bool
 		return nullptr;
 	}
 	tex->m_Path = path;
-	tex->SetData(pixels);        // uploads (RGB→RGBA conversion happens here)
+	tex->SetData(pixels);        // uploads (RGB -> RGBA conversion happens here)
 
 	stbi_image_free(pixels);
 	return tex;
 }
 
-// ─── ITexture2D ───────────────────────────────────────────────────────────────
+// --- ITexture2D ---
 
 MetalTexture2D::~MetalTexture2D() = default;
 
@@ -205,7 +205,7 @@ void MetalTexture2D::SetData(const void *data)
 
 	if (m_Spec.Format == TextureFormat::RGB8)
 	{
-		// Metal has no native RGB8 — expand to RGBA8.
+		// Metal has no native RGB8 - expand to RGBA8.
 		uint32_t pixelCount = m_Spec.Width * m_Spec.Height;
 		std::vector<uint8_t> rgba(pixelCount * 4);
 		const uint8_t *src = static_cast<const uint8_t *>(data);
@@ -251,7 +251,7 @@ bool MetalTexture2D::operator==(const ITexture2D &other) const
 	return o && m_Impl->texture == o->m_Impl->texture;
 }
 
-// ─── Metal-internal ───────────────────────────────────────────────────────────
+// --- Metal-internal ---
 
 void *MetalTexture2D::GetMTLTexture() const
 {

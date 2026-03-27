@@ -9,9 +9,9 @@
 #include "core/Logger.h"
 #include "graphics/Framebuffer.h"
 #include "graphics/RenderTypes.h"
-#include "graphics/interface/IFramebuffer.h"
-#include "graphics/interface/IRenderTarget.h"
-#include "graphics/interface/ITexture2D.h"
+#include "graphics/interfaces/IFramebuffer.h"
+#include "graphics/interfaces/IRenderTarget.h"
+#include "graphics/interfaces/ITexture2D.h"
 #include "graphics/metal/MetalCast.h"
 #include "graphics/metal/MetalIndexBuffer.h"
 #include "graphics/metal/MetalShader.h"
@@ -19,7 +19,7 @@
 #include "graphics/metal/MetalTypes.h"
 #include "graphics/metal/MetalVertexArray.h"
 #include "graphics/metal/MetalVertexBuffer.h"
-#include "gui/MetalImGuiBridge.h"
+#include "gui/backends/MetalImGuiBridge.h"
 
 // ─── Impl ─────────────────────────────────────────────────────────────────────
 

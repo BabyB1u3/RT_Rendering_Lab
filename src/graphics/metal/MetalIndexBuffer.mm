@@ -6,14 +6,14 @@
 #include "graphics/GraphicsDevice.h"
 #include "graphics/metal/MetalGraphicsDevice.h"
 
-// ─── Impl ─────────────────────────────────────────────────────────────────────
+// --- Impl ---
 
 struct MetalIndexBuffer::Impl
 {
 	id<MTLBuffer> buffer;
 };
 
-// ─── Construction ─────────────────────────────────────────────────────────────
+// --- Construction ---
 
 MetalIndexBuffer::MetalIndexBuffer(const uint32_t *indices, uint32_t count)
 	: m_Impl(std::make_unique<Impl>()), m_Count(count)
@@ -29,7 +29,7 @@ MetalIndexBuffer::MetalIndexBuffer(const uint32_t *indices, uint32_t count)
 
 MetalIndexBuffer::~MetalIndexBuffer() = default;
 
-// ─── Metal-internal ───────────────────────────────────────────────────────────
+// --- Metal-internal ---
 
 void *MetalIndexBuffer::GetMTLBuffer() const
 {

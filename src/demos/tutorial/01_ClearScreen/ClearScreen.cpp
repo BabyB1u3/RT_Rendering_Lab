@@ -5,7 +5,7 @@
 #include "core/Logger.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/RenderCommand.h"
-#include "graphics/interface/IRenderTarget.h"
+#include "graphics/interfaces/IRenderTarget.h"
 
 ClearScreen::ClearScreen(uint32_t width, uint32_t height)
     : m_ViewportWidth(width),

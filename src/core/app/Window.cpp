@@ -128,7 +128,7 @@ void Window::Init(const WindowProps &props)
     // Store 'this' in the GLFW window so that static callbacks can reach the Window instance.
     glfwSetWindowUserPointer(m_Handle, this);
 
-    // Scroll callback — GLFW only reports scroll via callback, so we accumulate
+    // Scroll callback - GLFW only reports scroll via callback, so we accumulate
     // it into the Input system for per-frame consumption.
     glfwSetScrollCallback(m_Handle, [](GLFWwindow * /*window*/, double /*xoffset*/, double yoffset)
                           { Input::AccumulateScroll(static_cast<float>(yoffset)); });
@@ -195,7 +195,7 @@ void Window::SetEventBus(EventBus *bus)
 
 void Window::InstallCallbacks()
 {
-    // Framebuffer resize — update width/height and publish via EventBus.
+    // Framebuffer resize - update width/height and publish via EventBus.
     glfwSetFramebufferSizeCallback(m_Handle, [](GLFWwindow *w, int width, int height)
                                    {
         auto* self = static_cast<Window*>(glfwGetWindowUserPointer(w));
@@ -247,7 +247,7 @@ void Window::InstallCallbacks()
         else
             self->m_EventBus->Publish(MouseButtonReleasedEvent{ static_cast<Mouse::Code>(button) }); });
 
-    // Scroll — both feed the Input accumulator AND publish an event.
+    // Scroll - both feed the Input accumulator AND publish an event.
     glfwSetScrollCallback(m_Handle, [](GLFWwindow *w, double xoffset, double yoffset)
                           {
         Input::AccumulateScroll(static_cast<float>(yoffset));

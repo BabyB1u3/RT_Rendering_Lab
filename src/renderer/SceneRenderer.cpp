@@ -8,8 +8,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "graphics/GraphicsDevice.h"
-#include "graphics/interface/IFramebuffer.h"
-#include "graphics/interface/IRenderTarget.h"
+#include "graphics/interfaces/IFramebuffer.h"
+#include "graphics/interfaces/IRenderTarget.h"
 #include "renderer/RenderContext.h"
 #include "renderer/passes/ForwardPass.h"
 #include "renderer/passes/ShadowPass.h"

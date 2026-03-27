@@ -5,7 +5,7 @@
 #ifndef GLAB_BACKEND_METAL
 #include <imgui_impl_opengl3.h>
 #else
-#include "gui/MetalImGuiBridge.h"
+#include "gui/backends/MetalImGuiBridge.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/metal/MetalGraphicsDevice.h"
 #include "graphics/metal/MetalRenderCommand.h"

@@ -9,7 +9,7 @@
 ///   - Register an OpenGL debug callback (non-Apple platforms)
 ///   - Publish framebuffer-resize and other events via EventBus
 ///
-/// The Window does NOT own the Input system — Input is initialized separately
+/// The Window does NOT own the Input system - Input is initialized separately
 /// with the native GLFW handle via Input::Initialize().
 
 #include <string>

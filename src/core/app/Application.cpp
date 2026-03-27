@@ -4,6 +4,7 @@
 
 #include "core/FileSystem.h"
 #include "core/diagnostics/Assert.h"
+#include "core/diagnostics/CrashHandler.h"
 #include "core/diagnostics/LogCategories.h"
 #include "core/diagnostics/LogMacros.h"
 #include "core/diagnostics/Logger.h"
@@ -25,6 +26,7 @@ Application::Application(const ApplicationSpecification &spec)
 {
     FileSystem::Init();
     Diagnostics::Logger::Init(FileSystem::GetSavedPath("logs/RTRLab.log"));
+    Diagnostics::CrashHandler::Init();
     LOG_INFO_CAT(LogCategory::FileSystem, "FileSystem initialized - root: {}", FileSystem::GetRootPath().string());
     LOG_INFO_CAT(LogCategory::FileSystem, "Saved directory: {}", FileSystem::GetSavedDir().string());
     LOG_INFO("Starting application: {}", spec.Name);
@@ -80,7 +82,7 @@ Application::~Application()
 
 void Application::RenderFrame()
 {
-    // P1: Begin frame — Metal/Vulkan create command buffer here.
+    // P1: Begin frame - Metal/Vulkan create command buffer here.
     RenderCommand::BeginFrame();
 
     // Phase 1: logic update (input, physics, animation, etc.)
@@ -91,14 +93,14 @@ void Application::RenderFrame()
     for (auto &layer : m_LayerStack)
         layer->OnRender();
 
-    // Phase 3: ImGui pass — Begin/End bracket all OnImGuiRender() calls
+    // Phase 3: ImGui pass - Begin/End bracket all OnImGuiRender() calls
     // so that ImGui's NewFrame/Render are issued exactly once per frame.
     m_ImGuiLayer->Begin();
     for (auto &layer : m_LayerStack)
         layer->OnImGuiRender();
     m_ImGuiLayer->End();
 
-    // P1: End frame — Metal/Vulkan commit command buffer and present here.
+    // P1: End frame - Metal/Vulkan commit command buffer and present here.
     RenderCommand::EndFrame();
 
     m_Window->SwapBuffers();
@@ -114,8 +116,8 @@ void Application::Run()
         const double currentTime = glfwGetTime();
         Time::Update(currentTime);
 
-        // Skip all layer processing while minimized — no visible surface to render to,
-        // and some drivers return a 0×0 framebuffer which would cause GL errors.
+        // Skip all layer processing while minimized - no visible surface to render to,
+        // and some drivers return a 0x0 framebuffer which would cause GL errors.
         // Also skip if the window refresh callback already rendered a frame this tick
         // (happens on macOS during live resize).
         if (!m_Minimized && !m_FrameRenderedThisTick)

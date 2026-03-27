@@ -5,6 +5,7 @@
 #include "core/FileSystem.h"
 #include "core/diagnostics/Assert.h"
 #include "core/diagnostics/Callstack.h"
+#include "core/diagnostics/CrashHandler.h"
 #include "core/diagnostics/ErrorMacros.h"
 #include "core/diagnostics/LogCategories.h"
 #include "core/diagnostics/LogMacros.h"
@@ -40,6 +41,17 @@ TEST(DiagnosticsContractTests, LoggerWritesIntoSavedLogsDirectory)
     EXPECT_TRUE(std::filesystem::exists(logPath));
 
     RemovePathIfExists(logPath);
+}
+
+TEST(DiagnosticsContractTests, CrashHandlerInitIsIdempotent)
+{
+    FileSystem::Init();
+    Diagnostics::Logger::Init(FileSystem::GetSavedPath("logs/diagnostics-contract.log"));
+
+    EXPECT_NO_THROW(Diagnostics::CrashHandler::Init());
+    EXPECT_NO_THROW(Diagnostics::CrashHandler::Init());
+
+    Diagnostics::Logger::Shutdown();
 }
 
 TEST(DiagnosticsContractTests, EnsureIsNonFatalAndReturnsBooleanStatus)

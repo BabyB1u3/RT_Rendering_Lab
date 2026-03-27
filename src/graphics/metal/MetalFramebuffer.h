@@ -13,8 +13,8 @@
 
 #include "core/Base.h"
 #include "graphics/Framebuffer.h"
-#include "graphics/interface/IFramebuffer.h"
-#include "graphics/interface/ITexture2D.h"
+#include "graphics/interfaces/IFramebuffer.h"
+#include "graphics/interfaces/ITexture2D.h"
 
 class MetalFramebuffer : public IFramebuffer
 {

@@ -12,7 +12,7 @@
 #include "graphics/Material.h"
 #include "graphics/MeshFactory.h"
 #include "graphics/Texture.h"
-#include "graphics/interface/ITexture2D.h"
+#include "graphics/interfaces/ITexture2D.h"
 #include "renderer/RenderItem.h"
 
 MaterialPlayground::MaterialPlayground(uint32_t width, uint32_t height)

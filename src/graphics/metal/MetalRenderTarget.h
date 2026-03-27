@@ -12,9 +12,9 @@
 #include <cstdint>
 
 #include "core/Base.h"
-#include "graphics/interface/IFramebuffer.h"
-#include "graphics/interface/IRenderTarget.h"
-#include "graphics/interface/ITexture2D.h"
+#include "graphics/interfaces/IFramebuffer.h"
+#include "graphics/interfaces/IRenderTarget.h"
+#include "graphics/interfaces/ITexture2D.h"
 
 class MetalRenderTarget : public IRenderTarget
 {

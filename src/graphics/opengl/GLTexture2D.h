@@ -8,7 +8,7 @@
 
 #include "core/Base.h"
 #include "graphics/Texture.h"
-#include "graphics/interface/ITexture2D.h"
+#include "graphics/interfaces/ITexture2D.h"
 
 class GLTexture2D : public ITexture2D
 {

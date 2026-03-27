@@ -4,7 +4,7 @@
 /// @brief OpenGL implementation of IGraphicsDevice — factory hub for all GL resources.
 
 #include "core/Base.h"
-#include "graphics/interface/IGraphicsDevice.h"
+#include "graphics/interfaces/IGraphicsDevice.h"
 
 class GLRenderCommand;
 

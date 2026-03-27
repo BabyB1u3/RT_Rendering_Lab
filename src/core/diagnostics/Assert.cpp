@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <string>
 
+#include "core/diagnostics/CrashHandler.h"
 #include "core/diagnostics/Debugger.h"
 
 namespace Diagnostics::Detail
@@ -81,8 +82,18 @@ namespace Diagnostics::Detail
         Logger::Flush();
 
         BreakInDebuggerIfAttached();
-
-        std::abort();
+        if (msg)
+        {
+            const std::string reason = fmt::format("Assertion failed: {} ({}) in {} ({}:{})",
+                                                   expr, msg, func, file, line);
+            CrashHandler::FatalError(reason.c_str(), callstack);
+        }
+        else
+        {
+            const std::string reason = fmt::format("Assertion failed: {} in {} ({}:{})",
+                                                   expr, func, file, line);
+            CrashHandler::FatalError(reason.c_str(), callstack);
+        }
     }
 
     void OnEnsureFailed(

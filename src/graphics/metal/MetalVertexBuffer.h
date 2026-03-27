@@ -12,7 +12,7 @@
 
 #include "core/Base.h"
 #include "graphics/Buffers.h"
-#include "graphics/interface/IVertexBuffer.h"
+#include "graphics/interfaces/IVertexBuffer.h"
 
 class MetalVertexBuffer : public IVertexBuffer
 {

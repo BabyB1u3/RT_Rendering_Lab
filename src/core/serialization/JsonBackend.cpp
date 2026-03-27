@@ -8,7 +8,7 @@ namespace Serialization
 
     namespace
     {
-        // ── PropertyTree → nlohmann::json ────────────────────────────────
+        // --- PropertyTree -> nlohmann::json ---
 
         nlohmann::json TreeToJson(const PropertyTree &tree)
         {
@@ -42,7 +42,7 @@ namespace Serialization
             } }, tree.GetValue());
         }
 
-        // ── nlohmann::json → PropertyTree ────────────────────────────────
+        // --- nlohmann::json -> PropertyTree ---
 
         PropertyTree JsonToTree(const nlohmann::json &j)
         {
@@ -87,7 +87,7 @@ namespace Serialization
         }
     } // namespace
 
-    // ── IFormatBackend implementation ────────────────────────────────────
+    // --- IFormatBackend implementation ---
 
     std::string JsonBackend::WriteToString(const PropertyTree &tree) const
     {

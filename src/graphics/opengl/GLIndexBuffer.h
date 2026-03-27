@@ -5,7 +5,7 @@
 
 #include <cstdint>
 
-#include "graphics/interface/IIndexBuffer.h"
+#include "graphics/interfaces/IIndexBuffer.h"
 
 class GLIndexBuffer : public IIndexBuffer
 {

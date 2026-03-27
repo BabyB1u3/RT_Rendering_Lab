@@ -12,7 +12,7 @@
 #include "graphics/Framebuffer.h"
 #include "graphics/Material.h"
 #include "graphics/MeshFactory.h"
-#include "graphics/interface/IFramebuffer.h"
+#include "graphics/interfaces/IFramebuffer.h"
 #include "renderer/passes/ForwardPass.h"
 #include "scene/Camera.h"
 #include "scene/SceneData.h"

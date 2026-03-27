@@ -92,6 +92,12 @@ namespace Diagnostics
         return logger;
     }
 
+    std::filesystem::path Logger::GetLogFilePath()
+    {
+        std::lock_guard<std::mutex> lock(g_LoggerMutex);
+        return g_LogFilePath;
+    }
+
     void Logger::SetLevel(const char *category, spdlog::level::level_enum level)
     {
         auto logger = GetLogger(category);

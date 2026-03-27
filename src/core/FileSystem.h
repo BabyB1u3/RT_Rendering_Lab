@@ -38,7 +38,7 @@ public:
     /// Discover and cache the project root. Must be called once at startup.
     static void Init();
 
-    // ── Read-only assets ──────────────────────────────────────────────
+    // --- Read-only assets ---
 
     /// Absolute path to the project root (parent of the "assets" directory).
     static const std::filesystem::path &GetRootPath();
@@ -48,7 +48,7 @@ public:
     /// Returns the directory containing build-time compiled shader artifacts.
     static std::filesystem::path GetCompiledShaderDir();
 
-    // ── Saved (writable) ─────────────────────────────────────────────
+    // --- Saved (writable) ---
 
     /// Root of the saved directory (user configs, saves, logs, caches).
     static const std::filesystem::path &GetSavedDir();
@@ -62,7 +62,7 @@ public:
     /// becomes user-editable. Returns the resolved path, or empty if not found.
     static std::filesystem::path ResolveConfigPath(std::string_view relativePath);
 
-    // ── File I/O utilities ────────────────────────────────────────────
+    // --- File I/O utilities ---
 
     /// Read an entire text file into a string. Returns std::nullopt on failure.
     static std::optional<std::string> ReadTextFile(const std::filesystem::path &path);

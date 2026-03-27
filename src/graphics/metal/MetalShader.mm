@@ -18,7 +18,7 @@
 #include "graphics/metal/MetalGraphicsDevice.h"
 #include "graphics/metal/MetalRenderCommand.h"
 
-// ─── PSO cache key ────────────────────────────────────────────────────────────
+// --- PSO cache key ---
 
 struct PSOKey
 {
@@ -64,7 +64,7 @@ struct PSOKeyHash
 	}
 };
 
-// ─── Reflection types ─────────────────────────────────────────────────────────
+// --- Reflection types ---
 
 struct UniformInfo
 {
@@ -74,7 +74,7 @@ struct UniformInfo
 
 using ReflectionMap = std::unordered_map<std::string, UniformInfo>;
 
-// ─── Impl ─────────────────────────────────────────────────────────────────────
+// --- Impl ---
 
 static constexpr size_t kStagingBufferSize = 4096;
 
@@ -94,7 +94,7 @@ struct MetalShader::Impl
 	bool                 vertexDirty   = false;
 	bool                 fragmentDirty = false;
 
-	// Name → byte offset/size within the staging buffer
+	// Name - byte offset/size within the staging buffer
 	ReflectionMap vertexReflection;
 	ReflectionMap fragmentReflection;
 
@@ -112,7 +112,7 @@ struct MetalShader::Impl
 	uint32_t textureBindingBase = 1;
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// --- Helpers ---
 
 static uint64_t HashVertexDescriptor(MTLVertexDescriptor *desc)
 {
@@ -181,7 +181,7 @@ static void LoadReflectionSidecar(const std::string &name,
 	}
 }
 
-// ─── Factories ────────────────────────────────────────────────────────────────
+// --- Factories ---
 
 Ref<MetalShader> MetalShader::CreateFromMSLSource(const std::string &name,
                                                    const std::string &source)
@@ -247,11 +247,11 @@ Ref<MetalShader> MetalShader::CreateFromCompiledMSL(const std::string &name)
 	return CreateFromMSLSource(name, *source);
 }
 
-// ─── Destructor ───────────────────────────────────────────────────────────────
+// --- Destructor ---
 
 MetalShader::~MetalShader() = default;
 
-// ─── IShader ─────────────────────────────────────────────────────────────────
+// --- IShader ---
 
 void MetalShader::Bind() const
 {
@@ -266,7 +266,7 @@ const std::string &MetalShader::GetName() const
 	return m_Impl->name;
 }
 
-// ─── Named uniform setters ───────────────────────────────────────────────────
+// --- Named uniform setters ---
 
 void MetalShader::WriteToStagingBuffer(const std::string &name, const void *data, uint32_t size)
 {
@@ -348,7 +348,7 @@ void MetalShader::SetUniformBlock(uint32_t binding, const void *data, uint32_t s
 	memcpy(block.data(), data, size);
 }
 
-// ─── Metal-internal ───────────────────────────────────────────────────────────
+// --- Metal-internal ---
 
 void *MetalShader::GetOrCreatePSO(void *mtlDevice,
                                   void *mtlVertDescriptor,
@@ -433,7 +433,7 @@ void MetalShader::FlushUniforms(void *mtlEncoder)
 {
 	id<MTLRenderCommandEncoder> encoder = (__bridge id<MTLRenderCommandEncoder>)mtlEncoder;
 
-	// Named uniforms — uploaded only when reflection data is present and buffer is dirty
+	// Named uniforms - uploaded only when reflection data is present and buffer is dirty
 	if (!m_Impl->vertexReflection.empty() && m_Impl->vertexDirty)
 	{
 		[encoder setVertexBytes:m_Impl->vertexStaging.data()
@@ -449,7 +449,7 @@ void MetalShader::FlushUniforms(void *mtlEncoder)
 		m_Impl->fragmentDirty = false;
 	}
 
-	// Explicit uniform blocks (SetUniformBlock) — always uploaded
+	// Explicit uniform blocks (SetUniformBlock) - always uploaded
 	for (const auto &[binding, data] : m_Impl->uniformBlocks)
 	{
 		uint32_t slotIndex = kUniformBaseSlot + binding;

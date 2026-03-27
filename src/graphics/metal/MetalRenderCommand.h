@@ -13,7 +13,7 @@
 #include <memory>
 
 #include "core/Base.h"
-#include "graphics/interface/IRenderCommand.h"
+#include "graphics/interfaces/IRenderCommand.h"
 
 class MetalShader;
 class MetalVertexArray;

@@ -10,10 +10,10 @@
 #include "graphics/RenderCommand.h"
 #include "graphics/RenderTypes.h"
 #include "graphics/Texture.h"
-#include "graphics/interface/IFramebuffer.h"
-#include "graphics/interface/IRenderTarget.h"
-#include "graphics/interface/ITexture2D.h"
-#include "graphics/interface/IShader.h"
+#include "graphics/interfaces/IFramebuffer.h"
+#include "graphics/interfaces/IRenderTarget.h"
+#include "graphics/interfaces/ITexture2D.h"
+#include "graphics/interfaces/IShader.h"
 #include "graphics/opengl/GLCast.h"
 #include "graphics/opengl/GLFramebuffer.h"
 
@@ -197,7 +197,7 @@ TEST_F(TextureIntegrationTests, BindAndUnbindDoNotCrash)
     EXPECT_NO_THROW(texture->Unbind());
 }
 
-// ── Error path tests ─────────────────────────────────────────────────
+// --- Error path tests ---
 
 TEST_F(TextureIntegrationTests, CreateFromFileReturnsNullOnMissingFile)
 {

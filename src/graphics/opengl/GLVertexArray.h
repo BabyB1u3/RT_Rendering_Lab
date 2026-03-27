@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "core/Base.h"
-#include "graphics/interface/IVertexArray.h"
+#include "graphics/interfaces/IVertexArray.h"
 
 class GLVertexArray : public IVertexArray
 {

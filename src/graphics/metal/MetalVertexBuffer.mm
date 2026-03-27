@@ -11,14 +11,14 @@
 #include "graphics/GraphicsDevice.h"
 #include "graphics/metal/MetalGraphicsDevice.h"
 
-// ─── Impl ─────────────────────────────────────────────────────────────────────
+// --- Impl ---
 
 struct MetalVertexBuffer::Impl
 {
 	id<MTLBuffer> buffer;
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// --- Helpers ---
 
 static id<MTLDevice> GetMTLDeviceFromGlobal()
 {
@@ -26,7 +26,7 @@ static id<MTLDevice> GetMTLDeviceFromGlobal()
 	return (__bridge id<MTLDevice>)dev->GetMTLDevice();
 }
 
-// ─── Construction ─────────────────────────────────────────────────────────────
+// --- Construction ---
 
 MetalVertexBuffer::MetalVertexBuffer(uint32_t size, BufferUsage usage)
 	: m_Impl(std::make_unique<Impl>()), m_Usage(usage), m_AllocatedSize(size)
@@ -64,7 +64,7 @@ MetalVertexBuffer::MetalVertexBuffer(const void *data, uint32_t size, BufferUsag
 
 MetalVertexBuffer::~MetalVertexBuffer() = default;
 
-// ─── IVertexBuffer ────────────────────────────────────────────────────────────
+// --- IVertexBuffer ---
 
 void MetalVertexBuffer::SetData(const void *data, uint32_t size, uint32_t offset)
 {
@@ -86,7 +86,7 @@ void MetalVertexBuffer::SetData(const void *data, uint32_t size, uint32_t offset
 	}
 }
 
-// ─── Metal-internal ───────────────────────────────────────────────────────────
+// --- Metal-internal ---
 
 void *MetalVertexBuffer::GetMTLBuffer() const
 {

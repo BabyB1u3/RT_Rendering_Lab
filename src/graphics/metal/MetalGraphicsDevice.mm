@@ -21,7 +21,7 @@
 #include "graphics/metal/MetalVertexArray.h"
 #include "graphics/metal/MetalVertexBuffer.h"
 
-// ─── Impl ─────────────────────────────────────────────────────────────────────
+// --- Impl ---
 
 struct MetalGraphicsDevice::Impl
 {
@@ -32,7 +32,7 @@ struct MetalGraphicsDevice::Impl
 	Ref<MetalRenderCommand> renderCommand;
 };
 
-// ─── Construction ─────────────────────────────────────────────────────────────
+// --- Construction ---
 
 MetalGraphicsDevice::MetalGraphicsDevice(GLFWwindow *window)
 	: m_Impl(std::make_unique<Impl>())
@@ -42,7 +42,7 @@ MetalGraphicsDevice::MetalGraphicsDevice(GLFWwindow *window)
 
 	m_Impl->commandQueue = [m_Impl->device newCommandQueue];
 
-	// ── Set up CAMetalLayer on the GLFW window's NSView ───────────────────────
+	// --- Set up CAMetalLayer on the GLFW window's NSView ---
 	NSWindow *nswindow  = glfwGetCocoaWindow(window);
 	NSView   *view      = nswindow.contentView;
 
@@ -60,7 +60,7 @@ MetalGraphicsDevice::MetalGraphicsDevice(GLFWwindow *window)
 	view.layer       = m_Impl->layer;
 	view.wantsLayer  = YES;
 
-	// ── Create render command ─────────────────────────────────────────────────
+	// --- Create render command ---------
 	m_Impl->renderCommand = CreateRef<MetalRenderCommand>(
 	    (__bridge void *)m_Impl->device,
 	    (__bridge void *)m_Impl->commandQueue,
@@ -71,7 +71,7 @@ MetalGraphicsDevice::MetalGraphicsDevice(GLFWwindow *window)
 
 MetalGraphicsDevice::~MetalGraphicsDevice() = default;
 
-// ─── IGraphicsDevice — Buffers ────────────────────────────────────────────────
+// --- IGraphicsDevice - Buffers ---------
 
 Ref<IVertexBuffer> MetalGraphicsDevice::CreateVertexBuffer(uint32_t size, BufferUsage usage)
 {
@@ -89,14 +89,14 @@ Ref<IIndexBuffer> MetalGraphicsDevice::CreateIndexBuffer(const uint32_t *indices
 	return CreateRef<MetalIndexBuffer>(indices, count);
 }
 
-// ─── IGraphicsDevice — Vertex Array ──────────────────────────────────────────
+// --- IGraphicsDevice - Vertex Array ---
 
 Ref<IVertexArray> MetalGraphicsDevice::CreateVertexArray()
 {
 	return CreateRef<MetalVertexArray>();
 }
 
-// ─── IGraphicsDevice — Textures ──────────────────────────────────────────────
+// --- IGraphicsDevice - Textures ------
 
 Ref<ITexture2D> MetalGraphicsDevice::CreateTexture2D(const TextureSpecification &spec)
 {
@@ -109,7 +109,7 @@ Ref<ITexture2D> MetalGraphicsDevice::CreateTexture2DFromFile(const std::string &
 	return MetalTexture2D::CreateFromFile(path, flipVertically);
 }
 
-// ─── IGraphicsDevice — Shaders ───────────────────────────────────────────────
+// --- IGraphicsDevice - Shaders ---
 
 Ref<IShader> MetalGraphicsDevice::CreateShader(const std::string &name)
 {
@@ -136,14 +136,14 @@ Ref<IShader> MetalGraphicsDevice::CreateShaderFromFiles(const std::string &name,
 	(void)vertexPath; (void)fragmentPath;
 }
 
-// ─── IGraphicsDevice — Framebuffers ──────────────────────────────────────────
+// --- IGraphicsDevice - Framebuffers ---
 
 Ref<IFramebuffer> MetalGraphicsDevice::CreateFramebuffer(const FramebufferSpecification &spec)
 {
 	return CreateRef<MetalFramebuffer>(spec);
 }
 
-// ─── IGraphicsDevice — Render Targets ────────────────────────────────────────
+// --- IGraphicsDevice - Render Targets ---
 
 Ref<IRenderTarget> MetalGraphicsDevice::CreateRenderTargetBackBuffer(uint32_t width,
                                                                       uint32_t height)
@@ -157,7 +157,7 @@ Ref<IRenderTarget> MetalGraphicsDevice::CreateRenderTargetFromFramebuffer(
 	return MetalRenderTarget::CreateFromFramebuffer(fb);
 }
 
-// ─── IGraphicsDevice — Render Commands ───────────────────────────────────────
+// --- IGraphicsDevice - Render Commands ---
 
 Ref<IRenderCommand> MetalGraphicsDevice::GetRenderCommand()
 {
@@ -170,7 +170,7 @@ void MetalGraphicsDevice::OnResize(uint32_t width, uint32_t height)
 	                                        static_cast<CGFloat>(height));
 }
 
-// ─── Metal-internal ───────────────────────────────────────────────────────────
+// --- Metal-internal ---
 
 void *MetalGraphicsDevice::GetMTLDevice() const
 {

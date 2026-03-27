@@ -23,6 +23,7 @@ namespace Diagnostics
         static void Shutdown();
 
         static Ref<spdlog::logger> GetLogger(const char *category);
+        static std::filesystem::path GetLogFilePath();
 
         static void SetLevel(const char *category, spdlog::level::level_enum level);
         static void SetGlobalLevel(spdlog::level::level_enum level);

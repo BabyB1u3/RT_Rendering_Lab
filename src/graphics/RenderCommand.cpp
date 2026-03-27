@@ -1,7 +1,7 @@
 #include "RenderCommand.h"
 
 #include "graphics/GraphicsDevice.h"
-#include "graphics/interface/IRenderCommand.h"
+#include "graphics/interfaces/IRenderCommand.h"
 
 void RenderCommand::Init()
 {

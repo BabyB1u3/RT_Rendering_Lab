@@ -11,7 +11,7 @@
 #include <glm/glm.hpp>
 
 #include "core/Base.h"
-#include "graphics/interface/IShader.h"
+#include "graphics/interfaces/IShader.h"
 
 class GLShader : public IShader
 {

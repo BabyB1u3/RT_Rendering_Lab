@@ -11,7 +11,7 @@
 #include <cstdint>
 
 #include "core/Base.h"
-#include "graphics/interface/IGraphicsDevice.h"
+#include "graphics/interfaces/IGraphicsDevice.h"
 
 struct GLFWwindow;
 class MetalRenderCommand;

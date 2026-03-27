@@ -5,9 +5,9 @@
 #include "graphics/Mesh.h"
 #include "graphics/MeshFactory.h"
 #include "graphics/RenderCommand.h"
-#include "graphics/interface/IRenderTarget.h"
-#include "graphics/interface/IShader.h"
-#include "graphics/interface/ITexture2D.h"
+#include "graphics/interfaces/IRenderTarget.h"
+#include "graphics/interfaces/IShader.h"
+#include "graphics/interfaces/ITexture2D.h"
 #include "renderer/RenderContext.h"
 
 TexturePreviewPass::TexturePreviewPass()
