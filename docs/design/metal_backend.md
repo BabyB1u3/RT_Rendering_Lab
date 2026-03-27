@@ -6,6 +6,8 @@ platform integration, build system changes, and the phased implementation plan.
 
 **Prerequisites**: Shader & Material System doc (`shader_material_system.md`),
 Resource Packaging doc (`resource_packaging.md`).
+For the concrete migration sequence from handwritten uniform blocks to
+reflection-driven packing, see `uniform_reflection_migration.md`.
 
 ---
 

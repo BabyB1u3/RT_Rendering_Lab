@@ -8,6 +8,8 @@ It supersedes:
 - `material_system_design.md` (Material system evolution - merged here)
 
 For the Slang migration itself (toolchain swap, build system, shader rewrites), see `slang-migration.md`.
+For the step-by-step execution plan that applies this design to the current repository,
+see `uniform_reflection_migration.md`.
 
 ---
 
