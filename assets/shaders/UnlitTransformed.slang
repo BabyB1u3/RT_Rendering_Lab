@@ -2,7 +2,7 @@
 //
 // Tutorial 04: unlit textured mesh with MVP transform.
 // Accepts position, normal, and UV per vertex. Applies a Model-View-Projection
-// matrix and samples a single texture. Normal is passed through but unused —
+// matrix and samples a single texture. Normal is passed through but unused -
 // keeps the vertex layout compatible with MeshFactory primitives.
 
 uniform float4x4 u_MVP;

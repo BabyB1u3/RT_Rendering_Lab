@@ -28,12 +28,12 @@ class ITexture2D;
 /// Type-safe texture unit binding slots. Values correspond to GL texture unit indices.
 enum class TextureSlot : uint32_t
 {
-    ShadowMap = 0,  // unit 0 — reserved for the shadow depth map
-    Albedo    = 1,  // unit 1 — base color / diffuse map
+    ShadowMap = 0, // unit 0 - reserved for the shadow depth map
+    Albedo = 1,    // unit 1 - base color / diffuse map
 };
 
 /// Pure surface data container (textures + typed properties).
-/// Does not own a shader — the pass controls which shader is bound.
+/// Does not own a shader - the pass controls which shader is bound.
 class Material
 {
 public:
@@ -68,8 +68,8 @@ public:
 private:
     std::unordered_map<uint32_t, Ref<ITexture2D>> m_Textures;
 
-    std::unordered_map<std::string, float>     m_Floats;
-    std::unordered_map<std::string, int>       m_Ints;
+    std::unordered_map<std::string, float> m_Floats;
+    std::unordered_map<std::string, int> m_Ints;
     std::unordered_map<std::string, glm::vec3> m_Vec3s;
     std::unordered_map<std::string, glm::vec4> m_Vec4s;
 };

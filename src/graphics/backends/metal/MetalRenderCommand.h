@@ -7,7 +7,7 @@
 /// BeginFrame acquires a drawable and allocates a command buffer; each
 /// BeginRenderPass creates a new encoder; EndFrame commits and presents.
 ///
-/// Uses pImpl — no Metal types are visible in this header.
+/// Uses pImpl - no Metal types are visible in this header.
 
 #include <cstdint>
 #include <memory>

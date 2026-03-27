@@ -7,7 +7,7 @@
 /// The command model is designed for explicit APIs (Metal, Vulkan):
 ///
 ///   BeginFrame()
-///     BeginRenderPass(target, descriptor)  — one per render target switch
+///     BeginRenderPass(target, descriptor)  - one per render target switch
 ///       SetPipelineState(state)
 ///       SetViewport(...)
 ///       SetTexture(slot, texture)

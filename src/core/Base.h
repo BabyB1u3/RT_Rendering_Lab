@@ -3,8 +3,8 @@
 /// @file Base.h
 /// @brief Core type aliases and utility macros used throughout the engine.
 ///
-/// Scope<T> wraps std::unique_ptr  — exclusive ownership, zero overhead.
-/// Ref<T>   wraps std::shared_ptr  — shared ownership with reference counting.
+/// Scope<T> wraps std::unique_ptr  - exclusive ownership, zero overhead.
+/// Ref<T>   wraps std::shared_ptr  - shared ownership with reference counting.
 /// Prefer Scope<T> for resources owned by a single object (e.g., Window, Renderer).
 /// Use Ref<T> for resources shared across subsystems (e.g., Texture2D, Mesh, Material).
 

@@ -1017,16 +1017,16 @@ Optional future matrix:
 These were originally identified as the fastest path to higher confidence.
 Nine of the ten have been implemented.
 
-1. [Done] `Camera` default construction matrix consistency — `tests/unit/TestCamera.cpp`
-2. [Done] `LayerStack` lifecycle callback tests — `tests/contract/core/TestLayerStackLifecycle.cpp`
-3. [Done] `EventBus` unsubscribe-during-dispatch test — `tests/contract/core/TestEventBus.cpp`
-4. [Done] `FileSystem::ResolveConfigPath()` priority and auto-copy test — `tests/contract/core/TestFileSystem.cpp`
-5. [Done] framebuffer resize no-op on invalid sizes — `tests/contract/opengl/TestFramebuffer.cpp`
-6. [Done] integer attachment clear/read contract test — `tests/contract/opengl/TestFramebuffer.cpp`
-7. [Done] render pass clear color readback integration test — `tests/integration/opengl/TestRenderResults.cpp`
-8. [Done] invalid shader source failure integration test — `tests/integration/opengl/TestShader.cpp`
-9. [Done] `ForwardPass` fallback shadow map contract test — `tests/contract/core/TestPassContracts.cpp`
-10. [Not Started] one small off-screen triangle snapshot test — requires snapshot infrastructure (Phase E)
+1. [Done] `Camera` default construction matrix consistency - `tests/unit/TestCamera.cpp`
+2. [Done] `LayerStack` lifecycle callback tests - `tests/contract/core/TestLayerStackLifecycle.cpp`
+3. [Done] `EventBus` unsubscribe-during-dispatch test - `tests/contract/core/TestEventBus.cpp`
+4. [Done] `FileSystem::ResolveConfigPath()` priority and auto-copy test - `tests/contract/core/TestFileSystem.cpp`
+5. [Done] framebuffer resize no-op on invalid sizes - `tests/contract/opengl/TestFramebuffer.cpp`
+6. [Done] integer attachment clear/read contract test - `tests/contract/opengl/TestFramebuffer.cpp`
+7. [Done] render pass clear color readback integration test - `tests/integration/opengl/TestRenderResults.cpp`
+8. [Done] invalid shader source failure integration test - `tests/integration/opengl/TestShader.cpp`
+9. [Done] `ForwardPass` fallback shadow map contract test - `tests/contract/core/TestPassContracts.cpp`
+10. [Not Started] one small off-screen triangle snapshot test - requires snapshot infrastructure (Phase E)
 
 The next priorities are Metal backend conformance (Phase D) and snapshot
 infrastructure (Phase E).

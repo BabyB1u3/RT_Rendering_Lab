@@ -1,6 +1,6 @@
 # Shadow Mapping Demo
 
-The first demo in the RT Rendering Lab — a directional light shadow mapping implementation
+The first demo in the RT Rendering Lab - a directional light shadow mapping implementation
 with Blinn-Phong shading and PCF soft shadows.
 
 [中文文档](../../zh-CN/demos/shadow-mapping.zh-CN.md)
@@ -136,5 +136,5 @@ assets/shaders/
 | PCF kernel | 3x3 (9 samples) |
 | Shadow pass culling | Front face culling (reduces acne without large bias) |
 | Normal matrix | Precomputed on CPU (`transpose(inverse(mat3(model)))`) |
-| Texture slot binding | `enum class TextureSlot` — `ShadowMap = 0`, `Albedo = 1` |
+| Texture slot binding | `enum class TextureSlot` - `ShadowMap = 0`, `Albedo = 1` |
 | Fallback shadow map | 1x1 white texture (depth = 1.0 → no shadow when shadow pass is skipped) |

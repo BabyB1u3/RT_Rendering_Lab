@@ -4,9 +4,9 @@
 /// @brief Multi-pass scene rendering orchestrator.
 ///
 /// Owns and drives the three-pass forward pipeline:
-///   1. ShadowPass   — depth map from the directional light's POV
-///   2. ForwardPass   — Blinn-Phong shading + shadow sampling → scene color FBO
-///   3. TexturePreviewPass — blit selected output to back buffer
+///   1. ShadowPass   - depth map from the directional light's POV
+///   2. ForwardPass   - Blinn-Phong shading + shadow sampling → scene color FBO
+///   3. TexturePreviewPass - blit selected output to back buffer
 ///
 /// Render() builds a RenderContext (SceneView + FrameResources) and calls
 /// Execute() on each pass sequentially. Demos create one SceneRenderer and

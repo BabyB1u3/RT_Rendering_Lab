@@ -3,7 +3,7 @@
 /// @file Events.h
 /// @brief Plain-struct event definitions for the EventBus.
 ///
-/// Events are simple data carriers — no base class, no macros, no inheritance.
+/// Events are simple data carriers - no base class, no macros, no inheritance.
 /// Subscribe to a specific type via EventBus::Subscribe<T>.
 
 #include <cstdint>

@@ -16,6 +16,7 @@
 #include "demos/tutorial/02_Triangle/Triangle.h"
 #include "demos/tutorial/03_TexturedQuad/TexturedQuad.h"
 #include "demos/tutorial/04_TransformedCube/TransformedCube.h"
+#include "demos/tutorial/05_Camera/CameraDemo.h"
 
 LabLayer::LabLayer()
     : Layer("LabLayer")
@@ -118,6 +119,11 @@ void LabLayer::RegisterBuiltInDemos()
                            {
             const auto& window = Application::Get().GetWindow();
             return CreateScope<TransformedCube>(window.GetWidth(), window.GetHeight()); });
+
+    DemoRegistry::Register("05 - Camera", []()
+                           {
+            const auto& window = Application::Get().GetWindow();
+            return CreateScope<CameraDemo>(window.GetWidth(), window.GetHeight()); });
 
     // --- Showcase demos ---
     // DemoRegistry::Register("Shadow Mapping", []()

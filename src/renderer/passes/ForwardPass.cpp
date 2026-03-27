@@ -75,7 +75,7 @@ void ForwardPass::Execute(const RenderContext &ctx)
                       ? m_RenderTarget
                       : ctx.Resources.BackBuffer;
 
-    // P2: Explicit render pass descriptor — clear color + depth
+    // P2: Explicit render pass descriptor - clear color + depth
     RenderPassDescriptor rpDesc;
     rpDesc.ColorLoadAction = LoadAction::Clear;
     rpDesc.ColorStoreAction = StoreAction::Store;
@@ -86,7 +86,7 @@ void ForwardPass::Execute(const RenderContext &ctx)
 
     RenderCommand::BeginRenderPass(target, rpDesc);
 
-    // P3: Pipeline state — opaque geometry, back-face culling
+    // P3: Pipeline state - opaque geometry, back-face culling
     PipelineState pso;
     pso.DepthTestEnabled = true;
     pso.DepthWriteEnabled = true;
@@ -143,7 +143,7 @@ void ForwardPass::Execute(const RenderContext &ctx)
     params.LightColor = scene.MainDirectionalLight.Color;
     params.LightIntensity = scene.MainDirectionalLight.Intensity;
 
-    // P4: Explicit texture binding — shadow map at slot 1
+    // P4: Explicit texture binding - shadow map at slot 1
     const auto &shadow = ctx.Resources.ShadowMap ? ctx.Resources.ShadowMap : m_FallbackShadowMap;
     RenderCommand::SetTexture(1, shadow);
     params.ShadowMapTexelSize = {
@@ -170,7 +170,7 @@ void ForwardPass::Execute(const RenderContext &ctx)
         auto albedoTex = item.Material->GetTexture(TextureSlot::Albedo);
         if (albedoTex)
         {
-            // P4: Explicit texture binding — albedo at slot 2
+            // P4: Explicit texture binding - albedo at slot 2
             RenderCommand::SetTexture(2, albedoTex);
             params.UseAlbedoMap = 1;
         }

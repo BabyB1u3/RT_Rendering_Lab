@@ -79,11 +79,21 @@ namespace Diagnostics
         {
             switch (c)
             {
-            case '"': os << "\\\""; break;
-            case '\\': os << "\\\\"; break;
-            case '\n': os << "\\n"; break;
-            case '\r': os << "\\r"; break;
-            case '\t': os << "\\t"; break;
+            case '"':
+                os << "\\\"";
+                break;
+            case '\\':
+                os << "\\\\";
+                break;
+            case '\n':
+                os << "\\n";
+                break;
+            case '\r':
+                os << "\\r";
+                break;
+            case '\t':
+                os << "\\t";
+                break;
             default:
                 if (static_cast<unsigned char>(c) < 0x20)
                 {
@@ -103,7 +113,7 @@ namespace Diagnostics
 
     void JsonLineSink::sink_it_(const spdlog::details::log_msg &msg)
     {
-        // base_sink already holds mutex_ here — safe to check m_File.
+        // base_sink already holds mutex_ here - safe to check m_File.
         if (!m_File.is_open())
             return;
 

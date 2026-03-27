@@ -15,7 +15,7 @@
 class Mesh;
 class Material;
 
-/// One drawable object in the scene — what to draw, how it looks, and where it is.
+/// One drawable object in the scene - what to draw, how it looks, and where it is.
 struct RenderItem
 {
     Ref<Mesh> Mesh;

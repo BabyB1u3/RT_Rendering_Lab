@@ -5,7 +5,7 @@
 ///
 /// Validates: IIndexBuffer (indexed draw), ITexture2D creation and sampling,
 /// CreateTexture2DFromFile, texture slot binding via RenderCommand::SetTexture.
-/// Uses UnlitTextured.slang — position + UV, single texture sample, no MVP.
+/// Uses UnlitTextured.slang - position + UV, single texture sample, no MVP.
 
 #include <cstdint>
 

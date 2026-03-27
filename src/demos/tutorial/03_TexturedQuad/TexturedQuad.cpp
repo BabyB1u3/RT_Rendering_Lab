@@ -16,7 +16,7 @@
 #include "graphics/interfaces/IVertexArray.h"
 #include "graphics/interfaces/IVertexBuffer.h"
 
-// NDC quad — position (x, y, z) + texcoord (u, v) per vertex.
+// NDC quad - position (x, y, z) + texcoord (u, v) per vertex.
 // clang-format off
 static constexpr float kQuadVertices[] = {
     // position          // texcoord

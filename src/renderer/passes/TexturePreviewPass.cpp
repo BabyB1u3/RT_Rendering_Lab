@@ -50,7 +50,7 @@ void TexturePreviewPass::Execute(const RenderContext &ctx)
 
     RTRLAB_ASSERT_MSG(texture, "TexturePreviewPass: no texture for current output mode");
 
-    // P2: Explicit render pass — clear the back buffer
+    // P2: Explicit render pass - clear the back buffer
     RenderPassDescriptor rpDesc;
     rpDesc.ColorLoadAction = LoadAction::Clear;
     rpDesc.ColorStoreAction = StoreAction::Store;
@@ -60,7 +60,7 @@ void TexturePreviewPass::Execute(const RenderContext &ctx)
 
     RenderCommand::BeginRenderPass(ctx.Resources.BackBuffer, rpDesc);
 
-    // P3: Pipeline state — fullscreen quad, no depth/cull/blend
+    // P3: Pipeline state - fullscreen quad, no depth/cull/blend
     PipelineState pso;
     pso.DepthTestEnabled = false;
     pso.DepthWriteEnabled = false;
@@ -70,7 +70,7 @@ void TexturePreviewPass::Execute(const RenderContext &ctx)
 
     m_Shader->Bind();
 
-    // P4: Explicit texture binding — source texture at slot 1
+    // P4: Explicit texture binding - source texture at slot 1
     RenderCommand::SetTexture(1, texture);
 
     // std140 layout: bool maps to a 4-byte int (0 or 1)

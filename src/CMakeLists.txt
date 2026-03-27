@@ -43,6 +43,7 @@ set(GLAB_CORE_SOURCES
     demos/tutorial/02_Triangle/Triangle.cpp
     demos/tutorial/03_TexturedQuad/TexturedQuad.cpp
     demos/tutorial/04_TransformedCube/TransformedCube.cpp
+    demos/tutorial/05_Camera/CameraDemo.cpp
 
     gui/ImGuiLayer.cpp
     gui/panels/ConsolePanel.cpp
@@ -134,6 +135,7 @@ set(GLAB_CORE_HEADERS
     demos/tutorial/02_Triangle/Triangle.h
     demos/tutorial/03_TexturedQuad/TexturedQuad.h
     demos/tutorial/04_TransformedCube/TransformedCube.h
+    demos/tutorial/05_Camera/CameraDemo.h
 
     gui/ImGuiLayer.h
     gui/panels/ConsolePanel.h

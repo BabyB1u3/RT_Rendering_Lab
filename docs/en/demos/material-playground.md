@@ -1,6 +1,6 @@
 # Material Playground Demo
 
-An interactive Blinn-Phong material comparison demo — five UV spheres with distinct surface presets,
+An interactive Blinn-Phong material comparison demo - five UV spheres with distinct surface presets,
 each adjustable in real time through ImGui.
 
 [中文文档](../../zh-CN/demos/material-playground.zh-CN.md)
@@ -13,7 +13,7 @@ each adjustable in real time through ImGui.
 
 This demo places five spheres on a lit ground plane, each initialized with a different
 Blinn-Phong material preset (matte, shiny, metallic, plastic, chrome). All material
-parameters — albedo color, specular power, and ambient strength — can be tweaked live
+parameters - albedo color, specular power, and ambient strength - can be tweaked live
 via ImGui, making it easy to compare how each parameter affects the final shading.
 
 The scene reuses the same multi-pass forward rendering pipeline as the Shadow Mapping demo:
@@ -116,7 +116,7 @@ assets/shaders/
 | Aspect | Detail |
 |--------|--------|
 | Sphere mesh | UV sphere, 16 stacks × 32 slices via `MeshFactory::CreateSphere()` |
-| Albedo texture | 1x1 white pixel — color comes from `u_Albedo` uniform |
+| Albedo texture | 1x1 white pixel - color comes from `u_Albedo` uniform |
 | Material sync | `SyncMaterialProperties()` pushes ImGui-edited values to `Material` every frame |
-| Shadow mapping | Shared `SceneRenderer` pipeline — same PCF / bias / front-face culling as Shadow Mapping demo |
+| Shadow mapping | Shared `SceneRenderer` pipeline - same PCF / bias / front-face culling as Shadow Mapping demo |
 | Sphere layout | 5 spheres at X = {-5, -2.5, 0, 2.5, 5}, Y = 1, Z = 0 |

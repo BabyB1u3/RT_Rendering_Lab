@@ -1,11 +1,11 @@
-# Shader & Material System — Architecture and Evolution Plan
+# Shader & Material System - Architecture and Evolution Plan
 
 This document is the single source of truth for the shader pipeline and material system design.
 It describes the current state, the target architecture, and the evolution path between them.
 
 It supersedes:
-- `shader-vulkan-migration.md` (Vulkan resource model migration — now handled by Slang)
-- `material_system_design.md` (Material system evolution — merged here)
+- `shader-vulkan-migration.md` (Vulkan resource model migration - now handled by Slang)
+- `material_system_design.md` (Material system evolution - merged here)
 
 For the Slang migration itself (toolchain swap, build system, shader rewrites), see `slang-migration.md`.
 
@@ -13,10 +13,10 @@ For the Slang migration itself (toolchain swap, build system, shader rewrites), 
 
 ## 1. Shader Pipeline Architecture
 
-### 1.1 Pre-Migration State (R3a — Current)
+### 1.1 Pre-Migration State (R3a - Current)
 
 ```
-Source:     GLSL (.vert / .frag) — bare uniforms, no UBOs
+Source:     GLSL (.vert / .frag) - bare uniforms, no UBOs
 Compile:    glslang -G --auto-map-locations --auto-map-bindings → SPIR-V
 Transpile:  SPIRV-Cross (runtime) → GLSL 460 (strip plain uniform bindings)
 Backend:    OpenGL 4.6 only
@@ -31,7 +31,7 @@ Limitations:
 ### 1.2 Post-Migration Target (R3b)
 
 ```
-Source:     Slang (.slang) — structured resources (ParameterBlock, cbuffer)
+Source:     Slang (.slang) - structured resources (ParameterBlock, cbuffer)
                              module imports, interface/generics for variants
 Compile:    slangc (build-time) → per-backend artifacts:
                 ├── GLSL 460 source   (OpenGL)
@@ -43,14 +43,14 @@ Backend:    OpenGL 4.6, Vulkan 1.3, Metal 3 (incremental)
 Advantages:
 - Single source language for all backends
 - Single compiler tool (slangc replaces glslang + SPIRV-Cross)
-- No runtime transpilation — all compilation is offline
+- No runtime transpilation - all compilation is offline
 - Structured resource model is native to the language
 - Module system and generics solve code reuse and variant explosion
 
 ### 1.3 Long-Term Target (R5+)
 
 ```
-Source:     Slang (.slang) — full use of generics, interfaces, modules
+Source:     Slang (.slang) - full use of generics, interfaces, modules
 Compile:    slangc (build-time) → final backend format per platform
 Variants:   Resolved at build time via Slang specialization
 Reflection: Slang reflection API drives automatic resource binding
@@ -157,14 +157,14 @@ pre-packed buffers.
 
 Three common approaches, in order of complexity:
 
-**Model A: Material-Centric** — Material owns the Shader.
+**Model A: Material-Centric** - Material owns the Shader.
 Used by Unity (SubShader/Pass tags), Unreal (Material Domain + Shading Model).
 Too heavy for a lab engine without a mature shader framework.
 
-**Model B: Pass-Centric (Current)** — RenderPass owns the Shader. Material is a pure data container.
+**Model B: Pass-Centric (Current)** - RenderPass owns the Shader. Material is a pure data container.
 Clean and explicit. Best starting point.
 
-**Model C: Hybrid (Target)** — Material describes surface features. Pass defines the rendering task.
+**Model C: Hybrid (Target)** - Material describes surface features. Pass defines the rendering task.
 The shader is resolved from both. Used by Google Filament, bgfx-based engines.
 
 ### 3.2 Current State (Model B)
@@ -292,7 +292,7 @@ struct UnlitShading : IShadingModel
     float3 evaluate(SurfaceData surface, LightData light) { return surface.albedo; }
 };
 
-// Generic shader — specialized at compile time, zero runtime cost
+// Generic shader - specialized at compile time, zero runtime cost
 [shader("fragment")]
 float4 forwardLitFS<S : IShadingModel>(VertexOutput vsOut) : SV_Target
 {
@@ -426,7 +426,7 @@ ShadowDepth.slang           (no imports)
 TexturePreview.slang        (no imports)
 ```
 
-### 4.4 Module Dependency Graph (Future — Phase 4 PBR)
+### 4.4 Module Dependency Graph (Future - Phase 4 PBR)
 
 ```
 ForwardLit.slang ──import──▶ modules/lighting.slang ──import──▶ modules/common.slang
@@ -485,7 +485,7 @@ This eliminates per-pass × per-material variants for geometry processing.
 Build-time variant compilation is driven by a shader manifest:
 
 ```
-# shader_variants.txt (future — not needed until Step 3-4)
+# shader_variants.txt (future - not needed until Step 3-4)
 ForwardLit : PBRShading      → ForwardLit_PBR
 ForwardLit : UnlitShading    → ForwardLit_Unlit
 ForwardLit : SubsurfaceShading → ForwardLit_SSS
@@ -574,7 +574,7 @@ makes it available in the Material editor.
 
 | Project Phase | Shader/Material Milestone |
 |--------------|---------------------------|
-| Phase 2 (Basic RT) — current | Slang migration (R3b). Keep Model B material. Name-based setters still work. |
+| Phase 2 (Basic RT) - current | Slang migration (R3b). Keep Model B material. Name-based setters still work. |
 | Phase 3 (Modern Pipeline) | ShadingModel enum (Step 1). Buffer-based binding for deferred G-buffer. |
 | Phase 4 (PBR) | `modules/lighting.slang` with Cook-Torrance BRDF. MaterialFeatureFlags. |
 | Phase 5 (Screen Space) | ShaderResolver (Step 3). Post-process shaders in Slang. |

@@ -4,7 +4,7 @@
 /// @brief Abstract interface for render targets. Backend-agnostic.
 ///
 /// A render target represents either the back buffer (swap chain) or an off-screen
-/// framebuffer. Render passes do NOT call Bind/Unbind on targets directly — instead,
+/// framebuffer. Render passes do NOT call Bind/Unbind on targets directly - instead,
 /// they pass the target to IRenderCommand::BeginRenderPass() which handles binding
 /// internally per backend.
 

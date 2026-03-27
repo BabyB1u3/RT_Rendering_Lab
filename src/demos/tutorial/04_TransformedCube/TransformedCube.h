@@ -5,7 +5,7 @@
 ///
 /// Validates: MVP matrix uniform upload (SetUniformBlock), depth testing
 /// (PipelineState.DepthTestEnabled), 3D geometry via MeshFactory::CreateCube().
-/// Uses UnlitTransformed.slang — position + normal + UV with u_MVP uniform.
+/// Uses UnlitTransformed.slang - position + normal + UV with u_MVP uniform.
 
 #include <cstdint>
 

@@ -4,9 +4,9 @@
 /// @brief Metal implementation of IRenderTarget.
 ///
 /// Two modes:
-///   Back buffer  — IsBackBuffer() == true, GetFramebuffer() == nullptr.
+///   Back buffer  - IsBackBuffer() == true, GetFramebuffer() == nullptr.
 ///                  MetalRenderCommand uses the current CAMetalDrawable texture.
-///   FBO          — wraps a MetalFramebuffer. MetalRenderCommand reads its
+///   FBO          - wraps a MetalFramebuffer. MetalRenderCommand reads its
 ///                  attachment textures to build the MTLRenderPassDescriptor.
 
 #include <cstdint>
@@ -31,7 +31,7 @@ public:
 	// --- IRenderTarget ---
 	void Resize(uint32_t width, uint32_t height) override;
 
-	uint32_t GetWidth()  const override;
+	uint32_t GetWidth() const override;
 	uint32_t GetHeight() const override;
 
 	bool IsBackBuffer() const override { return m_IsBackBuffer; }
@@ -43,9 +43,9 @@ public:
 private:
 	MetalRenderTarget() = default;
 
-	bool              m_IsBackBuffer = true;
+	bool m_IsBackBuffer = true;
 	Ref<IFramebuffer> m_Framebuffer;
 
-	uint32_t m_Width  = 0;
+	uint32_t m_Width = 0;
 	uint32_t m_Height = 0;
 };

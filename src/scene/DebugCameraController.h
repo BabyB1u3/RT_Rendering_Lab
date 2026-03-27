@@ -7,7 +7,7 @@
 /// vectors (Forward, Right) and world Y axis (Up/Down). Mouse deltas rotate
 /// yaw/pitch. Scroll wheel adjusts the vertical FOV.
 ///
-/// The controller does NOT poll input itself — the demo calls the individual
+/// The controller does NOT poll input itself - the demo calls the individual
 /// Move*/OnMouse* methods each frame after reading from the Input system.
 /// This keeps the controller independent of any specific input backend.
 ///

@@ -90,7 +90,7 @@ namespace Serialization
             return false;
         }
 
-        // Deserialize into a temporary — only commit on success
+        // Deserialize into a temporary - only commit on success
         T temp{};
         if (!Deserialize(tree, temp))
         {

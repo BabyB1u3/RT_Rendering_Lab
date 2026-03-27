@@ -1,7 +1,7 @@
 #pragma once
 
 /// @file MetalIndexBuffer.h
-/// @brief Metal implementation of IIndexBuffer — wraps a static MTLBuffer of uint32_t indices.
+/// @brief Metal implementation of IIndexBuffer - wraps a static MTLBuffer of uint32_t indices.
 
 #include <cstdint>
 #include <memory>

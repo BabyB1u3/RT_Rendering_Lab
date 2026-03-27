@@ -13,7 +13,7 @@
 #include "graphics/interfaces/IVertexArray.h"
 #include "graphics/interfaces/IVertexBuffer.h"
 
-// NDC triangle — position (x, y, z) + color (r, g, b) per vertex.
+// NDC triangle - position (x, y, z) + color (r, g, b) per vertex.
 // clang-format off
 static constexpr float kTriangleVertices[] = {
     // position          // color

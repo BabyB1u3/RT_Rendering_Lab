@@ -1,7 +1,7 @@
 #pragma once
 
 /// @file InputTrigger.h
-/// @brief Input triggers — control *when* an action transitions to "triggered" state.
+/// @brief Input triggers - control *when* an action transitions to "triggered" state.
 ///
 /// Without a trigger, an action fires the instant its source is pressed (default
 /// PressedTrigger behavior). Triggers add conditions like "hold for 0.5s" or

@@ -5,10 +5,10 @@ engine. Replaces the original minimal Logger + ad-hoc exception pattern with a
 production-grade diagnostics infrastructure aligned with modern game engine practices.
 
 > **Design Philosophy**: Errors are classified by severity and recoverability.
-> The engine never silently swallows failures — every error path produces a diagnostic
+> The engine never silently swallows failures - every error path produces a diagnostic
 > record. Assertions are *always active* (not stripped in Release). Exceptions are
 > eliminated from the hot path; error codes and early-return macros handle recoverable
-> failures. Logging is asynchronous and context-rich — every message carries frame
+> failures. Logging is asynchronous and context-rich - every message carries frame
 > number, thread ID, and category, enabling post-mortem analysis and real-time filtering.
 
 ---
@@ -54,7 +54,7 @@ system follows that pattern.
 **What the system provides**:
 
 - **Named categories** with independently controllable verbosity per subsystem.
-- **Rotating file logs** — crashes are always diagnosable after the fact.
+- **Rotating file logs** - crashes are always diagnosable after the fact.
 - **Frame number, thread ID, and timestamp** on every message for correlation with
   rendering events and GPU captures.
 - **Once / Throttle / Conditional** variants to prevent log flooding from per-frame code.
@@ -102,7 +102,7 @@ system follows that pattern.
 - **Assertion path**: Condition fails → log with `__FILE__`, `__LINE__`, callstack → assertion handler
 - **Error return path**: Condition fails → log → return error value (no exception)
 - **Fatal path**: Crash handler → `spdlog::shutdown()` (synchronous drain) → crash artifact → terminate
-- **Compile-time path**: `RTRLAB_LOG_MIN_LEVEL` elides macros to `((void)0)` — zero runtime cost
+- **Compile-time path**: `RTRLAB_LOG_MIN_LEVEL` elides macros to `((void)0)` - zero runtime cost
 
 ---
 
@@ -129,16 +129,16 @@ at destruction.
 The ordering is critical: `spdlog::shutdown()` must complete before any sink files are
 closed or references released, because the async worker thread may still be processing
 queued messages. An earlier design called `drop_all()` instead, but that does not stop
-the thread pool or periodic flusher — `spdlog::shutdown()` is the correct full teardown.
+the thread pool or periodic flusher - `spdlog::shutdown()` is the correct full teardown.
 
 **Lazy logger creation**: `GetLogger(category)` checks the spdlog registry first
 (`spdlog::get`). On miss, it creates a new async logger sharing the same sink vector
-and registers it. This means subsystems don't need to pre-register categories — the
+and registers it. This means subsystems don't need to pre-register categories - the
 first `LOG_*_CAT(LogCategory::Shader, ...)` call creates the "Shader" logger on demand.
 
 ### 3.2 Category System
 
-Categories are `constexpr const char*` strings, not an enum. This is intentional —
+Categories are `constexpr const char*` strings, not an enum. This is intentional -
 subsystems can define additional categories in their own headers without modifying a
 central header. Each category maps 1:1 to a spdlog logger instance.
 
@@ -148,7 +148,7 @@ FileSystem, Window, ImGui, Demo, Serialization, Assert, Ensure, Error, Crash.
 A `KnownCategories` array and `IsKnownCategory()` function provide compile-time
 validation for the debug console's command parser, preventing misspelled category names
 from silently creating empty loggers. Dynamic (non-predefined) categories that have
-already been used are also accepted — this is checked via `Logger::HasLogger()`.
+already been used are also accepted - this is checked via `Logger::HasLogger()`.
 
 ### 3.3 Log Macros
 
@@ -169,18 +169,18 @@ eliminates duplication across all six levels.
 High-frequency code paths (per-frame updates, per-draw-call validation) can produce
 thousands of identical messages per second. Three macro families prevent this:
 
-**`LOG_*_ONCE_CAT`** — Logs only on the first occurrence at each call site. Uses a
+**`LOG_*_ONCE_CAT`** - Logs only on the first occurrence at each call site. Uses a
 `static std::atomic<bool>` with `compare_exchange_strong` to guarantee exactly one
 thread wins the race. Relaxed memory ordering suffices because the worst case of a
 spurious CAS failure is one missed log, not a safety violation.
 
-**`LOG_*_THROTTLE_CAT`** — Logs at most once per N seconds per call site. Uses a
+**`LOG_*_THROTTLE_CAT`** - Logs at most once per N seconds per call site. Uses a
 `static std::atomic<double>` holding the last log timestamp and a CAS loop
 (`compare_exchange_weak`) to atomically claim the right to log. The time source is
 `GetMonotonicSeconds()`, which wraps `std::chrono::steady_clock` to avoid
 `#include <chrono>` in the macro header.
 
-**`LOG_*_COND_CAT`** — Logs only when a boolean condition is true. Equivalent to
+**`LOG_*_COND_CAT`** - Logs only when a boolean condition is true. Equivalent to
 Unreal's `UE_CLOG`. Marked `[[unlikely]]` to hint the compiler that the logging path
 is not the common case.
 
@@ -247,7 +247,7 @@ Every file-sink log line includes the frame number and thread ID:
 relaxed ordering and outputs it as a zero-padded 8-digit number.
 
 The counter is incremented inside `RenderFrame()`, not in the main loop tick. This means
-it accurately counts rendered frames — it does not increment when the window is minimized
+it accurately counts rendered frames - it does not increment when the window is minimized
 (no render) and does not double-count during live-resize refresh callbacks (which also
 call `RenderFrame()`).
 
@@ -270,17 +270,17 @@ Also exposed via the ImGui debug console:
 ### 3.9 Compile-Time Level Stripping
 
 `RTRLAB_LOG_MIN_LEVEL` controls which macros are compiled in. Macros below the minimum
-level expand to `((void)0)` — no format strings in the binary, no runtime cost.
+level expand to `((void)0)` - no format strings in the binary, no runtime cost.
 
 | Level | Name | Default Config |
 |-------|------|---------------|
 | 0 | Trace | Debug |
 | 1 | Debug | RelWithDebInfo |
 | 2 | Info | Release |
-| 3 | Warn | — |
-| 4 | Error | — |
-| 5 | Critical | — |
-| 6 | Off | — |
+| 3 | Warn | - |
+| 4 | Error | - |
+| 5 | Critical | - |
+| 6 | Off | - |
 
 All six `LOG_*_CAT` macros are guarded. The CMake configuration:
 
@@ -316,7 +316,7 @@ The `JsonLineSink` writes one JSON object per log message for machine-readable o
 in a disabled state (no file open) and included in the shared sink vector from the start.
 `EnableJsonSink(path)` opens the file; `DisableJsonSink()` requests closure after a
 flush barrier. This avoids the thread-safety hazard of mutating a live logger's sink
-list at runtime — the async worker thread iterates the sink vector without external
+list at runtime - the async worker thread iterates the sink vector without external
 locking, so adding/removing sinks while it runs would be a data race.
 
 The `Enable` / `Disable` / `RequestDisable` / `RequestReopen` methods all lock the
@@ -341,7 +341,7 @@ Three tiers, inspired by Unreal's `check` / `verify` / `ensure`:
 **`RTRLAB_ASSERT(condition)`** / **`RTRLAB_ASSERTF(condition, fmt, ...)`**
 Hard assertion. Active in ALL builds (Debug and Release). On failure: logs at CRITICAL
 level with file/line, captures callstack, breaks into attached debugger, then terminates.
-Use for invariants that must hold — violation means a bug that corrupts state.
+Use for invariants that must hold - violation means a bug that corrupts state.
 
 **`RTRLAB_VERIFY(expr)`**
 Identical to ASSERT, but signals that the expression has side effects and must always
@@ -402,7 +402,7 @@ Engine-owned control flow uses the macros above.
 
 1. Log the fatal error at CRITICAL level
 2. Capture and log the callstack
-3. `spdlog::shutdown()` — synchronously drain the async queue and flush all sinks to disk
+3. `spdlog::shutdown()` - synchronously drain the async queue and flush all sinks to disk
 4. Write platform crash artifact (`.dmp` on Windows, `.txt` on POSIX)
 5. Terminate (`std::abort()` / `_exit(128 + signal)`)
 
@@ -446,34 +446,34 @@ supporting dynamic categories that were registered by subsystem code.
 
 ```
 src/core/diagnostics/
-    Logger.h / .cpp              — Async spdlog wrapper, sink management, lifecycle
-    LogCategories.h              — Predefined category names + KnownCategories array
-    LogMacros.h                  — LOG_*_CAT, _ONCE, _THROTTLE, _COND, compile-time stripping
-    FrameFormatter.h / .cpp      — Custom %@ spdlog flag for frame number
-    JsonLineSink.h / .cpp        — Structured JSON Lines sink (enable-on-demand)
-    ImGuiConsoleSink.h / .cpp    — Ring buffer sink for ImGui console
-    Assert.h / .cpp              — RTRLAB_ASSERT / VERIFY / ENSURE
-    ErrorMacros.h                — ERR_FAIL_COND_* family
-    CrashHandler.h               — Platform-independent crash handler interface
-    Callstack.h                  — Platform-independent callstack capture interface
-    Debugger.h / .cpp            — Cross-platform debugger detection and trap
+    Logger.h / .cpp              - Async spdlog wrapper, sink management, lifecycle
+    LogCategories.h              - Predefined category names + KnownCategories array
+    LogMacros.h                  - LOG_*_CAT, _ONCE, _THROTTLE, _COND, compile-time stripping
+    FrameFormatter.h / .cpp      - Custom %@ spdlog flag for frame number
+    JsonLineSink.h / .cpp        - Structured JSON Lines sink (enable-on-demand)
+    ImGuiConsoleSink.h / .cpp    - Ring buffer sink for ImGui console
+    Assert.h / .cpp              - RTRLAB_ASSERT / VERIFY / ENSURE
+    ErrorMacros.h                - ERR_FAIL_COND_* family
+    CrashHandler.h               - Platform-independent crash handler interface
+    Callstack.h                  - Platform-independent callstack capture interface
+    Debugger.h / .cpp            - Cross-platform debugger detection and trap
     backends/
       win32/
-        CrashHandler.cpp         — SEH + MiniDumpWriteDump
-        Callstack.cpp            — CaptureStackBackTrace + DbgHelp symbolization
+        CrashHandler.cpp         - SEH + MiniDumpWriteDump
+        Callstack.cpp            - CaptureStackBackTrace + DbgHelp symbolization
       posix/
-        CrashHandler.cpp         — Signal handler + crash summary writer
-        Callstack.cpp            — backtrace() + dladdr() + demangling
+        CrashHandler.cpp         - Signal handler + crash summary writer
+        Callstack.cpp            - backtrace() + dladdr() + demangling
 
 src/gui/panels/
-    ConsolePanel.h / .cpp        — ImGui debug console panel
+    ConsolePanel.h / .cpp        - ImGui debug console panel
 
 saved/logs/
-    RTRLab.log                   — Rotating text log (human-readable)
-    RTRLab.jsonl                 — JSON Lines log (when enabled)
+    RTRLab.log                   - Rotating text log (human-readable)
+    RTRLab.jsonl                 - JSON Lines log (when enabled)
     crashes/
-      RTRLab_YYYYMMDD_HHMMSS.dmp  — Minidump (Windows)
-      RTRLab_YYYYMMDD_HHMMSS.txt  — Crash summary
+      RTRLab_YYYYMMDD_HHMMSS.dmp  - Minidump (Windows)
+      RTRLab_YYYYMMDD_HHMMSS.txt  - Crash summary
 ```
 
 The `diagnostics/` module lives under `core/` because it is engine infrastructure
@@ -495,7 +495,7 @@ for the debug console without constraining extensibility.
 
 The async logger uses `overrun_oldest` overflow policy. If the 8192-slot queue fills up
 during a burst, the oldest message is silently dropped rather than blocking the render
-thread. A blocked render thread causes visible frame hitches — dropped log messages are
+thread. A blocked render thread causes visible frame hitches - dropped log messages are
 a lesser evil and indicate a burst that should be addressed with THROTTLE macros.
 
 ### Why the JSON sink is always registered but disabled
@@ -514,7 +514,7 @@ relaxed ordering. This eliminated the data race on the static variable but allow
 multiple threads to pass the check simultaneously (TOCTOU). For ONCE, this meant the
 message could fire more than once. For THROTTLE, multiple threads could each claim the
 interval. `compare_exchange_strong` (ONCE) and a `compare_exchange_weak` loop (THROTTLE)
-make these operations truly atomic — exactly one thread wins.
+make these operations truly atomic - exactly one thread wins.
 
 ### Why `spdlog::shutdown()` instead of `drop_all()`
 
@@ -528,14 +528,14 @@ are closed.
 
 Standard `assert()` is removed by `NDEBUG` in Release, which means bugs that corrupt
 state manifest as silent data corruption or delayed crashes with no diagnostics.
-`RTRLAB_ASSERT` is active in all build configurations. The cost is negligible — the
+`RTRLAB_ASSERT` is active in all build configurations. The cost is negligible - the
 condition check is a branch prediction hint (`[[unlikely]]`) and the failure path
 (logging, callstack, terminate) only runs on actual bugs.
 
 ### Why no C++ exceptions in engine code
 
 Exceptions have non-zero overhead even when not thrown (unwind tables, missed
-optimizations). More importantly, catch sites in the original code were inconsistent —
+optimizations). More importantly, catch sites in the original code were inconsistent -
 some callers caught, some didn't, leading to unpredictable termination. No mainstream
 game engine uses exceptions internally. The `ERR_FAIL_COND_*` + `RTRLAB_ASSERT` pattern
 gives explicit control over every error path.
@@ -561,7 +561,7 @@ Linux/Mac. Minidump + callstack + `CrashReportClient` upload.
 **Logging**: `print_line`, `WARN_PRINT`, `ERR_PRINT` with file/line. Output to
 `user://logs/godot.log` with rotation.
 
-**Error handling**: `ERR_FAIL_COND_V(cond, retval)` family — log + early return.
+**Error handling**: `ERR_FAIL_COND_V(cond, retval)` family - log + early return.
 `CRASH_COND` for truly fatal errors. Almost everything is recoverable. No exceptions.
 
 **Crash handling**: Signal-based on Unix, SEH on Windows. Writes error log with callstack.
@@ -570,7 +570,7 @@ Linux/Mac. Minidump + callstack + `CrashReportClient` upload.
 
 **Logging**: `CryLog`, `CryWarning`, `CryFatalError` with verbosity and subsystem IDs.
 
-**Assertions**: `CRY_ASSERT(cond)` — always active, debugger break, crash report in
+**Assertions**: `CRY_ASSERT(cond)` - always active, debugger break, crash report in
 Release.
 
 **Error handling**: No exceptions. `CryFatalError` terminates with diagnostics.
