@@ -19,6 +19,25 @@
 
 namespace
 {
+    std::string TrimWhitespace(std::string value)
+    {
+        const auto first = value.find_first_not_of(" \t\r\n");
+        if (first == std::string::npos)
+            return {};
+
+        const auto last = value.find_last_not_of(" \t\r\n");
+        value = value.substr(first, last - first + 1);
+
+        if (value.size() >= 2 &&
+            ((value.front() == '"' && value.back() == '"') ||
+             (value.front() == '\'' && value.back() == '\'')))
+        {
+            value = value.substr(1, value.size() - 2);
+        }
+
+        return value;
+    }
+
     constexpr auto BuildCategoryMenu()
     {
         std::array<const char *, LogCategory::KnownCategories.size() + 1> categories{};
@@ -32,16 +51,30 @@ namespace
 
     constexpr auto kCategories = BuildCategoryMenu();
 
-    constexpr const char *kLevelNames[] = {"All", "Trace", "Info", "Warn", "Error", "Critical"};
+    constexpr const char *kLevelNames[] = {"All", "Trace", "Debug", "Info", "Warn", "Error", "Critical"};
 
-    constexpr spdlog::level::level_enum kLevelValues[] = {
-        spdlog::level::trace,
-        spdlog::level::trace,
-        spdlog::level::info,
-        spdlog::level::warn,
-        spdlog::level::err,
-        spdlog::level::critical,
-    };
+    bool PassesLevelFilter(spdlog::level::level_enum level, int filterIndex)
+    {
+        switch (filterIndex)
+        {
+        case 0:
+            return true;
+        case 1:
+            return level == spdlog::level::trace;
+        case 2:
+            return level == spdlog::level::debug;
+        case 3:
+            return level >= spdlog::level::info;
+        case 4:
+            return level >= spdlog::level::warn;
+        case 5:
+            return level >= spdlog::level::err;
+        case 6:
+            return level >= spdlog::level::critical;
+        default:
+            return true;
+        }
+    }
 
     ImVec4 GetColorForLevel(spdlog::level::level_enum level)
     {
@@ -192,11 +225,10 @@ void ConsolePanel::DrawLogEntries()
         categoryFilter = m_CommandCategoryFilter.c_str();
     else if (m_CategoryFilter > 0)
         categoryFilter = kCategories[m_CategoryFilter];
-    const auto levelFloor = kLevelValues[m_LevelFilter];
 
     for (const auto &entry : entries)
     {
-        if (entry.Level < levelFloor)
+        if (!PassesLevelFilter(entry.Level, m_LevelFilter))
             continue;
         if (categoryFilter && entry.Category != categoryFilter)
             continue;
@@ -343,8 +375,11 @@ void ConsolePanel::ExecuteCommand(const std::string &command)
         }
         else if (action == "on")
         {
-            std::string pathStr;
-            stream >> pathStr;
+            const std::string pathStr = TrimWhitespace([&stream]()
+                                                       {
+                                                           std::string remainder;
+                                                           std::getline(stream >> std::ws, remainder);
+                                                           return remainder; }());
 
             const std::filesystem::path path = pathStr.empty()
                                                    ? Diagnostics::Logger::GetDefaultJsonLogPath()
