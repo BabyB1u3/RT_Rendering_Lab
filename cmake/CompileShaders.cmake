@@ -62,6 +62,24 @@ function(glab_compile_shaders)
         file(GLOB MODULE_DEPS "${SLANG_MODULE_DIR}/*.slang")
 
         # ── GLSL target ──
+        #
+        # Matrix convention: -matrix-layout-column-major
+        #
+        #   This flag tells Slang that the application (GLM) sends matrices
+        #   in column-major order.  Slang always emits `layout(row_major)`
+        #   in the generated GLSL so the GPU reads the buffer bytes as-is
+        #   (no driver-side transpose).  Because column-major data declared
+        #   as row_major makes the GPU see M^T, Slang compensates by
+        #   flipping every mul() operand order in the generated GLSL:
+        #
+        #     Slang source          Compiled GLSL         Actual result
+        #     mul(M, v)      →      v * M_var       →     M_glm * v   ✓
+        #     mul(v, M)      →      M_var * v       →     v * M_glm   ✓
+        #
+        #   Rule for shader authors: write mul(M, v) for standard matrix
+        #   transforms (e.g. mul(u_MVP, float4(pos, 1.0))).  Do NOT try to
+        #   match the GLSL output order — Slang handles the compensation.
+        #
         if(GLAB_SHADER_TARGET_GLSL)
             set(GLSL_DIR "${SHADER_BASE_DIR}/glsl")
 
