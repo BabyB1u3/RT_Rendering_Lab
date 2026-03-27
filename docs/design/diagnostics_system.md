@@ -91,7 +91,8 @@ The current diagnostics infrastructure consists of:
 - **Structured JSON Lines** output enables external tooling (log aggregators, CI analysis, `jq` queries).
 - Assertions are **always active** and produce actionable diagnostics (callstack, context) even in Release.
 - Recoverable errors use **early-return macros** instead of exceptions, giving the engine explicit control over recovery.
-- Fatal errors trigger a **cross-platform crash handler** that flushes logs and generates a minidump before termination.
+- Fatal errors trigger a **cross-platform crash handler** that flushes logs and writes
+  platform-appropriate crash artifacts before termination.
 
 ---
 
@@ -127,7 +128,7 @@ Data flow:
 - **Once/Throttle path**: Source → static guard (per-call-site) → suppress or pass through → normal path
 - **Assertion path**: Condition fails → log with `__FILE__`, `__LINE__`, callstack → assertion handler (break in debugger / crash in Release)
 - **Error return path**: Condition fails → log → return error value (no exception)
-- **Fatal path**: Unrecoverable error or hardware fault → crash handler → flush async queue → write minidump → terminate
+- **Fatal path**: Unrecoverable error or hardware fault → crash handler → flush async queue → write crash artifact → terminate
 - **Compile-time path**: `RTRLAB_LOG_MIN_LEVEL` elides low-severity macros to `((void)0)` — zero runtime cost, no format strings in binary
 
 ---
@@ -857,15 +858,9 @@ void OnAssertionFailed(const char *expr, const char *file, int line,
     // 3. Flush all logs immediately
     Logger::Flush();
 
-    // 4. Break into debugger if attached, otherwise terminate
-#if defined(_MSC_VER)
-    if (IsDebuggerPresent())
-        __debugbreak();
-    else
-        CrashHandler::FatalError("Assertion failed");
-#else
-    __builtin_trap();
-#endif
+    // 4. Break into an attached debugger on any supported platform, then terminate.
+    BreakInDebuggerIfAttached();
+    std::abort();
 }
 
 void OnEnsureFailed(const char *expr, const char *file, int line,
@@ -1075,10 +1070,11 @@ private:
 
 ### 6.2 Cross-Platform Crash Handler Abstraction
 
-The Windows SEH handler (6.1) covers the current target platform, but if the engine
-expands to Linux or macOS (the Metal backend already exists), a platform abstraction
-is needed. This follows the same pattern as UE5's `FPlatformMisc` and Godot's
-per-platform `crash_handler_*.cpp`.
+Because the engine already targets multiple platforms (Windows plus macOS today, and
+Linux is an expected follow-on), diagnostics parity cannot be treated as an optional
+postscript. Crash handling and callstack capture need a platform abstraction now,
+following the same pattern as UE5's `FPlatformMisc` and Godot's per-platform
+`crash_handler_*.cpp`.
 
 ```cpp
 /// @file core/diagnostics/CrashHandler.h (extended)
@@ -1170,8 +1166,8 @@ void CrashHandler::PosixSignalHandler(int signal, siginfo_t *info, void * /*cont
 namespace Diagnostics {
 
 /// Platform-independent callstack capture.
-/// - Windows: CaptureStackBackTrace + SymFromAddr + SymGetLineFromAddr64
-/// - Linux/macOS: backtrace() + backtrace_symbols() + abi::__cxa_demangle()
+/// - Windows: CaptureStackBackTrace (baseline) with future DbgHelp symbolization
+/// - Linux/macOS: backtrace() + dladdr() + abi::__cxa_demangle()
 std::string CaptureCallstack(int framesToSkip = 0, int maxFrames = 32);
 
 } // namespace Diagnostics
@@ -1185,8 +1181,9 @@ src/core/diagnostics/
     CrashHandler_Win32.cpp       — Windows SEH + MiniDumpWriteDump
     CrashHandler_Posix.cpp       — Linux/macOS signal handler
     Callstack.h                  — Platform-independent interface
-    Callstack_Win32.cpp          — DbgHelp-based implementation
-    Callstack_Posix.cpp          — backtrace()-based implementation
+    Debugger.h / .cpp            — Debugger detection + break helper
+    Callstack_Win32.cpp          — CaptureStackBackTrace-based implementation
+    Callstack_Posix.cpp          — backtrace() + dladdr() + demangling implementation
 ```
 
 **CMake selection**:
@@ -1196,11 +1193,13 @@ if(WIN32)
     target_sources(RTRLab PRIVATE
         src/core/diagnostics/CrashHandler_Win32.cpp
         src/core/diagnostics/Callstack_Win32.cpp)
-    target_link_libraries(RTRLab PRIVATE dbghelp)
 else()
     target_sources(RTRLab PRIVATE
         src/core/diagnostics/CrashHandler_Posix.cpp
         src/core/diagnostics/Callstack_Posix.cpp)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(RTRLab PRIVATE dl)
+    endif()
 endif()
 ```
 
@@ -1353,8 +1352,9 @@ src/
       CrashHandler_Win32.cpp       — Layer 3: Windows SEH + MiniDumpWriteDump
       CrashHandler_Posix.cpp       — Layer 3: Linux/macOS signal handler
       Callstack.h                  — Layer 3: platform-independent callstack interface
-      Callstack_Win32.cpp          — Layer 3: DbgHelp-based callstack capture
-      Callstack_Posix.cpp          — Layer 3: backtrace()-based callstack capture
+      Debugger.h / .cpp            — Layer 1: cross-platform debugger detection / trap helper
+      Callstack_Win32.cpp          — Layer 3: CaptureStackBackTrace-based callstack capture
+      Callstack_Posix.cpp          — Layer 3: backtrace() + dladdr() + demangling capture
       ImGuiConsoleSink.h / .cpp    — Layer 4: ring buffer sink for ImGui
     Logger.h                       — DEPRECATED: thin redirect to diagnostics/LogMacros.h
                                      (removed after full migration)
@@ -1401,16 +1401,18 @@ migrated.
 ### Phase 2 — Assertion framework
 
 **Goal**: Replace all `assert()` with `RTRLAB_ASSERT`, add `RTRLAB_ENSURE` for
-soft assertions. Assertions are active in all build configurations.
+soft assertions, and make assertion diagnostics meaningful on every supported platform.
+Assertions are active in all build configurations.
 
 | Step | Deliverable | Test |
 |------|-------------|------|
 | 2a | `Assert.h` with `RTRLAB_ASSERT` / `RTRLAB_VERIFY` / `RTRLAB_ENSURE` | Unit test: ensure failure returns false without terminating |
-| 2b | `Callstack.h/.cpp` with `CaptureCallstack` (Windows DbgHelp) | Manual: verify callstack output in debug console |
-| 2c | Replace `assert()` in `GLFramebuffer.cpp`, `GLVertexArray.cpp` | Release build still checks these conditions |
-| 2d | Replace `assert()` in `SceneRenderer.cpp`, `Mesh.cpp` | Release build still checks |
-| 2e | Replace `assert()` in `GraphicsDevice.cpp` | Release build still checks |
-| 2f | Remove `#include <cassert>` from all engine source files | Grep confirms no remaining `assert(` in src/ |
+| 2b | `Callstack_Win32.cpp` + `Callstack_Posix.cpp` with `CaptureCallstack` | Manual: verify callstack output on Windows and macOS/Linux |
+| 2c | `Debugger.h/.cpp` with cross-platform debugger detection and trap helper | Manual: debugger-attached assert breaks on each supported platform |
+| 2d | Replace `assert()` in `GLFramebuffer.cpp`, `GLVertexArray.cpp` | Release build still checks these conditions |
+| 2e | Replace `assert()` in `SceneRenderer.cpp`, `Mesh.cpp` | Release build still checks |
+| 2f | Replace `assert()` in `GraphicsDevice.cpp` | Release build still checks |
+| 2g | Remove `#include <cassert>` from all engine source files | Grep confirms no remaining `assert(` in src/ |
 
 ### Phase 3 — Error handling policy
 
@@ -1430,16 +1432,17 @@ assert macros. Eliminate exceptions from engine code.
 
 ### Phase 4 — Crash handler
 
-**Goal**: Register a Windows SEH handler that captures minidumps and flushes logs
-on unhandled exceptions.
+**Goal**: Register platform-appropriate crash handlers that preserve diagnostics on
+every supported platform: Windows SEH on Win32, POSIX signal handling on Linux/macOS.
 
 | Step | Deliverable | Test |
 |------|-------------|------|
-| 4a | `CrashHandler.h/.cpp` with `SetUnhandledExceptionFilter` | Manual: deliberate null-deref produces .dmp |
-| 4b | `WriteMiniDump` function using DbgHelp | Verify .dmp opens in Visual Studio / WinDbg |
-| 4c | Crash summary writer (last 100 log lines + callstack to .txt) | Verify .txt is human-readable |
+| 4a | `CrashHandler_Win32.cpp` and `CrashHandler_Posix.cpp` behind one interface | Manual: deliberate fault produces persisted diagnostics on each supported platform |
+| 4b | `WriteMiniDump` on Windows using DbgHelp | Verify `.dmp` opens in Visual Studio / WinDbg |
+| 4c | POSIX signal-path crash summary writer | Verify Linux/macOS produce readable `.txt` crash output |
 | 4d | Hook into `Application` startup: `CrashHandler::Init()` after `Logger::Init()` | Init order verified |
-| 4e | CMake: link `dbghelp.lib`, enable `/Zi` + `/DEBUG` for Release PDBs | PDB files generated in Release |
+| 4e | CMake: conditional source selection and platform link settings (`dbghelp`/`dl`) | All supported platforms compile and link correctly |
+| 4f | Windows Release symbol settings (`/Zi` + `/DEBUG`) | PDB files generated in Release |
 
 ### Phase 5 — Debug console integration
 
@@ -1472,9 +1475,6 @@ log flood prevention, async I/O, compile-time stripping, and structured output.
 | 6j | CMake: per-config `RTRLAB_LOG_MIN_LEVEL` definitions | Debug=0, RelWithDebInfo=1, Release=2 |
 | 6k | `JsonLineSink` structured log sink | Verify `.jsonl` output is valid JSON Lines; parseable by `jq` |
 | 6l | `Logger::EnableJsonSink()` runtime toggle | JSON sink activates/deactivates without restart |
-| 6m | Cross-platform `CrashHandler_Posix.cpp` | Linux: deliberate SIGSEGV produces crash log with callstack |
-| 6n | Cross-platform `Callstack_Posix.cpp` | Linux/macOS: `CaptureCallstack()` returns demangled symbols |
-| 6o | CMake: conditional source selection for Win32 vs Posix crash/callstack files | Both platforms compile and link correctly |
 
 **Priority within Phase 6** (recommended implementation order):
 
@@ -1490,8 +1490,8 @@ Medium impact, medium effort:
   6h     Async logging mode                      (~1 line change in Init, but needs testing)
   6k-6l  JSON Lines sink                         (~80 lines, useful for tooling)
 
-Lower priority (only when targeting new platforms):
-  6m-6o  Cross-platform crash handler            (~200 lines, needed for Linux/macOS)
+Cross-platform diagnostics parity is no longer listed here because it is baseline work,
+not an optional extension for hypothetical future ports.
 ```
 
 ---

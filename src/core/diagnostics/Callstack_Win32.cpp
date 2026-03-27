@@ -5,16 +5,13 @@
 #include <iomanip>
 #include <sstream>
 
-#if defined(_WIN32)
 #include <Windows.h>
-#endif
 
 namespace Diagnostics
 {
 
     std::string CaptureCallstack(int framesToSkip, int maxFrames)
     {
-#if defined(_WIN32)
         constexpr USHORT kMaxSupportedFrames = 62;
         void *frames[kMaxSupportedFrames]{};
         const USHORT frameCount = CaptureStackBackTrace(
@@ -34,11 +31,6 @@ namespace Diagnostics
             stream << "  [" << i << "] 0x" << std::setw(sizeof(std::uintptr_t) * 2) << address << '\n';
         }
         return stream.str();
-#else
-        (void)framesToSkip;
-        (void)maxFrames;
-        return "  <callstack capture not implemented on this platform>";
-#endif
     }
 
 } // namespace Diagnostics

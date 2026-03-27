@@ -4,9 +4,7 @@
 #include <cstdlib>
 #include <string>
 
-#if defined(_WIN32)
-#include <Windows.h>
-#endif
+#include "core/diagnostics/Debugger.h"
 
 namespace Diagnostics::Detail
 {
@@ -82,10 +80,7 @@ namespace Diagnostics::Detail
         }
         Logger::Flush();
 
-#if defined(_WIN32)
-        if (IsDebuggerPresent())
-            __debugbreak();
-#endif
+        BreakInDebuggerIfAttached();
 
         std::abort();
     }

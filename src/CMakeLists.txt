@@ -8,7 +8,7 @@
     core/app/Layer.cpp
     core/app/LayerStack.cpp
     core/diagnostics/Assert.cpp
-    core/diagnostics/Callstack.cpp
+    core/diagnostics/Debugger.cpp
     core/diagnostics/Logger.cpp
     core/serialization/PropertyTree.cpp
     core/serialization/JsonBackend.cpp
@@ -63,6 +63,7 @@ set(GLAB_CORE_HEADERS
     core/Logger.h
     core/diagnostics/Assert.h
     core/diagnostics/Callstack.h
+    core/diagnostics/Debugger.h
     core/diagnostics/LogCategories.h
     core/diagnostics/Logger.h
     core/diagnostics/LogMacros.h
@@ -153,6 +154,16 @@ if(GLAB_BACKEND_OPENGL)
     )
 endif()
 
+if(WIN32)
+    list(APPEND GLAB_CORE_SOURCES
+        core/diagnostics/Callstack_Win32.cpp
+    )
+else()
+    list(APPEND GLAB_CORE_SOURCES
+        core/diagnostics/Callstack_Posix.cpp
+    )
+endif()
+
 if(GLAB_BACKEND_METAL)
     set(GLAB_METAL_SOURCES
         graphics/metal/MetalGraphicsDevice.mm
@@ -224,6 +235,12 @@ target_link_libraries(RTRLabCore PUBLIC
     nlohmann_json
     magic_enum
 )
+
+if(UNIX AND NOT APPLE)
+    target_link_libraries(RTRLabCore PUBLIC
+        dl
+    )
+endif()
 
 if(GLAB_BACKEND_OPENGL)
     target_link_libraries(RTRLabCore PUBLIC
