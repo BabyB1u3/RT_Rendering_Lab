@@ -15,9 +15,9 @@
 #include "graphics/GraphicsDevice.h"
 #include "graphics/RenderCommand.h"
 #ifdef GLAB_BACKEND_METAL
-#include "graphics/metal/MetalGraphicsDevice.h"
+#include "graphics/backends/metal/MetalGraphicsDevice.h"
 #else
-#include "graphics/opengl/GLGraphicsDevice.h"
+#include "graphics/backends/opengl/GLGraphicsDevice.h"
 #endif
 
 Application *Application::s_Instance = nullptr;

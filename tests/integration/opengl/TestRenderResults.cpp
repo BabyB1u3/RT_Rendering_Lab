@@ -18,8 +18,8 @@
 #include "graphics/interfaces/ITexture2D.h"
 #include "graphics/interfaces/IVertexArray.h"
 #include "graphics/interfaces/IVertexBuffer.h"
-#include "graphics/opengl/GLCast.h"
-#include "graphics/opengl/GLFramebuffer.h"
+#include "graphics/backends/opengl/GLCast.h"
+#include "graphics/backends/opengl/GLFramebuffer.h"
 
 class RenderResultsIntegrationTests : public ::testing::Test
 {

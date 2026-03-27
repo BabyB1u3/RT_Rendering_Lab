@@ -16,8 +16,8 @@
 
 #include "core/app/Layer.h"
 #include "core/Base.h"
-#include "gui/debug_panels/DebugPanel.h"
-#include "gui/debug_panels/DemoSelectorPanel.h"
+#include "gui/panels/DebugPanel.h"
+#include "gui/panels/DemoSelectorPanel.h"
 
 class DemoBase;
 

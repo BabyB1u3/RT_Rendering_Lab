@@ -1,0 +1,478 @@
+#include "MetalRenderCommand.h"
+
+#import <Metal/Metal.h>
+#import <QuartzCore/CAMetalLayer.h>
+
+#include <array>
+#include <unordered_map>
+
+#include "core/Logger.h"
+#include "graphics/Framebuffer.h"
+#include "graphics/RenderTypes.h"
+#include "graphics/interfaces/IFramebuffer.h"
+#include "graphics/interfaces/IRenderTarget.h"
+#include "graphics/interfaces/ITexture2D.h"
+#include "graphics/backends/metal/MetalCast.h"
+#include "graphics/backends/metal/MetalIndexBuffer.h"
+#include "graphics/backends/metal/MetalShader.h"
+#include "graphics/backends/metal/MetalTexture2D.h"
+#include "graphics/backends/metal/MetalTypes.h"
+#include "graphics/backends/metal/MetalVertexArray.h"
+#include "graphics/backends/metal/MetalVertexBuffer.h"
+#include "gui/backends/metal/MetalImGuiBridge.h"
+
+// ─── Impl ─────────────────────────────────────────────────────────────────────
+
+struct MetalRenderCommand::Impl
+{
+	id<MTLDevice>              device;
+	id<MTLCommandQueue>        commandQueue;
+	CAMetalLayer              *layer;
+
+	id<MTLCommandBuffer>          commandBuffer;
+	id<MTLRenderCommandEncoder>   encoder;
+	id<CAMetalDrawable>           drawable;
+
+	std::array<MTLPixelFormat, 4> currentColorFormats = {
+	    MTLPixelFormatBGRA8Unorm,
+	    MTLPixelFormatInvalid,
+	    MTLPixelFormatInvalid,
+	    MTLPixelFormatInvalid
+	};
+	uint32_t currentColorAttachmentCount = 1;
+	MTLPixelFormat currentDepthFormat = MTLPixelFormatInvalid;
+
+	// True while encoding an offscreen (FBO) pass.
+	// SetViewport applies a Y-flip for offscreen passes so Metal textures store
+	// data with the same row-0=bottom convention as OpenGL, keeping the Slang
+	// shader source identical across backends.
+	bool isOffscreenPass = false;
+
+	PipelineState currentPipelineState;
+
+	MetalShader      *currentShader = nullptr;
+	MetalVertexArray *currentVAO    = nullptr;
+
+	std::unordered_map<uint32_t, Ref<ITexture2D>> boundTextures;
+
+	// Depth-stencil state cache keyed by (depthTest | depthWrite<<1)
+	std::unordered_map<uint32_t, id<MTLDepthStencilState>> depthStateCache;
+};
+
+// ─── Depth-stencil helpers ────────────────────────────────────────────────────
+
+static id<MTLDepthStencilState> GetOrCreateDepthState(
+    id<MTLDevice> device,
+    std::unordered_map<uint32_t, id<MTLDepthStencilState>> &cache,
+    const PipelineState &ps)
+{
+	uint32_t key = (ps.DepthTestEnabled  ? 1u : 0u) |
+	               (ps.DepthWriteEnabled ? 2u : 0u);
+
+	auto it = cache.find(key);
+	if (it != cache.end())
+		return it->second;
+
+	MTLDepthStencilDescriptor *desc = [MTLDepthStencilDescriptor new];
+	desc.depthWriteEnabled    = ps.DepthWriteEnabled;
+	desc.depthCompareFunction = ps.DepthTestEnabled
+	    ? MTLCompareFunctionLess
+	    : MTLCompareFunctionAlways;
+
+	id<MTLDepthStencilState> state = [device newDepthStencilStateWithDescriptor:desc];
+	cache[key] = state;
+	return state;
+}
+
+// ─── Construction ─────────────────────────────────────────────────────────────
+
+MetalRenderCommand::MetalRenderCommand(void *mtlDevice, void *mtlCommandQueue, void *metalLayer)
+	: m_Impl(std::make_unique<Impl>())
+{
+	m_Impl->device       = (__bridge id<MTLDevice>)mtlDevice;
+	m_Impl->commandQueue = (__bridge id<MTLCommandQueue>)mtlCommandQueue;
+	m_Impl->layer        = (__bridge CAMetalLayer *)metalLayer;
+}
+
+MetalRenderCommand::~MetalRenderCommand() = default;
+
+// ─── IRenderCommand ───────────────────────────────────────────────────────────
+
+void MetalRenderCommand::Init()
+{
+	// No global state to initialise for Metal.
+}
+
+void MetalRenderCommand::BeginFrame()
+{
+	m_Impl->drawable      = [m_Impl->layer nextDrawable];
+	m_Impl->commandBuffer = [m_Impl->commandQueue commandBuffer];
+	m_Impl->encoder       = nil;
+	m_Impl->currentShader = nullptr;
+	m_Impl->currentVAO    = nullptr;
+	m_Impl->boundTextures.clear();
+}
+
+void MetalRenderCommand::EndFrame()
+{
+	if (m_Impl->encoder)
+	{
+		[m_Impl->encoder endEncoding];
+		m_Impl->encoder = nil;
+	}
+	if (m_Impl->drawable)
+		[m_Impl->commandBuffer presentDrawable:m_Impl->drawable];
+
+	[m_Impl->commandBuffer commit];
+	m_Impl->commandBuffer = nil;
+	m_Impl->drawable      = nil;
+}
+
+void MetalRenderCommand::BeginRenderPass(const Ref<IRenderTarget> &target,
+                                          const RenderPassDescriptor &desc)
+{
+	// End any open encoder before starting a new one.
+	if (m_Impl->encoder)
+	{
+		[m_Impl->encoder endEncoding];
+		m_Impl->encoder = nil;
+	}
+
+	MTLRenderPassDescriptor *rpDesc = [MTLRenderPassDescriptor new];
+
+	m_Impl->currentColorFormats.fill(MTLPixelFormatInvalid);
+	m_Impl->currentColorAttachmentCount = 0;
+
+	// ── Color attachments ─────────────────────────────────────────────────────
+	if (target->IsBackBuffer())
+	{
+		id<MTLTexture> colorTex = m_Impl->drawable ? m_Impl->drawable.texture : nil;
+		if (colorTex)
+		{
+			m_Impl->currentColorFormats[0] = m_Impl->layer.pixelFormat;
+			m_Impl->currentColorAttachmentCount = 1;
+			rpDesc.colorAttachments[0].texture     = colorTex;
+			rpDesc.colorAttachments[0].loadAction  = LoadActionToMTL(desc.ColorLoadAction);
+			rpDesc.colorAttachments[0].storeAction = StoreActionToMTL(desc.ColorStoreAction);
+			rpDesc.colorAttachments[0].clearColor  = MTLClearColorMake(
+			    desc.ClearColor.r, desc.ClearColor.g, desc.ClearColor.b, desc.ClearColor.a);
+		}
+	}
+	else
+	{
+		const Ref<IFramebuffer> framebuffer = target->GetFramebuffer();
+		uint32_t colorAttachmentCount = 0;
+		if (framebuffer)
+		{
+			for (const auto &attachmentSpec : framebuffer->GetSpecification().Attachments.Attachments)
+			{
+				if (!IsDepthFormat(attachmentSpec.Format) && attachmentSpec.Format != TextureFormat::None)
+					++colorAttachmentCount;
+			}
+		}
+
+		for (uint32_t index = 0; index < colorAttachmentCount && index < m_Impl->currentColorFormats.size(); ++index)
+		{
+			auto colorAtt = target->GetColorAttachment(index);
+			if (!colorAtt)
+				continue;
+
+			id<MTLTexture> colorTex =
+			    (__bridge id<MTLTexture>)AsMetal<MetalTexture2D>(colorAtt)->GetMTLTexture();
+			if (!colorTex)
+				continue;
+
+			m_Impl->currentColorFormats[index] = colorTex.pixelFormat;
+			m_Impl->currentColorAttachmentCount = index + 1;
+			rpDesc.colorAttachments[index].texture     = colorTex;
+			rpDesc.colorAttachments[index].loadAction  = LoadActionToMTL(desc.ColorLoadAction);
+			rpDesc.colorAttachments[index].storeAction = StoreActionToMTL(desc.ColorStoreAction);
+			rpDesc.colorAttachments[index].clearColor  = MTLClearColorMake(
+			    desc.ClearColor.r, desc.ClearColor.g, desc.ClearColor.b, desc.ClearColor.a);
+		}
+	}
+
+	// ── Depth attachment ──────────────────────────────────────────────────────
+	id<MTLTexture> depthTex = nil;
+
+	if (auto depthAtt = target->GetDepthAttachment())
+	{
+		depthTex = (__bridge id<MTLTexture>)AsMetal<MetalTexture2D>(depthAtt)->GetMTLTexture();
+	}
+
+	if (depthTex)
+	{
+		m_Impl->currentDepthFormat = depthTex.pixelFormat;
+		rpDesc.depthAttachment.texture     = depthTex;
+		rpDesc.depthAttachment.loadAction  = LoadActionToMTL(desc.DepthLoadAction);
+		rpDesc.depthAttachment.storeAction = StoreActionToMTL(desc.DepthStoreAction);
+		rpDesc.depthAttachment.clearDepth  = desc.ClearDepth;
+
+		if (depthTex.pixelFormat == MTLPixelFormatDepth32Float_Stencil8)
+		{
+			rpDesc.stencilAttachment.texture     = depthTex;
+			rpDesc.stencilAttachment.loadAction  = LoadActionToMTL(desc.StencilLoadAction);
+			rpDesc.stencilAttachment.storeAction = StoreActionToMTL(desc.StencilStoreAction);
+			rpDesc.stencilAttachment.clearStencil = desc.ClearStencil;
+		}
+	}
+	else
+	{
+		m_Impl->currentDepthFormat = MTLPixelFormatInvalid;
+	}
+
+	m_Impl->isOffscreenPass = !target->IsBackBuffer();
+
+	m_Impl->encoder = [m_Impl->commandBuffer renderCommandEncoderWithDescriptor:rpDesc];
+	if (!m_Impl->encoder)
+	{
+		LOG_ERROR("MetalRenderCommand: failed to create MTLRenderCommandEncoder");
+		return;
+	}
+
+	// For back-buffer passes use the Metal-native CCW convention.
+	// For offscreen passes the viewport Y is negated (see SetViewport), which reverses
+	// the apparent winding seen by the rasterizer.  Switching to CW front-face keeps
+	// the same visible faces as OpenGL (CCW in view space), so culling still works.
+	[m_Impl->encoder setFrontFacingWinding:
+	    m_Impl->isOffscreenPass ? MTLWindingClockwise : MTLWindingCounterClockwise];
+}
+
+void MetalRenderCommand::EndRenderPass()
+{
+	if (m_Impl->encoder)
+	{
+		[m_Impl->encoder endEncoding];
+		m_Impl->encoder = nil;
+	}
+}
+
+void MetalRenderCommand::SetPipelineState(const PipelineState &state)
+{
+	m_Impl->currentPipelineState = state;
+
+	if (!m_Impl->encoder)
+		return;
+
+	// Cull mode is per-encoder in Metal (not baked into the PSO).
+	if (state.CullFaceEnabled)
+		[m_Impl->encoder setCullMode:state.CullFront ? MTLCullModeFront : MTLCullModeBack];
+	else
+		[m_Impl->encoder setCullMode:MTLCullModeNone];
+}
+
+void MetalRenderCommand::SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
+{
+	if (!m_Impl->encoder)
+		return;
+
+	MTLViewport vp;
+	vp.originX = static_cast<double>(x);
+	vp.width   = static_cast<double>(width);
+	vp.znear   = 0.0;
+	vp.zfar    = 1.0;
+
+	if (m_Impl->isOffscreenPass)
+	{
+		// Flip Y so that NDC Y=+1 maps to the bottom row of the Metal texture,
+		// matching OpenGL's row-0=bottom convention. This keeps TexturePreview
+		// (and any future blit/post-process) working without shader changes.
+		vp.originY = static_cast<double>(y + height);
+		vp.height  = -static_cast<double>(height);
+	}
+	else
+	{
+		vp.originY = static_cast<double>(y);
+		vp.height  = static_cast<double>(height);
+	}
+
+	[m_Impl->encoder setViewport:vp];
+}
+
+void MetalRenderCommand::SetTexture(uint32_t slot, const Ref<ITexture2D> &texture)
+{
+	if (texture)
+		m_Impl->boundTextures[slot] = texture;
+	else
+		m_Impl->boundTextures.erase(slot);
+}
+
+void MetalRenderCommand::DrawIndexed(const Ref<IVertexArray> &vao, uint32_t indexCount)
+{
+	if (!m_Impl->encoder || !m_Impl->currentShader)
+	{
+		LOG_WARN("MetalRenderCommand::DrawIndexed: no active encoder or shader");
+		return;
+	}
+
+	MetalVertexArray *metalVAO = m_Impl->currentVAO;
+	if (vao)
+	{
+		metalVAO = AsMetal<MetalVertexArray>(vao);
+		m_Impl->currentVAO = metalVAO;
+	}
+
+	if (!metalVAO)
+	{
+		LOG_WARN("MetalRenderCommand::DrawIndexed: no active vertex array");
+		return;
+	}
+
+	// ── Pipeline state object ─────────────────────────────────────────────────
+	void *pso = m_Impl->currentShader->GetOrCreatePSO(
+	    (__bridge void *)m_Impl->device,
+	    metalVAO->GetMTLVertexDescriptor(),
+	    {
+	        static_cast<uint32_t>(m_Impl->currentColorFormats[0]),
+	        static_cast<uint32_t>(m_Impl->currentColorFormats[1]),
+	        static_cast<uint32_t>(m_Impl->currentColorFormats[2]),
+	        static_cast<uint32_t>(m_Impl->currentColorFormats[3])
+	    },
+	    m_Impl->currentColorAttachmentCount,
+	    static_cast<uint32_t>(m_Impl->currentDepthFormat),
+	    m_Impl->currentPipelineState);
+
+	if (!pso) return;
+	[m_Impl->encoder setRenderPipelineState:(__bridge id<MTLRenderPipelineState>)pso];
+
+	// ── Depth-stencil state ───────────────────────────────────────────────────
+	id<MTLDepthStencilState> ds = GetOrCreateDepthState(
+	    m_Impl->device, m_Impl->depthStateCache, m_Impl->currentPipelineState);
+	[m_Impl->encoder setDepthStencilState:ds];
+
+	// ── Vertex buffers ────────────────────────────────────────────────────────
+	// Bound at [kMetalVertexBufferBase, ...) to avoid conflicting with
+	// constant buffers at [0, kMetalVertexBufferBase). Must match the
+	// bufferIndex assignments in MetalVertexArray::AddVertexBuffer().
+	const auto &vbs = metalVAO->GetVertexBuffers();
+	for (uint32_t slot = 0; slot < static_cast<uint32_t>(vbs.size()); ++slot)
+	{
+		auto *vb = AsMetal<MetalVertexBuffer>(vbs[slot]);
+		[m_Impl->encoder setVertexBuffer:(__bridge id<MTLBuffer>)vb->GetMTLBuffer()
+		                          offset:vb->GetCurrentOffset()
+		                         atIndex:kMetalVertexBufferBase + slot];
+	}
+
+	// ── Uniforms ──────────────────────────────────────────────────────────────
+	m_Impl->currentShader->FlushUniforms((__bridge void *)m_Impl->encoder);
+
+	// ── Textures ──────────────────────────────────────────────────────────────
+	// Slang MSL assigns texture indices 0-based independently of the GLSL/Vulkan
+	// binding space (where UBOs occupy the lower binding slots). Subtract the
+	// shader's textureBindingBase to map C++ slot → MSL [[texture(N)]].
+	uint32_t texBase = m_Impl->currentShader->GetTextureBindingBase();
+	for (const auto &[slot, tex] : m_Impl->boundTextures)
+	{
+		uint32_t metalSlot = (slot >= texBase) ? (slot - texBase) : slot;
+		auto *metalTex = AsMetal<MetalTexture2D>(tex);
+		[m_Impl->encoder setFragmentTexture:(__bridge id<MTLTexture>)metalTex->GetMTLTexture()
+		                            atIndex:metalSlot];
+		[m_Impl->encoder setFragmentSamplerState:(__bridge id<MTLSamplerState>)metalTex->GetMTLSamplerState()
+		                                 atIndex:metalSlot];
+	}
+
+	// ── Draw call ─────────────────────────────────────────────────────────────
+	auto *ib   = AsMetal<MetalIndexBuffer>(metalVAO->GetIndexBuffer());
+	uint32_t count = indexCount ? indexCount : ib->GetCount();
+
+	[m_Impl->encoder drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+	                            indexCount:count
+	                             indexType:MTLIndexTypeUInt32
+	                           indexBuffer:(__bridge id<MTLBuffer>)ib->GetMTLBuffer()
+	                     indexBufferOffset:0];
+}
+
+void MetalRenderCommand::DrawArrays(uint32_t /*mode*/, uint32_t first, uint32_t count)
+{
+	if (!m_Impl->encoder || !m_Impl->currentShader)
+	{
+		LOG_WARN("MetalRenderCommand::DrawArrays: no active encoder or shader");
+		return;
+	}
+
+	void *vertexDescriptor = nullptr;
+	if (m_Impl->currentVAO)
+		vertexDescriptor = m_Impl->currentVAO->GetMTLVertexDescriptor();
+
+	// Pipeline state + depth state
+	void *pso = m_Impl->currentShader->GetOrCreatePSO(
+	    (__bridge void *)m_Impl->device,
+	    vertexDescriptor,
+	    {
+	        static_cast<uint32_t>(m_Impl->currentColorFormats[0]),
+	        static_cast<uint32_t>(m_Impl->currentColorFormats[1]),
+	        static_cast<uint32_t>(m_Impl->currentColorFormats[2]),
+	        static_cast<uint32_t>(m_Impl->currentColorFormats[3])
+	    },
+	    m_Impl->currentColorAttachmentCount,
+	    static_cast<uint32_t>(m_Impl->currentDepthFormat),
+	    m_Impl->currentPipelineState);
+
+	if (!pso) return;
+	[m_Impl->encoder setRenderPipelineState:(__bridge id<MTLRenderPipelineState>)pso];
+
+	id<MTLDepthStencilState> ds = GetOrCreateDepthState(
+	    m_Impl->device, m_Impl->depthStateCache, m_Impl->currentPipelineState);
+	[m_Impl->encoder setDepthStencilState:ds];
+
+	if (m_Impl->currentVAO)
+	{
+		const auto &vbs = m_Impl->currentVAO->GetVertexBuffers();
+		for (uint32_t slot = 0; slot < static_cast<uint32_t>(vbs.size()); ++slot)
+		{
+			auto *vb = AsMetal<MetalVertexBuffer>(vbs[slot]);
+			[m_Impl->encoder setVertexBuffer:(__bridge id<MTLBuffer>)vb->GetMTLBuffer()
+			                          offset:vb->GetCurrentOffset()
+			                         atIndex:kMetalVertexBufferBase + slot];
+		}
+	}
+
+	m_Impl->currentShader->FlushUniforms((__bridge void *)m_Impl->encoder);
+
+	uint32_t texBase2 = m_Impl->currentShader->GetTextureBindingBase();
+	for (const auto &[slot, tex] : m_Impl->boundTextures)
+	{
+		uint32_t metalSlot = (slot >= texBase2) ? (slot - texBase2) : slot;
+		auto *metalTex = AsMetal<MetalTexture2D>(tex);
+		[m_Impl->encoder setFragmentTexture:(__bridge id<MTLTexture>)metalTex->GetMTLTexture()
+		                            atIndex:metalSlot];
+		[m_Impl->encoder setFragmentSamplerState:(__bridge id<MTLSamplerState>)metalTex->GetMTLSamplerState()
+		                                 atIndex:metalSlot];
+	}
+
+	[m_Impl->encoder drawPrimitives:MTLPrimitiveTypeTriangle
+	                    vertexStart:first
+	                    vertexCount:count];
+}
+
+// ─── Metal-internal ───────────────────────────────────────────────────────────
+
+void MetalRenderCommand::SetCurrentShader(MetalShader *shader)
+{
+	m_Impl->currentShader = shader;
+}
+
+void MetalRenderCommand::SetCurrentVAO(MetalVertexArray *vao)
+{
+	m_Impl->currentVAO = vao;
+}
+
+void MetalRenderCommand::BeginImGuiFrame()
+{
+	void *drawableTexture = m_Impl->drawable ? (__bridge void *)m_Impl->drawable.texture : nullptr;
+	MetalImGuiBridge::NewFrame(drawableTexture);
+}
+
+void MetalRenderCommand::RenderImGui(void *drawData)
+{
+	if (m_Impl->encoder)
+	{
+		[m_Impl->encoder endEncoding];
+		m_Impl->encoder = nil;
+	}
+
+	void *drawableTexture = m_Impl->drawable ? (__bridge void *)m_Impl->drawable.texture : nullptr;
+	MetalImGuiBridge::RenderDrawData(drawData,
+	                                 (__bridge void *)m_Impl->commandBuffer,
+	                                 drawableTexture);
+}

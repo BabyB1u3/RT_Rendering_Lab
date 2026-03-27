@@ -40,9 +40,9 @@ set(GLAB_CORE_SOURCES
     demos/tutorial/02_Triangle/Triangle.cpp
 
     gui/ImGuiLayer.cpp
-    gui/debug_panels/DebugPanel.cpp
-    gui/debug_panels/DemoSelectorPanel.cpp
-    gui/backends/MetalImGuiBridge.h
+    gui/panels/DebugPanel.cpp
+    gui/panels/DemoSelectorPanel.cpp
+    gui/backends/metal/MetalImGuiBridge.h
 )
 
 set(GLAB_CORE_HEADERS
@@ -126,76 +126,76 @@ set(GLAB_CORE_HEADERS
     demos/tutorial/02_Triangle/Triangle.h
 
     gui/ImGuiLayer.h
-    gui/debug_panels/DebugPanel.h
-    gui/debug_panels/DemoSelectorPanel.h
+    gui/panels/DebugPanel.h
+    gui/panels/DemoSelectorPanel.h
 )
 
 if(GLAB_BACKEND_OPENGL)
     list(APPEND GLAB_CORE_SOURCES
-        graphics/opengl/GLTexture2D.cpp
-        graphics/opengl/GLVertexBuffer.cpp
-        graphics/opengl/GLIndexBuffer.cpp
-        graphics/opengl/GLVertexArray.cpp
-        graphics/opengl/GLShader.cpp
-        graphics/opengl/GLFramebuffer.cpp
-        graphics/opengl/GLRenderTarget.cpp
-        graphics/opengl/GLRenderCommand.cpp
-        graphics/opengl/GLGraphicsDevice.cpp
+        graphics/backends/opengl/GLTexture2D.cpp
+        graphics/backends/opengl/GLVertexBuffer.cpp
+        graphics/backends/opengl/GLIndexBuffer.cpp
+        graphics/backends/opengl/GLVertexArray.cpp
+        graphics/backends/opengl/GLShader.cpp
+        graphics/backends/opengl/GLFramebuffer.cpp
+        graphics/backends/opengl/GLRenderTarget.cpp
+        graphics/backends/opengl/GLRenderCommand.cpp
+        graphics/backends/opengl/GLGraphicsDevice.cpp
     )
 
     list(APPEND GLAB_CORE_HEADERS
-        graphics/opengl/GLCast.h
-        graphics/opengl/GLTexture2D.h
-        graphics/opengl/GLVertexBuffer.h
-        graphics/opengl/GLIndexBuffer.h
-        graphics/opengl/GLVertexArray.h
-        graphics/opengl/GLShader.h
-        graphics/opengl/GLFramebuffer.h
-        graphics/opengl/GLRenderTarget.h
-        graphics/opengl/GLRenderCommand.h
-        graphics/opengl/GLGraphicsDevice.h
+        graphics/backends/opengl/GLCast.h
+        graphics/backends/opengl/GLTexture2D.h
+        graphics/backends/opengl/GLVertexBuffer.h
+        graphics/backends/opengl/GLIndexBuffer.h
+        graphics/backends/opengl/GLVertexArray.h
+        graphics/backends/opengl/GLShader.h
+        graphics/backends/opengl/GLFramebuffer.h
+        graphics/backends/opengl/GLRenderTarget.h
+        graphics/backends/opengl/GLRenderCommand.h
+        graphics/backends/opengl/GLGraphicsDevice.h
     )
 endif()
 
 if(WIN32)
     list(APPEND GLAB_CORE_SOURCES
-        core/diagnostics/CrashHandler_Win32.cpp
-        core/diagnostics/Callstack_Win32.cpp
+        core/diagnostics/backends/win32/CrashHandler.cpp
+        core/diagnostics/backends/win32/Callstack.cpp
     )
 else()
     list(APPEND GLAB_CORE_SOURCES
-        core/diagnostics/CrashHandler_Posix.cpp
-        core/diagnostics/Callstack_Posix.cpp
+        core/diagnostics/backends/posix/CrashHandler.cpp
+        core/diagnostics/backends/posix/Callstack.cpp
     )
 endif()
 
 if(GLAB_BACKEND_METAL)
     set(GLAB_METAL_SOURCES
-        graphics/metal/MetalGraphicsDevice.mm
-        graphics/metal/MetalRenderCommand.mm
-        graphics/metal/MetalShader.mm
-        graphics/metal/MetalVertexBuffer.mm
-        graphics/metal/MetalIndexBuffer.mm
-        graphics/metal/MetalVertexArray.mm
-        graphics/metal/MetalTexture2D.mm
-        graphics/metal/MetalFramebuffer.mm
-        graphics/metal/MetalRenderTarget.mm
-        gui/backends/MetalImGuiBridge.mm
+        graphics/backends/metal/MetalGraphicsDevice.mm
+        graphics/backends/metal/MetalRenderCommand.mm
+        graphics/backends/metal/MetalShader.mm
+        graphics/backends/metal/MetalVertexBuffer.mm
+        graphics/backends/metal/MetalIndexBuffer.mm
+        graphics/backends/metal/MetalVertexArray.mm
+        graphics/backends/metal/MetalTexture2D.mm
+        graphics/backends/metal/MetalFramebuffer.mm
+        graphics/backends/metal/MetalRenderTarget.mm
+        gui/backends/metal/MetalImGuiBridge.mm
     )
 
     set(GLAB_METAL_HEADERS
-        graphics/metal/MetalCast.h
-        graphics/metal/MetalTypes.h
-        graphics/metal/MetalGraphicsDevice.h
-        graphics/metal/MetalRenderCommand.h
-        graphics/metal/MetalShader.h
-        graphics/metal/MetalVertexBuffer.h
-        graphics/metal/MetalIndexBuffer.h
-        graphics/metal/MetalVertexArray.h
-        graphics/metal/MetalTexture2D.h
-        graphics/metal/MetalFramebuffer.h
-        graphics/metal/MetalRenderTarget.h
-        gui/backends/MetalImGuiBridge.h
+        graphics/backends/metal/MetalCast.h
+        graphics/backends/metal/MetalTypes.h
+        graphics/backends/metal/MetalGraphicsDevice.h
+        graphics/backends/metal/MetalRenderCommand.h
+        graphics/backends/metal/MetalShader.h
+        graphics/backends/metal/MetalVertexBuffer.h
+        graphics/backends/metal/MetalIndexBuffer.h
+        graphics/backends/metal/MetalVertexArray.h
+        graphics/backends/metal/MetalTexture2D.h
+        graphics/backends/metal/MetalFramebuffer.h
+        graphics/backends/metal/MetalRenderTarget.h
+        gui/backends/metal/MetalImGuiBridge.h
     )
 
     set_source_files_properties(${GLAB_METAL_SOURCES}
@@ -213,15 +213,15 @@ if(GLAB_BACKEND_OPENGL)
         ${CMAKE_CURRENT_SOURCE_DIR}/core/app/Application.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/core/input/Input.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/core/app/Window.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLFramebuffer.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLGraphicsDevice.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLIndexBuffer.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLRenderCommand.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLRenderTarget.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLShader.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLTexture2D.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLVertexArray.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLVertexBuffer.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLFramebuffer.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLGraphicsDevice.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLIndexBuffer.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLRenderCommand.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLRenderTarget.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLShader.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLTexture2D.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLVertexArray.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLVertexBuffer.cpp
         PROPERTIES
             SKIP_UNITY_BUILD_INCLUSION ON
     )

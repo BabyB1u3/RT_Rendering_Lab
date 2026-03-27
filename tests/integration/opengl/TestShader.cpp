@@ -18,8 +18,8 @@
 #include "graphics/interfaces/IRenderTarget.h"
 #include "graphics/interfaces/IShader.h"
 #include "graphics/interfaces/ITexture2D.h"
-#include "graphics/opengl/GLCast.h"
-#include "graphics/opengl/GLFramebuffer.h"
+#include "graphics/backends/opengl/GLCast.h"
+#include "graphics/backends/opengl/GLFramebuffer.h"
 
 class ShaderIntegrationTests : public ::testing::Test
 {

@@ -9,7 +9,7 @@
 #include "core/diagnostics/LogMacros.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/interfaces/IRenderCommand.h"
-#include "graphics/opengl/GLGraphicsDevice.h"
+#include "graphics/backends/opengl/GLGraphicsDevice.h"
 
 GlTestContext::GlTestContext()
 {

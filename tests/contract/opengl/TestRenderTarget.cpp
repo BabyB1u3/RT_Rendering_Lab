@@ -9,7 +9,7 @@
 #include "graphics/interfaces/IFramebuffer.h"
 #include "graphics/interfaces/IRenderTarget.h"
 #include "graphics/interfaces/ITexture2D.h"
-#include "graphics/opengl/GLRenderTarget.h"
+#include "graphics/backends/opengl/GLRenderTarget.h"
 
 class RenderTargetIntegrationTests : public ::testing::Test
 {
