@@ -39,6 +39,7 @@ function(glab_compile_shaders)
         FlatColor
         UnlitTextured
         UnlitTransformed
+        BasicLit
     )
 
     if(GLAB_BACKEND_METAL)
