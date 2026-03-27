@@ -7,7 +7,7 @@
 ///   - Create an OS window with an OpenGL context
 ///   - Initialize GLFW (once) and load GL functions via Glad
 ///   - Register an OpenGL debug callback (non-Apple platforms)
-///   - Forward framebuffer-resize events to the Application via ResizeCallback
+///   - Publish framebuffer-resize and other events via EventBus
 ///
 /// The Window does NOT own the Input system — Input is initialized separately
 /// with the native GLFW handle via Input::Initialize().
@@ -30,7 +30,7 @@ struct WindowProps
 class Window
 {
 public:
-    using ResizeCallback = std::function<void(uint32_t, uint32_t)>;
+    using RefreshCallback = std::function<void()>;
 
     explicit Window(const WindowProps &props = {});
     ~Window();
@@ -54,12 +54,13 @@ public:
     /// Return the underlying GLFW window pointer (needed by Input, ImGui, etc.).
     GLFWwindow *GetNativeHandle() const { return m_Handle; }
 
-    /// Register a callback invoked when the framebuffer is resized.
-    void SetResizeCallback(ResizeCallback callback);
+    /// Register a callback invoked when the window needs to be redrawn
+    /// (e.g., during live resize on macOS).
+    void SetRefreshCallback(RefreshCallback callback);
 
     /// Give Window a reference to the EventBus so GLFW callbacks can
     /// publish events (WindowResize, KeyPressed, MouseScrolled, etc.).
-    void SetEventBus(EventBus* bus);
+    void SetEventBus(EventBus *bus);
 
 private:
     void Init(const WindowProps &props);
@@ -70,11 +71,11 @@ private:
     void InstallCallbacks();
 
 private:
-    GLFWwindow *m_Handle = nullptr;  // Non-owning; destroyed manually in Shutdown().
+    GLFWwindow *m_Handle = nullptr; // Non-owning; destroyed manually in Shutdown().
     uint32_t m_Width = 0;
     uint32_t m_Height = 0;
     bool m_VSync = true;
 
-    ResizeCallback m_ResizeCallback;
-    EventBus* m_EventBus = nullptr;  // Non-owning. Lifetime managed by Application.
+    RefreshCallback m_RefreshCallback;
+    EventBus *m_EventBus = nullptr; // Non-owning. Lifetime managed by Application.
 };

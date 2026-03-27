@@ -5,6 +5,7 @@
 #include <GLFW/glfw3.h>
 
 #include "core/FileSystem.h"
+#include "core/event/Events.h"
 #include "core/input/Input.h"
 #include "core/Logger.h"
 #include "core/Time.h"
@@ -35,8 +36,18 @@ Application::Application(const ApplicationSpecification &spec)
     props.VSync = spec.VSync;
 
     m_Window = CreateScope<Window>(props);
-    m_Window->SetResizeCallback([this](uint32_t width, uint32_t height)
-                                { OnWindowResize(width, height); });
+    m_Window->SetRefreshCallback([this]()
+                                 {
+        m_FrameRenderedThisTick = true;
+        Time::Update(glfwGetTime());
+        if (!m_Minimized)
+            RenderFrame(); });
+
+    // Subscribe to resize events BEFORE SetEventBus() installs the GLFW callbacks
+    // that publish them, so no event is missed.
+    m_ResizeConnection = m_EventBus.Subscribe<WindowResizeEvent>(
+        [this](const WindowResizeEvent &e)
+        { OnWindowResize(e.Width, e.Height); });
     m_Window->SetEventBus(&m_EventBus);
 
 #ifdef GLAB_BACKEND_METAL
@@ -64,6 +75,32 @@ Application::~Application()
     s_Instance = nullptr;
 }
 
+void Application::RenderFrame()
+{
+    // P1: Begin frame — Metal/Vulkan create command buffer here.
+    RenderCommand::BeginFrame();
+
+    // Phase 1: logic update (input, physics, animation, etc.)
+    for (auto &layer : m_LayerStack)
+        layer->OnUpdate(Time::GetDeltaTime());
+
+    // Phase 2: GPU draw calls (scene rendering)
+    for (auto &layer : m_LayerStack)
+        layer->OnRender();
+
+    // Phase 3: ImGui pass — Begin/End bracket all OnImGuiRender() calls
+    // so that ImGui's NewFrame/Render are issued exactly once per frame.
+    m_ImGuiLayer->Begin();
+    for (auto &layer : m_LayerStack)
+        layer->OnImGuiRender();
+    m_ImGuiLayer->End();
+
+    // P1: End frame — Metal/Vulkan commit command buffer and present here.
+    RenderCommand::EndFrame();
+
+    m_Window->SwapBuffers();
+}
+
 void Application::Run()
 {
     while (m_Running && !m_Window->ShouldClose())
@@ -76,31 +113,12 @@ void Application::Run()
 
         // Skip all layer processing while minimized — no visible surface to render to,
         // and some drivers return a 0×0 framebuffer which would cause GL errors.
-        if (!m_Minimized)
-        {
-            // P1: Begin frame — Metal/Vulkan create command buffer here.
-            RenderCommand::BeginFrame();
+        // Also skip if the window refresh callback already rendered a frame this tick
+        // (happens on macOS during live resize).
+        if (!m_Minimized && !m_FrameRenderedThisTick)
+            RenderFrame();
 
-            // Phase 1: logic update (input, physics, animation, etc.)
-            for (auto &layer : m_LayerStack)
-                layer->OnUpdate(Time::GetDeltaTime());
-
-            // Phase 2: GPU draw calls (scene rendering)
-            for (auto &layer : m_LayerStack)
-                layer->OnRender();
-
-            // Phase 3: ImGui pass — Begin/End bracket all OnImGuiRender() calls
-            // so that ImGui's NewFrame/Render are issued exactly once per frame.
-            m_ImGuiLayer->Begin();
-            for (auto &layer : m_LayerStack)
-                layer->OnImGuiRender();
-            m_ImGuiLayer->End();
-
-            // P1: End frame — Metal/Vulkan commit command buffer and present here.
-            RenderCommand::EndFrame();
-        }
-
-        m_Window->SwapBuffers();
+        m_FrameRenderedThisTick = false;
     }
 }
 

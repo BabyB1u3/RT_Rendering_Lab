@@ -20,6 +20,7 @@
 
 #include "core/Base.h"
 #include "core/event/EventBus.h"
+#include "core/event/ScopedConnection.h"
 #include "core/app/Window.h"
 #include "core/app/LayerStack.h"
 
@@ -62,6 +63,9 @@ public:
 private:
     /// Handles window resize: updates viewport and notifies all layers.
     void OnWindowResize(uint32_t width, uint32_t height);
+    /// Render one full frame (update → render → ImGui). Called from Run() and
+    /// the window refresh callback (macOS live resize).
+    void RenderFrame();
 
 private:
     // Non-owning singleton-style pointer. Lifetime is managed externally by the actual Application object.
@@ -75,4 +79,9 @@ private:
 
     bool m_Running = true;
     bool m_Minimized = false;
+    // Set to true when the window refresh callback already rendered a frame
+    // so that the main loop can skip the redundant render for that tick.
+    bool m_FrameRenderedThisTick = false;
+
+    ScopedConnection m_ResizeConnection;
 };

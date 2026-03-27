@@ -253,6 +253,21 @@ class ShaderResolver
 };
 ```
 
+These named enums are good candidates for shared `magic_enum`-backed helpers once
+materials become config/preset/editor data:
+- `ShadingModel` / `BlendMode`: straightforward serialization tokens, debug strings,
+  and inspector drop-down population.
+- `MaterialFeatureFlag`: likely needs a custom flags serializer/UI helper rather than
+  raw single-token enum conversion, but still benefits from centralized enum metadata.
+
+Adoption timing: this is a **later wave** after the dependency has already been introduced
+and proven out in `InputActionMap` serialization and simpler engine-facing enums such as
+renderer/debug/app settings.
+
+User-facing labels should remain an explicit presentation concern. If editor text or
+asset tokens must differ from C++ enumerator spellings, add a thin mapping layer on
+top of the enum helper rather than exposing raw identifiers directly.
+
 #### Step 4: Slang Interface-Based Variants (Replaces #ifdef Permutations)
 
 **Trigger**: Combinatorial explosion of feature flags.
