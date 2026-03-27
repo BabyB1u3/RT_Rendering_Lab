@@ -12,14 +12,14 @@
 #include "graphics/MeshFactory.h"
 #include "graphics/RenderCommand.h"
 #include "graphics/RenderTypes.h"
-#include "graphics/interface/IFramebuffer.h"
-#include "graphics/interface/IRenderTarget.h"
-#include "graphics/interface/IShader.h"
-#include "graphics/interface/ITexture2D.h"
-#include "graphics/interface/IVertexArray.h"
-#include "graphics/interface/IVertexBuffer.h"
-#include "graphics/opengl/GLCast.h"
-#include "graphics/opengl/GLFramebuffer.h"
+#include "graphics/interfaces/IFramebuffer.h"
+#include "graphics/interfaces/IRenderTarget.h"
+#include "graphics/interfaces/IShader.h"
+#include "graphics/interfaces/ITexture2D.h"
+#include "graphics/interfaces/IVertexArray.h"
+#include "graphics/interfaces/IVertexBuffer.h"
+#include "graphics/backends/opengl/GLCast.h"
+#include "graphics/backends/opengl/GLFramebuffer.h"
 
 class RenderResultsIntegrationTests : public ::testing::Test
 {

@@ -21,7 +21,7 @@ namespace Serialization
     class PropertyTree
     {
     public:
-        // ── Supported value types ────────────────────────────────────────
+        // --- Supported value types ---
         using Null = std::monostate;
         using Bool = bool;
         using Int = int64_t;
@@ -32,7 +32,7 @@ namespace Serialization
 
         using Value = std::variant<Null, Bool, Int, Float, String, Array, Object>;
 
-        // ── Construction ─────────────────────────────────────────────────
+        // --- Construction ---
         PropertyTree() = default;
         PropertyTree(std::nullptr_t);
         PropertyTree(bool v);
@@ -45,7 +45,7 @@ namespace Serialization
         PropertyTree(Array v);
         PropertyTree(Object v);
 
-        // ── Type queries ─────────────────────────────────────────────────
+        // --- Type queries ---
         bool IsNull() const;
         bool IsBool() const;
         bool IsInt() const;
@@ -57,7 +57,7 @@ namespace Serialization
         /// True if the value is numeric (Int or Float).
         bool IsNumber() const;
 
-        // ── Typed access (throws std::bad_variant_access on mismatch) ────
+        // --- Typed access (throws std::bad_variant_access on mismatch) ------
         Bool AsBool() const;
         Int AsInt() const;
         Float AsFloat() const; // also accepts Int and promotes
@@ -69,28 +69,28 @@ namespace Serialization
         Array &AsArray();
         Object &AsObject();
 
-        // ── Object helpers ───────────────────────────────────────────────
+        // --- Object helpers ---
         bool Contains(const std::string &key) const;
         const PropertyTree &operator[](const std::string &key) const;
         PropertyTree &operator[](const std::string &key);
 
-        /// Get a child value with fallback — never throws.
+        /// Get a child value with fallback - never throws.
         template <typename T>
         T GetOr(const std::string &key, const T &fallback) const;
 
-        // ── Array helpers ────────────────────────────────────────────────
+        // --- Array helpers ---------------
         size_t Size() const; // Array or Object size
         const PropertyTree &operator[](size_t index) const;
         PropertyTree &operator[](size_t index);
 
-        // ── Direct value access ──────────────────────────────────────────
+        // --- Direct value access ------
         const Value &GetValue() const { return m_Value; }
 
     private:
         Value m_Value;
     };
 
-    // ── Template implementation ──────────────────────────────────────────
+    // --- Template implementation ------
 
     template <typename T>
     T PropertyTree::GetOr(const std::string &key, const T &fallback) const

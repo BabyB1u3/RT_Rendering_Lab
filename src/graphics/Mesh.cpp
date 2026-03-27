@@ -2,9 +2,9 @@
 
 #include "core/diagnostics/Assert.h"
 #include "graphics/GraphicsDevice.h"
-#include "graphics/interface/IIndexBuffer.h"
-#include "graphics/interface/IVertexArray.h"
-#include "graphics/interface/IVertexBuffer.h"
+#include "graphics/interfaces/IIndexBuffer.h"
+#include "graphics/interfaces/IVertexArray.h"
+#include "graphics/interfaces/IVertexBuffer.h"
 
 Mesh::Mesh(const void *vertexData,
            uint32_t vertexBufferSize,

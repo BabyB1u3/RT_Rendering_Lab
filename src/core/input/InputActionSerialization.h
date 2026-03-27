@@ -14,6 +14,8 @@
 /// Key::Code and Mouse::Code continue to use InputNames.h for stable canonical names.
 
 #include "core/serialization/BuiltinTraits.h"
+#include "core/diagnostics/LogCategories.h"
+#include "core/diagnostics/LogMacros.h"
 #include "core/input/InputAction.h"
 #include "core/input/InputNames.h"
 
@@ -151,8 +153,8 @@ namespace Serialization
 
                         if (!codeName.empty())
                         {
-                            LOG_WARN("InputActionMap: unknown {} '{}' in action '{}'",
-                                     typeName.empty() ? "key" : typeName, codeName, name);
+                            LOG_WARN_CAT(LogCategory::Input, "InputActionMap: unknown {} '{}' in action '{}'",
+                                         typeName.empty() ? "key" : typeName, codeName, name);
                         }
                         continue;
                     }
@@ -186,8 +188,8 @@ namespace Serialization
 
                     if (posCode == Key::InvalidCode || negCode == Key::InvalidCode)
                     {
-                        LOG_WARN("InputActionMap: invalid KeyPair axis '{}' (positive='{}', negative='{}')",
-                                 name, posName, negName);
+                        LOG_WARN_CAT(LogCategory::Input, "InputActionMap: invalid KeyPair axis '{}' (positive='{}', negative='{}')",
+                                     name, posName, negName);
                         continue;
                     }
                     temp.BindAxis(name, posCode, negCode);
@@ -201,7 +203,7 @@ namespace Serialization
                 }
                 else
                 {
-                    LOG_WARN("InputActionMap: unknown axis kind '{}' for '{}'", kindStr, name);
+                    LOG_WARN_CAT(LogCategory::Input, "InputActionMap: unknown axis kind '{}' for '{}'", kindStr, name);
                 }
             }
         }

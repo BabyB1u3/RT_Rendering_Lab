@@ -42,6 +42,8 @@ public:
     void PopLayer(Layer *layer);
     /// Remove an overlay. Calls OnDetach() and releases ownership.
     void PopOverlay(Layer *overlay);
+    /// Detach and destroy all layers immediately.
+    void Clear();
 
     auto begin() { return m_Layers.begin(); }
     auto end() { return m_Layers.end(); }

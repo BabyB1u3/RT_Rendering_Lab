@@ -3,14 +3,15 @@
 #include <imgui.h>
 
 #include "core/diagnostics/Assert.h"
+#include "core/diagnostics/LogCategories.h"
 #include "core/diagnostics/LogMacros.h"
 #include "graphics/Buffers.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/RenderCommand.h"
-#include "graphics/interface/IRenderTarget.h"
-#include "graphics/interface/IShader.h"
-#include "graphics/interface/IVertexArray.h"
-#include "graphics/interface/IVertexBuffer.h"
+#include "graphics/interfaces/IRenderTarget.h"
+#include "graphics/interfaces/IShader.h"
+#include "graphics/interfaces/IVertexArray.h"
+#include "graphics/interfaces/IVertexBuffer.h"
 
 // NDC triangle — position (x, y, z) + color (r, g, b) per vertex.
 // clang-format off
@@ -30,7 +31,7 @@ Triangle::Triangle(uint32_t width, uint32_t height)
 
 void Triangle::OnAttach()
 {
-    LOG_INFO("Triangle demo attached");
+    LOG_INFO_CAT(LogCategory::Demo, "Triangle demo attached");
 
     m_BackBuffer = GetDevice()->CreateRenderTargetBackBuffer(m_ViewportWidth, m_ViewportHeight);
 
@@ -57,7 +58,7 @@ void Triangle::OnDetach()
     m_VBO.reset();
     m_Shader.reset();
     m_BackBuffer.reset();
-    LOG_INFO("Triangle demo detached");
+    LOG_INFO_CAT(LogCategory::Demo, "Triangle demo detached");
 }
 
 void Triangle::OnRender()

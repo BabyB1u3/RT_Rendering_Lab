@@ -48,7 +48,3 @@
         }                                                               \
     } while (0)
 
-#define ERR_FAIL_COND(condition) ERR_FAIL_COND_CAT(LogCategory::Error, condition)
-#define ERR_FAIL_COND_V(condition, retval) ERR_FAIL_COND_V_CAT(LogCategory::Error, condition, retval)
-#define ERR_FAIL_COND_MSG(condition, message) ERR_FAIL_COND_MSG_CAT(LogCategory::Error, condition, message)
-#define ERR_FAIL_COND_V_MSG(condition, retval, message) ERR_FAIL_COND_V_MSG_CAT(LogCategory::Error, condition, retval, message)

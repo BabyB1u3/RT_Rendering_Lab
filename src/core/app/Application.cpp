@@ -4,6 +4,8 @@
 
 #include "core/FileSystem.h"
 #include "core/diagnostics/Assert.h"
+#include "core/diagnostics/CrashHandler.h"
+#include "core/diagnostics/FrameFormatter.h"
 #include "core/diagnostics/LogCategories.h"
 #include "core/diagnostics/LogMacros.h"
 #include "core/diagnostics/Logger.h"
@@ -14,9 +16,9 @@
 #include "graphics/GraphicsDevice.h"
 #include "graphics/RenderCommand.h"
 #ifdef GLAB_BACKEND_METAL
-#include "graphics/metal/MetalGraphicsDevice.h"
+#include "graphics/backends/metal/MetalGraphicsDevice.h"
 #else
-#include "graphics/opengl/GLGraphicsDevice.h"
+#include "graphics/backends/opengl/GLGraphicsDevice.h"
 #endif
 
 Application *Application::s_Instance = nullptr;
@@ -25,9 +27,10 @@ Application::Application(const ApplicationSpecification &spec)
 {
     FileSystem::Init();
     Diagnostics::Logger::Init(FileSystem::GetSavedPath("logs/RTRLab.log"));
+    Diagnostics::CrashHandler::Init();
     LOG_INFO_CAT(LogCategory::FileSystem, "FileSystem initialized - root: {}", FileSystem::GetRootPath().string());
     LOG_INFO_CAT(LogCategory::FileSystem, "Saved directory: {}", FileSystem::GetSavedDir().string());
-    LOG_INFO("Starting application: {}", spec.Name);
+    LOG_INFO_CAT(LogCategory::Core, "Starting application: {}", spec.Name);
 
     RTRLAB_ASSERT_MSG(!s_Instance, "Application already exists.");
 
@@ -68,19 +71,26 @@ Application::Application(const ApplicationSpecification &spec)
     m_ImGuiLayer = imguiLayer.get();
     PushOverlay(std::move(imguiLayer));
 
-    LOG_INFO("Application initialized");
+    LOG_INFO_CAT(LogCategory::Core, "Application initialized");
 }
 
 Application::~Application()
 {
-    LOG_INFO("Application shutting down");
+    LOG_INFO_CAT(LogCategory::Core, "Application shutting down");
+
+    m_LayerStack.Clear();
+    m_ImGuiLayer = nullptr;
+    m_Window.reset();
+
     Diagnostics::Logger::Shutdown();
     s_Instance = nullptr;
 }
 
 void Application::RenderFrame()
 {
-    // P1: Begin frame — Metal/Vulkan create command buffer here.
+    Diagnostics::IncrementFrameNumber();
+
+    // P1: Begin frame - Metal/Vulkan create command buffer here.
     RenderCommand::BeginFrame();
 
     // Phase 1: logic update (input, physics, animation, etc.)
@@ -91,14 +101,14 @@ void Application::RenderFrame()
     for (auto &layer : m_LayerStack)
         layer->OnRender();
 
-    // Phase 3: ImGui pass — Begin/End bracket all OnImGuiRender() calls
+    // Phase 3: ImGui pass - Begin/End bracket all OnImGuiRender() calls
     // so that ImGui's NewFrame/Render are issued exactly once per frame.
     m_ImGuiLayer->Begin();
     for (auto &layer : m_LayerStack)
         layer->OnImGuiRender();
     m_ImGuiLayer->End();
 
-    // P1: End frame — Metal/Vulkan commit command buffer and present here.
+    // P1: End frame - Metal/Vulkan commit command buffer and present here.
     RenderCommand::EndFrame();
 
     m_Window->SwapBuffers();
@@ -114,8 +124,8 @@ void Application::Run()
         const double currentTime = glfwGetTime();
         Time::Update(currentTime);
 
-        // Skip all layer processing while minimized — no visible surface to render to,
-        // and some drivers return a 0×0 framebuffer which would cause GL errors.
+        // Skip all layer processing while minimized - no visible surface to render to,
+        // and some drivers return a 0x0 framebuffer which would cause GL errors.
         // Also skip if the window refresh callback already rendered a frame this tick
         // (happens on macOS during live resize).
         if (!m_Minimized && !m_FrameRenderedThisTick)

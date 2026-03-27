@@ -8,6 +8,7 @@
 
 #include "core/serialization/SerializationTraits.h"
 #include "core/serialization/JsonBackend.h"
+#include "core/diagnostics/LogCategories.h"
 #include "core/diagnostics/LogMacros.h"
 
 #include <filesystem>
@@ -43,8 +44,8 @@ namespace Serialization
             std::filesystem::create_directories(path.parent_path(), ec);
             if (ec)
             {
-                LOG_ERROR("Serialization: failed to create directories for '{}': {}",
-                          path.string(), ec.message());
+                LOG_ERROR_CAT(LogCategory::Serialization, "Serialization: failed to create directories for '{}': {}",
+                              path.string(), ec.message());
                 return false;
             }
         }
@@ -52,7 +53,7 @@ namespace Serialization
         std::ofstream file(path);
         if (!file.is_open())
         {
-            LOG_ERROR("Serialization: failed to open '{}' for writing", path.string());
+            LOG_ERROR_CAT(LogCategory::Serialization, "Serialization: failed to open '{}' for writing", path.string());
             return false;
         }
 
@@ -85,7 +86,7 @@ namespace Serialization
         PropertyTree tree;
         if (!backend.ReadFromString(data, tree))
         {
-            LOG_ERROR("Serialization: failed to parse '{}'", path.string());
+            LOG_ERROR_CAT(LogCategory::Serialization, "Serialization: failed to parse '{}'", path.string());
             return false;
         }
 
@@ -93,7 +94,7 @@ namespace Serialization
         T temp{};
         if (!Deserialize(tree, temp))
         {
-            LOG_ERROR("Serialization: failed to deserialize '{}'", path.string());
+            LOG_ERROR_CAT(LogCategory::Serialization, "Serialization: failed to deserialize '{}'", path.string());
             return false;
         }
 

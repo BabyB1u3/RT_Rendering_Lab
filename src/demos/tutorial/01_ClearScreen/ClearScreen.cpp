@@ -2,10 +2,11 @@
 
 #include <imgui.h>
 
-#include "core/Logger.h"
+#include "core/diagnostics/LogCategories.h"
+#include "core/diagnostics/LogMacros.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/RenderCommand.h"
-#include "graphics/interface/IRenderTarget.h"
+#include "graphics/interfaces/IRenderTarget.h"
 
 ClearScreen::ClearScreen(uint32_t width, uint32_t height)
     : m_ViewportWidth(width),
@@ -15,14 +16,14 @@ ClearScreen::ClearScreen(uint32_t width, uint32_t height)
 
 void ClearScreen::OnAttach()
 {
-    LOG_INFO("ClearScreen demo attached");
+    LOG_INFO_CAT(LogCategory::Demo, "ClearScreen demo attached");
     m_BackBuffer = GetDevice()->CreateRenderTargetBackBuffer(m_ViewportWidth, m_ViewportHeight);
 }
 
 void ClearScreen::OnDetach()
 {
     m_BackBuffer.reset();
-    LOG_INFO("ClearScreen demo detached");
+    LOG_INFO_CAT(LogCategory::Demo, "ClearScreen demo detached");
 }
 
 void ClearScreen::OnRender()

@@ -1,17 +1,26 @@
 #include "core/diagnostics/Logger.h"
 
+#include <chrono>
 #include <filesystem>
 #include <mutex>
+#include <spdlog/async.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
+#include "core/diagnostics/FrameFormatter.h"
+#include "core/diagnostics/ImGuiConsoleSink.h"
+#include "core/diagnostics/JsonLineSink.h"
 #include "core/diagnostics/LogCategories.h"
 
 namespace Diagnostics
 {
 
     std::vector<spdlog::sink_ptr> Logger::s_Sinks;
+    Ref<ImGuiConsoleSink> Logger::s_ConsoleSink;
+    Ref<JsonLineSink> Logger::s_JsonSink;
+    bool Logger::s_JsonSinkEnabled = false;
+    std::filesystem::path Logger::s_JsonFilePath;
     spdlog::level::level_enum Logger::s_GlobalLevel = spdlog::level::trace;
 
     namespace
@@ -22,6 +31,16 @@ namespace Diagnostics
         std::filesystem::path g_LogFilePath;
         constexpr size_t kMaxLogFileSizeBytes = 1024 * 1024;
         constexpr size_t kMaxLogFiles = 3;
+
+        std::filesystem::path DeriveJsonLogPath(const std::filesystem::path &logFilePath)
+        {
+            if (logFilePath.empty())
+                return {};
+
+            auto jsonPath = logFilePath;
+            jsonPath.replace_extension(".jsonl");
+            return jsonPath;
+        }
     }
 
     void Logger::Init(const std::filesystem::path &logFilePath)
@@ -34,21 +53,36 @@ namespace Diagnostics
         std::filesystem::create_directories(g_LogFilePath.parent_path());
 
         auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+        consoleSink->set_pattern("[%T] [%n] [%^%l%$] %v");
+
         auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
             g_LogFilePath.string(),
             kMaxLogFileSizeBytes,
             kMaxLogFiles);
+        auto fileFormatter = std::make_unique<spdlog::pattern_formatter>();
+        fileFormatter->add_flag<FrameFlag>('@');
+        fileFormatter->set_pattern("[%Y-%m-%d %T.%e] [%t] [F%@] [%n] [%l] %v");
+        fileSink->set_formatter(std::move(fileFormatter));
 
-        s_Sinks = {consoleSink, fileSink};
+        s_ConsoleSink = std::make_shared<ImGuiConsoleSink>();
+        s_JsonSink = std::make_shared<JsonLineSink>();
+
+        s_Sinks = {consoleSink, fileSink, s_ConsoleSink, s_JsonSink};
         g_Initialized = true;
-        auto coreLogger = CreateRef<spdlog::logger>(
+
+        spdlog::init_thread_pool(8192, 1);
+
+        auto coreLogger = std::make_shared<spdlog::async_logger>(
             LogCategory::Core,
             s_Sinks.begin(),
-            s_Sinks.end());
+            s_Sinks.end(),
+            spdlog::thread_pool(),
+            spdlog::async_overflow_policy::overrun_oldest);
         coreLogger->set_level(s_GlobalLevel);
         coreLogger->flush_on(spdlog::level::err);
-        coreLogger->set_pattern("[%T] [%n] [%^%l%$] %v");
         spdlog::register_logger(coreLogger);
+
+        spdlog::flush_every(std::chrono::seconds(3));
     }
 
     void Logger::Flush()
@@ -61,9 +95,21 @@ namespace Diagnostics
     void Logger::Shutdown()
     {
         std::lock_guard<std::mutex> lock(g_LoggerMutex);
-        spdlog::apply_all([](const std::shared_ptr<spdlog::logger> &logger)
-                          { logger->flush(); });
-        spdlog::drop_all();
+        if (!g_Initialized)
+            return;
+
+        // spdlog::shutdown() synchronously drains the async queue, flushes all
+        // sinks, stops the thread pool and periodic flusher, then drops all
+        // loggers.  It must run BEFORE we close any sink files or release sink
+        // pointers, otherwise queued messages could be lost.
+        spdlog::shutdown();
+
+        if (s_JsonSink)
+            s_JsonSink->Disable();
+        s_JsonSink.reset();
+        s_JsonSinkEnabled = false;
+        s_JsonFilePath.clear();
+        s_ConsoleSink.reset();
         s_Sinks.clear();
         g_LogFilePath.clear();
         g_Initialized = false;
@@ -81,15 +127,31 @@ namespace Diagnostics
         if (auto existing = spdlog::get(category))
             return existing;
 
-        auto logger = CreateRef<spdlog::logger>(
+        auto logger = std::make_shared<spdlog::async_logger>(
             category,
             s_Sinks.begin(),
-            s_Sinks.end());
+            s_Sinks.end(),
+            spdlog::thread_pool(),
+            spdlog::async_overflow_policy::overrun_oldest);
         logger->set_level(s_GlobalLevel);
         logger->flush_on(spdlog::level::err);
-        logger->set_pattern("[%T] [%n] [%^%l%$] %v");
         spdlog::register_logger(logger);
         return logger;
+    }
+
+    std::filesystem::path Logger::GetLogFilePath()
+    {
+        std::lock_guard<std::mutex> lock(g_LoggerMutex);
+        return g_LogFilePath;
+    }
+
+    bool Logger::HasLogger(const char *category)
+    {
+        if (!category)
+            return false;
+
+        std::lock_guard<std::mutex> lock(g_LoggerMutex);
+        return g_Initialized && spdlog::get(category) != nullptr;
     }
 
     void Logger::SetLevel(const char *category, spdlog::level::level_enum level)
@@ -108,6 +170,76 @@ namespace Diagnostics
 
         spdlog::apply_all([level](const std::shared_ptr<spdlog::logger> &logger)
                           { logger->set_level(level); });
+    }
+
+    Ref<ImGuiConsoleSink> Logger::GetConsoleSink()
+    {
+        return s_ConsoleSink;
+    }
+
+    bool Logger::IsJsonSinkEnabled()
+    {
+        std::lock_guard<std::mutex> lock(g_LoggerMutex);
+        return g_Initialized && s_JsonSinkEnabled;
+    }
+
+    std::filesystem::path Logger::GetDefaultJsonLogPath()
+    {
+        std::lock_guard<std::mutex> lock(g_LoggerMutex);
+        return DeriveJsonLogPath(g_LogFilePath);
+    }
+
+    std::filesystem::path Logger::GetJsonSinkPath()
+    {
+        std::lock_guard<std::mutex> lock(g_LoggerMutex);
+        return s_JsonFilePath;
+    }
+
+    void Logger::EnableJsonSink(const std::filesystem::path &filePath)
+    {
+        std::lock_guard<std::mutex> lock(g_LoggerMutex);
+        if (!g_Initialized || !s_JsonSink)
+            return;
+
+        const auto resolvedPath = filePath.empty() ? DeriveJsonLogPath(g_LogFilePath) : filePath;
+        if (resolvedPath.empty())
+            return;
+
+        if (s_JsonSinkEnabled)
+        {
+            if (s_JsonFilePath == resolvedPath)
+                return;
+
+            s_JsonSink->RequestReopen(resolvedPath);
+            spdlog::apply_all([](const std::shared_ptr<spdlog::logger> &logger)
+                              { logger->flush(); });
+            s_JsonFilePath = resolvedPath;
+            return;
+        }
+
+        s_JsonSink->Enable(resolvedPath);
+        s_JsonSinkEnabled = true;
+        s_JsonFilePath = resolvedPath;
+    }
+
+    void Logger::DisableJsonSink()
+    {
+        std::lock_guard<std::mutex> lock(g_LoggerMutex);
+        if (!s_JsonSink || !s_JsonSinkEnabled)
+            return;
+
+        s_JsonSink->RequestDisable();
+        spdlog::apply_all([](const std::shared_ptr<spdlog::logger> &logger)
+                          { logger->flush(); });
+        s_JsonSinkEnabled = false;
+        s_JsonFilePath.clear();
+    }
+
+    double GetMonotonicSeconds()
+    {
+        using clock = std::chrono::steady_clock;
+        static const auto s_Start = clock::now();
+        return std::chrono::duration<double>(clock::now() - s_Start).count();
     }
 
 } // namespace Diagnostics

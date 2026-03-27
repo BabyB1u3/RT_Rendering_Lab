@@ -95,7 +95,7 @@ TEST(FileSystemContractTests, ResolveConfigPathReturnsEmptyWhenConfigIsMissing)
     EXPECT_TRUE(resolved.empty());
 }
 
-// ── Error path tests ─────────────────────────────────────────────────
+// --- Error path tests ---
 
 TEST(FileSystemContractTests, ReadTextFileReturnsNulloptOnMissingFile)
 {

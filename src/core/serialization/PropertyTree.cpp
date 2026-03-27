@@ -5,7 +5,7 @@
 namespace Serialization
 {
 
-    // ── Construction ─────────────────────────────────────────────────────
+    // --- Construction ---
 
     PropertyTree::PropertyTree(std::nullptr_t) : m_Value(Null{}) {}
     PropertyTree::PropertyTree(bool v) : m_Value(v) {}
@@ -18,7 +18,7 @@ namespace Serialization
     PropertyTree::PropertyTree(Array v) : m_Value(std::move(v)) {}
     PropertyTree::PropertyTree(Object v) : m_Value(std::move(v)) {}
 
-    // ── Type queries ─────────────────────────────────────────────────────
+    // --- Type queries ---
 
     bool PropertyTree::IsNull() const { return std::holds_alternative<Null>(m_Value); }
     bool PropertyTree::IsBool() const { return std::holds_alternative<Bool>(m_Value); }
@@ -29,7 +29,7 @@ namespace Serialization
     bool PropertyTree::IsObject() const { return std::holds_alternative<Object>(m_Value); }
     bool PropertyTree::IsNumber() const { return IsInt() || IsFloat(); }
 
-    // ── Typed access ─────────────────────────────────────────────────────
+    // --- Typed access ---
 
     PropertyTree::Bool PropertyTree::AsBool() const
     {
@@ -45,7 +45,7 @@ namespace Serialization
 
     PropertyTree::Float PropertyTree::AsFloat() const
     {
-        // Promote Int → Float transparently
+        // Promote Int -> Float transparently
         if (IsInt())
             return static_cast<Float>(std::get<Int>(m_Value));
         RTRLAB_ASSERT_MSG(IsFloat(), "PropertyTree::AsFloat requires a numeric value");
@@ -82,7 +82,7 @@ namespace Serialization
         return std::get<Object>(m_Value);
     }
 
-    // ── Object helpers ───────────────────────────────────────────────────
+    // --- Object helpers ---
 
     bool PropertyTree::Contains(const std::string &key) const
     {
@@ -110,7 +110,7 @@ namespace Serialization
         return std::get<Object>(m_Value)[key];
     }
 
-    // ── Array helpers ────────────────────────────────────────────────────
+    // --- Array helpers ---
 
     size_t PropertyTree::Size() const
     {

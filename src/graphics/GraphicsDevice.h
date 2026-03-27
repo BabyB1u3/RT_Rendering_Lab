@@ -11,7 +11,7 @@
 /// GetDevice() asserts non-null - crash-early if called before init.
 
 #include "core/Base.h"
-#include "graphics/interface/IGraphicsDevice.h"
+#include "graphics/interfaces/IGraphicsDevice.h"
 
 /// Set the active graphics device. Does not initialize rendering state.
 void SetDevice(Ref<IGraphicsDevice> device);

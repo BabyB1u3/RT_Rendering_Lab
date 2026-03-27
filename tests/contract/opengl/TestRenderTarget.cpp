@@ -6,10 +6,10 @@
 #include "graphics/GraphicsDevice.h"
 #include "graphics/RenderCommand.h"
 #include "graphics/RenderTypes.h"
-#include "graphics/interface/IFramebuffer.h"
-#include "graphics/interface/IRenderTarget.h"
-#include "graphics/interface/ITexture2D.h"
-#include "graphics/opengl/GLRenderTarget.h"
+#include "graphics/interfaces/IFramebuffer.h"
+#include "graphics/interfaces/IRenderTarget.h"
+#include "graphics/interfaces/ITexture2D.h"
+#include "graphics/backends/opengl/GLRenderTarget.h"
 
 class RenderTargetIntegrationTests : public ::testing::Test
 {

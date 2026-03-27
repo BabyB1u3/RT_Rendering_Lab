@@ -2,21 +2,18 @@
 
 #include <algorithm>
 
-#include "core/Logger.h"
+#include "core/diagnostics/LogCategories.h"
+#include "core/diagnostics/LogMacros.h"
 
 LayerStack::~LayerStack()
 {
-    for (auto &layer : m_Layers)
-    {
-        if (layer)
-            layer->OnDetach();
-    }
+    Clear();
 }
 
 Layer *LayerStack::PushLayer(Scope<Layer> layer)
 {
     Layer *raw = layer.get();
-    LOG_TRACE("Pushing layer: {}", raw->GetName());
+    LOG_TRACE_CAT(LogCategory::Core, "Pushing layer: {}", raw->GetName());
     m_Layers.emplace(m_Layers.begin() + static_cast<std::ptrdiff_t>(m_LayerInsertIndex), std::move(layer));
     ++m_LayerInsertIndex;
     raw->OnAttach();
@@ -26,7 +23,7 @@ Layer *LayerStack::PushLayer(Scope<Layer> layer)
 Layer *LayerStack::PushOverlay(Scope<Layer> overlay)
 {
     Layer *raw = overlay.get();
-    LOG_TRACE("Pushing overlay: {}", raw->GetName());
+    LOG_TRACE_CAT(LogCategory::Core, "Pushing overlay: {}", raw->GetName());
     m_Layers.emplace_back(std::move(overlay));
     raw->OnAttach();
     return raw;
@@ -57,4 +54,16 @@ void LayerStack::PopOverlay(Layer *overlay)
         (*it)->OnDetach();
         m_Layers.erase(it);
     }
+}
+
+void LayerStack::Clear()
+{
+    for (auto &layer : m_Layers)
+    {
+        if (layer)
+            layer->OnDetach();
+    }
+
+    m_Layers.clear();
+    m_LayerInsertIndex = 0;
 }

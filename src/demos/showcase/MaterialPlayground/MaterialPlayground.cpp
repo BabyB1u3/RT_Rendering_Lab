@@ -5,14 +5,15 @@
 #include <imgui.h>
 
 #include "core/FileSystem.h"
-#include "core/Logger.h"
+#include "core/diagnostics/LogCategories.h"
+#include "core/diagnostics/LogMacros.h"
 #include "core/input/InputActionSerialization.h"
 #include "core/serialization/Serialization.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/Material.h"
 #include "graphics/MeshFactory.h"
 #include "graphics/Texture.h"
-#include "graphics/interface/ITexture2D.h"
+#include "graphics/interfaces/ITexture2D.h"
 #include "renderer/RenderItem.h"
 
 MaterialPlayground::MaterialPlayground(uint32_t width, uint32_t height)
@@ -25,7 +26,7 @@ MaterialPlayground::MaterialPlayground(uint32_t width, uint32_t height)
 
 void MaterialPlayground::OnAttach()
 {
-    LOG_INFO("MaterialPlayground demo attached");
+    LOG_INFO_CAT(LogCategory::Demo, "MaterialPlayground demo attached");
     m_Renderer = CreateScope<SceneRenderer>(m_ViewportWidth, m_ViewportHeight);
 
     m_Camera.SetPosition({0.0f, 3.0f, 10.0f});
@@ -99,7 +100,7 @@ void MaterialPlayground::OnAttach()
 
 void MaterialPlayground::OnDetach()
 {
-    LOG_INFO("MaterialPlayground demo detached");
+    LOG_INFO_CAT(LogCategory::Demo, "MaterialPlayground demo detached");
     m_Scene.RenderItems.clear();
     m_Spheres.clear();
     m_FloorMaterial.reset();

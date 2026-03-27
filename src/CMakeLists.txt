@@ -1,4 +1,4 @@
-﻿set(GLAB_CORE_SOURCES
+set(GLAB_CORE_SOURCES
     core/app/Application.cpp
     core/FileSystem.cpp
     core/input/Input.cpp
@@ -8,7 +8,11 @@
     core/app/Layer.cpp
     core/app/LayerStack.cpp
     core/diagnostics/Assert.cpp
+    core/diagnostics/CrashHandler.cpp
     core/diagnostics/Debugger.cpp
+    core/diagnostics/FrameFormatter.cpp
+    core/diagnostics/ImGuiConsoleSink.cpp
+    core/diagnostics/JsonLineSink.cpp
     core/diagnostics/Logger.cpp
     core/serialization/PropertyTree.cpp
     core/serialization/JsonBackend.cpp
@@ -39,9 +43,10 @@
     demos/tutorial/02_Triangle/Triangle.cpp
 
     gui/ImGuiLayer.cpp
-    gui/Panels/DebugPanel.cpp
-    gui/Panels/DemoSelectorPanel.cpp
-    gui/MetalImGuiBridge.h
+    gui/panels/ConsolePanel.cpp
+    gui/panels/DebugPanel.cpp
+    gui/panels/DemoSelectorPanel.cpp
+    gui/backends/metal/MetalImGuiBridge.h
 )
 
 set(GLAB_CORE_HEADERS
@@ -60,12 +65,15 @@ set(GLAB_CORE_HEADERS
     core/app/Layer.h
     core/app/LayerStack.h
     core/input/MouseCode.h
-    core/Logger.h
     core/diagnostics/Assert.h
     core/diagnostics/Callstack.h
+    core/diagnostics/CrashHandler.h
     core/diagnostics/Debugger.h
     core/diagnostics/ErrorMacros.h
     core/diagnostics/LogCategories.h
+    core/diagnostics/FrameFormatter.h
+    core/diagnostics/ImGuiConsoleSink.h
+    core/diagnostics/JsonLineSink.h
     core/diagnostics/Logger.h
     core/diagnostics/LogMacros.h
     core/serialization/PropertyTree.h
@@ -88,16 +96,16 @@ set(GLAB_CORE_HEADERS
 
     graphics/GraphicsDevice.h
 
-    graphics/interface/ITexture2D.h
-    graphics/interface/IVertexBuffer.h
-    graphics/interface/IIndexBuffer.h
-    graphics/interface/IVertexArray.h
-    graphics/interface/IShader.h
-    graphics/interface/IFramebuffer.h
-    graphics/interface/IRenderTarget.h
-    graphics/interface/IRenderCommand.h
-    graphics/interface/IGraphicsDevice.h
-    graphics/interface/GraphicsInterfaces.h
+    graphics/interfaces/ITexture2D.h
+    graphics/interfaces/IVertexBuffer.h
+    graphics/interfaces/IIndexBuffer.h
+    graphics/interfaces/IVertexArray.h
+    graphics/interfaces/IShader.h
+    graphics/interfaces/IFramebuffer.h
+    graphics/interfaces/IRenderTarget.h
+    graphics/interfaces/IRenderCommand.h
+    graphics/interfaces/IGraphicsDevice.h
+    graphics/interfaces/GraphicsInterfaces.h
 
     renderer/RenderContext.h
     renderer/RenderItem.h
@@ -124,74 +132,77 @@ set(GLAB_CORE_HEADERS
     demos/tutorial/02_Triangle/Triangle.h
 
     gui/ImGuiLayer.h
-    gui/Panels/DebugPanel.h
-    gui/Panels/DemoSelectorPanel.h
+    gui/panels/ConsolePanel.h
+    gui/panels/DebugPanel.h
+    gui/panels/DemoSelectorPanel.h
 )
 
 if(GLAB_BACKEND_OPENGL)
     list(APPEND GLAB_CORE_SOURCES
-        graphics/opengl/GLTexture2D.cpp
-        graphics/opengl/GLVertexBuffer.cpp
-        graphics/opengl/GLIndexBuffer.cpp
-        graphics/opengl/GLVertexArray.cpp
-        graphics/opengl/GLShader.cpp
-        graphics/opengl/GLFramebuffer.cpp
-        graphics/opengl/GLRenderTarget.cpp
-        graphics/opengl/GLRenderCommand.cpp
-        graphics/opengl/GLGraphicsDevice.cpp
+        graphics/backends/opengl/GLTexture2D.cpp
+        graphics/backends/opengl/GLVertexBuffer.cpp
+        graphics/backends/opengl/GLIndexBuffer.cpp
+        graphics/backends/opengl/GLVertexArray.cpp
+        graphics/backends/opengl/GLShader.cpp
+        graphics/backends/opengl/GLFramebuffer.cpp
+        graphics/backends/opengl/GLRenderTarget.cpp
+        graphics/backends/opengl/GLRenderCommand.cpp
+        graphics/backends/opengl/GLGraphicsDevice.cpp
     )
 
     list(APPEND GLAB_CORE_HEADERS
-        graphics/opengl/GLCast.h
-        graphics/opengl/GLTexture2D.h
-        graphics/opengl/GLVertexBuffer.h
-        graphics/opengl/GLIndexBuffer.h
-        graphics/opengl/GLVertexArray.h
-        graphics/opengl/GLShader.h
-        graphics/opengl/GLFramebuffer.h
-        graphics/opengl/GLRenderTarget.h
-        graphics/opengl/GLRenderCommand.h
-        graphics/opengl/GLGraphicsDevice.h
+        graphics/backends/opengl/GLCast.h
+        graphics/backends/opengl/GLTexture2D.h
+        graphics/backends/opengl/GLVertexBuffer.h
+        graphics/backends/opengl/GLIndexBuffer.h
+        graphics/backends/opengl/GLVertexArray.h
+        graphics/backends/opengl/GLShader.h
+        graphics/backends/opengl/GLFramebuffer.h
+        graphics/backends/opengl/GLRenderTarget.h
+        graphics/backends/opengl/GLRenderCommand.h
+        graphics/backends/opengl/GLGraphicsDevice.h
     )
 endif()
 
 if(WIN32)
     list(APPEND GLAB_CORE_SOURCES
-        core/diagnostics/Callstack_Win32.cpp
+        core/diagnostics/backends/win32/CrashHandler.cpp
+        core/diagnostics/backends/win32/Callstack.cpp
     )
 else()
     list(APPEND GLAB_CORE_SOURCES
-        core/diagnostics/Callstack_Posix.cpp
+        core/diagnostics/backends/posix/CrashHandler.cpp
+        core/diagnostics/backends/posix/Callstack.cpp
     )
 endif()
 
 if(GLAB_BACKEND_METAL)
     set(GLAB_METAL_SOURCES
-        graphics/metal/MetalGraphicsDevice.mm
-        graphics/metal/MetalRenderCommand.mm
-        graphics/metal/MetalShader.mm
-        graphics/metal/MetalVertexBuffer.mm
-        graphics/metal/MetalIndexBuffer.mm
-        graphics/metal/MetalVertexArray.mm
-        graphics/metal/MetalTexture2D.mm
-        graphics/metal/MetalFramebuffer.mm
-        graphics/metal/MetalRenderTarget.mm
-        gui/MetalImGuiBridge.mm
+        graphics/backends/metal/MetalGraphicsDevice.mm
+        graphics/backends/metal/MetalRenderCommand.mm
+        graphics/backends/metal/MetalShader.mm
+        graphics/backends/metal/MetalVertexBuffer.mm
+        graphics/backends/metal/MetalIndexBuffer.mm
+        graphics/backends/metal/MetalVertexArray.mm
+        graphics/backends/metal/MetalTexture2D.mm
+        graphics/backends/metal/MetalFramebuffer.mm
+        graphics/backends/metal/MetalRenderTarget.mm
+        gui/backends/metal/MetalImGuiBridge.mm
     )
 
     set(GLAB_METAL_HEADERS
-        graphics/metal/MetalCast.h
-        graphics/metal/MetalTypes.h
-        graphics/metal/MetalGraphicsDevice.h
-        graphics/metal/MetalRenderCommand.h
-        graphics/metal/MetalShader.h
-        graphics/metal/MetalVertexBuffer.h
-        graphics/metal/MetalIndexBuffer.h
-        graphics/metal/MetalVertexArray.h
-        graphics/metal/MetalTexture2D.h
-        graphics/metal/MetalFramebuffer.h
-        graphics/metal/MetalRenderTarget.h
-        gui/MetalImGuiBridge.h
+        graphics/backends/metal/MetalCast.h
+        graphics/backends/metal/MetalTypes.h
+        graphics/backends/metal/MetalGraphicsDevice.h
+        graphics/backends/metal/MetalRenderCommand.h
+        graphics/backends/metal/MetalShader.h
+        graphics/backends/metal/MetalVertexBuffer.h
+        graphics/backends/metal/MetalIndexBuffer.h
+        graphics/backends/metal/MetalVertexArray.h
+        graphics/backends/metal/MetalTexture2D.h
+        graphics/backends/metal/MetalFramebuffer.h
+        graphics/backends/metal/MetalRenderTarget.h
+        gui/backends/metal/MetalImGuiBridge.h
     )
 
     set_source_files_properties(${GLAB_METAL_SOURCES}
@@ -209,17 +220,23 @@ if(GLAB_BACKEND_OPENGL)
         ${CMAKE_CURRENT_SOURCE_DIR}/core/app/Application.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/core/input/Input.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/core/app/Window.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLFramebuffer.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLGraphicsDevice.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLIndexBuffer.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLRenderCommand.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLRenderTarget.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLShader.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLTexture2D.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLVertexArray.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/opengl/GLVertexBuffer.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLFramebuffer.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLGraphicsDevice.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLIndexBuffer.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLRenderCommand.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLRenderTarget.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLShader.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLTexture2D.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLVertexArray.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLVertexBuffer.cpp
         PROPERTIES
             SKIP_UNITY_BUILD_INCLUSION ON
+    )
+endif()
+
+if(WIN32)
+    target_link_libraries(RTRLabCore PUBLIC
+        dbghelp
     )
 endif()
 
@@ -272,6 +289,9 @@ target_compile_definitions(RTRLabCore PUBLIC
     GLAB_ASSET_DIR="assets"
     $<$<CONFIG:Debug>:GLAB_ROOT_DIR="${CMAKE_SOURCE_DIR}">
     $<$<CONFIG:Debug>:GLAB_SHADER_BUILD_DIR="${CMAKE_BINARY_DIR}/shaders">
+    $<$<CONFIG:Debug>:RTRLAB_LOG_MIN_LEVEL=0>
+    $<$<CONFIG:Release>:RTRLAB_LOG_MIN_LEVEL=2>
+    $<$<CONFIG:RelWithDebInfo>:RTRLAB_LOG_MIN_LEVEL=1>
 )
 
 if(GLAB_ENABLE_PCH)
@@ -349,7 +369,7 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES
 )
 
 # ============================================================================
-# Install rules — `cmake --install . --prefix <dir>` produces a self-contained
+# Install rules - `cmake --install . --prefix <dir>` produces a self-contained
 # deployable directory with no compile-time absolute paths required.
 # ============================================================================
 install(TARGETS RTRLab RUNTIME DESTINATION .)
@@ -359,6 +379,6 @@ install(DIRECTORY ${CMAKE_SOURCE_DIR}/assets/
         DESTINATION assets
         PATTERN "*.slang" EXCLUDE)
 
-# Compiled shaders (Slang → GLSL / SPIR-V / MSL) merged under assets/
+# Compiled shaders (Slang -> GLSL / SPIR-V / MSL) merged under assets/
 install(DIRECTORY ${CMAKE_BINARY_DIR}/shaders/
         DESTINATION assets/shaders/compiled)

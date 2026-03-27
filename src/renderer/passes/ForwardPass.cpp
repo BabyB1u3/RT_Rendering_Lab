@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 
 #include "core/diagnostics/Assert.h"
+#include "core/diagnostics/LogCategories.h"
 #include "core/diagnostics/LogMacros.h"
 #include "graphics/Framebuffer.h"
 #include "graphics/GraphicsDevice.h"
@@ -12,10 +13,10 @@
 #include "graphics/Mesh.h"
 #include "graphics/RenderCommand.h"
 #include "graphics/Texture.h"
-#include "graphics/interface/IFramebuffer.h"
-#include "graphics/interface/IRenderTarget.h"
-#include "graphics/interface/IShader.h"
-#include "graphics/interface/ITexture2D.h"
+#include "graphics/interfaces/IFramebuffer.h"
+#include "graphics/interfaces/IRenderTarget.h"
+#include "graphics/interfaces/IShader.h"
+#include "graphics/interfaces/ITexture2D.h"
 #include "renderer/RenderContext.h"
 #include "renderer/RenderItem.h"
 #include "scene/Camera.h"
@@ -153,7 +154,7 @@ void ForwardPass::Execute(const RenderContext &ctx)
     {
         if (!item.Mesh || !item.Material)
         {
-            LOG_WARN("ForwardPass: skipping RenderItem with null Mesh or Material");
+            LOG_WARN_CAT(LogCategory::Renderer, "ForwardPass: skipping RenderItem with null Mesh or Material");
             continue;
         }
 

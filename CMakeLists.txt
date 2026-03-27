@@ -40,6 +40,13 @@ option(GLAB_ENABLE_UNITY_BUILD "Enable unity builds for local C++ targets" OFF)
 option(GLAB_ENABLE_MSVC_MP "Enable MSVC multi-processor compilation (/MP)" ON)
 option(GLAB_BUILD_IMGUI_DEMO "Build Dear ImGui demo translation unit" OFF)
 
+if(MSVC)
+    string(APPEND CMAKE_C_FLAGS_RELEASE " /Zi")
+    string(APPEND CMAKE_CXX_FLAGS_RELEASE " /Zi")
+    string(APPEND CMAKE_EXE_LINKER_FLAGS_RELEASE " /DEBUG")
+    string(APPEND CMAKE_SHARED_LINKER_FLAGS_RELEASE " /DEBUG")
+endif()
+
 if(APPLE)
     set(GLAB_BACKEND_METAL ON)
     set(GLAB_BACKEND_OPENGL OFF)

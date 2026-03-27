@@ -1,7 +1,7 @@
 #include "Material.h"
 
-#include "graphics/interface/IShader.h"
-#include "graphics/interface/ITexture2D.h"
+#include "graphics/interfaces/IShader.h"
+#include "graphics/interfaces/ITexture2D.h"
 
 void Material::SetTexture(TextureSlot slot, const Ref<ITexture2D> &texture)
 {

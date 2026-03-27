@@ -5,14 +5,15 @@
 #include <glm/glm.hpp>
 
 #include "core/diagnostics/Assert.h"
+#include "core/diagnostics/LogCategories.h"
 #include "core/diagnostics/LogMacros.h"
 #include "graphics/Framebuffer.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/Mesh.h"
 #include "graphics/RenderCommand.h"
-#include "graphics/interface/IFramebuffer.h"
-#include "graphics/interface/IRenderTarget.h"
-#include "graphics/interface/IShader.h"
+#include "graphics/interfaces/IFramebuffer.h"
+#include "graphics/interfaces/IRenderTarget.h"
+#include "graphics/interfaces/IShader.h"
 #include "renderer/RenderContext.h"
 #include "renderer/RenderItem.h"
 #include "scene/SceneData.h"
@@ -95,7 +96,7 @@ void ShadowPass::Execute(const RenderContext &ctx)
     {
         if (!item.Mesh || !item.Material)
         {
-            LOG_WARN("ShadowPass: skipping RenderItem with null Mesh or Material");
+            LOG_WARN_CAT(LogCategory::Renderer, "ShadowPass: skipping RenderItem with null Mesh or Material");
             continue;
         }
 
