@@ -101,52 +101,14 @@ void ForwardPass::Execute(const RenderContext &ctx)
     const auto &scene = ctx.View.Scene;
 
     m_Shader->Bind();
-
-    // Slang UBO layout (binding 0, std140, row_major):
-    //   mat4 u_ViewProjection       offset   0
-    //   mat4 u_Model                offset  64
-    //   mat4 u_NormalMatrix         offset 128
-    //   mat4 u_LightViewProjection  offset 192
-    //   vec3 u_CameraPosition       offset 256  (+ 4 pad)
-    //   vec3 u_LightDirection       offset 272  (+ 4 pad)
-    //   vec3 u_LightColor           offset 288
-    //   float u_LightIntensity      offset 300
-    //   vec3 u_Albedo               offset 304
-    //   float u_SpecularPower       offset 316
-    //   float u_AmbientStrength     offset 320
-    //   bool(int) u_UseAlbedoMap    offset 324
-    //   vec2 u_ShadowMapTexelSize   offset 328
-    struct alignas(16) ForwardParams
-    {
-        glm::mat4 ViewProjection;      // 0
-        glm::mat4 Model;               // 64
-        glm::mat4 NormalMatrix;        // 128
-        glm::mat4 LightViewProjection; // 192
-        glm::vec3 CameraPosition;      // 256
-        float _pad0{};                 // 268
-        glm::vec3 LightDirection;      // 272
-        float _pad1{};                 // 284
-        glm::vec3 LightColor;          // 288
-        float LightIntensity;          // 300
-        glm::vec3 Albedo;              // 304
-        float SpecularPower;           // 316
-        float AmbientStrength;         // 320
-        int32_t UseAlbedoMap;          // 324  (std140 bool = 4 bytes)
-        glm::vec2 ShadowMapTexelSize;  // 328
-    };
-
-    ForwardParams params{};
-    params.ViewProjection = camera.GetViewProjection();
-    params.LightViewProjection = ctx.Resources.LightViewProjection;
-    params.CameraPosition = camera.GetPosition();
-    params.LightDirection = scene.MainDirectionalLight.Direction;
-    params.LightColor = scene.MainDirectionalLight.Color;
-    params.LightIntensity = scene.MainDirectionalLight.Intensity;
+    const ShaderUniformBlockLayout *blockLayout = m_Shader->GetUniformBlockLayout(0);
+    RTRLAB_ASSERT_MSG(blockLayout,
+                      "ForwardPass: shader must provide reflected layout for uniform block binding 0.");
 
     // P4: Explicit texture binding - shadow map at slot 1
     const auto &shadow = ctx.Resources.ShadowMap ? ctx.Resources.ShadowMap : m_FallbackShadowMap;
     RenderCommand::SetTexture(1, shadow);
-    params.ShadowMapTexelSize = {
+    const glm::vec2 shadowMapTexelSize = {
         1.0f / static_cast<float>(shadow->GetWidth()),
         1.0f / static_cast<float>(shadow->GetHeight())};
 
@@ -159,27 +121,43 @@ void ForwardPass::Execute(const RenderContext &ctx)
         }
 
         glm::mat4 model = item.Transform.GetMatrix();
-        params.Model = model;
-        params.NormalMatrix = glm::transpose(glm::inverse(model));
+        const glm::mat4 normalMatrix = glm::transpose(glm::inverse(model));
 
         // Read material properties
-        params.Albedo = item.Material->GetVec3("u_Albedo", glm::vec3(1.0f));
-        params.SpecularPower = item.Material->GetFloat("u_SpecularPower", 32.0f);
-        params.AmbientStrength = item.Material->GetFloat("u_AmbientStrength", 0.1f);
+        const glm::vec3 albedo = item.Material->GetVec3("u_Albedo", glm::vec3(1.0f));
+        const float specularPower = item.Material->GetFloat("u_SpecularPower", 32.0f);
+        const float ambientStrength = item.Material->GetFloat("u_AmbientStrength", 0.1f);
 
         auto albedoTex = item.Material->GetTexture(TextureSlot::Albedo);
+        const int32_t useAlbedoMap = albedoTex ? 1 : 0;
         if (albedoTex)
         {
             // P4: Explicit texture binding - albedo at slot 2
             RenderCommand::SetTexture(2, albedoTex);
-            params.UseAlbedoMap = 1;
-        }
-        else
-        {
-            params.UseAlbedoMap = 0;
         }
 
-        m_Shader->SetUniformBlock(0, &params, sizeof(params));
+        PackedUniformBlock block(*blockLayout);
+        auto requireWrite = [&](const char *fieldName, const auto &value)
+        {
+            RTRLAB_ASSERTF(block.Write(fieldName, value), "{}", block.GetLastError());
+        };
+
+        requireWrite("u_ViewProjection", camera.GetViewProjection());
+        requireWrite("u_Model", model);
+        requireWrite("u_NormalMatrix", normalMatrix);
+        requireWrite("u_LightViewProjection", ctx.Resources.LightViewProjection);
+        requireWrite("u_CameraPosition", camera.GetPosition());
+        requireWrite("u_LightDirection", scene.MainDirectionalLight.Direction);
+        requireWrite("u_LightColor", scene.MainDirectionalLight.Color);
+        requireWrite("u_LightIntensity", scene.MainDirectionalLight.Intensity);
+        requireWrite("u_Albedo", albedo);
+        requireWrite("u_SpecularPower", specularPower);
+        requireWrite("u_AmbientStrength", ambientStrength);
+        requireWrite("u_UseAlbedoMap", useAlbedoMap);
+        requireWrite("u_ShadowMapTexelSize", shadowMapTexelSize);
+
+        m_Shader->SetUniformBlock(0, block.Data(), block.Size());
+
         RenderCommand::DrawIndexed(item.Mesh->GetVertexArray());
     }
 

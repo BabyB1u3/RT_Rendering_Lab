@@ -79,18 +79,9 @@ void ShadowPass::Execute(const RenderContext &ctx)
     RenderCommand::SetViewport(0, 0, m_RenderTarget->GetWidth(), m_RenderTarget->GetHeight());
 
     m_Shader->Bind();
-
-    // Slang UBO layout (binding 0, std140):
-    //   mat4 u_LightViewProjection  (offset  0, 64 bytes)
-    //   mat4 u_Model                (offset 64, 64 bytes)
-    struct alignas(16) ShadowParams
-    {
-        glm::mat4 LightViewProjection;
-        glm::mat4 Model;
-    };
-
-    ShadowParams params{};
-    params.LightViewProjection = ctx.Resources.LightViewProjection;
+    const ShaderUniformBlockLayout *blockLayout = m_Shader->GetUniformBlockLayout(0);
+    RTRLAB_ASSERT_MSG(blockLayout,
+                      "ShadowPass: shader must provide reflected layout for uniform block binding 0.");
 
     for (const auto &item : ctx.View.Scene.RenderItems)
     {
@@ -100,8 +91,18 @@ void ShadowPass::Execute(const RenderContext &ctx)
             continue;
         }
 
-        params.Model = item.Transform.GetMatrix();
-        m_Shader->SetUniformBlock(0, &params, sizeof(params));
+        const glm::mat4 model = item.Transform.GetMatrix();
+
+        PackedUniformBlock block(*blockLayout);
+        auto requireWrite = [&](const char *fieldName, const auto &value)
+        {
+            RTRLAB_ASSERTF(block.Write(fieldName, value), "{}", block.GetLastError());
+        };
+
+        requireWrite("u_LightViewProjection", ctx.Resources.LightViewProjection);
+        requireWrite("u_Model", model);
+        m_Shader->SetUniformBlock(0, block.Data(), block.Size());
+
         RenderCommand::DrawIndexed(item.Mesh->GetVertexArray());
     }
 
