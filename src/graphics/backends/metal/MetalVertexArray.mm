@@ -2,7 +2,8 @@
 
 #import <Metal/Metal.h>
 
-#include "core/Logger.h"
+#include "core/diagnostics/LogCategories.h"
+#include "core/diagnostics/LogMacros.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/Buffers.h"
 #include "graphics/backends/metal/MetalCast.h"
@@ -45,7 +46,7 @@ void MetalVertexArray::AddVertexBuffer(const Ref<IVertexBuffer> &vb)
 	const BufferLayout &layout = vb->GetLayout();
 	if (layout.GetElements().empty())
 	{
-		LOG_WARN("MetalVertexArray::AddVertexBuffer: vertex buffer has no layout");
+		LOG_WARN_CAT(LogCategory::Graphics, "MetalVertexArray::AddVertexBuffer: vertex buffer has no layout");
 		return;
 	}
 

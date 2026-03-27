@@ -6,7 +6,8 @@
 #include <array>
 #include <unordered_map>
 
-#include "core/Logger.h"
+#include "core/diagnostics/LogCategories.h"
+#include "core/diagnostics/LogMacros.h"
 #include "graphics/Framebuffer.h"
 #include "graphics/RenderTypes.h"
 #include "graphics/interfaces/IFramebuffer.h"
@@ -226,7 +227,7 @@ void MetalRenderCommand::BeginRenderPass(const Ref<IRenderTarget> &target,
 	m_Impl->encoder = [m_Impl->commandBuffer renderCommandEncoderWithDescriptor:rpDesc];
 	if (!m_Impl->encoder)
 	{
-		LOG_ERROR("MetalRenderCommand: failed to create MTLRenderCommandEncoder");
+		LOG_ERROR_CAT(LogCategory::Graphics, "MetalRenderCommand: failed to create MTLRenderCommandEncoder");
 		return;
 	}
 
@@ -301,7 +302,7 @@ void MetalRenderCommand::DrawIndexed(const Ref<IVertexArray> &vao, uint32_t inde
 {
 	if (!m_Impl->encoder || !m_Impl->currentShader)
 	{
-		LOG_WARN("MetalRenderCommand::DrawIndexed: no active encoder or shader");
+		LOG_WARN_CAT(LogCategory::Graphics, "MetalRenderCommand::DrawIndexed: no active encoder or shader");
 		return;
 	}
 
@@ -314,7 +315,7 @@ void MetalRenderCommand::DrawIndexed(const Ref<IVertexArray> &vao, uint32_t inde
 
 	if (!metalVAO)
 	{
-		LOG_WARN("MetalRenderCommand::DrawIndexed: no active vertex array");
+		LOG_WARN_CAT(LogCategory::Graphics, "MetalRenderCommand::DrawIndexed: no active vertex array");
 		return;
 	}
 
@@ -386,7 +387,7 @@ void MetalRenderCommand::DrawArrays(uint32_t /*mode*/, uint32_t first, uint32_t 
 {
 	if (!m_Impl->encoder || !m_Impl->currentShader)
 	{
-		LOG_WARN("MetalRenderCommand::DrawArrays: no active encoder or shader");
+		LOG_WARN_CAT(LogCategory::Graphics, "MetalRenderCommand::DrawArrays: no active encoder or shader");
 		return;
 	}
 

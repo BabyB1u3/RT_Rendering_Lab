@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 
 #include "core/diagnostics/Assert.h"
+#include "core/diagnostics/LogCategories.h"
 #include "core/diagnostics/LogMacros.h"
 #include "graphics/Framebuffer.h"
 #include "graphics/GraphicsDevice.h"
@@ -153,7 +154,7 @@ void ForwardPass::Execute(const RenderContext &ctx)
     {
         if (!item.Mesh || !item.Material)
         {
-            LOG_WARN("ForwardPass: skipping RenderItem with null Mesh or Material");
+            LOG_WARN_CAT(LogCategory::Renderer, "ForwardPass: skipping RenderItem with null Mesh or Material");
             continue;
         }
 

@@ -6,7 +6,8 @@
 #include <cstring>
 #include <stdexcept>
 
-#include "core/Logger.h"
+#include "core/diagnostics/LogCategories.h"
+#include "core/diagnostics/LogMacros.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/backends/metal/MetalCast.h"
 #include "graphics/backends/metal/MetalGraphicsDevice.h"
@@ -87,7 +88,7 @@ int MetalFramebuffer::ReadPixel(uint32_t attachmentIndex, int x, int y) const
 void MetalFramebuffer::ClearAttachment(uint32_t /*attachmentIndex*/, int /*value*/)
 {
 	// Clearing is done through MTLRenderPassDescriptor load actions in BeginRenderPass.
-	LOG_WARN("MetalFramebuffer::ClearAttachment: not implemented (use RenderPassDescriptor clear instead)");
+	LOG_WARN_CAT(LogCategory::Graphics, "MetalFramebuffer::ClearAttachment: not implemented (use RenderPassDescriptor clear instead)");
 }
 
 // ─── Private ──────────────────────────────────────────────────────────────────
@@ -110,5 +111,5 @@ void MetalFramebuffer::Invalidate()
 			m_ColorAttachments.push_back(MetalTexture2D::CreateRenderTarget(texSpec));
 	}
 
-	LOG_TRACE("MetalFramebuffer: invalidated ({}x{})", m_Spec.Width, m_Spec.Height);
+	LOG_TRACE_CAT(LogCategory::Graphics, "MetalFramebuffer: invalidated ({}x{})", m_Spec.Width, m_Spec.Height);
 }

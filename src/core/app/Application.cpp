@@ -30,7 +30,7 @@ Application::Application(const ApplicationSpecification &spec)
     Diagnostics::CrashHandler::Init();
     LOG_INFO_CAT(LogCategory::FileSystem, "FileSystem initialized - root: {}", FileSystem::GetRootPath().string());
     LOG_INFO_CAT(LogCategory::FileSystem, "Saved directory: {}", FileSystem::GetSavedDir().string());
-    LOG_INFO("Starting application: {}", spec.Name);
+    LOG_INFO_CAT(LogCategory::Core, "Starting application: {}", spec.Name);
 
     RTRLAB_ASSERT_MSG(!s_Instance, "Application already exists.");
 
@@ -71,12 +71,12 @@ Application::Application(const ApplicationSpecification &spec)
     m_ImGuiLayer = imguiLayer.get();
     PushOverlay(std::move(imguiLayer));
 
-    LOG_INFO("Application initialized");
+    LOG_INFO_CAT(LogCategory::Core, "Application initialized");
 }
 
 Application::~Application()
 {
-    LOG_INFO("Application shutting down");
+    LOG_INFO_CAT(LogCategory::Core, "Application shutting down");
 
     m_LayerStack.Clear();
     m_ImGuiLayer = nullptr;

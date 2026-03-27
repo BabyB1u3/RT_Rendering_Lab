@@ -257,7 +257,7 @@ void ConsolePanel::ExecuteCommand(const std::string &command)
     else if (token == "log.flush")
     {
         Diagnostics::Logger::Flush();
-        LOG_INFO("Flushed all sinks");
+        LOG_INFO_CAT(LogCategory::ImGui, "Flushed all sinks");
     }
     else if (token == "log.level")
     {
@@ -266,30 +266,30 @@ void ConsolePanel::ExecuteCommand(const std::string &command)
 
         if (target.empty() || levelStr.empty())
         {
-            LOG_WARN("Usage: log.level <category|*> <level>");
+            LOG_WARN_CAT(LogCategory::ImGui, "Usage: log.level <category|*> <level>");
             return;
         }
 
         auto level = ParseLevel(levelStr);
         if (!level)
         {
-            LOG_WARN("Unknown log level: {}", levelStr);
+            LOG_WARN_CAT(LogCategory::ImGui, "Unknown log level: {}", levelStr);
             return;
         }
 
         if (target == "*")
         {
             Diagnostics::Logger::SetGlobalLevel(*level);
-            LOG_INFO("Global log level set to {}", magic_enum::enum_name(*level));
+            LOG_INFO_CAT(LogCategory::ImGui, "Global log level set to {}", magic_enum::enum_name(*level));
         }
         else if (CanAddressCategoryFromConsole(target))
         {
             Diagnostics::Logger::SetLevel(target.c_str(), *level);
-            LOG_INFO("Log level for '{}' set to {}", target, magic_enum::enum_name(*level));
+            LOG_INFO_CAT(LogCategory::ImGui, "Log level for '{}' set to {}", target, magic_enum::enum_name(*level));
         }
         else
         {
-            LOG_WARN("Unknown category: '{}'. No logger registered with that name.", target);
+            LOG_WARN_CAT(LogCategory::ImGui, "Unknown category: '{}'. No logger registered with that name.", target);
         }
     }
     else if (token == "log.filter")
@@ -301,7 +301,7 @@ void ConsolePanel::ExecuteCommand(const std::string &command)
         {
             m_CategoryFilter = 0;
             m_CommandCategoryFilter.clear();
-            LOG_INFO("Category filter cleared");
+            LOG_INFO_CAT(LogCategory::ImGui, "Category filter cleared");
         }
         else if (CanAddressCategoryFromConsole(target))
         {
@@ -316,15 +316,15 @@ void ConsolePanel::ExecuteCommand(const std::string &command)
                 m_CommandCategoryFilter = target;
             }
 
-            LOG_INFO("Category filter set to '{}'", target);
+            LOG_INFO_CAT(LogCategory::ImGui, "Category filter set to '{}'", target);
         }
         else
         {
-            LOG_WARN("Unknown category: {}", target);
+            LOG_WARN_CAT(LogCategory::ImGui, "Unknown category: {}", target);
         }
     }
     else
     {
-        LOG_WARN("Unknown command: {}", token);
+        LOG_WARN_CAT(LogCategory::ImGui, "Unknown command: {}", token);
     }
 }

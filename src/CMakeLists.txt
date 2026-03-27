@@ -65,7 +65,6 @@ set(GLAB_CORE_HEADERS
     core/app/Layer.h
     core/app/LayerStack.h
     core/input/MouseCode.h
-    core/Logger.h
     core/diagnostics/Assert.h
     core/diagnostics/Callstack.h
     core/diagnostics/CrashHandler.h

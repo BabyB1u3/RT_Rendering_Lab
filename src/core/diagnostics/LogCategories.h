@@ -17,12 +17,13 @@ namespace LogCategory
     constexpr const char *Window = "Window";
     constexpr const char *ImGui = "ImGui";
     constexpr const char *Demo = "Demo";
+    constexpr const char *Serialization = "Serialization";
     constexpr const char *Assert = "Assert";
     constexpr const char *Ensure = "Ensure";
     constexpr const char *Error = "Error";
     constexpr const char *Crash = "Crash";
 
-    inline constexpr std::array<const char *, 13> KnownCategories = {
+    inline constexpr std::array<const char *, 14> KnownCategories = {
         Core,
         Graphics,
         Renderer,
@@ -32,6 +33,7 @@ namespace LogCategory
         Window,
         ImGui,
         Demo,
+        Serialization,
         Assert,
         Ensure,
         Error,

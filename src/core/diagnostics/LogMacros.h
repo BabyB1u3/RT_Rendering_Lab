@@ -1,7 +1,7 @@
 #pragma once
 
 /// @file LogMacros.h
-/// @brief Category-aware logging macros with backward-compatible legacy aliases.
+/// @brief Category-aware logging macros with compile-time level stripping.
 ///
 /// Compile-time level stripping via RTRLAB_LOG_MIN_LEVEL:
 ///   0 = Trace (default Debug), 1 = Debug, 2 = Info (default Release),
@@ -70,15 +70,6 @@
 #define LOG_CRITICAL_CAT(category, ...) ((void)0)
 #endif
 
-// --- Legacy macros (route to "Core" category for backward compatibility) ---
-
-#define LOG_TRACE(...) LOG_TRACE_CAT(LogCategory::Core, __VA_ARGS__)
-#define LOG_DEBUG(...) LOG_DEBUG_CAT(LogCategory::Core, __VA_ARGS__)
-#define LOG_INFO(...) LOG_INFO_CAT(LogCategory::Core, __VA_ARGS__)
-#define LOG_WARN(...) LOG_WARN_CAT(LogCategory::Core, __VA_ARGS__)
-#define LOG_ERROR(...) LOG_ERROR_CAT(LogCategory::Core, __VA_ARGS__)
-#define LOG_CRITICAL(...) LOG_CRITICAL_CAT(LogCategory::Core, __VA_ARGS__)
-
 // --- LOG_*_ONCE: log only on the FIRST occurrence at each call site ---
 
 #define LOG_WARN_ONCE_CAT(category, ...)                                      \
@@ -104,9 +95,6 @@
             LOG_ERROR_CAT(category, __VA_ARGS__);                              \
         }                                                                      \
     } while (0)
-
-#define LOG_WARN_ONCE(...) LOG_WARN_ONCE_CAT(LogCategory::Core, __VA_ARGS__)
-#define LOG_ERROR_ONCE(...) LOG_ERROR_ONCE_CAT(LogCategory::Core, __VA_ARGS__)
 
 // --- LOG_*_THROTTLE: log at most once per intervalSeconds at each call site ---
 
@@ -143,9 +131,6 @@
             }                                                                  \
         }                                                                      \
     } while (0)
-
-#define LOG_WARN_THROTTLE(interval, ...) LOG_WARN_THROTTLE_CAT(LogCategory::Core, interval, __VA_ARGS__)
-#define LOG_ERROR_THROTTLE(interval, ...) LOG_ERROR_THROTTLE_CAT(LogCategory::Core, interval, __VA_ARGS__)
 
 // --- LOG_*_COND: log only when condition is true ---
 

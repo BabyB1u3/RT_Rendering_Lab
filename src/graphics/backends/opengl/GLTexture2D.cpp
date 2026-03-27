@@ -7,6 +7,7 @@
 
 #include "core/diagnostics/Assert.h"
 #include "core/diagnostics/ErrorMacros.h"
+#include "core/diagnostics/LogCategories.h"
 #include "core/diagnostics/LogMacros.h"
 
 static GLenum TextureWrapToGL(TextureWrap wrap)
@@ -173,7 +174,7 @@ Ref<GLTexture2D> GLTexture2D::CreateFromFile(const std::string &path, bool flipV
 	stbi_uc *data = stbi_load(path.c_str(), &width, &height, &channels, 0);
 	if (!data)
 	{
-		LOG_ERROR("Failed to load texture: {}", path);
+		LOG_ERROR_CAT(LogCategory::Graphics, "Failed to load texture: {}", path);
 		return nullptr;
 	}
 
@@ -195,7 +196,7 @@ Ref<GLTexture2D> GLTexture2D::CreateFromFile(const std::string &path, bool flipV
 	else
 	{
 		stbi_image_free(data);
-		LOG_ERROR("Unsupported channel count ({}) in texture: {}", channels, path);
+		LOG_ERROR_CAT(LogCategory::Graphics, "Unsupported channel count ({}) in texture: {}", channels, path);
 		return nullptr;
 	}
 
@@ -219,7 +220,7 @@ Ref<GLTexture2D> GLTexture2D::CreateFromFile(const std::string &path, bool flipV
 
 	stbi_image_free(data);
 
-	LOG_TRACE("Texture loaded: {} ({}x{}, {} channels)", path, width, height, channels);
+	LOG_TRACE_CAT(LogCategory::Graphics, "Texture loaded: {} ({}x{}, {} channels)", path, width, height, channels);
 	return Ref<GLTexture2D>(new GLTexture2D(rendererID, spec, path));
 }
 

@@ -3,6 +3,7 @@
 #include <utility>
 
 #include "core/diagnostics/Assert.h"
+#include "core/diagnostics/LogCategories.h"
 #include "core/app/Application.h"
 #include "core/event/Events.h"
 #include "core/input/Input.h"
@@ -30,7 +31,7 @@ void LabLayer::OnAttach()
     if (!m_ActiveDemo)
     {
         // Default demo
-        LOG_INFO("Loading default demo: Clear Screen");
+        LOG_INFO_CAT(LogCategory::Demo, "Loading default demo: Clear Screen");
         auto defaultDemo = DemoRegistry::Create("01 - Clear Screen");
         RTRLAB_ASSERT_MSG(defaultDemo, "Failed to create default demo: 01 - Clear Screen");
         SetActiveDemo(std::move(defaultDemo), "01 - Clear Screen");
@@ -69,7 +70,7 @@ void LabLayer::OnImGuiRender()
         auto demo = DemoRegistry::Create(name);
         if (!demo)
         {
-            LOG_ERROR("Failed to create demo: {}", name);
+            LOG_ERROR_CAT(LogCategory::Demo, "Failed to create demo: {}", name);
             return;
         }
 
@@ -124,7 +125,7 @@ void LabLayer::SetActiveDemo(Scope<DemoBase> demo, const std::string &name)
 {
     if (!demo)
     {
-        LOG_ERROR("SetActiveDemo called with null demo: {}", name);
+        LOG_ERROR_CAT(LogCategory::Demo, "SetActiveDemo called with null demo: {}", name);
         return;
     }
 
@@ -133,7 +134,7 @@ void LabLayer::SetActiveDemo(Scope<DemoBase> demo, const std::string &name)
 
     m_ActiveDemo = std::move(demo);
     m_ActiveDemoName = name;
-    LOG_INFO("Active demo: {}", m_ActiveDemoName);
+    LOG_INFO_CAT(LogCategory::Demo, "Active demo: {}", m_ActiveDemoName);
 
     Application::Get().GetEventBus().Publish(
         DemoSwitchedEvent{m_SelectedDemoIndex, m_ActiveDemoName.c_str()});

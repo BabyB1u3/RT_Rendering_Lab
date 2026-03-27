@@ -1,4 +1,5 @@
 #include "core/serialization/JsonBackend.h"
+#include "core/diagnostics/LogCategories.h"
 #include "core/diagnostics/LogMacros.h"
 
 #include <json.hpp>
@@ -104,7 +105,7 @@ namespace Serialization
         }
         catch (const nlohmann::json::parse_error &e)
         {
-            LOG_ERROR("JsonBackend: parse error: {}", e.what());
+            LOG_ERROR_CAT(LogCategory::Serialization, "JsonBackend: parse error: {}", e.what());
             return false;
         }
     }

@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "core/diagnostics/Assert.h"
+#include "core/diagnostics/LogCategories.h"
 #include "core/diagnostics/LogMacros.h"
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -31,7 +32,7 @@ SceneRenderer::SceneRenderer(uint32_t width, uint32_t height, const SceneRendere
     // Cache back buffer target (P5 — avoid per-frame allocation)
     m_BackBufferTarget = GetDevice()->CreateRenderTargetBackBuffer(width, height);
 
-    LOG_INFO("SceneRenderer initialized ({}x{})", width, height);
+    LOG_INFO_CAT(LogCategory::Renderer, "SceneRenderer initialized ({}x{})", width, height);
 }
 
 void SceneRenderer::Resize(uint32_t width, uint32_t height)
@@ -39,7 +40,7 @@ void SceneRenderer::Resize(uint32_t width, uint32_t height)
     if (width == 0 || height == 0)
         return;
 
-    LOG_INFO("SceneRenderer resized to {}x{}", width, height);
+    LOG_INFO_CAT(LogCategory::Renderer, "SceneRenderer resized to {}x{}", width, height);
     m_Width = width;
     m_Height = height;
 

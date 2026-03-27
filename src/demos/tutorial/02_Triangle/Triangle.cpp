@@ -3,6 +3,7 @@
 #include <imgui.h>
 
 #include "core/diagnostics/Assert.h"
+#include "core/diagnostics/LogCategories.h"
 #include "core/diagnostics/LogMacros.h"
 #include "graphics/Buffers.h"
 #include "graphics/GraphicsDevice.h"
@@ -30,7 +31,7 @@ Triangle::Triangle(uint32_t width, uint32_t height)
 
 void Triangle::OnAttach()
 {
-    LOG_INFO("Triangle demo attached");
+    LOG_INFO_CAT(LogCategory::Demo, "Triangle demo attached");
 
     m_BackBuffer = GetDevice()->CreateRenderTargetBackBuffer(m_ViewportWidth, m_ViewportHeight);
 
@@ -57,7 +58,7 @@ void Triangle::OnDetach()
     m_VBO.reset();
     m_Shader.reset();
     m_BackBuffer.reset();
-    LOG_INFO("Triangle demo detached");
+    LOG_INFO_CAT(LogCategory::Demo, "Triangle demo detached");
 }
 
 void Triangle::OnRender()
