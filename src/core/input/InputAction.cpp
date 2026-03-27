@@ -34,6 +34,10 @@ void InputActionMap::Unbind(const std::string &name)
 {
     m_Actions.erase(name);
     m_Axes.erase(name);
+    m_Modifiers.erase(name);
+    m_Triggers.erase(name);
+    m_TriggerStates.erase(name);
+    m_CachedAxisValues.erase(name);
 }
 
 void InputActionMap::Clear()
@@ -46,6 +50,16 @@ void InputActionMap::Clear()
     m_CachedAxisValues.clear();
 }
 
+bool InputActionMap::HasAction(const std::string &name) const
+{
+    return m_Actions.find(name) != m_Actions.end();
+}
+
+bool InputActionMap::HasAxis(const std::string &name) const
+{
+    return m_Axes.find(name) != m_Axes.end();
+}
+
 void InputActionMap::AddModifier(const std::string &axisName, std::unique_ptr<InputModifier> modifier)
 {
     m_Modifiers[axisName].push_back(std::move(modifier));
@@ -54,9 +68,15 @@ void InputActionMap::AddModifier(const std::string &axisName, std::unique_ptr<In
 void InputActionMap::SetTrigger(const std::string &actionName, std::unique_ptr<InputTrigger> trigger)
 {
     if (trigger)
+    {
         m_Triggers[actionName] = std::move(trigger);
+        m_TriggerStates.erase(actionName);
+    }
     else
+    {
         m_Triggers.erase(actionName);
+        m_TriggerStates.erase(actionName);
+    }
 }
 
 void InputActionMap::Update(float dt)
@@ -171,7 +191,10 @@ bool InputActionMap::WasActionTriggeredThisFrame(const std::string &name) const
     if (it != m_TriggerStates.end())
         return it->second == TriggerState::Triggered;
 
-    // No trigger set — fall back to default pressed behavior.
+    if (m_Triggers.find(name) != m_Triggers.end())
+        return false;
+
+    // No trigger set - fall back to default pressed behavior.
     return WasActionPressedThisFrame(name);
 }
 
@@ -181,8 +204,24 @@ TriggerState InputActionMap::GetActionTriggerState(const std::string &name) cons
     if (it != m_TriggerStates.end())
         return it->second;
 
-    // No trigger set — emulate pressed trigger.
+    if (m_Triggers.find(name) != m_Triggers.end())
+        return TriggerState::None;
+
+    // No trigger set - emulate pressed trigger.
     return WasActionPressedThisFrame(name) ? TriggerState::Triggered : TriggerState::None;
+}
+
+void InputActionMap::ResetRuntimeState()
+{
+    m_CachedAxisValues.clear();
+    m_TriggerStates.clear();
+    m_LastDt = 0.0f;
+
+    for (auto &[name, trigger] : m_Triggers)
+    {
+        if (trigger)
+            trigger->Reset();
+    }
 }
 
 float InputActionMap::ComputeRawAxis(const AxisEntry &entry) const

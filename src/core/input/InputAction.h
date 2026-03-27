@@ -82,6 +82,12 @@ public:
     /// Remove all actions and axes (also clears modifiers and triggers).
     void Clear();
 
+    /// True if this map defines the named action.
+    bool HasAction(const std::string &name) const;
+
+    /// True if this map defines the named axis.
+    bool HasAxis(const std::string &name) const;
+
     // --- Modifiers & Triggers ---
 
     /// Add a modifier to an axis. Modifiers are applied in insertion order.
@@ -117,6 +123,10 @@ public:
 
     /// Returns the current trigger state for an action (None, Ongoing, or Triggered).
     TriggerState GetActionTriggerState(const std::string &name) const;
+
+    /// Reset cached runtime state and trigger state machines.
+    /// Used when a context is deactivated so stale state does not survive re-enable.
+    void ResetRuntimeState();
 
     // --- Internal types (public for serialization traits) ---
 
