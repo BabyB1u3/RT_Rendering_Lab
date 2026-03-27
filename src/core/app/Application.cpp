@@ -5,6 +5,7 @@
 #include <GLFW/glfw3.h>
 
 #include "core/FileSystem.h"
+#include "core/event/Events.h"
 #include "core/input/Input.h"
 #include "core/Logger.h"
 #include "core/Time.h"
@@ -35,15 +36,18 @@ Application::Application(const ApplicationSpecification &spec)
     props.VSync = spec.VSync;
 
     m_Window = CreateScope<Window>(props);
-    m_Window->SetResizeCallback([this](uint32_t width, uint32_t height)
-                                { OnWindowResize(width, height); });
     m_Window->SetRefreshCallback([this]()
-    {
+                                 {
         m_FrameRenderedThisTick = true;
         Time::Update(glfwGetTime());
         if (!m_Minimized)
-            RenderFrame();
-    });
+            RenderFrame(); });
+
+    // Subscribe to resize events BEFORE SetEventBus() installs the GLFW callbacks
+    // that publish them, so no event is missed.
+    m_ResizeConnection = m_EventBus.Subscribe<WindowResizeEvent>(
+        [this](const WindowResizeEvent &e)
+        { OnWindowResize(e.Width, e.Height); });
     m_Window->SetEventBus(&m_EventBus);
 
 #ifdef GLAB_BACKEND_METAL

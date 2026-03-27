@@ -20,6 +20,7 @@
 
 #include "core/Base.h"
 #include "core/event/EventBus.h"
+#include "core/event/ScopedConnection.h"
 #include "core/app/Window.h"
 #include "core/app/LayerStack.h"
 
@@ -81,4 +82,6 @@ private:
     // Set to true when the window refresh callback already rendered a frame
     // so that the main loop can skip the redundant render for that tick.
     bool m_FrameRenderedThisTick = false;
+
+    ScopedConnection m_ResizeConnection;
 };
