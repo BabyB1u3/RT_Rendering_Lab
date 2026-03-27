@@ -3,6 +3,8 @@
 /// @file Assert.h
 /// @brief Always-on assertion and ensure macros for engine diagnostics.
 
+#include <atomic>
+
 #include <spdlog/fmt/fmt.h>
 
 #include "core/diagnostics/Callstack.h"
@@ -73,15 +75,16 @@ namespace Diagnostics::Detail
 #define RTRLAB_ENSURE(condition) \
     ([&]()                       \
      {                                                                         \
-         if (!(condition))                                                     \
-         {                                                                     \
-             static bool _reported = false;                                    \
-             if (!_reported)                                                   \
-             {                                                                 \
-                 _reported = true;                                             \
-                 ::Diagnostics::Detail::OnEnsureFailed(                        \
-                     #condition, __FILE__, __LINE__, __FUNCTION__, nullptr);   \
-             }                                                                 \
+          if (!(condition))                                                     \
+          {                                                                     \
+              static std::atomic<bool> _reported{false};                        \
+              bool _expected = false;                                           \
+              if (_reported.compare_exchange_strong(_expected, true,            \
+                                                    std::memory_order_relaxed)) \
+              {                                                                 \
+                  ::Diagnostics::Detail::OnEnsureFailed(                        \
+                      #condition, __FILE__, __LINE__, __FUNCTION__, nullptr);   \
+              }                                                                 \
              return false;                                                     \
          }                                                                     \
          return true; }())
@@ -89,15 +92,16 @@ namespace Diagnostics::Detail
 #define RTRLAB_ENSURE_MSG(condition, message) \
     ([&]()                                    \
      {                                                                         \
-         if (!(condition))                                                     \
-         {                                                                     \
-             static bool _reported = false;                                    \
-             if (!_reported)                                                   \
-             {                                                                 \
-                 _reported = true;                                             \
-                 ::Diagnostics::Detail::OnEnsureFailed(                        \
-                     #condition, __FILE__, __LINE__, __FUNCTION__, message);   \
-             }                                                                 \
+          if (!(condition))                                                     \
+          {                                                                     \
+              static std::atomic<bool> _reported{false};                        \
+              bool _expected = false;                                           \
+              if (_reported.compare_exchange_strong(_expected, true,            \
+                                                    std::memory_order_relaxed)) \
+              {                                                                 \
+                  ::Diagnostics::Detail::OnEnsureFailed(                        \
+                      #condition, __FILE__, __LINE__, __FUNCTION__, message);   \
+              }                                                                 \
              return false;                                                     \
          }                                                                     \
          return true; }())
@@ -105,15 +109,16 @@ namespace Diagnostics::Detail
 #define RTRLAB_ENSUREF(condition, ...) \
     ([&]()                             \
      {                                                                         \
-         if (!(condition))                                                     \
-         {                                                                     \
-             static bool _reported = false;                                    \
-             if (!_reported)                                                   \
-             {                                                                 \
-                 _reported = true;                                             \
-                 auto _msg = fmt::format(__VA_ARGS__);                         \
-                 ::Diagnostics::Detail::OnEnsureFailed(                        \
-                     #condition, __FILE__, __LINE__, __FUNCTION__,             \
+          if (!(condition))                                                     \
+          {                                                                     \
+              static std::atomic<bool> _reported{false};                        \
+              bool _expected = false;                                           \
+              if (_reported.compare_exchange_strong(_expected, true,            \
+                                                    std::memory_order_relaxed)) \
+              {                                                                 \
+                  auto _msg = fmt::format(__VA_ARGS__);                         \
+                  ::Diagnostics::Detail::OnEnsureFailed(                        \
+                      #condition, __FILE__, __LINE__, __FUNCTION__,             \
                      _msg.c_str());                                            \
              }                                                                 \
              return false;                                                     \

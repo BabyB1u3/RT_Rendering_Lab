@@ -46,12 +46,29 @@ namespace
         LOG_WARN_THROTTLE_CAT(LogCategory::Core, intervalSeconds, "warn-throttle-contract");
     }
 
+    bool EmitEnsureOnceContractMessage()
+    {
+        return RTRLAB_ENSURE_MSG(false, "ensure-once-contract");
+    }
+
     size_t CountEntriesWithMessage(const std::vector<Diagnostics::ConsoleLogEntry> &entries, const char *message)
     {
         size_t count = 0;
         for (const auto &entry : entries)
         {
             if (entry.Message == message)
+                ++count;
+        }
+
+        return count;
+    }
+
+    size_t CountEntriesContainingMessage(const std::vector<Diagnostics::ConsoleLogEntry> &entries, const char *messageFragment)
+    {
+        size_t count = 0;
+        for (const auto &entry : entries)
+        {
+            if (entry.Message.find(messageFragment) != std::string::npos)
                 ++count;
         }
 
@@ -79,6 +96,44 @@ namespace
             Diagnostics::Logger::Flush();
             entries = sink->GetEntries();
             const size_t currentCount = CountEntriesWithMessage(entries, message);
+
+            if (currentCount != lastCount)
+            {
+                lastCount = currentCount;
+                stableSince = std::chrono::steady_clock::now();
+            }
+            else if (currentCount >= minCount &&
+                     stableSince != std::chrono::steady_clock::time_point{} &&
+                     (std::chrono::steady_clock::now() - stableSince) >= std::chrono::milliseconds(quietWindowMs))
+            {
+                return entries;
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+
+        Diagnostics::Logger::Flush();
+        entries = sink->GetEntries();
+        return entries;
+    }
+
+    std::vector<Diagnostics::ConsoleLogEntry> WaitForSettledEntriesContaining(
+        const Ref<Diagnostics::ImGuiConsoleSink> &sink,
+        const char *messageFragment,
+        size_t minCount,
+        int timeoutMs = 500,
+        int quietWindowMs = 40)
+    {
+        auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
+        std::vector<Diagnostics::ConsoleLogEntry> entries;
+        size_t lastCount = 0;
+        auto stableSince = std::chrono::steady_clock::time_point{};
+
+        while (std::chrono::steady_clock::now() < deadline)
+        {
+            Diagnostics::Logger::Flush();
+            entries = sink->GetEntries();
+            const size_t currentCount = CountEntriesContainingMessage(entries, messageFragment);
 
             if (currentCount != lastCount)
             {
@@ -346,6 +401,37 @@ TEST_F(LoggerHasLoggerTests, WarnThrottleMacroSuppressesImmediateSecondInvocatio
 
     const auto entries = WaitForSettledEntries(sink, "warn-throttle-contract", 1);
     EXPECT_EQ(CountEntriesWithMessage(entries, "warn-throttle-contract"), 1u);
+}
+
+TEST_F(LoggerHasLoggerTests, EnsureMacroReportsOnlyOnceAcrossConcurrentCallers)
+{
+    auto sink = Diagnostics::Logger::GetConsoleSink();
+    ASSERT_NE(sink, nullptr);
+    sink->Clear();
+
+    std::atomic<bool> start{false};
+    std::vector<std::thread> workers;
+    workers.reserve(8);
+
+    for (int i = 0; i < 8; ++i)
+    {
+        workers.emplace_back([&start]()
+                             {
+                                 while (!start.load(std::memory_order_acquire))
+                                     std::this_thread::yield();
+
+                                 for (int attempt = 0; attempt < 32; ++attempt)
+                                     EXPECT_FALSE(EmitEnsureOnceContractMessage());
+                             });
+    }
+
+    start.store(true, std::memory_order_release);
+
+    for (auto &worker : workers)
+        worker.join();
+
+    const auto entries = WaitForSettledEntriesContaining(sink, "ensure-once-contract", 1, 1000, 80);
+    EXPECT_EQ(CountEntriesContainingMessage(entries, "ensure-once-contract"), 1u);
 }
 
 TEST(LogCategoriesTests, IsKnownCategoryRecognizesPredefinedNames)
