@@ -2,7 +2,11 @@
 
 #include <chrono>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <thread>
+
+#include <json.hpp>
 
 #include "core/FileSystem.h"
 #include "core/diagnostics/Assert.h"
@@ -21,6 +25,12 @@ namespace
     const std::filesystem::path &ContractTestLogPath()
     {
         static const auto path = FileSystem::GetSavedPath("logs/diagnostics-contract.log");
+        return path;
+    }
+
+    const std::filesystem::path &ContractTestJsonLogPath()
+    {
+        static const auto path = FileSystem::GetSavedPath("logs/diagnostics-contract.jsonl");
         return path;
     }
 
@@ -215,6 +225,107 @@ TEST(DiagnosticsContractTests, CallstackCaptureIsImplementedOnSupportedPlatforms
 #if defined(_WIN32) || defined(__APPLE__) || defined(__linux__)
     EXPECT_EQ(callstack.find("not implemented"), std::string::npos);
 #endif
+}
+
+TEST(DiagnosticsContractTests, JsonSinkWritesStructuredJsonLinesWhenEnabled)
+{
+    FileSystem::Init();
+
+    const auto &logPath = ContractTestLogPath();
+    const auto &jsonPath = ContractTestJsonLogPath();
+    RemovePathIfExists(logPath);
+    RemovePathIfExists(jsonPath);
+
+    Diagnostics::Logger::Init(logPath);
+    Diagnostics::Logger::EnableJsonSink(jsonPath);
+    LOG_INFO_CAT(LogCategory::Core, "json-contract-message");
+    Diagnostics::Logger::Flush();
+    Diagnostics::Logger::DisableJsonSink();
+    Diagnostics::Logger::Shutdown();
+
+    ASSERT_TRUE(std::filesystem::exists(jsonPath));
+
+    std::ifstream input(jsonPath);
+    ASSERT_TRUE(input.is_open());
+
+    std::string line;
+    ASSERT_TRUE(std::getline(input, line));
+    ASSERT_FALSE(line.empty());
+
+    const auto parsed = nlohmann::json::parse(line);
+    EXPECT_EQ(parsed.at("cat"), "Core");
+    EXPECT_EQ(parsed.at("lvl"), "info");
+    EXPECT_EQ(parsed.at("msg"), "json-contract-message");
+    EXPECT_TRUE(parsed.contains("ts"));
+    EXPECT_TRUE(parsed.contains("frame"));
+    EXPECT_TRUE(parsed.contains("tid"));
+
+    RemovePathIfExists(logPath);
+    RemovePathIfExists(jsonPath);
+}
+
+TEST(DiagnosticsContractTests, JsonSinkStopsWritingAfterDisable)
+{
+    FileSystem::Init();
+
+    const auto &logPath = ContractTestLogPath();
+    const auto &jsonPath = ContractTestJsonLogPath();
+    RemovePathIfExists(logPath);
+    RemovePathIfExists(jsonPath);
+
+    Diagnostics::Logger::Init(logPath);
+    Diagnostics::Logger::EnableJsonSink(jsonPath);
+    LOG_INFO_CAT(LogCategory::Core, "json-before-disable");
+    Diagnostics::Logger::Flush();
+    Diagnostics::Logger::DisableJsonSink();
+
+    LOG_INFO_CAT(LogCategory::Core, "json-after-disable");
+    Diagnostics::Logger::Flush();
+    Diagnostics::Logger::Shutdown();
+
+    std::ifstream input(jsonPath);
+    ASSERT_TRUE(input.is_open());
+    std::string contents((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+    EXPECT_NE(contents.find("json-before-disable"), std::string::npos);
+    EXPECT_EQ(contents.find("json-after-disable"), std::string::npos);
+
+    RemovePathIfExists(logPath);
+    RemovePathIfExists(jsonPath);
+}
+
+TEST(DiagnosticsContractTests, ShutdownFlushesEnabledJsonSinkWithoutExplicitDisable)
+{
+    FileSystem::Init();
+
+    const auto &logPath = ContractTestLogPath();
+    const auto &jsonPath = ContractTestJsonLogPath();
+    RemovePathIfExists(logPath);
+    RemovePathIfExists(jsonPath);
+
+    Diagnostics::Logger::Init(logPath);
+    Diagnostics::Logger::EnableJsonSink(jsonPath);
+    LOG_INFO_CAT(LogCategory::Core, "json-survives-shutdown");
+    Diagnostics::Logger::Shutdown();
+
+    std::ifstream input(jsonPath);
+    ASSERT_TRUE(input.is_open());
+    std::string contents((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+    EXPECT_NE(contents.find("json-survives-shutdown"), std::string::npos);
+
+    RemovePathIfExists(logPath);
+    RemovePathIfExists(jsonPath);
+}
+
+TEST(DiagnosticsContractTests, LoggerShutdownIsIdempotent)
+{
+    FileSystem::Init();
+
+    Diagnostics::Logger::Init(ContractTestLogPath());
+    EXPECT_NO_THROW(Diagnostics::Logger::Shutdown());
+    EXPECT_NO_THROW(Diagnostics::Logger::Shutdown());
+
+    RemovePathIfExists(ContractTestLogPath());
+    RemovePathIfExists(ContractTestJsonLogPath());
 }
 
 // --- ImGuiConsoleSink tests ---
@@ -432,6 +543,52 @@ TEST_F(LoggerHasLoggerTests, EnsureMacroReportsOnlyOnceAcrossConcurrentCallers)
 
     const auto entries = WaitForSettledEntriesContaining(sink, "ensure-once-contract", 1, 1000, 80);
     EXPECT_EQ(CountEntriesContainingMessage(entries, "ensure-once-contract"), 1u);
+}
+
+TEST_F(LoggerHasLoggerTests, ConsoleCommandCanEnableAndDisableJsonSink)
+{
+    const auto &jsonPath = ContractTestJsonLogPath();
+    RemovePathIfExists(jsonPath);
+
+    ConsolePanel panel;
+    panel.ExecuteCommand("log.json on");
+    EXPECT_TRUE(Diagnostics::Logger::IsJsonSinkEnabled());
+    EXPECT_EQ(Diagnostics::Logger::GetJsonSinkPath(), Diagnostics::Logger::GetDefaultJsonLogPath());
+
+    panel.ExecuteCommand("log.json off");
+    EXPECT_FALSE(Diagnostics::Logger::IsJsonSinkEnabled());
+    EXPECT_TRUE(Diagnostics::Logger::GetJsonSinkPath().empty());
+
+    RemovePathIfExists(jsonPath);
+}
+
+TEST_F(LoggerHasLoggerTests, LoggerCanSwitchJsonSinkPathsAtRuntime)
+{
+    const auto firstPath = FileSystem::GetSavedPath("logs/diagnostics-contract-first.jsonl");
+    const auto secondPath = FileSystem::GetSavedPath("logs/diagnostics-contract-second.jsonl");
+    RemovePathIfExists(firstPath);
+    RemovePathIfExists(secondPath);
+
+    Diagnostics::Logger::EnableJsonSink(firstPath);
+    LOG_INFO_CAT(LogCategory::Core, "json-first-path");
+    Diagnostics::Logger::EnableJsonSink(secondPath);
+    LOG_INFO_CAT(LogCategory::Core, "json-second-path");
+    Diagnostics::Logger::Shutdown();
+
+    std::ifstream firstInput(firstPath);
+    ASSERT_TRUE(firstInput.is_open());
+    std::string firstContents((std::istreambuf_iterator<char>(firstInput)), std::istreambuf_iterator<char>());
+    EXPECT_NE(firstContents.find("json-first-path"), std::string::npos);
+    EXPECT_EQ(firstContents.find("json-second-path"), std::string::npos);
+
+    std::ifstream secondInput(secondPath);
+    ASSERT_TRUE(secondInput.is_open());
+    std::string secondContents((std::istreambuf_iterator<char>(secondInput)), std::istreambuf_iterator<char>());
+    EXPECT_EQ(secondContents.find("json-first-path"), std::string::npos);
+    EXPECT_NE(secondContents.find("json-second-path"), std::string::npos);
+
+    RemovePathIfExists(firstPath);
+    RemovePathIfExists(secondPath);
 }
 
 TEST(LogCategoriesTests, IsKnownCategoryRecognizesPredefinedNames)

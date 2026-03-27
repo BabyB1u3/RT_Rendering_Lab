@@ -34,6 +34,9 @@ namespace Diagnostics
 
         static Ref<ImGuiConsoleSink> GetConsoleSink();
 
+        static bool IsJsonSinkEnabled();
+        static std::filesystem::path GetDefaultJsonLogPath();
+        static std::filesystem::path GetJsonSinkPath();
         static void EnableJsonSink(const std::filesystem::path &filePath);
         static void DisableJsonSink();
 
@@ -41,6 +44,8 @@ namespace Diagnostics
         static std::vector<spdlog::sink_ptr> s_Sinks;
         static Ref<ImGuiConsoleSink> s_ConsoleSink;
         static Ref<JsonLineSink> s_JsonSink;
+        static bool s_JsonSinkEnabled;
+        static std::filesystem::path s_JsonFilePath;
         static spdlog::level::level_enum s_GlobalLevel;
     };
 

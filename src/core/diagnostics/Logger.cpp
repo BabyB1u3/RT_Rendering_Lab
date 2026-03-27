@@ -19,6 +19,8 @@ namespace Diagnostics
     std::vector<spdlog::sink_ptr> Logger::s_Sinks;
     Ref<ImGuiConsoleSink> Logger::s_ConsoleSink;
     Ref<JsonLineSink> Logger::s_JsonSink;
+    bool Logger::s_JsonSinkEnabled = false;
+    std::filesystem::path Logger::s_JsonFilePath;
     spdlog::level::level_enum Logger::s_GlobalLevel = spdlog::level::trace;
 
     namespace
@@ -29,6 +31,16 @@ namespace Diagnostics
         std::filesystem::path g_LogFilePath;
         constexpr size_t kMaxLogFileSizeBytes = 1024 * 1024;
         constexpr size_t kMaxLogFiles = 3;
+
+        std::filesystem::path DeriveJsonLogPath(const std::filesystem::path &logFilePath)
+        {
+            if (logFilePath.empty())
+                return {};
+
+            auto jsonPath = logFilePath;
+            jsonPath.replace_extension(".jsonl");
+            return jsonPath;
+        }
     }
 
     void Logger::Init(const std::filesystem::path &logFilePath)
@@ -83,6 +95,8 @@ namespace Diagnostics
     void Logger::Shutdown()
     {
         std::lock_guard<std::mutex> lock(g_LoggerMutex);
+        if (!g_Initialized)
+            return;
 
         // spdlog::shutdown() synchronously drains the async queue, flushes all
         // sinks, stops the thread pool and periodic flusher, then drops all
@@ -93,6 +107,8 @@ namespace Diagnostics
         if (s_JsonSink)
             s_JsonSink->Disable();
         s_JsonSink.reset();
+        s_JsonSinkEnabled = false;
+        s_JsonFilePath.clear();
         s_ConsoleSink.reset();
         s_Sinks.clear();
         g_LogFilePath.clear();
@@ -161,20 +177,62 @@ namespace Diagnostics
         return s_ConsoleSink;
     }
 
+    bool Logger::IsJsonSinkEnabled()
+    {
+        std::lock_guard<std::mutex> lock(g_LoggerMutex);
+        return g_Initialized && s_JsonSinkEnabled;
+    }
+
+    std::filesystem::path Logger::GetDefaultJsonLogPath()
+    {
+        std::lock_guard<std::mutex> lock(g_LoggerMutex);
+        return DeriveJsonLogPath(g_LogFilePath);
+    }
+
+    std::filesystem::path Logger::GetJsonSinkPath()
+    {
+        std::lock_guard<std::mutex> lock(g_LoggerMutex);
+        return s_JsonFilePath;
+    }
+
     void Logger::EnableJsonSink(const std::filesystem::path &filePath)
     {
-        // s_JsonSink is always in the sink list; Enable() opens the file.
-        // Thread-safe: Enable() locks the base_sink mutex internally,
-        // which is the same mutex the async backend acquires in sink_it_().
-        if (s_JsonSink)
-            s_JsonSink->Enable(filePath);
+        std::lock_guard<std::mutex> lock(g_LoggerMutex);
+        if (!g_Initialized || !s_JsonSink)
+            return;
+
+        const auto resolvedPath = filePath.empty() ? DeriveJsonLogPath(g_LogFilePath) : filePath;
+        if (resolvedPath.empty())
+            return;
+
+        if (s_JsonSinkEnabled)
+        {
+            if (s_JsonFilePath == resolvedPath)
+                return;
+
+            s_JsonSink->RequestReopen(resolvedPath);
+            spdlog::apply_all([](const std::shared_ptr<spdlog::logger> &logger)
+                              { logger->flush(); });
+            s_JsonFilePath = resolvedPath;
+            return;
+        }
+
+        s_JsonSink->Enable(resolvedPath);
+        s_JsonSinkEnabled = true;
+        s_JsonFilePath = resolvedPath;
     }
 
     void Logger::DisableJsonSink()
     {
-        // Disable() closes the file under the base_sink mutex.
-        if (s_JsonSink)
-            s_JsonSink->Disable();
+        std::lock_guard<std::mutex> lock(g_LoggerMutex);
+        if (!s_JsonSink || !s_JsonSinkEnabled)
+            return;
+
+        s_JsonSink->RequestDisable();
+        spdlog::apply_all([](const std::shared_ptr<spdlog::logger> &logger)
+                          { logger->flush(); });
+        s_JsonSinkEnabled = false;
+        s_JsonFilePath.clear();
     }
 
     double GetMonotonicSeconds()

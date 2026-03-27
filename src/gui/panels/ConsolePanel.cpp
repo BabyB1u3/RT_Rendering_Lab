@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstddef>
+#include <filesystem>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -239,7 +240,7 @@ void ConsolePanel::DrawCommandInput()
         ImGui::SetKeyboardFocusHere(-1);
 
     ImGui::SameLine();
-    ImGui::TextDisabled("(log.level, log.filter, log.clear, log.flush)");
+    ImGui::TextDisabled("(log.level, log.filter, log.clear, log.flush, log.json)");
 }
 
 void ConsolePanel::ExecuteCommand(const std::string &command)
@@ -321,6 +322,56 @@ void ConsolePanel::ExecuteCommand(const std::string &command)
         else
         {
             LOG_WARN_CAT(LogCategory::ImGui, "Unknown category: {}", target);
+        }
+    }
+    else if (token == "log.json")
+    {
+        std::string action;
+        stream >> action;
+
+        if (action.empty() || action == "status")
+        {
+            if (Diagnostics::Logger::IsJsonSinkEnabled())
+            {
+                LOG_INFO_CAT(LogCategory::ImGui, "JSON log sink is enabled: {}",
+                             Diagnostics::Logger::GetJsonSinkPath().string());
+            }
+            else
+            {
+                LOG_INFO_CAT(LogCategory::ImGui, "JSON log sink is disabled");
+            }
+        }
+        else if (action == "on")
+        {
+            std::string pathStr;
+            stream >> pathStr;
+
+            const std::filesystem::path path = pathStr.empty()
+                                                   ? Diagnostics::Logger::GetDefaultJsonLogPath()
+                                                   : std::filesystem::path(pathStr);
+            if (path.empty())
+            {
+                LOG_WARN_CAT(LogCategory::ImGui, "Unable to resolve JSON log path");
+                return;
+            }
+
+            Diagnostics::Logger::EnableJsonSink(path);
+            LOG_INFO_CAT(LogCategory::ImGui, "JSON log sink enabled: {}",
+                         Diagnostics::Logger::GetJsonSinkPath().string());
+        }
+        else if (action == "off")
+        {
+            const auto currentPath = Diagnostics::Logger::GetJsonSinkPath();
+            Diagnostics::Logger::DisableJsonSink();
+
+            if (currentPath.empty())
+                LOG_INFO_CAT(LogCategory::ImGui, "JSON log sink disabled");
+            else
+                LOG_INFO_CAT(LogCategory::ImGui, "JSON log sink disabled: {}", currentPath.string());
+        }
+        else
+        {
+            LOG_WARN_CAT(LogCategory::ImGui, "Usage: log.json <on|off|status> [path]");
         }
     }
     else

@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <fstream>
 #include <mutex>
+#include <optional>
 
 #include <spdlog/sinks/base_sink.h>
 
@@ -29,7 +30,15 @@ namespace Diagnostics
         /// Opens the file for writing. Thread-safe (locks the base_sink mutex).
         void Enable(const std::filesystem::path &filePath);
 
-        /// Closes the file. Thread-safe (locks the base_sink mutex).
+        /// Request closure after all messages currently queued ahead of a flush
+        /// barrier have been written.
+        void RequestDisable();
+
+        /// Request a path switch after queued messages ahead of a flush barrier
+        /// have been written to the current file.
+        void RequestReopen(const std::filesystem::path &filePath);
+
+        /// Closes the file immediately. Thread-safe (locks the base_sink mutex).
         void Disable();
 
         bool IsEnabled() const;
@@ -40,6 +49,8 @@ namespace Diagnostics
 
     private:
         std::ofstream m_File;
+        bool m_DisableWhenFlushed = false;
+        std::optional<std::filesystem::path> m_PendingReopenPath;
     };
 
 } // namespace Diagnostics

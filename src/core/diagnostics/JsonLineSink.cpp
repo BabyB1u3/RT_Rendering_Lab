@@ -10,13 +10,48 @@
 namespace Diagnostics
 {
 
+    namespace
+    {
+        void OpenJsonFile(std::ofstream &file, const std::filesystem::path &filePath)
+        {
+            std::filesystem::create_directories(filePath.parent_path());
+            file.open(filePath, std::ios::out | std::ios::app);
+        }
+    }
+
     void JsonLineSink::Enable(const std::filesystem::path &filePath)
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (m_File.is_open())
             return;
-        std::filesystem::create_directories(filePath.parent_path());
-        m_File.open(filePath, std::ios::out | std::ios::app);
+        OpenJsonFile(m_File, filePath);
+        m_DisableWhenFlushed = false;
+        m_PendingReopenPath.reset();
+    }
+
+    void JsonLineSink::RequestDisable()
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (m_File.is_open())
+        {
+            m_DisableWhenFlushed = true;
+            m_PendingReopenPath.reset();
+        }
+    }
+
+    void JsonLineSink::RequestReopen(const std::filesystem::path &filePath)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (!m_File.is_open())
+        {
+            OpenJsonFile(m_File, filePath);
+            m_DisableWhenFlushed = false;
+            m_PendingReopenPath.reset();
+            return;
+        }
+
+        m_DisableWhenFlushed = true;
+        m_PendingReopenPath = filePath;
     }
 
     void JsonLineSink::Disable()
@@ -27,11 +62,12 @@ namespace Diagnostics
             m_File.flush();
             m_File.close();
         }
+        m_DisableWhenFlushed = false;
+        m_PendingReopenPath.reset();
     }
 
     bool JsonLineSink::IsEnabled() const
     {
-        // No lock needed — only informational; the file state is guarded in sink_it_.
         return m_File.is_open();
     }
 
@@ -106,7 +142,20 @@ namespace Diagnostics
     void JsonLineSink::flush_()
     {
         if (m_File.is_open())
+        {
             m_File.flush();
+            if (m_DisableWhenFlushed)
+            {
+                m_File.close();
+                m_DisableWhenFlushed = false;
+
+                if (m_PendingReopenPath.has_value())
+                {
+                    OpenJsonFile(m_File, *m_PendingReopenPath);
+                    m_PendingReopenPath.reset();
+                }
+            }
+        }
     }
 
 } // namespace Diagnostics
