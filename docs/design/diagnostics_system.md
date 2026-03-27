@@ -947,59 +947,64 @@ pattern for recoverable errors.
 ```cpp
 /// @file core/diagnostics/ErrorMacros.h
 
-// --- ERR_FAIL_COND(condition) ---
-// If condition is true, log error and return void.
-// Use in void functions for precondition checks.
-
-#define ERR_FAIL_COND(condition)                                              \
+// Preferred in engine code when a subsystem-specific category matters:
+#define ERR_FAIL_COND_CAT(category, condition)                                \
     do {                                                                      \
         if (condition) [[unlikely]] {                                         \
-            LOG_ERROR_CAT("Error",                                            \
-                "Condition failed: " #condition "\n  in {} ({}:{})",          \
-                __FUNCTION__, __FILE__, __LINE__);                            \
+            LOG_ERROR_CAT(category,                                           \
+                "{}:{}: condition '{}' failed",                               \
+                __FILE__, __LINE__, #condition);                              \
             return;                                                           \
         }                                                                     \
     } while (0)
 
-// --- ERR_FAIL_COND_V(condition, retval) ---
-// If condition is true, log error and return retval.
-// Use in non-void functions.
-
-#define ERR_FAIL_COND_V(condition, retval)                                    \
+#define ERR_FAIL_COND_V_CAT(category, condition, retval)                      \
     do {                                                                      \
         if (condition) [[unlikely]] {                                         \
-            LOG_ERROR_CAT("Error",                                            \
-                "Condition failed: " #condition "\n  in {} ({}:{})",          \
-                __FUNCTION__, __FILE__, __LINE__);                            \
+            LOG_ERROR_CAT(category,                                           \
+                "{}:{}: condition '{}' failed",                               \
+                __FILE__, __LINE__, #condition);                              \
             return (retval);                                                  \
         }                                                                     \
     } while (0)
 
-// --- ERR_FAIL_COND_MSG(condition, message) ---
-// Same as ERR_FAIL_COND but with a custom message.
-
-#define ERR_FAIL_COND_MSG(condition, message)                                 \
+#define ERR_FAIL_COND_MSG_CAT(category, condition, message)                   \
     do {                                                                      \
         if (condition) [[unlikely]] {                                         \
-            LOG_ERROR_CAT("Error",                                            \
-                "Condition failed: " #condition " — {}\n  in {} ({}:{})",    \
-                message, __FUNCTION__, __FILE__, __LINE__);                   \
+            LOG_ERROR_CAT(category,                                           \
+                "{}:{}: condition '{}' failed: {}",                           \
+                __FILE__, __LINE__, #condition, message);                     \
             return;                                                           \
         }                                                                     \
     } while (0)
 
-// --- ERR_FAIL_COND_V_MSG(condition, retval, message) ---
-
-#define ERR_FAIL_COND_V_MSG(condition, retval, message)                       \
+#define ERR_FAIL_COND_V_MSG_CAT(category, condition, retval, message)         \
     do {                                                                      \
         if (condition) [[unlikely]] {                                         \
-            LOG_ERROR_CAT("Error",                                            \
-                "Condition failed: " #condition " — {}\n  in {} ({}:{})",    \
-                message, __FUNCTION__, __FILE__, __LINE__);                   \
+            LOG_ERROR_CAT(category,                                           \
+                "{}:{}: condition '{}' failed: {}",                           \
+                __FILE__, __LINE__, #condition, message);                     \
             return (retval);                                                  \
         }                                                                     \
     } while (0)
+
+// Convenience aliases when the generic "Error" category is sufficient:
+#define ERR_FAIL_COND(condition) \
+    ERR_FAIL_COND_CAT(LogCategory::Error, condition)
+
+#define ERR_FAIL_COND_V(condition, retval) \
+    ERR_FAIL_COND_V_CAT(LogCategory::Error, condition, retval)
+
+#define ERR_FAIL_COND_MSG(condition, message) \
+    ERR_FAIL_COND_MSG_CAT(LogCategory::Error, condition, message)
+
+#define ERR_FAIL_COND_V_MSG(condition, retval, message) \
+    ERR_FAIL_COND_V_MSG_CAT(LogCategory::Error, condition, retval, message)
 ```
+
+Category-aware `_CAT` variants keep recoverable failures aligned with the subsystem's logger
+(`FileSystem`, `Graphics`, `Shader`, etc.), while the non-category aliases remain available for
+generic utility code and quick migration.
 
 ### 5.3 Migration from Exceptions
 
@@ -1017,8 +1022,13 @@ Current exception sites and their replacements:
 | `GLShader.cpp:111` | `throw std::runtime_error("Shader program link failed...")` | Return `false` from link function + `LOG_ERROR_CAT(LogCategory::Shader, ...)` |
 | `GLTexture2D.cpp:177` | `throw std::runtime_error("Failed to load texture...")` | Return null `Ref<>` + `LOG_ERROR_CAT(LogCategory::Graphics, ...)` |
 | `GLFramebuffer.cpp:218` | `throw std::runtime_error("Framebuffer is not complete...")` | `RTRLAB_ASSERT(status == GL_FRAMEBUFFER_COMPLETE)` — incomplete FB is fatal |
+| `PropertyTree.cpp:90` | `throw std::out_of_range("PropertyTree: key not found...")` | `RTRLAB_ASSERTF(...)` — missing required serialized field is a logic/contract error |
 | `InputAction.cpp:182` | `catch (const json::parse_error &e)` | Keep as-is — JSON parsing is a boundary where exceptions are acceptable (see 5.4) |
 | `DemoRegistry.cpp:47` | `throw std::runtime_error("Unknown demo...")` | `ERR_FAIL_COND_V_MSG(...)` returning `nullptr` — unknown demo is recoverable |
+
+Backend-specific resource loaders follow the same contract. `GLShader` and `MetalShader` return null
+`Ref<>` values on source/read/compile failure, while `GLTexture2D` and `MetalTexture2D` log and return
+null objects for load/create failures instead of unwinding through exceptions.
 
 ### 5.4 Where Exceptions Remain
 
@@ -1027,8 +1037,8 @@ throw and we cannot control the API:
 
 1. **nlohmann/json parsing** — `json::parse()` throws `json::parse_error`. Catch at the
    boundary in `JsonBackend::ReadFromString`, convert to `bool` return.
-2. **std::filesystem** — Some operations throw `filesystem_error`. Catch in `FileSystem`
-   wrappers, convert to error codes / optional returns.
+2. **std::filesystem** — Prefer `std::error_code` overloads and explicit status returns.
+   If a platform-specific filesystem API still throws, catch at the boundary and convert.
 3. **Third-party library constructors** — If vendor code throws, catch at the integration
    boundary and convert.
 

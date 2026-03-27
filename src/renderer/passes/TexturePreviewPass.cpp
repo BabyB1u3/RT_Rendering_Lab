@@ -13,7 +13,9 @@
 TexturePreviewPass::TexturePreviewPass()
 {
     m_FullscreenQuad = MeshFactory::CreateFullscreenQuad();
+    RTRLAB_ASSERT_MSG(m_FullscreenQuad, "TexturePreviewPass failed to create fullscreen quad");
     m_Shader = GetDevice()->CreateShader("TexturePreview");
+    RTRLAB_ASSERT_MSG(m_Shader, "TexturePreviewPass failed to create TexturePreview shader");
 }
 
 void TexturePreviewPass::Resize(unsigned int width, unsigned int height)

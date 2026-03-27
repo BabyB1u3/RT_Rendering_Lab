@@ -14,7 +14,6 @@
 #include <variant>
 #include <optional>
 #include <cstdint>
-#include <stdexcept>
 
 namespace Serialization
 {
@@ -103,21 +102,23 @@ namespace Serialization
         if (it == obj.end())
             return fallback;
 
-        // Try to extract the value
-        try
+        if constexpr (std::is_same_v<T, bool>)
         {
-            if constexpr (std::is_same_v<T, bool>)
-                return it->second.AsBool();
-            else if constexpr (std::is_integral_v<T>)
-                return static_cast<T>(it->second.AsInt());
-            else if constexpr (std::is_floating_point_v<T>)
-                return static_cast<T>(it->second.AsFloat());
-            else if constexpr (std::is_same_v<T, std::string>)
-                return it->second.AsString();
-            else
-                return fallback;
+            return it->second.IsBool() ? it->second.AsBool() : fallback;
         }
-        catch (...)
+        else if constexpr (std::is_integral_v<T>)
+        {
+            return it->second.IsInt() ? static_cast<T>(it->second.AsInt()) : fallback;
+        }
+        else if constexpr (std::is_floating_point_v<T>)
+        {
+            return it->second.IsNumber() ? static_cast<T>(it->second.AsFloat()) : fallback;
+        }
+        else if constexpr (std::is_same_v<T, std::string>)
+        {
+            return it->second.IsString() ? it->second.AsString() : fallback;
+        }
+        else
         {
             return fallback;
         }

@@ -30,6 +30,7 @@ ShadowPass::ShadowPass(uint32_t width, uint32_t height)
     m_RenderTarget = GetDevice()->CreateRenderTargetFromFramebuffer(m_Framebuffer);
 
     m_Shader = GetDevice()->CreateShader("ShadowDepth");
+    RTRLAB_ASSERT_MSG(m_Shader, "ShadowPass failed to create ShadowDepth shader");
 }
 
 void ShadowPass::Resize(unsigned int width, unsigned int height)

@@ -1,12 +1,11 @@
 #include "core/app/Window.h"
 
-#include <stdexcept>
-
 #ifndef GLAB_BACKEND_METAL
 #include <glad/glad.h>
 #endif
 #include <GLFW/glfw3.h>
 
+#include "core/diagnostics/Assert.h"
 #include "core/event/EventBus.h"
 #include "core/event/Events.h"
 #include "core/diagnostics/LogCategories.h"
@@ -43,8 +42,7 @@ void Window::Init(const WindowProps &props)
     {
         glfwSetErrorCallback(GLFWErrorCallback);
 
-        if (!glfwInit())
-            throw std::runtime_error("Failed to initialize GLFW.");
+        RTRLAB_ASSERT_MSG(glfwInit(), "Failed to initialize GLFW.");
 
         LOG_INFO_CAT(LogCategory::Window, "GLFW initialized");
         s_GLFWInitialized = true;
@@ -66,8 +64,7 @@ void Window::Init(const WindowProps &props)
         nullptr,
         nullptr);
 
-    if (!m_Handle)
-        throw std::runtime_error("Failed to create GLFW window.");
+    RTRLAB_ASSERT_MSG(m_Handle, "Failed to create GLFW window.");
 
     // On HiDPI/Retina displays the framebuffer size (physical pixels) differs from
     // the window size (logical points). Always store physical pixel dimensions so that
@@ -84,8 +81,8 @@ void Window::Init(const WindowProps &props)
 #ifndef GLAB_BACKEND_METAL
     glfwMakeContextCurrent(m_Handle);
 
-    if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress)))
-        throw std::runtime_error("Failed to initialize GLAD.");
+    RTRLAB_ASSERT_MSG(gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress)),
+                      "Failed to initialize GLAD.");
 
     // Register an OpenGL debug callback to surface driver warnings/errors via our Logger.
     // GL_DEBUG_OUTPUT_SYNCHRONOUS ensures the callback fires on the calling thread,

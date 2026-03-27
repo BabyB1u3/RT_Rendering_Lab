@@ -3,9 +3,11 @@
 #import <Metal/Metal.h>
 
 #include <cstring>
-#include <stdexcept>
 
-#include "core/Logger.h"
+#include "core/diagnostics/Assert.h"
+#include "core/diagnostics/ErrorMacros.h"
+#include "core/diagnostics/LogCategories.h"
+#include "core/diagnostics/LogMacros.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/metal/MetalGraphicsDevice.h"
 
@@ -34,8 +36,7 @@ MetalVertexBuffer::MetalVertexBuffer(uint32_t size, BufferUsage usage)
 	// Shared memory: CPU can write, GPU reads. Suitable for dynamic/stream data.
 	m_Impl->buffer = [device newBufferWithLength:size
 	                                     options:MTLResourceStorageModeShared];
-	if (!m_Impl->buffer)
-		throw std::runtime_error("MetalVertexBuffer: failed to allocate MTLBuffer");
+	RTRLAB_ASSERT_MSG(m_Impl->buffer != nil, "MetalVertexBuffer: failed to allocate MTLBuffer");
 }
 
 MetalVertexBuffer::MetalVertexBuffer(const void *data, uint32_t size, BufferUsage usage)
@@ -58,8 +59,7 @@ MetalVertexBuffer::MetalVertexBuffer(const void *data, uint32_t size, BufferUsag
 		                                   options:MTLResourceStorageModeShared];
 	}
 
-	if (!m_Impl->buffer)
-		throw std::runtime_error("MetalVertexBuffer: failed to allocate MTLBuffer");
+	RTRLAB_ASSERT_MSG(m_Impl->buffer != nil, "MetalVertexBuffer: failed to allocate MTLBuffer");
 }
 
 MetalVertexBuffer::~MetalVertexBuffer() = default;
@@ -68,15 +68,13 @@ MetalVertexBuffer::~MetalVertexBuffer() = default;
 
 void MetalVertexBuffer::SetData(const void *data, uint32_t size, uint32_t offset)
 {
-	if (offset + size > m_AllocatedSize)
-	{
-		throw std::out_of_range("MetalVertexBuffer::SetData: write exceeds allocated buffer size");
-	}
+	ERR_FAIL_COND_MSG_CAT(LogCategory::Graphics, data == nullptr, "MetalVertexBuffer::SetData received null data");
+	RTRLAB_ASSERT_MSG(offset + size <= m_AllocatedSize, "MetalVertexBuffer::SetData: write exceeds allocated buffer size");
 
 	uint8_t *dst = static_cast<uint8_t *>(m_Impl->buffer.contents);
 	if (!dst)
 	{
-		LOG_WARN("MetalVertexBuffer::SetData: buffer has no CPU-accessible contents (managed static?)");
+		LOG_WARN_CAT(LogCategory::Graphics, "MetalVertexBuffer::SetData: buffer has no CPU-accessible contents (managed static?)");
 		return;
 	}
 	memcpy(dst + offset, data, size);

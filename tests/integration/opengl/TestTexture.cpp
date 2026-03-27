@@ -148,7 +148,7 @@ TEST_F(TextureIntegrationTests, SetDataUpdatesSampledPixelsInRealDraw)
     EXPECT_EQ(bluePixel[3], 255);
 }
 
-TEST_F(TextureIntegrationTests, SetDataRejectsUnsupportedDepthFormat)
+TEST_F(TextureIntegrationTests, SetDataRejectsUnsupportedDepthFormatWithoutThrowing)
 {
     TextureSpecification spec{};
     spec.Width = 1;
@@ -160,16 +160,7 @@ TEST_F(TextureIntegrationTests, SetDataRejectsUnsupportedDepthFormat)
 
     const float depth = 0.5f;
 
-    try
-    {
-        texture->SetData(&depth);
-        FAIL() << "Expected unsupported depth texture upload to throw";
-    }
-    catch (const std::runtime_error &e)
-    {
-        const std::string message = e.what();
-        EXPECT_NE(message.find("ordinary color textures"), std::string::npos);
-    }
+    EXPECT_NO_THROW(texture->SetData(&depth));
 }
 
 TEST_F(TextureIntegrationTests, Rgb8TextureSamplesExpectedColorAndOpaqueAlpha)
@@ -208,20 +199,13 @@ TEST_F(TextureIntegrationTests, BindAndUnbindDoNotCrash)
 
 // ── Error path tests ─────────────────────────────────────────────────
 
-TEST_F(TextureIntegrationTests, CreateFromFileThrowsOnMissingFile)
+TEST_F(TextureIntegrationTests, CreateFromFileReturnsNullOnMissingFile)
 {
-    try
-    {
-        GetDevice()->CreateTexture2DFromFile("definitely/missing/texture.png");
-        FAIL() << "Expected CreateTexture2DFromFile to throw on missing file";
-    }
-    catch (const std::runtime_error &e)
-    {
-        EXPECT_NE(std::string(e.what()).find("Failed to load texture"), std::string::npos);
-    }
+    auto texture = GetDevice()->CreateTexture2DFromFile("definitely/missing/texture.png");
+    EXPECT_EQ(texture, nullptr);
 }
 
-TEST_F(TextureIntegrationTests, SetDataOnRedIntegerFormatThrows)
+TEST_F(TextureIntegrationTests, SetDataOnRedIntegerFormatReturnsWithoutThrowing)
 {
     TextureSpecification spec{};
     spec.Width = 1;
@@ -233,13 +217,5 @@ TEST_F(TextureIntegrationTests, SetDataOnRedIntegerFormatThrows)
 
     const int32_t value = 42;
 
-    try
-    {
-        texture->SetData(&value);
-        FAIL() << "Expected SetData on RedInteger texture to throw";
-    }
-    catch (const std::runtime_error &e)
-    {
-        EXPECT_NE(std::string(e.what()).find("ordinary color textures"), std::string::npos);
-    }
+    EXPECT_NO_THROW(texture->SetData(&value));
 }

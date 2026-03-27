@@ -1,10 +1,9 @@
 #include "core/app/Application.h"
 
-#include <stdexcept>
-
 #include <GLFW/glfw3.h>
 
 #include "core/FileSystem.h"
+#include "core/diagnostics/Assert.h"
 #include "core/diagnostics/LogCategories.h"
 #include "core/diagnostics/LogMacros.h"
 #include "core/diagnostics/Logger.h"
@@ -30,8 +29,7 @@ Application::Application(const ApplicationSpecification &spec)
     LOG_INFO_CAT(LogCategory::FileSystem, "Saved directory: {}", FileSystem::GetSavedDir().string());
     LOG_INFO("Starting application: {}", spec.Name);
 
-    if (s_Instance)
-        throw std::runtime_error("Application already exists.");
+    RTRLAB_ASSERT_MSG(!s_Instance, "Application already exists.");
 
     WindowProps props;
     props.Title = spec.Name;

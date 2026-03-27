@@ -2,10 +2,11 @@
 
 #include <utility>
 
+#include "core/diagnostics/Assert.h"
 #include "core/app/Application.h"
 #include "core/event/Events.h"
 #include "core/input/Input.h"
-#include "core/Logger.h"
+#include "core/diagnostics/LogMacros.h"
 #include "DemoBase.h"
 #include "DemoRegistry.h"
 #include "demos/showcase/MaterialPlayground/MaterialPlayground.h"
@@ -30,7 +31,9 @@ void LabLayer::OnAttach()
     {
         // Default demo
         LOG_INFO("Loading default demo: Clear Screen");
-        SetActiveDemo(DemoRegistry::Create("01 - Clear Screen"), "01 - Clear Screen");
+        auto defaultDemo = DemoRegistry::Create("01 - Clear Screen");
+        RTRLAB_ASSERT_MSG(defaultDemo, "Failed to create default demo: 01 - Clear Screen");
+        SetActiveDemo(std::move(defaultDemo), "01 - Clear Screen");
     }
 
     if (m_ActiveDemo)
@@ -63,7 +66,14 @@ void LabLayer::OnImGuiRender()
     if (m_DemoSelectorPanel.OnImGuiRender(names, m_SelectedDemoIndex))
     {
         const auto &name = names[m_SelectedDemoIndex];
-        SetActiveDemo(DemoRegistry::Create(name), name);
+        auto demo = DemoRegistry::Create(name);
+        if (!demo)
+        {
+            LOG_ERROR("Failed to create demo: {}", name);
+            return;
+        }
+
+        SetActiveDemo(std::move(demo), name);
         if (m_ActiveDemo)
             m_ActiveDemo->OnAttach();
     }
@@ -111,6 +121,12 @@ void LabLayer::RegisterBuiltInDemos()
 
 void LabLayer::SetActiveDemo(Scope<DemoBase> demo, const std::string &name)
 {
+    if (!demo)
+    {
+        LOG_ERROR("SetActiveDemo called with null demo: {}", name);
+        return;
+    }
+
     if (m_ActiveDemo)
         m_ActiveDemo->OnDetach();
 

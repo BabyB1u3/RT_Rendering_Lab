@@ -1,8 +1,8 @@
 #include "FileSystem.h"
 
 #include <fstream>
+#include <optional>
 #include <sstream>
-#include <stdexcept>
 
 #include "core/diagnostics/LogCategories.h"
 #include "core/diagnostics/LogMacros.h"
@@ -147,28 +147,54 @@ std::filesystem::path FileSystem::GetPlatformUserDataDir(std::string_view appNam
 
 // ── File I/O ─────────────────────────────────────────────────────────
 
-std::string FileSystem::ReadTextFile(const std::filesystem::path &path)
+std::optional<std::string> FileSystem::ReadTextFile(const std::filesystem::path &path)
 {
     std::ifstream in(path, std::ios::in | std::ios::binary);
     if (!in)
-        throw std::runtime_error("Failed to open file: " + path.string());
+    {
+        LOG_ERROR_CAT(LogCategory::FileSystem, "Failed to open text file: {}", path.string());
+        return std::nullopt;
+    }
 
     std::ostringstream ss;
     ss << in.rdbuf();
+    if (!in.good() && !in.eof())
+    {
+        LOG_ERROR_CAT(LogCategory::FileSystem, "Failed while reading text file: {}", path.string());
+        return std::nullopt;
+    }
+
     return ss.str();
 }
 
-std::vector<uint8_t> FileSystem::ReadBinaryFile(const std::filesystem::path &path)
+std::optional<std::vector<uint8_t>> FileSystem::ReadBinaryFile(const std::filesystem::path &path)
 {
     std::ifstream in(path, std::ios::in | std::ios::binary | std::ios::ate);
     if (!in)
-        throw std::runtime_error("Failed to open binary file: " + path.string());
+    {
+        LOG_ERROR_CAT(LogCategory::FileSystem, "Failed to open binary file: {}", path.string());
+        return std::nullopt;
+    }
 
     auto size = in.tellg();
+    if (size < 0)
+    {
+        LOG_ERROR_CAT(LogCategory::FileSystem, "Failed to query binary file size: {}", path.string());
+        return std::nullopt;
+    }
+
     in.seekg(0, std::ios::beg);
 
     std::vector<uint8_t> data(static_cast<size_t>(size));
-    in.read(reinterpret_cast<char *>(data.data()), size);
+    if (!data.empty())
+        in.read(reinterpret_cast<char *>(data.data()), size);
+
+    if (in.fail())
+    {
+        LOG_ERROR_CAT(LogCategory::FileSystem, "Failed while reading binary file: {}", path.string());
+        return std::nullopt;
+    }
+
     return data;
 }
 

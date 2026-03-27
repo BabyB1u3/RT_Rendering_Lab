@@ -1,6 +1,5 @@
 #include "GLFramebuffer.h"
 
-#include <stdexcept>
 #include <utility>
 
 #include <glad/glad.h>
@@ -212,9 +211,7 @@ void GLFramebuffer::Invalidate()
 	}
 
 	GLenum fbStatus = glCheckNamedFramebufferStatus(m_RendererID, GL_FRAMEBUFFER);
-	if (fbStatus != GL_FRAMEBUFFER_COMPLETE)
-	{
-		LOG_ERROR("GLFramebuffer incomplete: status = 0x{:X}", fbStatus);
-		throw std::runtime_error("GLFramebuffer incomplete: status = " + std::to_string(fbStatus));
-	}
+	RTRLAB_ASSERTF(fbStatus == GL_FRAMEBUFFER_COMPLETE,
+				   "GLFramebuffer incomplete: status = 0x{:X}",
+				   fbStatus);
 }

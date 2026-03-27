@@ -1,5 +1,7 @@
 #include "core/serialization/PropertyTree.h"
 
+#include "core/diagnostics/Assert.h"
+
 namespace Serialization
 {
 
@@ -31,11 +33,13 @@ namespace Serialization
 
     PropertyTree::Bool PropertyTree::AsBool() const
     {
+        RTRLAB_ASSERT_MSG(IsBool(), "PropertyTree::AsBool requires a bool value");
         return std::get<Bool>(m_Value);
     }
 
     PropertyTree::Int PropertyTree::AsInt() const
     {
+        RTRLAB_ASSERT_MSG(IsInt(), "PropertyTree::AsInt requires an integer value");
         return std::get<Int>(m_Value);
     }
 
@@ -44,31 +48,37 @@ namespace Serialization
         // Promote Int → Float transparently
         if (IsInt())
             return static_cast<Float>(std::get<Int>(m_Value));
+        RTRLAB_ASSERT_MSG(IsFloat(), "PropertyTree::AsFloat requires a numeric value");
         return std::get<Float>(m_Value);
     }
 
     const PropertyTree::String &PropertyTree::AsString() const
     {
+        RTRLAB_ASSERT_MSG(IsString(), "PropertyTree::AsString requires a string value");
         return std::get<String>(m_Value);
     }
 
     const PropertyTree::Array &PropertyTree::AsArray() const
     {
+        RTRLAB_ASSERT_MSG(IsArray(), "PropertyTree::AsArray requires an array value");
         return std::get<Array>(m_Value);
     }
 
     const PropertyTree::Object &PropertyTree::AsObject() const
     {
+        RTRLAB_ASSERT_MSG(IsObject(), "PropertyTree::AsObject requires an object value");
         return std::get<Object>(m_Value);
     }
 
     PropertyTree::Array &PropertyTree::AsArray()
     {
+        RTRLAB_ASSERT_MSG(IsArray(), "PropertyTree::AsArray requires an array value");
         return std::get<Array>(m_Value);
     }
 
     PropertyTree::Object &PropertyTree::AsObject()
     {
+        RTRLAB_ASSERT_MSG(IsObject(), "PropertyTree::AsObject requires an object value");
         return std::get<Object>(m_Value);
     }
 
@@ -84,10 +94,10 @@ namespace Serialization
 
     const PropertyTree &PropertyTree::operator[](const std::string &key) const
     {
+        RTRLAB_ASSERT_MSG(IsObject(), "PropertyTree::operator[](key) requires an object value");
         auto &obj = std::get<Object>(m_Value);
         auto it = obj.find(key);
-        if (it == obj.end())
-            throw std::out_of_range("PropertyTree: key not found: " + key);
+        RTRLAB_ASSERTF(it != obj.end(), "PropertyTree: key not found: {}", key);
         return it->second;
     }
 
@@ -96,6 +106,7 @@ namespace Serialization
         // Auto-promote to object if currently null
         if (IsNull())
             m_Value = Object{};
+        RTRLAB_ASSERT_MSG(IsObject(), "PropertyTree::operator[](key) requires an object-compatible value");
         return std::get<Object>(m_Value)[key];
     }
 
@@ -112,12 +123,18 @@ namespace Serialization
 
     const PropertyTree &PropertyTree::operator[](size_t index) const
     {
-        return std::get<Array>(m_Value).at(index);
+        RTRLAB_ASSERT_MSG(IsArray(), "PropertyTree::operator[](index) requires an array value");
+        const auto &array = std::get<Array>(m_Value);
+        RTRLAB_ASSERTF(index < array.size(), "PropertyTree: index {} out of range (size={})", index, array.size());
+        return array[index];
     }
 
     PropertyTree &PropertyTree::operator[](size_t index)
     {
-        return std::get<Array>(m_Value).at(index);
+        RTRLAB_ASSERT_MSG(IsArray(), "PropertyTree::operator[](index) requires an array value");
+        auto &array = std::get<Array>(m_Value);
+        RTRLAB_ASSERTF(index < array.size(), "PropertyTree: index {} out of range (size={})", index, array.size());
+        return array[index];
     }
 
 } // namespace Serialization

@@ -5,6 +5,7 @@
 #include "core/FileSystem.h"
 #include "core/diagnostics/Assert.h"
 #include "core/diagnostics/Callstack.h"
+#include "core/diagnostics/ErrorMacros.h"
 #include "core/diagnostics/LogCategories.h"
 #include "core/diagnostics/LogMacros.h"
 #include "core/diagnostics/Logger.h"
@@ -15,6 +16,12 @@ namespace
     {
         std::error_code ec;
         std::filesystem::remove(path, ec);
+    }
+
+    bool ReturnsFalseWhenErrFailTriggers(bool shouldFail)
+    {
+        ERR_FAIL_COND_V_MSG_CAT(LogCategory::Core, shouldFail, false, "diagnostics contract test");
+        return true;
     }
 }
 
@@ -40,6 +47,12 @@ TEST(DiagnosticsContractTests, EnsureIsNonFatalAndReturnsBooleanStatus)
     EXPECT_TRUE(RTRLAB_ENSURE(true));
     EXPECT_FALSE(RTRLAB_ENSURE(false));
     EXPECT_FALSE(RTRLAB_ENSURE_MSG(false, "diagnostics ensure contract"));
+}
+
+TEST(DiagnosticsContractTests, ErrorMacrosReturnExpectedFallbackValue)
+{
+    EXPECT_TRUE(ReturnsFalseWhenErrFailTriggers(false));
+    EXPECT_FALSE(ReturnsFalseWhenErrFailTriggers(true));
 }
 
 TEST(DiagnosticsContractTests, CallstackCaptureIsImplementedOnSupportedPlatforms)

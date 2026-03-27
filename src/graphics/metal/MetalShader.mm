@@ -2,7 +2,6 @@
 
 #import <Metal/Metal.h>
 
-#include <stdexcept>
 #include <array>
 #include <unordered_map>
 #include <vector>
@@ -12,7 +11,8 @@
 #include <json.hpp>
 
 #include "core/FileSystem.h"
-#include "core/Logger.h"
+#include "core/diagnostics/LogCategories.h"
+#include "core/diagnostics/LogMacros.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/RenderTypes.h"
 #include "graphics/metal/MetalGraphicsDevice.h"
@@ -143,9 +143,17 @@ static void LoadReflectionSidecar(const std::string &name,
 	if (!FileSystem::Exists(path))
 		return;
 
+	const auto reflectionText = FileSystem::ReadTextFile(path);
+	if (!reflectionText)
+	{
+		LOG_WARN_CAT(LogCategory::Shader, "MetalShader '{}': failed to read reflection sidecar '{}'",
+		             name, path.string());
+		return;
+	}
+
 	try
 	{
-		auto json = nlohmann::json::parse(FileSystem::ReadTextFile(path));
+		auto json = nlohmann::json::parse(*reflectionText);
 		auto &entry = json.at(name);
 
 		if (entry.contains("vertexUniformBinding"))
@@ -165,11 +173,11 @@ static void LoadReflectionSidecar(const std::string &name,
 			for (auto &[uname, uinfo] : entry["fragment"].items())
 				fragment[uname] = { uinfo["offset"].get<uint32_t>(), uinfo["size"].get<uint32_t>() };
 		}
-		LOG_TRACE("MetalShader '{}': loaded reflection sidecar", name);
+		LOG_TRACE_CAT(LogCategory::Shader, "MetalShader '{}': loaded reflection sidecar", name);
 	}
 	catch (const std::exception &e)
 	{
-		LOG_WARN("MetalShader '{}': failed to parse reflection sidecar: {}", name, e.what());
+		LOG_WARN_CAT(LogCategory::Shader, "MetalShader '{}': failed to parse reflection sidecar: {}", name, e.what());
 	}
 }
 
@@ -186,15 +194,16 @@ Ref<MetalShader> MetalShader::CreateFromMSLSource(const std::string &name,
 	id<MTLLibrary> lib = [device newLibraryWithSource:src options:nil error:&error];
 	if (!lib)
 	{
-		throw std::runtime_error("MetalShader '" + name + "': MSL compilation failed: " +
-		                         std::string([[error localizedDescription] UTF8String]));
+		LOG_ERROR_CAT(LogCategory::Shader, "MetalShader '{}': MSL compilation failed: {}",
+		              name, [[error localizedDescription] UTF8String]);
+		return nullptr;
 	}
 
 	id<MTLFunction> vertFn = [lib newFunctionWithName:@"vertexMain"];
 	id<MTLFunction> fragFn = [lib newFunctionWithName:@"fragmentMain"];
 
-	if (!vertFn) LOG_WARN("MetalShader '{}': 'vertexMain' not found in library", name);
-	if (!fragFn) LOG_WARN("MetalShader '{}': 'fragmentMain' not found in library", name);
+	if (!vertFn) LOG_WARN_CAT(LogCategory::Shader, "MetalShader '{}': 'vertexMain' not found in library", name);
+	if (!fragFn) LOG_WARN_CAT(LogCategory::Shader, "MetalShader '{}': 'fragmentMain' not found in library", name);
 
 	auto *shader = new MetalShader();
 	shader->m_Impl = std::make_unique<Impl>();
@@ -212,7 +221,7 @@ Ref<MetalShader> MetalShader::CreateFromMSLSource(const std::string &name,
 	                      shader->m_Impl->fragmentUniformBinding,
 	                      shader->m_Impl->textureBindingBase);
 
-	LOG_INFO("MetalShader: loaded '{}'", name);
+	LOG_INFO_CAT(LogCategory::Shader, "MetalShader: loaded '{}'", name);
 	return Ref<MetalShader>(shader);
 }
 
@@ -221,11 +230,21 @@ Ref<MetalShader> MetalShader::CreateFromCompiledMSL(const std::string &name)
 	auto path = FileSystem::GetCompiledShaderDir() / "metal" / (name + ".metal");
 	if (!FileSystem::Exists(path))
 	{
-		throw std::runtime_error(
-		    "Compiled MSL shader missing: " + path.string() +
-		    "\nEnable GLAB_SHADER_TARGET_METAL and rebuild the CompileShaders target.");
+		LOG_ERROR_CAT(LogCategory::Shader,
+		              "Compiled MSL shader missing: {}. Enable GLAB_SHADER_TARGET_METAL and rebuild the CompileShaders target.",
+		              path.string());
+		return nullptr;
 	}
-	return CreateFromMSLSource(name, FileSystem::ReadTextFile(path));
+
+	const auto source = FileSystem::ReadTextFile(path);
+	if (!source)
+	{
+		LOG_ERROR_CAT(LogCategory::Shader, "Compiled MSL load failed ({}): could not read '{}'",
+		              name, path.string());
+		return nullptr;
+	}
+
+	return CreateFromMSLSource(name, *source);
 }
 
 // ─── Destructor ───────────────────────────────────────────────────────────────
@@ -394,14 +413,14 @@ void *MetalShader::GetOrCreatePSO(void *mtlDevice,
 	id<MTLRenderPipelineState> pso = [device newRenderPipelineStateWithDescriptor:desc error:&error];
 	if (!pso)
 	{
-		LOG_ERROR("MetalShader '{}': PSO creation failed: {}",
-		          m_Impl->name, [[error localizedDescription] UTF8String]);
+		LOG_ERROR_CAT(LogCategory::Shader, "MetalShader '{}': PSO creation failed: {}",
+		              m_Impl->name, [[error localizedDescription] UTF8String]);
 		return nullptr;
 	}
 
 	m_Impl->psoCache[key] = pso;
-	LOG_TRACE("MetalShader '{}': created new PSO (cache size: {})",
-	          m_Impl->name, m_Impl->psoCache.size());
+	LOG_TRACE_CAT(LogCategory::Shader, "MetalShader '{}': created new PSO (cache size: {})",
+	              m_Impl->name, m_Impl->psoCache.size());
 	return (__bridge void *)pso;
 }
 

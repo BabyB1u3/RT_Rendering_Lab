@@ -39,6 +39,7 @@ ForwardPass::ForwardPass(uint32_t width, uint32_t height, bool renderToTarget,
     }
 
     m_Shader = GetDevice()->CreateShader("ForwardLit");
+    RTRLAB_ASSERT_MSG(m_Shader, "ForwardPass failed to create ForwardLit shader");
 
     // 1x1 white fallback texture for when no shadow map is provided.
     // Sampling r = 1.0 means currentDepth - bias > 1.0 is always false -> no shadow.
@@ -47,6 +48,7 @@ ForwardPass::ForwardPass(uint32_t width, uint32_t height, bool renderToTarget,
     fallbackSpec.Height = 1;
     fallbackSpec.Format = TextureFormat::RGBA8;
     m_FallbackShadowMap = GetDevice()->CreateTexture2D(fallbackSpec);
+    RTRLAB_ASSERT_MSG(m_FallbackShadowMap, "ForwardPass failed to create fallback shadow map");
     const uint32_t white = 0xFFFFFFFFu;
     m_FallbackShadowMap->SetData(&white);
 }

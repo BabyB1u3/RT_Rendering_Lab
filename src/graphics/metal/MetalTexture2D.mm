@@ -5,13 +5,15 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
-#include <stdexcept>
 #include <vector>
 
 #include <stb_image.h>
 #include <glm/glm.hpp>
 
-#include "core/Logger.h"
+#include "core/diagnostics/Assert.h"
+#include "core/diagnostics/ErrorMacros.h"
+#include "core/diagnostics/LogCategories.h"
+#include "core/diagnostics/LogMacros.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/metal/MetalGraphicsDevice.h"
 #include "graphics/metal/MetalTypes.h"
@@ -99,6 +101,9 @@ static void UploadTextureData(id<MTLDevice>  device,
 
 Ref<MetalTexture2D> MetalTexture2D::Create(const TextureSpecification &spec)
 {
+	RTRLAB_ASSERT_MSG(PixelFormatFromTextureFormat(spec.Format) != MTLPixelFormatInvalid,
+	                  "Unsupported Metal texture format");
+
 	auto *tex    = new MetalTexture2D();
 	tex->m_Spec  = spec;
 	tex->m_Impl  = std::make_unique<Impl>();
@@ -106,7 +111,10 @@ Ref<MetalTexture2D> MetalTexture2D::Create(const TextureSpecification &spec)
 	id<MTLDevice> device = GetMTLDevice();
 	tex->m_Impl->texture = AllocateTexture(device, spec);
 	if (!tex->m_Impl->texture)
-		throw std::runtime_error("MetalTexture2D: failed to create MTLTexture");
+	{
+		LOG_ERROR_CAT(LogCategory::Graphics, "MetalTexture2D: failed to create MTLTexture");
+		return nullptr;
+	}
 
 	tex->m_Impl->sampler = CreateSampler(device, spec);
 	return Ref<MetalTexture2D>(tex);
@@ -114,6 +122,9 @@ Ref<MetalTexture2D> MetalTexture2D::Create(const TextureSpecification &spec)
 
 Ref<MetalTexture2D> MetalTexture2D::CreateRenderTarget(const TextureSpecification &spec)
 {
+	RTRLAB_ASSERT_MSG(PixelFormatFromTextureFormat(spec.Format) != MTLPixelFormatInvalid,
+	                  "Unsupported Metal render-target texture format");
+
 	auto *tex    = new MetalTexture2D();
 	tex->m_Spec  = spec;
 	tex->m_Impl  = std::make_unique<Impl>();
@@ -129,7 +140,10 @@ Ref<MetalTexture2D> MetalTexture2D::CreateRenderTarget(const TextureSpecificatio
 
 	tex->m_Impl->texture = [device newTextureWithDescriptor:desc];
 	if (!tex->m_Impl->texture)
-		throw std::runtime_error("MetalTexture2D::CreateRenderTarget: failed to create MTLTexture");
+	{
+		LOG_ERROR_CAT(LogCategory::Graphics, "MetalTexture2D::CreateRenderTarget: failed to create MTLTexture");
+		return nullptr;
+	}
 
 	tex->m_Impl->sampler = CreateSampler(device, spec);
 	return Ref<MetalTexture2D>(tex);
@@ -142,18 +156,35 @@ Ref<MetalTexture2D> MetalTexture2D::CreateFromFile(const std::string &path, bool
 	int width, height, channels;
 	stbi_uc *pixels = stbi_load(path.c_str(), &width, &height, &channels, 0);
 	if (!pixels)
-		throw std::runtime_error("MetalTexture2D: stbi_load failed: " + path);
+	{
+		LOG_ERROR_CAT(LogCategory::Graphics, "MetalTexture2D: stbi_load failed: {}", path);
+		return nullptr;
+	}
 
 	TextureSpecification spec;
 	spec.Width  = static_cast<uint32_t>(width);
 	spec.Height = static_cast<uint32_t>(height);
 	spec.GenerateMips = true;
 
-	if (channels == 1)      spec.Format = TextureFormat::R8;
-	else if (channels == 3) spec.Format = TextureFormat::RGB8;  // padded to RGBA on upload
-	else                    spec.Format = TextureFormat::RGBA8;
+	if (channels == 1)
+		spec.Format = TextureFormat::R8;
+	else if (channels == 3)
+		spec.Format = TextureFormat::RGB8;  // padded to RGBA on upload
+	else if (channels == 4)
+		spec.Format = TextureFormat::RGBA8;
+	else
+	{
+		stbi_image_free(pixels);
+		LOG_ERROR_CAT(LogCategory::Graphics, "Unsupported channel count ({}) in texture: {}", channels, path);
+		return nullptr;
+	}
 
 	auto tex    = Create(spec);  // allocates MTLTexture
+	if (!tex)
+	{
+		stbi_image_free(pixels);
+		return nullptr;
+	}
 	tex->m_Path = path;
 	tex->SetData(pixels);        // uploads (RGB→RGBA conversion happens here)
 
@@ -167,6 +198,8 @@ MetalTexture2D::~MetalTexture2D() = default;
 
 void MetalTexture2D::SetData(const void *data)
 {
+	ERR_FAIL_COND_MSG_CAT(LogCategory::Graphics, data == nullptr, "MetalTexture2D::SetData received null data");
+
 	id<MTLDevice>  device  = GetMTLDevice();
 	id<MTLTexture> texture = m_Impl->texture;
 
@@ -186,11 +219,16 @@ void MetalTexture2D::SetData(const void *data)
 		UploadTextureData(device, texture, rgba.data(),
 		                  m_Spec.Width, m_Spec.Height, m_Spec.Width * 4);
 	}
-	else
+	else if (m_Spec.Format == TextureFormat::R8 || m_Spec.Format == TextureFormat::RGBA8)
 	{
 		uint32_t bpp = BytesPerPixelMetal(m_Spec.Format);
 		UploadTextureData(device, texture, data,
 		                  m_Spec.Width, m_Spec.Height, m_Spec.Width * bpp);
+	}
+	else
+	{
+		ERR_FAIL_COND_MSG_CAT(LogCategory::Graphics, true,
+		                      "MetalTexture2D::SetData only supports ordinary color textures");
 	}
 
 	// Generate mipmaps if requested.

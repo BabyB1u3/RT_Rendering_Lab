@@ -1,7 +1,6 @@
 #include "GLShader.h"
 
 #include <array>
-#include <stdexcept>
 #include <vector>
 
 #include <glad/glad.h>
@@ -77,7 +76,7 @@ uint32_t GLShader::CompileStage(uint32_t stage, const std::string &source, const
 		glDeleteShader(shader);
 
 		LOG_ERROR_CAT(LogCategory::Shader, "Shader compilation failed ({}): {}", debugName, infoLog.data());
-		throw std::runtime_error("Shader compilation failed (" + debugName + "):\n" + std::string(infoLog.data()));
+		return 0;
 	}
 
 	LOG_TRACE_CAT(LogCategory::Shader, "Shader stage compiled: {}", debugName);
@@ -109,7 +108,7 @@ uint32_t GLShader::LinkProgram(const std::string &name, const std::vector<uint32
 		glDeleteProgram(program);
 
 		LOG_ERROR_CAT(LogCategory::Shader, "Shader link failed ({}): {}", name, infoLog.data());
-		throw std::runtime_error("Shader link failed (" + name + "):\n" + std::string(infoLog.data()));
+		return 0;
 	}
 
 	for (uint32_t id : shaderIDs)
@@ -129,13 +128,36 @@ Ref<GLShader> GLShader::CreateFromSource(
 	const std::string &geometrySource)
 {
 	std::vector<uint32_t> shaderIDs;
-	shaderIDs.push_back(CompileStage(GL_VERTEX_SHADER, vertexSource, name + " [vertex]"));
-	shaderIDs.push_back(CompileStage(GL_FRAGMENT_SHADER, fragmentSource, name + " [fragment]"));
+
+	const uint32_t vertexShader = CompileStage(GL_VERTEX_SHADER, vertexSource, name + " [vertex]");
+	if (vertexShader == 0)
+		return nullptr;
+	shaderIDs.push_back(vertexShader);
+
+	const uint32_t fragmentShader = CompileStage(GL_FRAGMENT_SHADER, fragmentSource, name + " [fragment]");
+	if (fragmentShader == 0)
+	{
+		for (uint32_t id : shaderIDs)
+			glDeleteShader(id);
+		return nullptr;
+	}
+	shaderIDs.push_back(fragmentShader);
 
 	if (!geometrySource.empty())
-		shaderIDs.push_back(CompileStage(GL_GEOMETRY_SHADER, geometrySource, name + " [geometry]"));
+	{
+		const uint32_t geometryShader = CompileStage(GL_GEOMETRY_SHADER, geometrySource, name + " [geometry]");
+		if (geometryShader == 0)
+		{
+			for (uint32_t id : shaderIDs)
+				glDeleteShader(id);
+			return nullptr;
+		}
+		shaderIDs.push_back(geometryShader);
+	}
 
 	uint32_t program = LinkProgram(name, shaderIDs);
+	if (program == 0)
+		return nullptr;
 	return Ref<GLShader>(new GLShader(program, name));
 }
 
@@ -145,11 +167,36 @@ Ref<GLShader> GLShader::CreateFromFiles(
 	const std::string &fragmentPath,
 	const std::string &geometryPath)
 {
-	const std::string vertexSource = FileSystem::ReadTextFile(vertexPath);
-	const std::string fragmentSource = FileSystem::ReadTextFile(fragmentPath);
-	const std::string geometrySource = geometryPath.empty() ? "" : FileSystem::ReadTextFile(geometryPath);
+	const auto vertexSource = FileSystem::ReadTextFile(vertexPath);
+	if (!vertexSource)
+	{
+		LOG_ERROR_CAT(LogCategory::Shader, "Shader source load failed ({}): could not read vertex shader '{}'",
+					  name, vertexPath);
+		return nullptr;
+	}
 
-	return CreateFromSource(name, vertexSource, fragmentSource, geometrySource);
+	const auto fragmentSource = FileSystem::ReadTextFile(fragmentPath);
+	if (!fragmentSource)
+	{
+		LOG_ERROR_CAT(LogCategory::Shader, "Shader source load failed ({}): could not read fragment shader '{}'",
+					  name, fragmentPath);
+		return nullptr;
+	}
+
+	std::string geometrySource;
+	if (!geometryPath.empty())
+	{
+		const auto geometryFileSource = FileSystem::ReadTextFile(geometryPath);
+		if (!geometryFileSource)
+		{
+			LOG_ERROR_CAT(LogCategory::Shader, "Shader source load failed ({}): could not read geometry shader '{}'",
+						  name, geometryPath);
+			return nullptr;
+		}
+		geometrySource = *geometryFileSource;
+	}
+
+	return CreateFromSource(name, *vertexSource, *fragmentSource, geometrySource);
 }
 
 Ref<GLShader> GLShader::CreateFromCompiledGlsl(const std::string &name)
@@ -159,26 +206,54 @@ Ref<GLShader> GLShader::CreateFromCompiledGlsl(const std::string &name)
 	auto fragPath = baseDir / (name + ".frag.glsl");
 
 	if (!FileSystem::Exists(vertPath))
-		throw std::runtime_error(
-			"Compiled GLSL vertex shader missing: " + vertPath.string() +
-			"\nEnable GLAB_COMPILE_SHADERS and rebuild, or build the CompileShaders target.");
+	{
+		LOG_ERROR_CAT(LogCategory::Shader,
+					  "Compiled GLSL vertex shader missing: {}. Enable GLAB_COMPILE_SHADERS and rebuild, or build the CompileShaders target.",
+					  vertPath.string());
+		return nullptr;
+	}
 	if (!FileSystem::Exists(fragPath))
-		throw std::runtime_error(
-			"Compiled GLSL fragment shader missing: " + fragPath.string() +
-			"\nEnable GLAB_COMPILE_SHADERS and rebuild, or build the CompileShaders target.");
+	{
+		LOG_ERROR_CAT(LogCategory::Shader,
+					  "Compiled GLSL fragment shader missing: {}. Enable GLAB_COMPILE_SHADERS and rebuild, or build the CompileShaders target.",
+					  fragPath.string());
+		return nullptr;
+	}
 
-	std::string vertSrc = FileSystem::ReadTextFile(vertPath);
-	std::string fragSrc = FileSystem::ReadTextFile(fragPath);
+	const auto vertSrc = FileSystem::ReadTextFile(vertPath);
+	if (!vertSrc)
+	{
+		LOG_ERROR_CAT(LogCategory::Shader, "Compiled GLSL load failed ({}): could not read '{}'",
+					  name, vertPath.string());
+		return nullptr;
+	}
 
-	LOG_TRACE_CAT(LogCategory::Shader, "Slang-compiled vertex shader ({}):\n{}", name, vertSrc);
-	LOG_TRACE_CAT(LogCategory::Shader, "Slang-compiled fragment shader ({}):\n{}", name, fragSrc);
+	const auto fragSrc = FileSystem::ReadTextFile(fragPath);
+	if (!fragSrc)
+	{
+		LOG_ERROR_CAT(LogCategory::Shader, "Compiled GLSL load failed ({}): could not read '{}'",
+					  name, fragPath.string());
+		return nullptr;
+	}
+
+	LOG_TRACE_CAT(LogCategory::Shader, "Slang-compiled vertex shader ({}):\n{}", name, *vertSrc);
+	LOG_TRACE_CAT(LogCategory::Shader, "Slang-compiled fragment shader ({}):\n{}", name, *fragSrc);
 
 	std::string geomSrc;
 	auto geomPath = baseDir / (name + ".geom.glsl");
 	if (FileSystem::Exists(geomPath))
-		geomSrc = FileSystem::ReadTextFile(geomPath);
+	{
+		const auto geometrySource = FileSystem::ReadTextFile(geomPath);
+		if (!geometrySource)
+		{
+			LOG_ERROR_CAT(LogCategory::Shader, "Compiled GLSL load failed ({}): could not read '{}'",
+						  name, geomPath.string());
+			return nullptr;
+		}
+		geomSrc = *geometrySource;
+	}
 
-	return CreateFromSource(name, vertSrc, fragSrc, geomSrc);
+	return CreateFromSource(name, *vertSrc, *fragSrc, geomSrc);
 }
 
 void GLShader::Bind() const

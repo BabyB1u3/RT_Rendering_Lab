@@ -8,9 +8,9 @@
 #import <QuartzCore/CAMetalLayer.h>
 #import <AppKit/AppKit.h>
 
-#include <stdexcept>
-
-#include "core/Logger.h"
+#include "core/diagnostics/Assert.h"
+#include "core/diagnostics/LogCategories.h"
+#include "core/diagnostics/LogMacros.h"
 #include "graphics/metal/MetalFramebuffer.h"
 #include "graphics/metal/MetalGraphicsDevice.h"
 #include "graphics/metal/MetalIndexBuffer.h"
@@ -38,8 +38,7 @@ MetalGraphicsDevice::MetalGraphicsDevice(GLFWwindow *window)
 	: m_Impl(std::make_unique<Impl>())
 {
 	m_Impl->device = MTLCreateSystemDefaultDevice();
-	if (!m_Impl->device)
-		throw std::runtime_error("MetalGraphicsDevice: MTLCreateSystemDefaultDevice() returned nil");
+	RTRLAB_ASSERT_MSG(m_Impl->device != nil, "MetalGraphicsDevice: MTLCreateSystemDefaultDevice() returned nil");
 
 	m_Impl->commandQueue = [m_Impl->device newCommandQueue];
 
@@ -67,7 +66,7 @@ MetalGraphicsDevice::MetalGraphicsDevice(GLFWwindow *window)
 	    (__bridge void *)m_Impl->commandQueue,
 	    (__bridge void *)m_Impl->layer);
 
-	LOG_INFO("MetalGraphicsDevice: {}", [m_Impl->device.name UTF8String]);
+	LOG_INFO_CAT(LogCategory::Graphics, "MetalGraphicsDevice: {}", [m_Impl->device.name UTF8String]);
 }
 
 MetalGraphicsDevice::~MetalGraphicsDevice() = default;

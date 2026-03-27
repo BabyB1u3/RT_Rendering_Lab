@@ -64,6 +64,7 @@ set(GLAB_CORE_HEADERS
     core/diagnostics/Assert.h
     core/diagnostics/Callstack.h
     core/diagnostics/Debugger.h
+    core/diagnostics/ErrorMacros.h
     core/diagnostics/LogCategories.h
     core/diagnostics/Logger.h
     core/diagnostics/LogMacros.h
