@@ -76,14 +76,20 @@ Each layer only depends on layers below it.
 
 **Current implementation snapshot (2026-03-26)**:
 
-- Implemented and in active use: Layers 0, 1, 2, 6, 7, and the basic capture-flag form of Layer 8.
-- Planned but not implemented yet: Layers 3, 4, 5, 9, and 10.
+- Implemented and in active use: Layers 0, 1, 2, 3, 6, 7, and the basic capture-flag form of Layer 8.
+- Planned but not implemented yet: Layers 4, 5, 9, and 10.
 - Partially future-facing only: `InputSource::Type` already includes gamepad-related enum values, but runtime querying still only supports keyboard and mouse.
 - `InputActionMap` serialization has been migrated to the shared serialization framework
   (`Serialization::SaveToFile` / `LoadFromFile` + `InputActionSerialization.h`); the old
   member-function `SaveToFile()` / `LoadFromFile()` methods have been removed.
 - `Application::RenderFrame()` was extracted as a shared render path, also called from
   `Window::RefreshCallback` for macOS live-resize rendering.
+- Resize notification unified: `Window::SetResizeCallback` / `m_ResizeCallback` removed;
+  `Application` now subscribes to `WindowResizeEvent` via `EventBus` (Phase D complete).
+- Layer 3 infrastructure implemented: `InputModifier` (5 built-ins) and `InputTrigger`
+  (4 built-ins) with `InputActionMap` integration (`AddModifier`, `SetTrigger`, `Update(dt)`,
+  `WasActionTriggeredThisFrame`, `GetActionTriggerState`). Backward-compatible — existing
+  demos work without calling `Update(dt)` (Phase E complete).
 
 ---
 
@@ -552,9 +558,15 @@ void ShadowMapping::OnUpdate(double dt)
 **Goal**: Process raw input values through a configurable pipeline before they reach
 game logic. Inspired by Unreal Engine's Enhanced Input system.
 
-**Status (2026-03-26)**: Not implemented yet. Sensitivity, inversion, smoothing,
-hold/tap behavior, and similar logic are still handled by individual consumers
-such as camera controllers or demo code.
+**Status (2026-03-26)**: Implemented. `InputModifier.h` (header-only, 5 built-in
+modifiers) and `InputTrigger.h` (header-only, 4 built-in triggers) are in place.
+`InputActionMap` exposes `AddModifier()`, `SetTrigger()`, `Update(dt)`,
+`WasActionTriggeredThisFrame()`, and `GetActionTriggerState()`. Backward-compatible:
+`GetAxis()` falls back to raw computation if `Update()` was never called, and
+`WasActionTriggeredThisFrame()` falls back to `WasActionPressedThisFrame()` if no
+trigger is set. 17 unit tests cover modifiers, triggers, and modifier chaining.
+Camera controller sensitivity has not yet been migrated into modifiers (deferred
+to when an input-settings UI is built).
 
 ### Problem this solves
 
@@ -2059,8 +2071,8 @@ src/
 │   │   ├── InputAction.h / InputAction.cpp        # Layer 2    ✅
 │   │   ├── InputNames.h / InputNames.cpp          # Layer 2    ✅ (Key/Mouse ↔ string)
 │   │   ├── InputActionSerialization.h             # Layer 2    ✅ (ADL traits)
-│   │   ├── InputModifier.h                        # Layer 3    ⬜ (header-only)
-│   │   ├── InputTrigger.h / InputTrigger.cpp      # Layer 3    ⬜
+│   │   ├── InputModifier.h                        # Layer 3    ✅ (header-only)
+│   │   ├── InputTrigger.h                         # Layer 3    ✅ (header-only)
 │   │   ├── InputContext.h / InputContext.cpp       # Layer 4    ⬜
 │   │   ├── InputDevice.h                          # Layer 5    ⬜ (interface)
 │   │   ├── KeyboardDevice.h / .cpp                # Layer 5    ⬜
@@ -2093,6 +2105,8 @@ src/
 │   ├── ImGuiLayer.h / ImGuiLayer.cpp              # Layer 8    ✅ (capture flags)
 │   └── Panels/
 ├── tests/
+│   ├── unit/TestInputModifiers.cpp                # Layer 3    ✅ (8 unit tests)
+│   ├── unit/TestInputTriggers.cpp                 # Layer 3    ✅ (9 unit tests)
 │   └── contract/core/TestEventBus.cpp             # Layer 6    ✅ (4 contract tests)
 ```
 
@@ -2120,14 +2134,11 @@ is clean for all future demos.
 
 ### Phase B — ImGuiLayer integration
 
-**Status (2026-03-26)**: Mostly done. `ScopedConnection`, `EventBus`, `Events`,
-window callback production, and `Input` capture flags are implemented.
-`Window::SetRefreshCallback()` was added for macOS live-resize rendering, and
-`Application::RenderFrame()` was extracted so both the main loop and the refresh
-callback share the same render path. The remaining gap is that three notification
-paths coexist for resize: legacy `ResizeCallback`, `RefreshCallback`, and
-`EventBus::Publish<WindowResizeEvent>`. Unifying to EventBus-only is the last
-cleanup task for this phase.
+**Status (2026-03-26)**: Done. All items complete. `ScopedConnection`, `EventBus`,
+`Events`, window callback production, `Input` capture flags, `RefreshCallback`,
+`RenderFrame()` extraction, HiDPI init, and resize callback unification are all
+implemented. Only two resize paths remain: `EventBus` (notification) and
+`RefreshCallback` (macOS live-resize render workaround).
 
 | Item | Layer | Rationale | Status |
 |------|-------|-----------|--------|
@@ -2139,7 +2150,7 @@ cleanup task for this phase.
 | `Window::SetRefreshCallback` | 7 | macOS live-resize rendering | ✅ Done |
 | `Application::RenderFrame()` extraction | — | Shared render path for main loop + refresh | ✅ Done |
 | HiDPI framebuffer size init | 7 | `glfwGetFramebufferSize()` in `Window::Init()` | ✅ Done |
-| Migrate `Window::m_ResizeCallback` to EventBus | 7 | Unify notification path | ⬜ Remaining |
+| Migrate `Window::m_ResizeCallback` to EventBus | 7 | Unify notification path | ✅ Done |
 
 ### Phase C — Action mapping
 
@@ -2160,45 +2171,42 @@ placeholder in the design.
 
 ### Phase D — Resize callback unification + cleanup
 
-**Status (2026-03-26)**: Not started. This is the recommended next step.
+**Status (2026-03-26)**: Done.
 
-**Why now**: Three coexisting resize notification paths (legacy `ResizeCallback`,
-`RefreshCallback`, `EventBus`) create subtle ordering bugs and duplicated logic.
-Cleaning this up is a prerequisite for confidently adding new features on top
-of the event system, and is a small, well-scoped task.
+Unified resize notification to `EventBus`-only. `Application` subscribes via
+`EventBus::Subscribe<WindowResizeEvent>` with a `ScopedConnection` member.
+`Window::SetResizeCallback` / `m_ResizeCallback` / `using ResizeCallback` removed.
+Redundant `glfwSetFramebufferSizeCallback` in `Window::Init()` also removed (the
+callback is installed by `InstallCallbacks()` immediately after). Two paths remain:
+`EventBus` for notification and `RefreshCallback` for macOS live-resize rendering.
 
-| Step | Layer | Description |
-|------|-------|-------------|
-| 1. `Application` subscribes to `WindowResizeEvent` via EventBus | 6+7 | Replace `SetResizeCallback` with `EventBus::Subscribe<WindowResizeEvent>` |
-| 2. Remove `Window::SetResizeCallback` / `m_ResizeCallback` | 7 | Dead code after step 1 |
-| 3. `RefreshCallback` integration | 7 | Ensure refresh path also fires through EventBus (or stays as a separate render-only path — decide and document) |
-| 4. Verify on macOS + Windows | — | Confirm live-resize, minimize/restore, and HiDPI all still work |
-| 5. Unit test: `WindowResizeEvent` subscriber receives correct dimensions | 6 | Add to `TestEventBus.cpp` |
-
-**Acceptance criteria**: Only two paths remain — `EventBus` for notification and
-`RefreshCallback` for the render-during-resize workaround. No functional regression
-on either platform.
+| Step | Layer | Description | Status |
+|------|-------|-------------|--------|
+| 1. `Application` subscribes to `WindowResizeEvent` via EventBus | 6+7 | Replace `SetResizeCallback` with `EventBus::Subscribe<WindowResizeEvent>` | ✅ |
+| 2. Remove `Window::SetResizeCallback` / `m_ResizeCallback` | 7 | Dead code after step 1 | ✅ |
+| 3. `RefreshCallback` integration | 7 | Decided: stays as a separate render-only path (different concern) | ✅ |
+| 4. Remove redundant `glfwSetFramebufferSizeCallback` in `Init()` | 7 | Superseded by `InstallCallbacks()` | ✅ |
+| 5. Verify on Windows | — | Resize, minimize/restore, HiDPI working | ✅ |
 
 ### Phase E — Input processing pipeline (Modifiers & Triggers)
 
-**Status (2026-03-26)**: Not started.
+**Status (2026-03-26)**: Mostly done. Infrastructure (steps 1–5, 7) complete.
+Camera controller migration (step 6) deferred until an input-settings UI is built.
 
-**When to implement**: When adding sensitivity / dead zone / hold / tap settings
-to demos, or when building an input-settings UI. Currently, sensitivity and
-inversion are baked into `DebugCameraController`; this phase moves that logic
-into the action map so it becomes configurable per-binding.
+| Step | Layer | Description | Status |
+|------|-------|-------------|--------|
+| 1. `InputModifier` base class + built-ins | 3 | `DeadZone`, `Sensitivity`, `Clamp`, `Negate`, `Smooth` — header-only | ✅ |
+| 2. `InputTrigger` base class + built-ins | 3 | `PressedTrigger`, `HoldTrigger`, `TapTrigger`, `ReleasedTrigger` — header-only | ✅ |
+| 3. `InputActionMap::AddModifier()` / `SetTrigger()` | 2+3 | Integrate into existing action map | ✅ |
+| 4. `InputActionMap::Update(dt)` | 3 | Advance trigger state machines; must be called once per frame | ✅ |
+| 5. `WasActionTriggeredThisFrame()` / `GetActionTriggerState()` | 3 | Trigger-aware query API with backward-compatible fallback | ✅ |
+| 6. Migrate camera controller sensitivity into modifier | 3 | `DebugCameraController` no longer owns sensitivity scaling | ⬜ Deferred |
+| 7. Unit tests | 3 | 8 modifier tests + 9 trigger tests (chaining, timing, reset) | ✅ |
 
-| Step | Layer | Description |
-|------|-------|-------------|
-| 1. `InputModifier` base class + built-ins | 3 | `DeadZone`, `Sensitivity`, `Clamp`, `Negate`, `Smooth` — header-only |
-| 2. `InputTrigger` base class + built-ins | 3 | `PressedTrigger`, `HoldTrigger`, `TapTrigger`, `ReleasedTrigger` |
-| 3. `InputActionMap::AddModifier()` / `SetTrigger()` | 2+3 | Integrate into existing action map |
-| 4. `InputActionMap::Update(dt)` | 3 | Advance trigger state machines; must be called once per frame |
-| 5. `WasActionTriggeredThisFrame()` / `GetActionTriggerState()` | 3 | Trigger-aware query API |
-| 6. Migrate camera controller sensitivity into modifier | 3 | `DebugCameraController` no longer owns sensitivity scaling |
-| 7. Unit tests | 3 | DeadZone zeroing, Hold timing, Tap window, modifier chaining |
-
-**Dependency**: None — can be implemented on current codebase.
+**Backward compatibility**: `GetAxis()` returns cached (modified) values if `Update(dt)`
+was called, otherwise falls back to raw computation. `WasActionTriggeredThisFrame()`
+falls back to `WasActionPressedThisFrame()` when no trigger is set. Existing demos
+work unchanged without calling `Update(dt)`.
 
 ### Phase F — Input Context Stack
 
@@ -2274,15 +2282,15 @@ sequential combos, or double-tap gestures.
 ### Implementation order summary
 
 ```
-Phase D  Resize unification         ← recommended next (small, cleanup)
-Phase E  Modifiers & Triggers       ← next feature work (independent)
-Phase F  Context Stack              ← after E (depends on Update(dt))
+Phase D  Resize unification         ✅ Done
+Phase E  Modifiers & Triggers       ✅ Done (camera migration deferred)
+Phase F  Context Stack              ← recommended next (depends on E's Update(dt))
 Phase G  Device Abstraction         ← after F or standalone (large refactor)
 Phase H  Advanced Patterns          ← after E + F
 Phase I  Recording & Replay         ← after G
 ```
 
-Phases D and E are independent and can be worked on in either order.
+Phases A–E are complete. Phase F is the recommended next step.
 Phases F–I form a dependency chain and should be done in sequence.
 
 ---
