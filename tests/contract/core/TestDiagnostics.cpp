@@ -54,6 +54,14 @@ TEST(DiagnosticsContractTests, CrashHandlerInitIsIdempotent)
     Diagnostics::Logger::Shutdown();
 }
 
+TEST(DiagnosticsContractTests, CrashHandlerUsesSavedLogsCrashDirectory)
+{
+    FileSystem::Init();
+
+    const auto expectedPath = FileSystem::GetSavedPath("logs/crashes");
+    EXPECT_EQ(Diagnostics::CrashHandler::GetCrashDirectory(), expectedPath);
+}
+
 TEST(DiagnosticsContractTests, EnsureIsNonFatalAndReturnsBooleanStatus)
 {
     EXPECT_TRUE(RTRLAB_ENSURE(true));

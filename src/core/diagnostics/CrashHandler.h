@@ -3,6 +3,7 @@
 /// @file CrashHandler.h
 /// @brief Cross-platform crash handling and crash-artifact generation.
 
+#include <filesystem>
 #include <string_view>
 
 #ifndef _WIN32
@@ -21,6 +22,7 @@ namespace Diagnostics
     {
     public:
         static void Init();
+        static std::filesystem::path GetCrashDirectory();
         [[noreturn]] static void FatalError(const char *reason, std::string_view callstack = {});
 
     private:

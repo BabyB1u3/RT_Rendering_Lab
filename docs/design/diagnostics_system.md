@@ -1119,7 +1119,7 @@ private:
 **POSIX implementation** (Linux / macOS):
 
 ```cpp
-/// @file core/diagnostics/CrashHandler_Posix.cpp
+/// @file core/diagnostics/backends/posix/CrashHandler.cpp
 
 #include <signal.h>
 #include <execinfo.h>   // backtrace(), backtrace_symbols()
@@ -1141,30 +1141,13 @@ void CrashHandler::Init()
 
 void CrashHandler::PosixSignalHandler(int signal, siginfo_t *info, void * /*context*/)
 {
-    // 1. Log the signal
-    LOG_CRITICAL_CAT("Crash", "Received signal {} ({}) at address {}",
-        signal, strsignal(signal), info->si_addr);
-
-    // 2. Capture callstack via backtrace()
+    // Signal handlers should avoid the normal logger path and use low-level,
+    // best-effort writes to a dedicated crash summary file instead.
     void *frames[64];
     int count = backtrace(frames, 64);
-    char **symbols = backtrace_symbols(frames, count);
-
-    std::string callstack;
-    for (int i = 2; i < count; ++i)  // skip signal handler frames
-    {
-        // Attempt demangling for readable C++ names
-        callstack += "  ";
-        callstack += symbols[i];
-        callstack += "\n";
-    }
-    free(symbols);
-
-    LOG_CRITICAL_CAT("Crash", "Callstack:\n{}", callstack);
-
-    // 3. Flush and terminate
-    Logger::Flush();
-    _exit(1);  // _exit, not exit — avoid running atexit handlers in corrupted state
+    backtrace_symbols_fd(frames, count, crashFd);
+    fsync(crashFd);
+    _exit(128 + signal);  // _exit, not exit — avoid running atexit handlers in corrupted state
 }
 ```
 
@@ -1188,12 +1171,15 @@ std::string CaptureCallstack(int framesToSkip = 0, int maxFrames = 32);
 ```
 src/core/diagnostics/
     CrashHandler.h               — Platform-independent interface
-    CrashHandler_Win32.cpp       — Windows SEH + MiniDumpWriteDump
-    CrashHandler_Posix.cpp       — Linux/macOS signal handler
     Callstack.h                  — Platform-independent interface
     Debugger.h / .cpp            — Debugger detection + break helper
-    Callstack_Win32.cpp          — CaptureStackBackTrace-based implementation
-    Callstack_Posix.cpp          — backtrace() + dladdr() + demangling implementation
+    backends/
+      win32/
+        CrashHandler.cpp         — Windows SEH + MiniDumpWriteDump
+        Callstack.cpp            — CaptureStackBackTrace-based implementation
+      posix/
+        CrashHandler.cpp         — Linux/macOS signal-path crash summary writer
+        Callstack.cpp            — backtrace() + dladdr() + demangling implementation
 ```
 
 **CMake selection**:
@@ -1201,12 +1187,12 @@ src/core/diagnostics/
 ```cmake
 if(WIN32)
     target_sources(RTRLab PRIVATE
-        src/core/diagnostics/CrashHandler_Win32.cpp
-        src/core/diagnostics/Callstack_Win32.cpp)
+        src/core/diagnostics/backends/win32/CrashHandler.cpp
+        src/core/diagnostics/backends/win32/Callstack.cpp)
 else()
     target_sources(RTRLab PRIVATE
-        src/core/diagnostics/CrashHandler_Posix.cpp
-        src/core/diagnostics/Callstack_Posix.cpp)
+        src/core/diagnostics/backends/posix/CrashHandler.cpp
+        src/core/diagnostics/backends/posix/Callstack.cpp)
     if(UNIX AND NOT APPLE)
         target_link_libraries(RTRLab PRIVATE dl)
     endif()
@@ -1224,6 +1210,8 @@ When a fatal error occurs (unhandled SEH exception, `RTRLAB_ASSERT` failure, or
 3. Logger::Flush()                         ← force all buffered logs to disk
 4. Write minidump to saved/logs/crashes/         ← .dmp file with exception context
 5. Write crash summary to saved/logs/crashes/    ← human-readable .txt with last N log lines
+   POSIX signal-handler faults use a dedicated best-effort summary file
+   (`RTRLab_posix_signal_crash.txt`) to avoid unsafe high-level I/O in the handler
 6. std::terminate() / ExitProcess(1)
 ```
 
@@ -1359,12 +1347,15 @@ src/
       Assert.h / .cpp              — Layer 1: RTRLAB_ASSERT / VERIFY / ENSURE
       ErrorMacros.h                — Layer 2: ERR_FAIL_COND_* family
       CrashHandler.h               — Layer 3: platform-independent crash handler interface
-      CrashHandler_Win32.cpp       — Layer 3: Windows SEH + MiniDumpWriteDump
-      CrashHandler_Posix.cpp       — Layer 3: Linux/macOS signal handler
       Callstack.h                  — Layer 3: platform-independent callstack interface
       Debugger.h / .cpp            — Layer 1: cross-platform debugger detection / trap helper
-      Callstack_Win32.cpp          — Layer 3: CaptureStackBackTrace-based callstack capture
-      Callstack_Posix.cpp          — Layer 3: backtrace() + dladdr() + demangling capture
+      backends/
+        win32/
+          CrashHandler.cpp         — Layer 3: Windows SEH + MiniDumpWriteDump
+          Callstack.cpp            — Layer 3: CaptureStackBackTrace-based callstack capture
+        posix/
+          CrashHandler.cpp         — Layer 3: Linux/macOS signal-path crash summary writer
+          Callstack.cpp            — Layer 3: backtrace() + dladdr() + demangling capture
       ImGuiConsoleSink.h / .cpp    — Layer 4: ring buffer sink for ImGui
     Logger.h                       — DEPRECATED: thin redirect to diagnostics/LogMacros.h
                                      (removed after full migration)
@@ -1417,7 +1408,7 @@ Assertions are active in all build configurations.
 | Step | Deliverable | Test |
 |------|-------------|------|
 | 2a | `Assert.h` with `RTRLAB_ASSERT` / `RTRLAB_VERIFY` / `RTRLAB_ENSURE` | Unit test: ensure failure returns false without terminating |
-| 2b | `Callstack_Win32.cpp` + `Callstack_Posix.cpp` with `CaptureCallstack` | Manual: verify callstack output on Windows and macOS/Linux |
+| 2b | `backends/win32/Callstack.cpp` + `backends/posix/Callstack.cpp` with `CaptureCallstack` | Manual: verify callstack output on Windows and macOS/Linux |
 | 2c | `Debugger.h/.cpp` with cross-platform debugger detection and trap helper | Manual: debugger-attached assert breaks on each supported platform |
 | 2d | Replace `assert()` in `GLFramebuffer.cpp`, `GLVertexArray.cpp` | Release build still checks these conditions |
 | 2e | Replace `assert()` in `SceneRenderer.cpp`, `Mesh.cpp` | Release build still checks |
@@ -1451,7 +1442,7 @@ every supported platform: Windows SEH on Win32, POSIX signal handling on Linux/m
 
 | Step | Deliverable | Test |
 |------|-------------|------|
-| 4a | `CrashHandler_Win32.cpp` and `CrashHandler_Posix.cpp` behind one interface | Manual: deliberate fault produces persisted diagnostics on each supported platform |
+| 4a | `backends/win32/CrashHandler.cpp` and `backends/posix/CrashHandler.cpp` behind one interface | Manual: deliberate fault produces persisted diagnostics on each supported platform |
 | 4b | `WriteMiniDump` on Windows using DbgHelp | Verify `.dmp` opens in Visual Studio / WinDbg |
 | 4c | POSIX signal-path crash summary writer | Verify Linux/macOS produce readable `.txt` crash output |
 | 4d | Hook into `Application` startup: `CrashHandler::Init()` after `Logger::Init()` | Init order verified |

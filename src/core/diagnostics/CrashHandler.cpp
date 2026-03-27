@@ -42,17 +42,9 @@ namespace
         return buffer;
     }
 
-    std::filesystem::path GetCrashDirectory()
-    {
-        const auto crashDir = FileSystem::GetSavedPath("logs/crashes");
-        std::error_code ec;
-        std::filesystem::create_directories(crashDir, ec);
-        return crashDir;
-    }
-
     std::filesystem::path MakeCrashArtifactPath(const std::string &timestamp, const char *extension)
     {
-        return GetCrashDirectory() / ("RTRLab_" + timestamp + extension);
+        return Diagnostics::CrashHandler::GetCrashDirectory() / ("RTRLab_" + timestamp + extension);
     }
 
     std::string ReadLogTail(const std::filesystem::path &logPath, size_t maxLines)
@@ -214,6 +206,14 @@ namespace Diagnostics::Detail
 
 namespace Diagnostics
 {
+
+    std::filesystem::path CrashHandler::GetCrashDirectory()
+    {
+        const auto crashDir = FileSystem::GetSavedPath("logs/crashes");
+        std::error_code ec;
+        std::filesystem::create_directories(crashDir, ec);
+        return crashDir;
+    }
 
     [[noreturn]] void CrashHandler::FatalError(const char *reason, std::string_view callstack)
     {
