@@ -48,6 +48,7 @@ add_executable(rtrlab_unit_tests
 glab_configure_test_target(rtrlab_unit_tests)
 
 add_executable(rtrlab_contract_tests
+    contract/core/TestDiagnostics.cpp
     contract/core/TestEventBus.cpp
     contract/core/TestFileSystem.cpp
     contract/core/TestLayerStackLifecycle.cpp

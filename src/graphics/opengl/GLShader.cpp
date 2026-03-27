@@ -8,7 +8,8 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "core/FileSystem.h"
-#include "core/Logger.h"
+#include "core/diagnostics/LogCategories.h"
+#include "core/diagnostics/LogMacros.h"
 
 GLShader::GLShader(uint32_t program, std::string name)
 	: m_RendererID(program), m_Name(std::move(name))
@@ -75,11 +76,11 @@ uint32_t GLShader::CompileStage(uint32_t stage, const std::string &source, const
 		glGetShaderInfoLog(shader, maxLength, &maxLength, infoLog.data());
 		glDeleteShader(shader);
 
-		LOG_ERROR("Shader compilation failed ({}): {}", debugName, infoLog.data());
+		LOG_ERROR_CAT(LogCategory::Shader, "Shader compilation failed ({}): {}", debugName, infoLog.data());
 		throw std::runtime_error("Shader compilation failed (" + debugName + "):\n" + std::string(infoLog.data()));
 	}
 
-	LOG_TRACE("Shader stage compiled: {}", debugName);
+	LOG_TRACE_CAT(LogCategory::Shader, "Shader stage compiled: {}", debugName);
 	return shader;
 }
 
@@ -107,7 +108,7 @@ uint32_t GLShader::LinkProgram(const std::string &name, const std::vector<uint32
 
 		glDeleteProgram(program);
 
-		LOG_ERROR("Shader link failed ({}): {}", name, infoLog.data());
+		LOG_ERROR_CAT(LogCategory::Shader, "Shader link failed ({}): {}", name, infoLog.data());
 		throw std::runtime_error("Shader link failed (" + name + "):\n" + std::string(infoLog.data()));
 	}
 
@@ -117,7 +118,7 @@ uint32_t GLShader::LinkProgram(const std::string &name, const std::vector<uint32
 		glDeleteShader(id);
 	}
 
-	LOG_INFO("Shader linked: {}", name);
+	LOG_INFO_CAT(LogCategory::Shader, "Shader linked: {}", name);
 	return program;
 }
 
@@ -169,8 +170,8 @@ Ref<GLShader> GLShader::CreateFromCompiledGlsl(const std::string &name)
 	std::string vertSrc = FileSystem::ReadTextFile(vertPath);
 	std::string fragSrc = FileSystem::ReadTextFile(fragPath);
 
-	LOG_TRACE("Slang-compiled vertex shader ({}):\n{}", name, vertSrc);
-	LOG_TRACE("Slang-compiled fragment shader ({}):\n{}", name, fragSrc);
+	LOG_TRACE_CAT(LogCategory::Shader, "Slang-compiled vertex shader ({}):\n{}", name, vertSrc);
+	LOG_TRACE_CAT(LogCategory::Shader, "Slang-compiled fragment shader ({}):\n{}", name, fragSrc);
 
 	std::string geomSrc;
 	auto geomPath = baseDir / (name + ".geom.glsl");

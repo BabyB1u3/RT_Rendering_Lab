@@ -155,7 +155,8 @@ class Logger
 public:
     /// Initialize the logging subsystem. Call once at startup, before any LOG_* macro.
     /// Creates shared sinks (console + rotating file) and registers default categories.
-    static void Init();
+    /// The file path should come from FileSystem::GetSavedPath("logs/RTRLab.log").
+    static void Init(const std::filesystem::path &logFilePath);
 
     /// Flush all sinks immediately. Called by the crash handler before termination.
     static void Flush();
@@ -212,6 +213,10 @@ namespace LogCategory
 - Each category maps 1:1 to a spdlog logger instance, all sharing the same sink vector.
 - `spdlog::get(name)` handles the lookup; on miss, `Logger::GetLogger` creates + registers.
 - Log output format includes the category: `[14:32:01] [Graphics] [warn] Texture not found: foo.png`
+- `magic_enum` is intentionally not used for categories. Categories stay as strings so
+  subsystems can add new names without editing a central enum. `magic_enum` is reserved
+  for internal diagnostics enums such as severity, recoverability, sink mode, and
+  command-parser level tokens.
 
 ### 3.3 Log Macros
 
@@ -390,7 +395,7 @@ LOG_WARN_COND_CAT(m_DebugShadows, LogCategory::Renderer,
 ### 3.5 Sinks
 
 ```cpp
-void Logger::Init()
+void Logger::Init(const std::filesystem::path &logFilePath)
 {
     // See Section 3.6 for the full async version of Init().
     // This simplified version shows the sink setup and pattern configuration.
@@ -402,7 +407,7 @@ void Logger::Init()
     // Sink 2: Rotating file — survives crashes, limited disk usage
     //   5 MB per file, 3 rotated files = max 15 MB on disk
     auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
-        "logs/RTRLab.log", 5 * 1024 * 1024, 3);
+        logFilePath.string(), 5 * 1024 * 1024, 3);
 
     // File sink uses custom formatter with frame number (see 3.7)
     auto formatter = std::make_unique<spdlog::pattern_formatter>();
@@ -458,7 +463,7 @@ same architecture without custom threading code.
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 
-void Logger::Init()
+void Logger::Init(const std::filesystem::path &logFilePath)
 {
     // Create the thread pool: 8192-slot queue, 1 worker thread.
     // The queue is a lock-free MPSC ring buffer (bounded, non-blocking enqueue).
@@ -471,7 +476,7 @@ void Logger::Init()
 
     // Sink 2: Rotating file
     auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
-        "logs/RTRLab.log", 5 * 1024 * 1024, 3);
+        logFilePath.string(), 5 * 1024 * 1024, 3);
     fileSink->set_pattern("[%Y-%m-%d %T.%e] [%t] [F%@frame] [%n] [%l] %v");
     //                                       ^^^   ^^^^^^^^
     //                                    thread ID  frame # (custom flag, see 3.7)
@@ -613,6 +618,11 @@ The ImGui debug console (Layer 4) exposes this as a command:
 > log.level * info
 ```
 
+For command parsing and config-file ingestion, internal enum-backed controls such as
+`DiagnosticLevel`, `SinkMode`, or `JsonLogState` should use `magic_enum::enum_cast`
+to convert string tokens like `warn`, `info`, or `off` into strongly typed values.
+The category itself remains a string key.
+
 ### 3.9 Compile-Time Level Stripping
 
 In shipping builds, `Trace` and `Debug` level logs serve no purpose — they bloat the
@@ -716,9 +726,14 @@ private:
 | `lvl` | string | Level: `trace`, `info`, `warn`, `error`, `critical` |
 | `msg` | string | Formatted message text |
 
+If the diagnostics system later adds enum-backed fields such as `severity`,
+`recoverability`, `sink`, or `assert_kind`, they should serialize via
+`magic_enum::enum_name()` so JSON output stays readable while the internal API
+remains strongly typed.
+
 **When to enable**: The JSON sink is **not registered by default**. Enable it via:
 - Compile-time: `#define RTRLAB_ENABLE_JSON_LOG`
-- Runtime: `Logger::EnableJsonSink("logs/RTRLab.jsonl")`
+- Runtime: `Logger::EnableJsonSink("saved/logs/RTRLab.jsonl")`
 - ImGui console: `log.json on`
 
 **Why JSON Lines, not plain JSON**: JSON Lines (one JSON object per line, no wrapping
@@ -727,7 +742,7 @@ array) can be appended to without reading the entire file. It survives truncatio
 
 ```bash
 # Find all shader errors on frame 4823
-cat logs/RTRLab.jsonl | jq 'select(.cat=="Shader" and .lvl=="error" and .frame==4823)'
+cat saved/logs/RTRLab.jsonl | jq 'select(.cat=="Shader" and .lvl=="error" and .frame==4823)'
 ```
 
 ---
@@ -896,6 +911,21 @@ If code currently silently ignores a condition, evaluate whether `RTRLAB_ENSURE`
 
 Every error in the engine falls into one of four severity tiers:
 
+Internally, this layer may represent policy as enum classes:
+
+```cpp
+enum class DiagnosticSeverity { Trace, Info, Warning, Error, Critical };
+enum class DiagnosticRecoverability { Recoverable, Fatal };
+enum class AssertionKind { Assert, Verify, Ensure };
+```
+
+These enums are a good `magic_enum` fit:
+- `enum_name()` for structured logs, crash summaries, and test failure output
+- `enum_cast()` for config-driven policy, debug-console commands, and scripted tooling
+- `enum_entries()` for UI dropdowns or help text
+
+The log category itself still remains a string, not an enum, to preserve extensibility.
+
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │ Severity       │ Response           │ Macro / Pattern              │
@@ -1036,7 +1066,7 @@ private:
     /// Windows: registered via SetUnhandledExceptionFilter
     static LONG WINAPI UnhandledExceptionHandler(EXCEPTION_POINTERS *exceptionInfo);
 
-    /// Path to the crash dump directory (logs/crashes/)
+    /// Path to the crash dump directory (saved/logs/crashes/)
     static std::filesystem::path s_CrashDir;
 };
 
@@ -1183,8 +1213,8 @@ When a fatal error occurs (unhandled SEH exception, `RTRLAB_ASSERT` failure, or
 1. LOG_CRITICAL("Fatal error: <reason>")
 2. Capture callstack → LOG_CRITICAL (full symbolic callstack)
 3. Logger::Flush()                         ← force all buffered logs to disk
-4. Write minidump to logs/crashes/         ← .dmp file with exception context
-5. Write crash summary to logs/crashes/    ← human-readable .txt with last N log lines
+4. Write minidump to saved/logs/crashes/         ← .dmp file with exception context
+5. Write crash summary to saved/logs/crashes/    ← human-readable .txt with last N log lines
 6. std::terminate() / ExitProcess(1)
 ```
 
@@ -1236,7 +1266,7 @@ static bool WriteMiniDump(EXCEPTION_POINTERS *exInfo, const std::filesystem::pat
 }
 ```
 
-**Dump naming convention**: `logs/crashes/RTRLab_20260325_143201.dmp`
+**Dump naming convention**: `saved/logs/crashes/RTRLab_20260325_143201.dmp`
 (ISO date + time, no colons for filesystem safety).
 
 ---
@@ -1289,6 +1319,11 @@ private:
 | `log.clear` | Clear the console buffer |
 | `log.flush` | Force flush all sinks to disk |
 
+For commands whose arguments map cleanly to internal enum classes—such as log level,
+JSON sink state, assertion display mode, or future diagnostics policy toggles—the parser
+should use `magic_enum` instead of hand-written string tables. This keeps command parsing,
+config-file parsing, and UI dropdown choices consistent with the engine's typed policy enums.
+
 **Color scheme** (matches spdlog console colors):
 
 | Level | Color |
@@ -1323,19 +1358,22 @@ src/
       ImGuiConsoleSink.h / .cpp    — Layer 4: ring buffer sink for ImGui
     Logger.h                       — DEPRECATED: thin redirect to diagnostics/LogMacros.h
                                      (removed after full migration)
-logs/
-  RTRLab.log                       — Rotating log file (runtime output, human-readable)
-  RTRLab.1.log                     — Previous rotation
-  RTRLab.2.log                     — Oldest rotation
-  RTRLab.jsonl                     — Structured JSON Lines log (optional, when enabled)
-  crashes/
-    RTRLab_YYYYMMDD_HHMMSS.dmp    — Minidump files (Windows only)
-    RTRLab_YYYYMMDD_HHMMSS.txt    — Human-readable crash summary
+saved/
+  logs/
+    RTRLab.log                     — Rotating log file (runtime output, human-readable)
+    RTRLab.1.log                   — Previous rotation
+    RTRLab.2.log                   — Oldest rotation
+    RTRLab.jsonl                   — Structured JSON Lines log (optional, when enabled)
+    crashes/
+      RTRLab_YYYYMMDD_HHMMSS.dmp  — Minidump files (Windows only)
+      RTRLab_YYYYMMDD_HHMMSS.txt  — Human-readable crash summary
 ```
 
 The `diagnostics/` module lives under `core/` because it is engine infrastructure
-depended on by every subsystem. The `logs/` directory is created at runtime by
-spdlog's file sink (auto-creates parent directories). Platform-specific source files
+depended on by every subsystem. The runtime log path is resolved through the engine's
+saved-data policy, so Debug builds write under the source tree's `saved/logs/` while
+Release builds write under the platform user-data directory (for example
+`%LOCALAPPDATA%/RTRLab/logs/` on Windows). Platform-specific source files
 are conditionally compiled via CMake (see Section 6.2).
 
 ---
@@ -1349,10 +1387,10 @@ old `LOG_*` macros continue to work, routing to the "Core" category.
 
 | Step | Deliverable | Test |
 |------|-------------|------|
-| 1a | `Diagnostics::Logger` with console + rotating file sinks | Manual: verify `logs/RTRLab.log` is created and written |
+| 1a | `Diagnostics::Logger` with console + rotating file sinks | Manual: verify `saved/logs/RTRLab.log` is created and written |
 | 1b | `LogCategories.h` with predefined category names | Compile test: all categories resolve |
 | 1c | `LogMacros.h` with `LOG_*_CAT` + legacy `LOG_*` compatibility | Existing code compiles unchanged; logs show `[Core]` prefix |
-| 1d | Update `Application.cpp` to call `Diagnostics::Logger::Init()` | Application starts normally with new logger |
+| 1d | Update `Application.cpp` to call `Diagnostics::Logger::Init(FileSystem::GetSavedPath("logs/RTRLab.log"))` | Application starts normally with new logger |
 | 1e | Migrate Window.cpp to `LOG_*_CAT(LogCategory::Window, ...)` | Window logs show `[Window]` category |
 | 1f | Migrate GLShader.cpp to `LOG_*_CAT(LogCategory::Shader, ...)` | Shader logs show `[Shader]` category |
 

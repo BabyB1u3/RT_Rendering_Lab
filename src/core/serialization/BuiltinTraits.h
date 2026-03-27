@@ -5,7 +5,8 @@
 ///        enums (via magic_enum), and standard containers.
 
 #include "core/serialization/SerializationTraits.h"
-#include "core/Logger.h"
+#include "core/diagnostics/LogCategories.h"
+#include "core/diagnostics/LogMacros.h"
 
 #include <glm/glm.hpp>
 #include <magic_enum.hpp>
@@ -119,8 +120,8 @@ namespace Serialization
         auto result = magic_enum::enum_cast<E>(tree.AsString());
         if (!result.has_value())
         {
-            LOG_WARN("BuiltinTraits: unknown enum value '{}' for type {}",
-                     tree.AsString(), magic_enum::enum_type_name<E>());
+            LOG_WARN_CAT(LogCategory::Core, "BuiltinTraits: unknown enum value '{}' for type {}",
+                         tree.AsString(), magic_enum::enum_type_name<E>());
             return false;
         }
         value = *result;

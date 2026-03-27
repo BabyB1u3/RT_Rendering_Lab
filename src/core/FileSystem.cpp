@@ -4,7 +4,8 @@
 #include <sstream>
 #include <stdexcept>
 
-#include "Logger.h"
+#include "core/diagnostics/LogCategories.h"
+#include "core/diagnostics/LogMacros.h"
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -26,8 +27,6 @@ void FileSystem::Init()
 {
     s_RootPath = DiscoverRootPath();
     s_Initialized = true;
-
-    LOG_INFO("FileSystem initialized - root: {}", s_RootPath.string());
 }
 
 const std::filesystem::path &FileSystem::GetRootPath()
@@ -72,8 +71,6 @@ void FileSystem::ResolveSavedDir()
 
     std::filesystem::create_directories(s_SavedDir / "configs");
     s_SavedDirResolved = true;
-
-    LOG_INFO("Saved directory: {}", s_SavedDir.string());
 }
 
 const std::filesystem::path &FileSystem::GetSavedDir()
@@ -109,11 +106,11 @@ std::filesystem::path FileSystem::ResolveConfigPath(std::string_view relativePat
         std::filesystem::copy_file(defaultPath, savedPath, ec);
         if (ec)
         {
-            LOG_WARN("Failed to copy default config '{}' to saved: {}",
-                     relativePath, ec.message());
+            LOG_WARN_CAT(LogCategory::FileSystem, "Failed to copy default config '{}' to saved: {}",
+                         relativePath, ec.message());
             return defaultPath; // still usable, just not editable in-place
         }
-        LOG_INFO("Copied default config to saved: {}", savedPath.string());
+        LOG_INFO_CAT(LogCategory::FileSystem, "Copied default config to saved: {}", savedPath.string());
         return savedPath;
     }
 
@@ -230,7 +227,7 @@ std::filesystem::path FileSystem::DiscoverRootPath()
         std::filesystem::path p(envRoot);
         if (std::filesystem::exists(p / GLAB_ASSET_DIR))
             return std::filesystem::canonical(p);
-        LOG_WARN("RTRL_ROOT is set to '{}' but no '{}' directory found there", envRoot, GLAB_ASSET_DIR);
+        LOG_WARN_CAT(LogCategory::FileSystem, "RTRL_ROOT is set to '{}' but no '{}' directory found there", envRoot, GLAB_ASSET_DIR);
     }
 
     // 2. Executable directory / walk up (deployment and POST_BUILD copy)
@@ -246,7 +243,7 @@ std::filesystem::path FileSystem::DiscoverRootPath()
         std::filesystem::path p(GLAB_ROOT_DIR);
         if (std::filesystem::exists(p / GLAB_ASSET_DIR))
             return std::filesystem::canonical(p);
-        LOG_WARN("GLAB_ROOT_DIR='{}' does not contain '{}'", GLAB_ROOT_DIR, GLAB_ASSET_DIR);
+        LOG_WARN_CAT(LogCategory::FileSystem, "GLAB_ROOT_DIR='{}' does not contain '{}'", GLAB_ROOT_DIR, GLAB_ASSET_DIR);
     }
 #endif
 
@@ -257,6 +254,6 @@ std::filesystem::path FileSystem::DiscoverRootPath()
             return cwd;
     }
 
-    LOG_ERROR("FileSystem: could not locate '{}' directory from any known root", GLAB_ASSET_DIR);
+    LOG_ERROR_CAT(LogCategory::FileSystem, "FileSystem: could not locate '{}' directory from any known root", GLAB_ASSET_DIR);
     return std::filesystem::current_path();
 }

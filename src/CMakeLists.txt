@@ -7,7 +7,7 @@
     core/input/InputNames.cpp
     core/app/Layer.cpp
     core/app/LayerStack.cpp
-    core/Logger.cpp
+    core/diagnostics/Logger.cpp
     core/serialization/PropertyTree.cpp
     core/serialization/JsonBackend.cpp
     core/Time.cpp
@@ -59,6 +59,9 @@ set(GLAB_CORE_HEADERS
     core/app/LayerStack.h
     core/input/MouseCode.h
     core/Logger.h
+    core/diagnostics/LogCategories.h
+    core/diagnostics/Logger.h
+    core/diagnostics/LogMacros.h
     core/serialization/PropertyTree.h
     core/serialization/SerializationTraits.h
     core/serialization/BuiltinTraits.h
