@@ -70,7 +70,9 @@ TEST(FileSystemContractTests, ResolveConfigPathCopiesDefaultConfigIntoSavedDirec
 
     EXPECT_EQ(resolved, savedPath);
     ASSERT_TRUE(std::filesystem::exists(savedPath));
-    EXPECT_EQ(FileSystem::ReadTextFile(savedPath), expectedContents);
+    const auto contents = FileSystem::ReadTextFile(savedPath);
+    ASSERT_TRUE(contents.has_value());
+    EXPECT_EQ(*contents, expectedContents);
 
     RemovePathIfExists(savedPath);
     RemovePathIfExists(assetPath);
@@ -95,32 +97,18 @@ TEST(FileSystemContractTests, ResolveConfigPathReturnsEmptyWhenConfigIsMissing)
 
 // ── Error path tests ─────────────────────────────────────────────────
 
-TEST(FileSystemContractTests, ReadTextFileThrowsOnMissingFile)
+TEST(FileSystemContractTests, ReadTextFileReturnsNulloptOnMissingFile)
 {
     FileSystem::Init();
 
-    try
-    {
-        FileSystem::ReadTextFile("definitely/missing/path.txt");
-        FAIL() << "Expected ReadTextFile to throw on missing file";
-    }
-    catch (const std::runtime_error &e)
-    {
-        EXPECT_NE(std::string(e.what()).find("Failed to open file"), std::string::npos);
-    }
+    const auto contents = FileSystem::ReadTextFile("definitely/missing/path.txt");
+    EXPECT_FALSE(contents.has_value());
 }
 
-TEST(FileSystemContractTests, ReadBinaryFileThrowsOnMissingFile)
+TEST(FileSystemContractTests, ReadBinaryFileReturnsNulloptOnMissingFile)
 {
     FileSystem::Init();
 
-    try
-    {
-        FileSystem::ReadBinaryFile("definitely/missing/binary.bin");
-        FAIL() << "Expected ReadBinaryFile to throw on missing file";
-    }
-    catch (const std::runtime_error &e)
-    {
-        EXPECT_NE(std::string(e.what()).find("Failed to open binary file"), std::string::npos);
-    }
+    const auto data = FileSystem::ReadBinaryFile("definitely/missing/binary.bin");
+    EXPECT_FALSE(data.has_value());
 }

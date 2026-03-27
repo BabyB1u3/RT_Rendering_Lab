@@ -2,7 +2,8 @@
 
 #include <imgui.h>
 
-#include "core/Logger.h"
+#include "core/diagnostics/Assert.h"
+#include "core/diagnostics/LogMacros.h"
 #include "graphics/Buffers.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/RenderCommand.h"
@@ -35,6 +36,7 @@ void Triangle::OnAttach()
 
     // Shader
     m_Shader = GetDevice()->CreateShader("FlatColor");
+    RTRLAB_ASSERT_MSG(m_Shader, "Triangle demo failed to create FlatColor shader");
 
     // Vertex buffer with position + color layout
     m_VBO = GetDevice()->CreateVertexBuffer(

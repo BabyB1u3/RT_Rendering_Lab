@@ -1,13 +1,14 @@
 #include "core/app/Application.h"
 
-#include <stdexcept>
-
 #include <GLFW/glfw3.h>
 
 #include "core/FileSystem.h"
+#include "core/diagnostics/Assert.h"
+#include "core/diagnostics/LogCategories.h"
+#include "core/diagnostics/LogMacros.h"
+#include "core/diagnostics/Logger.h"
 #include "core/event/Events.h"
 #include "core/input/Input.h"
-#include "core/Logger.h"
 #include "core/Time.h"
 #include "gui/ImGuiLayer.h"
 #include "graphics/GraphicsDevice.h"
@@ -22,12 +23,13 @@ Application *Application::s_Instance = nullptr;
 
 Application::Application(const ApplicationSpecification &spec)
 {
-    Logger::Init();
     FileSystem::Init();
+    Diagnostics::Logger::Init(FileSystem::GetSavedPath("logs/RTRLab.log"));
+    LOG_INFO_CAT(LogCategory::FileSystem, "FileSystem initialized - root: {}", FileSystem::GetRootPath().string());
+    LOG_INFO_CAT(LogCategory::FileSystem, "Saved directory: {}", FileSystem::GetSavedDir().string());
     LOG_INFO("Starting application: {}", spec.Name);
 
-    if (s_Instance)
-        throw std::runtime_error("Application already exists.");
+    RTRLAB_ASSERT_MSG(!s_Instance, "Application already exists.");
 
     WindowProps props;
     props.Title = spec.Name;
@@ -72,6 +74,7 @@ Application::Application(const ApplicationSpecification &spec)
 Application::~Application()
 {
     LOG_INFO("Application shutting down");
+    Diagnostics::Logger::Shutdown();
     s_Instance = nullptr;
 }
 

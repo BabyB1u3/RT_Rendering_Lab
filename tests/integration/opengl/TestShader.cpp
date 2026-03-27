@@ -104,45 +104,26 @@ TEST_F(ShaderIntegrationTests, BindAndUniformSettersDoNotCrash)
 	SUCCEED();
 }
 
-TEST_F(ShaderIntegrationTests, InvalidSourceThrowsReadableCompileError)
+TEST_F(ShaderIntegrationTests, InvalidSourceReturnsNullShader)
 {
-	try
-	{
-		auto shader = GetDevice()->CreateShaderFromSource(
-			"BrokenShader",
-			"#version 330 core\nthis is not valid glsl",
-			kFragmentSrc);
-		(void)shader;
-		FAIL() << "Expected shader compilation to throw";
-	}
-	catch (const std::runtime_error &e)
-	{
-		const std::string message = e.what();
-		EXPECT_NE(message.find("Shader compilation failed"), std::string::npos);
-		EXPECT_NE(message.find("BrokenShader [vertex]"), std::string::npos);
-	}
+	auto shader = GetDevice()->CreateShaderFromSource(
+		"BrokenShader",
+		"#version 330 core\nthis is not valid glsl",
+		kFragmentSrc);
+
+	EXPECT_EQ(shader, nullptr);
 }
 
-TEST_F(ShaderIntegrationTests, MissingCompiledArtifactsThrowReadableError)
+TEST_F(ShaderIntegrationTests, MissingCompiledArtifactsReturnNullShader)
 {
-	try
-	{
-		auto shader = GetDevice()->CreateShader("DefinitelyMissingShaderForIntegrationCoverage");
-		(void)shader;
-		FAIL() << "Expected missing compiled shader artifacts to throw";
-	}
-	catch (const std::runtime_error &e)
-	{
-		const std::string message = e.what();
-		EXPECT_NE(message.find("Compiled GLSL vertex shader missing"), std::string::npos);
-		EXPECT_NE(message.find("DefinitelyMissingShaderForIntegrationCoverage.vert.glsl"), std::string::npos);
-	}
+	auto shader = GetDevice()->CreateShader("DefinitelyMissingShaderForIntegrationCoverage");
+	EXPECT_EQ(shader, nullptr);
 }
 
-TEST_F(ShaderIntegrationTests, LinkFailureThrowsReadableError)
+TEST_F(ShaderIntegrationTests, LinkFailureReturnsNullShaderWhenDriverRejectsIt)
 {
 	// Vertex shader writes gl_Position with type mismatch via mismatched output
-	// type vs fragment input type — vec3 output, float input.
+	// type vs fragment input type: vec3 output, float input.
 	static constexpr const char *kVertSrc = R"(
 #version 330 core
 layout(location = 0) in vec3 a_Position;
@@ -164,19 +145,15 @@ void main()
 }
 )";
 
-	try
+	auto shader = GetDevice()->CreateShaderFromSource("LinkFailure", kVertSrc, kFragSrc);
+	if (shader != nullptr)
 	{
-		auto shader = GetDevice()->CreateShaderFromSource("LinkFailure", kVertSrc, kFragSrc);
-		(void)shader;
 		// Some drivers may optimize away the mismatch. If it succeeds, that is
-		// also acceptable — skip rather than fail.
+		// also acceptable, so skip rather than fail.
 		GTEST_SKIP() << "Driver accepted the type mismatch; link failure not testable here";
 	}
-	catch (const std::runtime_error &e)
-	{
-		const std::string message = e.what();
-		EXPECT_NE(message.find("LinkFailure"), std::string::npos);
-	}
+
+	EXPECT_EQ(shader, nullptr);
 }
 
 TEST_F(ShaderIntegrationTests, CreateShader_LoadsForwardLitFromCompiledGlsl)

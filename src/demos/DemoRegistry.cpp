@@ -1,9 +1,7 @@
 #include "DemoRegistry.h"
 
-#include <stdexcept>
-
 #include "DemoBase.h"
-#include "core/Logger.h"
+#include "core/diagnostics/LogMacros.h"
 
 // Function-local statics ensure the containers are initialized on first use,
 // avoiding the static initialization order fiasco (SIOF).
@@ -44,7 +42,7 @@ Scope<DemoBase> DemoRegistry::Create(const std::string &name)
     }
 
     LOG_ERROR("DemoRegistry: unknown demo \"{}\"", name);
-    throw std::runtime_error("DemoRegistry::Create failed. Unknown demo: " + name);
+    return nullptr;
 }
 
 const std::vector<std::string> &DemoRegistry::GetNames()

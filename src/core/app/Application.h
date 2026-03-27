@@ -4,7 +4,7 @@
 /// @brief Top-level application class — owns the window, layer stack, and main loop.
 ///
 /// Construction order:
-///   Logger::Init() → FileSystem::Init() → Window → Input → Time → ImGuiLayer (overlay)
+///   FileSystem::Init() → Diagnostics::Logger::Init(saved/logs) → Window → Input → Time → ImGuiLayer (overlay)
 ///
 /// Main loop (Application::Run):
 ///   1. Poll OS events

@@ -1,9 +1,9 @@
 #include "SceneRenderer.h"
 
-#include <cassert>
 #include <memory>
 
-#include "core/Logger.h"
+#include "core/diagnostics/Assert.h"
+#include "core/diagnostics/LogMacros.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -83,7 +83,8 @@ glm::mat4 SceneRenderer::BuildDirectionalLightViewProjection(const DirectionalLi
 
 void SceneRenderer::Render(const SceneData &scene, const Camera &camera)
 {
-    assert(m_ShadowPass && m_ForwardPass && m_TexturePreviewPass && "SceneRenderer passes are not initialized");
+    RTRLAB_ASSERT_MSG(m_ShadowPass && m_ForwardPass && m_TexturePreviewPass,
+                      "SceneRenderer passes are not initialized");
 
     SceneView view{scene, camera, m_Width, m_Height};
 

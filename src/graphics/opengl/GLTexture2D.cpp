@@ -1,13 +1,13 @@
 #include "GLTexture2D.h"
 
-#include <cassert>
-#include <stdexcept>
 #include <utility>
 
 #include <glad/glad.h>
 #include <stb_image.h>
 
-#include "core/Logger.h"
+#include "core/diagnostics/Assert.h"
+#include "core/diagnostics/ErrorMacros.h"
+#include "core/diagnostics/LogMacros.h"
 
 static GLenum TextureWrapToGL(TextureWrap wrap)
 {
@@ -142,7 +142,7 @@ Ref<GLTexture2D> GLTexture2D::Create(const TextureSpecification &spec)
 	glCreateTextures(GL_TEXTURE_2D, 1, &rendererID);
 
 	GLenum internalFormat = TextureFormatToGLInternalFormat(spec.Format);
-	assert(internalFormat != 0 && "Unsupported texture format");
+	RTRLAB_ASSERT_MSG(internalFormat != 0, "Unsupported texture format");
 
 	uint32_t mipLevels = 1;
 	if (spec.GenerateMips)
@@ -174,7 +174,7 @@ Ref<GLTexture2D> GLTexture2D::CreateFromFile(const std::string &path, bool flipV
 	if (!data)
 	{
 		LOG_ERROR("Failed to load texture: {}", path);
-		throw std::runtime_error("Failed to load texture: " + path);
+		return nullptr;
 	}
 
 	TextureSpecification spec;
@@ -196,7 +196,7 @@ Ref<GLTexture2D> GLTexture2D::CreateFromFile(const std::string &path, bool flipV
 	{
 		stbi_image_free(data);
 		LOG_ERROR("Unsupported channel count ({}) in texture: {}", channels, path);
-		throw std::runtime_error("Unsupported image channel count in texture: " + path);
+		return nullptr;
 	}
 
 	uint32_t rendererID = 0;
@@ -225,6 +225,8 @@ Ref<GLTexture2D> GLTexture2D::CreateFromFile(const std::string &path, bool flipV
 
 void GLTexture2D::SetData(const void *data)
 {
+	ERR_FAIL_COND_MSG_CAT(LogCategory::Graphics, data == nullptr, "GLTexture2D::SetData received null data");
+
 	GLenum dataFormat = TextureFormatToGLDataFormat(m_Spec.Format);
 	GLenum dataType = TextureFormatToGLDataType(m_Spec.Format);
 
@@ -241,8 +243,8 @@ void GLTexture2D::SetData(const void *data)
 		bpp = 4;
 		break;
 	default:
-		LOG_ERROR("GLTexture2D::SetData called with unsupported format");
-		throw std::runtime_error("GLTexture2D::SetData only supports ordinary color textures");
+		ERR_FAIL_COND_MSG_CAT(LogCategory::Graphics, true,
+							  "GLTexture2D::SetData only supports ordinary color textures");
 	}
 
 	(void)bpp; // used for validation only

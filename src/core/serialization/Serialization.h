@@ -8,7 +8,7 @@
 
 #include "core/serialization/SerializationTraits.h"
 #include "core/serialization/JsonBackend.h"
-#include "core/Logger.h"
+#include "core/diagnostics/LogMacros.h"
 
 #include <filesystem>
 #include <fstream>

@@ -1,16 +1,16 @@
 #include "core/app/Window.h"
 
-#include <stdexcept>
-
 #ifndef GLAB_BACKEND_METAL
 #include <glad/glad.h>
 #endif
 #include <GLFW/glfw3.h>
 
+#include "core/diagnostics/Assert.h"
 #include "core/event/EventBus.h"
 #include "core/event/Events.h"
+#include "core/diagnostics/LogCategories.h"
+#include "core/diagnostics/LogMacros.h"
 #include "core/input/Input.h"
-#include "core/Logger.h"
 
 namespace
 {
@@ -18,7 +18,7 @@ namespace
 
     void GLFWErrorCallback(int error, const char *description)
     {
-        LOG_ERROR("[GLFW Error] ({}): {}", error, description);
+        LOG_ERROR_CAT(LogCategory::Window, "[GLFW Error] ({}): {}", error, description);
     }
 }
 
@@ -42,10 +42,9 @@ void Window::Init(const WindowProps &props)
     {
         glfwSetErrorCallback(GLFWErrorCallback);
 
-        if (!glfwInit())
-            throw std::runtime_error("Failed to initialize GLFW.");
+        RTRLAB_ASSERT_MSG(glfwInit(), "Failed to initialize GLFW.");
 
-        LOG_INFO("GLFW initialized");
+        LOG_INFO_CAT(LogCategory::Window, "GLFW initialized");
         s_GLFWInitialized = true;
     }
 
@@ -65,8 +64,7 @@ void Window::Init(const WindowProps &props)
         nullptr,
         nullptr);
 
-    if (!m_Handle)
-        throw std::runtime_error("Failed to create GLFW window.");
+    RTRLAB_ASSERT_MSG(m_Handle, "Failed to create GLFW window.");
 
     // On HiDPI/Retina displays the framebuffer size (physical pixels) differs from
     // the window size (logical points). Always store physical pixel dimensions so that
@@ -76,14 +74,15 @@ void Window::Init(const WindowProps &props)
     m_Width = static_cast<uint32_t>(fbWidth);
     m_Height = static_cast<uint32_t>(fbHeight);
 
-    LOG_INFO("Window created: {}x{} (framebuffer {}x{}) \"{}\"",
-             props.Width, props.Height, m_Width, m_Height, props.Title);
+    LOG_INFO_CAT(LogCategory::Window,
+                 "Window created: {}x{} (framebuffer {}x{}) \"{}\"",
+                 props.Width, props.Height, m_Width, m_Height, props.Title);
 
 #ifndef GLAB_BACKEND_METAL
     glfwMakeContextCurrent(m_Handle);
 
-    if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress)))
-        throw std::runtime_error("Failed to initialize GLAD.");
+    RTRLAB_ASSERT_MSG(gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress)),
+                      "Failed to initialize GLAD.");
 
     // Register an OpenGL debug callback to surface driver warnings/errors via our Logger.
     // GL_DEBUG_OUTPUT_SYNCHRONOUS ensures the callback fires on the calling thread,
@@ -119,11 +118,11 @@ void Window::Init(const WindowProps &props)
         }();
 
         if (severity == GL_DEBUG_SEVERITY_HIGH)
-            LOG_ERROR("[GL {}] {} (id={}): {}", srcStr, typeStr, id, message);
+            LOG_ERROR_CAT(LogCategory::Window, "[GL {}] {} (id={}): {}", srcStr, typeStr, id, message);
         else
-            LOG_WARN("[GL {}] {} (id={}): {}", srcStr, typeStr, id, message); },
+            LOG_WARN_CAT(LogCategory::Window, "[GL {}] {} (id={}): {}", srcStr, typeStr, id, message); },
                            nullptr);
-    LOG_INFO("OpenGL debug callback registered");
+    LOG_INFO_CAT(LogCategory::Window, "OpenGL debug callback registered");
 #endif
 
     // Store 'this' in the GLFW window so that static callbacks can reach the Window instance.
@@ -137,9 +136,9 @@ void Window::Init(const WindowProps &props)
     SetVSync(props.VSync);
 
 #ifndef GLAB_BACKEND_METAL
-    LOG_INFO("OpenGL Vendor   : {}", reinterpret_cast<const char *>(glGetString(GL_VENDOR)));
-    LOG_INFO("OpenGL Renderer : {}", reinterpret_cast<const char *>(glGetString(GL_RENDERER)));
-    LOG_INFO("OpenGL Version  : {}", reinterpret_cast<const char *>(glGetString(GL_VERSION)));
+    LOG_INFO_CAT(LogCategory::Window, "OpenGL Vendor   : {}", reinterpret_cast<const char *>(glGetString(GL_VENDOR)));
+    LOG_INFO_CAT(LogCategory::Window, "OpenGL Renderer : {}", reinterpret_cast<const char *>(glGetString(GL_RENDERER)));
+    LOG_INFO_CAT(LogCategory::Window, "OpenGL Version  : {}", reinterpret_cast<const char *>(glGetString(GL_VERSION)));
 #endif
 }
 

@@ -27,6 +27,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -63,10 +64,10 @@ public:
 
     // ── File I/O utilities ────────────────────────────────────────────
 
-    /// Read an entire text file into a string. Throws on failure.
-    static std::string ReadTextFile(const std::filesystem::path &path);
-    /// Read an entire binary file into a byte vector. Throws on failure.
-    static std::vector<uint8_t> ReadBinaryFile(const std::filesystem::path &path);
+    /// Read an entire text file into a string. Returns std::nullopt on failure.
+    static std::optional<std::string> ReadTextFile(const std::filesystem::path &path);
+    /// Read an entire binary file into a byte vector. Returns std::nullopt on failure.
+    static std::optional<std::vector<uint8_t>> ReadBinaryFile(const std::filesystem::path &path);
     /// Check whether a file or directory exists.
     static bool Exists(const std::filesystem::path &path);
 

@@ -1,5 +1,5 @@
 #include "core/serialization/JsonBackend.h"
-#include "core/Logger.h"
+#include "core/diagnostics/LogMacros.h"
 
 #include <json.hpp>
 

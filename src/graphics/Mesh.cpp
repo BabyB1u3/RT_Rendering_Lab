@@ -1,7 +1,6 @@
 #include "Mesh.h"
 
-#include <cassert>
-
+#include "core/diagnostics/Assert.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/interface/IIndexBuffer.h"
 #include "graphics/interface/IVertexArray.h"
@@ -15,11 +14,11 @@ Mesh::Mesh(const void *vertexData,
            BufferUsage vertexUsage)
     : m_IndexCount(indexCount)
 {
-    assert(vertexData != nullptr && "Mesh vertex data is null");
-    assert(vertexBufferSize > 0 && "Mesh vertex buffer size must be > 0");
-    assert(indices != nullptr && "Mesh index data is null");
-    assert(indexCount > 0 && "Mesh index count must be > 0");
-    assert(!layout.GetElements().empty() && "Mesh layout is empty");
+    RTRLAB_ASSERT_MSG(vertexData != nullptr, "Mesh vertex data is null");
+    RTRLAB_ASSERT_MSG(vertexBufferSize > 0, "Mesh vertex buffer size must be > 0");
+    RTRLAB_ASSERT_MSG(indices != nullptr, "Mesh index data is null");
+    RTRLAB_ASSERT_MSG(indexCount > 0, "Mesh index count must be > 0");
+    RTRLAB_ASSERT_MSG(!layout.GetElements().empty(), "Mesh layout is empty");
 
     auto device = GetDevice();
 
