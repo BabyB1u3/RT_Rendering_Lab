@@ -38,6 +38,7 @@ function(glab_compile_shaders)
         ForwardLit
         FlatColor
         UnlitTextured
+        UnlitTransformed
     )
 
     if(GLAB_BACKEND_METAL)
