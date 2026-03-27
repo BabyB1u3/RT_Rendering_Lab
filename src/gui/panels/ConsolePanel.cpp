@@ -161,6 +161,10 @@ void ConsolePanel::DrawLogEntries()
     ImGui::BeginChild("LogRegion", ImVec2(0, -footerHeight), ImGuiChildFlags_None,
                       ImGuiWindowFlags_HorizontalScrollbar);
 
+    // Snapshot scroll state BEFORE drawing new content — once new entries push
+    // ScrollMaxY higher, the "am I at the bottom?" check would fail.
+    const bool wasAtBottom = ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 1.0f;
+
     const auto entries = sink->GetEntries();
     const char *categoryFilter = (m_CategoryFilter > 0) ? kCategories[m_CategoryFilter] : nullptr;
     const auto levelFloor = kLevelValues[m_LevelFilter];
@@ -183,7 +187,7 @@ void ConsolePanel::DrawLogEntries()
         ImGui::PopStyleColor();
     }
 
-    if (m_AutoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
+    if (m_AutoScroll && wasAtBottom)
         ImGui::SetScrollHereY(1.0f);
 
     ImGui::EndChild();
