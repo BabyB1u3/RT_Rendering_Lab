@@ -6,11 +6,7 @@
 
 LayerStack::~LayerStack()
 {
-    for (auto &layer : m_Layers)
-    {
-        if (layer)
-            layer->OnDetach();
-    }
+    Clear();
 }
 
 Layer *LayerStack::PushLayer(Scope<Layer> layer)
@@ -57,4 +53,16 @@ void LayerStack::PopOverlay(Layer *overlay)
         (*it)->OnDetach();
         m_Layers.erase(it);
     }
+}
+
+void LayerStack::Clear()
+{
+    for (auto &layer : m_Layers)
+    {
+        if (layer)
+            layer->OnDetach();
+    }
+
+    m_Layers.clear();
+    m_LayerInsertIndex = 0;
 }

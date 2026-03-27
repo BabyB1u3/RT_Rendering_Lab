@@ -77,6 +77,11 @@ Application::Application(const ApplicationSpecification &spec)
 Application::~Application()
 {
     LOG_INFO("Application shutting down");
+
+    m_LayerStack.Clear();
+    m_ImGuiLayer = nullptr;
+    m_Window.reset();
+
     Diagnostics::Logger::Shutdown();
     s_Instance = nullptr;
 }
