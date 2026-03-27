@@ -4,7 +4,7 @@
 /// @brief TRS (Translation-Rotation-Scale) transform for scene objects.
 ///
 /// GetMatrix() computes the 4x4 model matrix as:  Translation * RotationZYX * Scale.
-/// Rotation order is ZYX (roll, then yaw, then pitch) — standard for FPS-style objects.
+/// Rotation order is ZYX (roll, then yaw, then pitch) - standard for FPS-style objects.
 /// The matrix is recomputed on every call; caching can be added if profiling shows a need.
 
 #include <glm/glm.hpp>

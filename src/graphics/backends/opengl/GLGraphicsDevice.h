@@ -1,7 +1,7 @@
 #pragma once
 
 /// @file GLGraphicsDevice.h
-/// @brief OpenGL implementation of IGraphicsDevice — factory hub for all GL resources.
+/// @brief OpenGL implementation of IGraphicsDevice - factory hub for all GL resources.
 
 #include "core/Base.h"
 #include "graphics/interfaces/IGraphicsDevice.h"

@@ -2,7 +2,7 @@
 //
 // Tutorial 02: vertex color pass-through shader.
 // Accepts position and color per vertex, outputs interpolated color.
-// No MVP transform — vertices are expected in NDC coordinates.
+// No MVP transform - vertices are expected in NDC coordinates.
 
 struct VertexInput
 {

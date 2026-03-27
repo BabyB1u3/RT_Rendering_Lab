@@ -6,9 +6,9 @@
 /// Design: Double-buffered per-frame snapshots of GLFW keyboard/mouse state.
 ///   BeginFrame() must be called once at the top of the frame loop (before any
 ///   layer's OnUpdate). This enables:
-///     - IsKeyDown / IsMouseButtonDown   — held right now
-///     - WasKeyPressedThisFrame          — down this frame, up last frame
-///     - WasKeyReleasedThisFrame         — up this frame, down last frame
+///     - IsKeyDown / IsMouseButtonDown   - held right now
+///     - WasKeyPressedThisFrame          - down this frame, up last frame
+///     - WasKeyReleasedThisFrame         - up this frame, down last frame
 ///
 /// Scroll is the one exception to polling: GLFW only reports it via callback,
 /// so we accumulate it and expose it per-frame via GetScrollDelta().
@@ -32,7 +32,7 @@ public:
     // --- Lifecycle (called by Application, not by user code) ---
 
     /// Bind to a GLFW window. Must be called once before any query method.
-    static void Initialize(GLFWwindow* window);
+    static void Initialize(GLFWwindow *window);
 
     /// Must be called ONCE per frame, BEFORE any layer's OnUpdate().
     /// Snapshots current GLFW state into the "current" buffer and
@@ -89,7 +89,7 @@ public:
     static bool IsMouseButtonPressed(Mouse::Code button) { return IsMouseButtonDown(button); }
 
 private:
-    static GLFWwindow* s_Window;
+    static GLFWwindow *s_Window;
 
     // Double-buffered keyboard state. GLFW_KEY_LAST = 348, 512 is safe.
     static constexpr int KEY_STATE_SIZE = 512;
@@ -104,7 +104,7 @@ private:
     // Mouse position tracking.
     static float s_MouseX, s_MouseY;
     static float s_LastMouseX, s_LastMouseY;
-    static bool  s_FirstMouseSample;
+    static bool s_FirstMouseSample;
 
     // Scroll accumulator (set via GLFW scroll callback, consumed per frame).
     static float s_ScrollAccumulator;

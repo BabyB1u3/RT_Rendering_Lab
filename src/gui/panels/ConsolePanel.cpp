@@ -215,7 +215,7 @@ void ConsolePanel::DrawLogEntries()
     ImGui::BeginChild("LogRegion", ImVec2(0, -footerHeight), ImGuiChildFlags_None,
                       ImGuiWindowFlags_HorizontalScrollbar);
 
-    // Snapshot scroll state BEFORE drawing new content — once new entries push
+    // Snapshot scroll state BEFORE drawing new content - once new entries push
     // ScrollMaxY higher, the "am I at the bottom?" check would fail.
     const bool wasAtBottom = ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 1.0f;
 

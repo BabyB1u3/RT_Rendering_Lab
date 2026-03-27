@@ -3,7 +3,7 @@
 /// @file RenderCommand.h
 /// @brief Static forwarding shim that delegates to the active graphics device.
 ///
-/// All methods are static — RenderCommand forwards each call to
+/// All methods are static - RenderCommand forwards each call to
 /// GetDevice()->GetRenderCommand(). Render passes call these instead of
 /// interacting with the backend directly.
 

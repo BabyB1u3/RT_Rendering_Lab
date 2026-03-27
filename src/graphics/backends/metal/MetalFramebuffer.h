@@ -1,7 +1,7 @@
 #pragma once
 
 /// @file MetalFramebuffer.h
-/// @brief Metal implementation of IFramebuffer — a set of MTLTexture attachments.
+/// @brief Metal implementation of IFramebuffer - a set of MTLTexture attachments.
 ///
 /// MetalRenderCommand::BeginRenderPass() reads the color/depth attachments
 /// via GetColorAttachment() / GetDepthAttachment() to build the
@@ -26,8 +26,8 @@ public:
 	MetalFramebuffer &operator=(const MetalFramebuffer &) = delete;
 
 	// --- IFramebuffer ---
-	/// No-op for Metal — binding is driven by MetalRenderCommand::BeginRenderPass.
-	void Bind()   const override {}
+	/// No-op for Metal - binding is driven by MetalRenderCommand::BeginRenderPass.
+	void Bind() const override {}
 	void Unbind() const override {}
 
 	void Resize(uint32_t width, uint32_t height) override;
@@ -37,7 +37,7 @@ public:
 	Ref<ITexture2D> GetColorAttachment(uint32_t index = 0) const override;
 	Ref<ITexture2D> GetDepthAttachment() const override;
 
-	int  ReadPixel(uint32_t attachmentIndex, int x, int y) const override;
+	int ReadPixel(uint32_t attachmentIndex, int x, int y) const override;
 	void ClearAttachment(uint32_t attachmentIndex, int value) override;
 
 private:
@@ -47,5 +47,5 @@ private:
 	FramebufferSpecification m_Spec;
 
 	std::vector<Ref<ITexture2D>> m_ColorAttachments;
-	Ref<ITexture2D>              m_DepthAttachment;
+	Ref<ITexture2D> m_DepthAttachment;
 };

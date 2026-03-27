@@ -16,9 +16,9 @@
 ///   SetUniformBlock(binding, data, size) uploads a raw block to both stages
 ///   at buffer index (kUniformBaseSlot + binding) = binding, matching [[buffer(N)]].
 ///
-/// Binding index convention — see kUniformBaseSlot / kMetalVertexBufferBase below.
+/// Binding index convention - see kUniformBaseSlot / kMetalVertexBufferBase below.
 ///
-/// Uses pImpl — no Metal types visible in this header.
+/// Uses pImpl - no Metal types visible in this header.
 
 #include <cstdint>
 #include <array>
@@ -31,7 +31,7 @@
 #include "graphics/RenderTypes.h"
 #include "graphics/interfaces/IShader.h"
 
-/// Binding index convention — Vulkan descriptor model as canonical abstraction.
+/// Binding index convention - Vulkan descriptor model as canonical abstraction.
 ///
 /// SetUniformBlock(N) / SetTexture(N) use the [vk::binding(N, 0)] index directly,
 /// consistent across all three backends:
@@ -44,7 +44,7 @@
 /// Metal buffer index partition (vertex stage shares buffer indices with CBs):
 ///   [0, kMetalVertexBufferBase)   → constant / uniform buffers ([[buffer(N)]])
 ///   [kMetalVertexBufferBase, ...) → vertex data (MTLVertexDescriptor + setVertexBuffer)
-static constexpr uint32_t kUniformBaseSlot       = 0;
+static constexpr uint32_t kUniformBaseSlot = 0;
 static constexpr uint32_t kMetalVertexBufferBase = 8;
 
 class MetalShader : public IShader
@@ -56,7 +56,7 @@ public:
 	MetalShader &operator=(const MetalShader &) = delete;
 
 	// --- IShader ---
-	void Bind()   const override;
+	void Bind() const override;
 	void Unbind() const override {}
 
 	const std::string &GetName() const override;
@@ -83,9 +83,9 @@ public:
 	/// @param ps                immutable pipeline state (blend, depth, cull)
 	/// @return id<MTLRenderPipelineState> as void*, or nullptr on error
 	void *GetOrCreatePSO(void *mtlDevice, void *mtlVertDescriptor,
-	                     const std::array<uint32_t, 4> &colorPixelFormats,
-	                     uint32_t colorAttachmentCount, uint32_t depthPixelFormat,
-	                     const PipelineState &ps);
+						 const std::array<uint32_t, 4> &colorPixelFormats,
+						 uint32_t colorAttachmentCount, uint32_t depthPixelFormat,
+						 const PipelineState &ps);
 
 	/// Upload staging buffers and explicit uniform blocks to the current encoder.
 	/// @param mtlEncoder id<MTLRenderCommandEncoder> as void*
@@ -102,7 +102,7 @@ public:
 	// Factories (used by MetalGraphicsDevice)
 	static Ref<MetalShader> CreateFromCompiledMSL(const std::string &name);
 	static Ref<MetalShader> CreateFromMSLSource(const std::string &name,
-	                                             const std::string &source);
+												const std::string &source);
 
 private:
 	MetalShader() = default;

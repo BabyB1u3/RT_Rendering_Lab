@@ -1,7 +1,7 @@
 #pragma once
 
 /// @file InputModifier.h
-/// @brief Input value modifiers — transform raw axis values through a pipeline.
+/// @brief Input value modifiers - transform raw axis values through a pipeline.
 ///
 /// Modifiers are applied in insertion order: Raw → Modifier1 → Modifier2 → ... → Final.
 /// Each modifier receives the current value and frame delta time, and returns

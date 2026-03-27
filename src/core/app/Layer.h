@@ -9,8 +9,8 @@
 ///   OnUpdate(dt) → OnRender() → OnImGuiRender()
 ///
 /// Lifecycle:
-///   OnAttach()  — called once when the layer is pushed onto the stack.
-///   OnDetach()  — called once when the layer is removed or the stack is destroyed.
+///   OnAttach()  - called once when the layer is pushed onto the stack.
+///   OnDetach()  - called once when the layer is removed or the stack is destroyed.
 
 #include <string>
 #include <cstdint>
@@ -28,9 +28,9 @@ public:
 
     /// Called every frame with the time elapsed since the last frame (in seconds).
     virtual void OnUpdate(double) {}
-    /// Called every frame after OnUpdate — issue draw calls here.
+    /// Called every frame after OnUpdate - issue draw calls here.
     virtual void OnRender() {}
-    /// Called every frame between ImGuiLayer::Begin() and End() — draw ImGui widgets here.
+    /// Called every frame between ImGuiLayer::Begin() and End() - draw ImGui widgets here.
     virtual void OnImGuiRender() {}
     /// Called when the window is resized (width and height in pixels).
     virtual void OnResize(uint32_t, uint32_t) {}

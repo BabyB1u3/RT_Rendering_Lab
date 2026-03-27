@@ -5,7 +5,7 @@
 ///
 /// Validates the most basic RHI path: window creation, back buffer render
 /// target, BeginFrame/EndFrame, BeginRenderPass/EndRenderPass, and present.
-/// No shaders, no geometry — just a solid color fill controlled by ImGui.
+/// No shaders, no geometry - just a solid color fill controlled by ImGui.
 
 #include <cstdint>
 

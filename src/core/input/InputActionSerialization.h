@@ -127,7 +127,7 @@ namespace Serialization
         if (!tree.IsObject())
             return false;
 
-        // Parse into temporaries — only commit on full success.
+        // Parse into temporaries - only commit on full success.
         InputActionMap temp;
 
         // Parse actions

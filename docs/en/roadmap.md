@@ -11,7 +11,7 @@ The roadmap is divided into phases that represent increasing complexity of rende
 
 ---
 
-## Phase 1 — Framework Foundation ✅
+## Phase 1 - Framework Foundation ✅
 
 Goal: establish a stable environment for graphics experiments.
 
@@ -20,24 +20,24 @@ Completed:
 - [x] Application runtime with main loop and layer stack
 - [x] GLFW window and input system (keyboard, mouse, scroll)
 - [x] OpenGL 4.6 rendering loop with DSA (Direct State Access)
-- [x] Shader management — SPIR-V pipeline (GLSL → glslang → SPIRV-Cross), per-stage files, uniform caching
+- [x] Shader management - SPIR-V pipeline (GLSL → glslang → SPIRV-Cross), per-stage files, uniform caching
 - [x] Texture loading via STB Image (R8, RGB8, RGBA8, Depth formats)
 - [x] Resource management with smart pointers (`Scope<T>`, `Ref<T>`)
-- [x] Framebuffer abstraction — multiple color/depth attachments, pixel read-back, resize
+- [x] Framebuffer abstraction - multiple color/depth attachments, pixel read-back, resize
 - [x] Perspective camera with first-person debug controller
 - [x] Vertex buffer / index buffer / VAO abstractions with layout description
 - [x] Mesh and MeshFactory (cube, plane, fullscreen quad)
 - [x] Material system (shader + texture slot binding)
 - [x] ImGui integration with debug panels (FPS, memory, demo selector)
-- [x] Demo framework — DemoBase, DemoRegistry, LabLayer with hot-switching
+- [x] Demo framework - DemoBase, DemoRegistry, LabLayer with hot-switching
 - [x] Logging and file system utilities
 - [x] Unit and integration test infrastructure (Google Test)
-- [x] Multi-backend graphics abstraction — pure virtual interfaces (`IShader`, `ITexture2D`, `IFramebuffer`, etc.) with OpenGL backend
-- [x] SPIR-V shader pipeline — GLSL source compiled to SPIR-V at build time (glslang), transpiled to backend GLSL at runtime (SPIRV-Cross)
+- [x] Multi-backend graphics abstraction - pure virtual interfaces (`IShader`, `ITexture2D`, `IFramebuffer`, etc.) with OpenGL backend
+- [x] SPIR-V shader pipeline - GLSL source compiled to SPIR-V at build time (glslang), transpiled to backend GLSL at runtime (SPIRV-Cross)
 
 ---
 
-## Phase 2 — Basic Real-Time Rendering
+## Phase 2 - Basic Real-Time Rendering
 
 Goal: implement fundamental rendering techniques.
 
@@ -45,7 +45,7 @@ Progress:
 
 - [x] Forward rendering pass
 - [x] Directional light with ambient + diffuse shading
-- [x] Shadow mapping — depth pass from light, shadow comparison with bias
+- [x] Shadow mapping - depth pass from light, shadow comparison with bias
 - [x] Shadow map debug visualization (TexturePreviewPass)
 - [x] Multi-pass scene renderer (ShadowPass → ForwardPass)
 - [x] 3x3 PCF soft shadows
@@ -67,7 +67,7 @@ Deliverables:
 
 ---
 
-## Phase 3 — Modern Rendering Pipeline
+## Phase 3 - Modern Rendering Pipeline
 
 Goal: transition to more advanced rendering pipelines.
 
@@ -87,7 +87,7 @@ Deliverables:
 
 ---
 
-## Phase 4 — Physically Based Rendering
+## Phase 4 - Physically Based Rendering
 
 Goal: implement physically based shading.
 
@@ -107,7 +107,7 @@ Deliverables:
 
 ---
 
-## Phase 5 — Screen Space Effects
+## Phase 5 - Screen Space Effects
 
 Goal: enhance visual realism using screen-space techniques.
 
@@ -126,7 +126,7 @@ Deliverables:
 
 ---
 
-## Phase 6 — Procedural Geometry
+## Phase 6 - Procedural Geometry
 
 Goal: explore algorithmic content generation.
 
@@ -145,7 +145,7 @@ Deliverables:
 
 ---
 
-## Phase 7 — GPU Techniques
+## Phase 7 - GPU Techniques
 
 Goal: leverage modern GPU programming techniques.
 
@@ -164,7 +164,7 @@ Deliverables:
 
 ---
 
-## Phase 8 — Ray Tracing Experiments
+## Phase 8 - Ray Tracing Experiments
 
 Goal: explore ray-based rendering techniques.
 
@@ -182,7 +182,7 @@ Deliverables:
 
 ---
 
-## Phase 9 — Advanced Research Topics
+## Phase 9 - Advanced Research Topics
 
 Future exploration topics may include:
 

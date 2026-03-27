@@ -59,7 +59,7 @@ void ShadowMapping::OnAttach()
     m_DefaultMaterial->SetFloat("u_SpecularPower", 32.0f);
     m_DefaultMaterial->SetFloat("u_AmbientStrength", 0.15f);
 
-    // Input bindings — resolve config: user overrides → shipped defaults → hardcoded
+    // Input bindings - resolve config: user overrides → shipped defaults → hardcoded
     {
         constexpr auto kInputCfg = "input/ShadowMapping.json";
         auto resolved = FileSystem::ResolveConfigPath(kInputCfg);

@@ -69,7 +69,7 @@ void MaterialPlayground::OnAttach()
         s.Mat->SetFloat("u_AmbientStrength", s.AmbientStrength);
     }
 
-    // Input bindings — resolve config: user overrides → shipped defaults → hardcoded
+    // Input bindings - resolve config: user overrides → shipped defaults → hardcoded
     {
         constexpr auto kInputCfg = "input/MaterialPlayground.json";
         auto resolved = FileSystem::ResolveConfigPath(kInputCfg);
@@ -198,7 +198,7 @@ void MaterialPlayground::BuildScene()
         m_Scene.RenderItems.push_back(floor);
     }
 
-    // Spheres — evenly spaced along X axis, centered at origin.
+    // Spheres - evenly spaced along X axis, centered at origin.
     for (size_t i = 0; i < m_Spheres.size(); ++i)
     {
         RenderItem sphere;

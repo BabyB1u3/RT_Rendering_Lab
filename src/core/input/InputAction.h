@@ -1,7 +1,7 @@
 #pragma once
 
 /// @file InputAction.h
-/// @brief Input Action Map — decouples game logic from physical key bindings.
+/// @brief Input Action Map - decouples game logic from physical key bindings.
 ///
 /// Provides two abstractions:
 ///   - **Actions** (discrete, boolean): "ShowShadowMap", "ToggleLookMode"

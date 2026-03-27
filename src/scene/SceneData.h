@@ -4,7 +4,7 @@
 /// @brief Container for all renderable content in a scene.
 ///
 /// Each demo builds a SceneData with its lights and objects, then passes it
-/// to SceneRenderer::Render(). The renderer does not own or modify the scene —
+/// to SceneRenderer::Render(). The renderer does not own or modify the scene -
 /// it only reads from it during the frame.
 
 #include <vector>

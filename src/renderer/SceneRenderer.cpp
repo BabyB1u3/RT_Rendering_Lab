@@ -29,7 +29,7 @@ SceneRenderer::SceneRenderer(uint32_t width, uint32_t height, const SceneRendere
     // TexturePreview uses the Slang pipeline (compiled GLSL from build dir)
     m_TexturePreviewPass = CreateRef<TexturePreviewPass>();
 
-    // Cache back buffer target (P5 — avoid per-frame allocation)
+    // Cache back buffer target (P5 - avoid per-frame allocation)
     m_BackBufferTarget = GetDevice()->CreateRenderTargetBackBuffer(width, height);
 
     LOG_INFO_CAT(LogCategory::Renderer, "SceneRenderer initialized ({}x{})", width, height);

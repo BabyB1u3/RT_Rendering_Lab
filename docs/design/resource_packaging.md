@@ -1,4 +1,4 @@
-# Resource Packaging & Virtual File System — Design Document
+# Resource Packaging & Virtual File System - Design Document
 
 This document describes how RTRLab discovers, organizes, and packages runtime
 resources (assets, compiled shaders, configuration) and manages user-writable
@@ -71,7 +71,7 @@ dist/RTRLab/
     models/
 ```
 
-No compile-time absolute paths are needed — `FindRootFromExecutable()` locates
+No compile-time absolute paths are needed - `FindRootFromExecutable()` locates
 `assets/` next to the exe.
 
 ---
@@ -90,7 +90,7 @@ No compile-time absolute paths are needed — `FindRootFromExecutable()` locates
 
 ## 3. Phased Evolution Plan
 
-### Phase A — Incremental Copy & Build Optimization
+### Phase A - Incremental Copy & Build Optimization
 
 **Goal**: Make POST_BUILD efficient; clean up shipped artifacts.
 
@@ -108,7 +108,7 @@ Since Debug binaries are never distributed, the embedded absolute paths are harm
 2. **Exclude `.slang` from POST_BUILD copy** (and install). Source shaders are
    development-only artifacts; only compiled output is needed at runtime.
 
-### Phase B — Asset Cooking Pipeline
+### Phase B - Asset Cooking Pipeline
 
 **Goal**: Pre-process assets at build time for optimal runtime loading.
 
@@ -133,7 +133,7 @@ assets/shaders/*.slang    ─── slangc ──▶  build/cooked/shaders/glsl/
 **Runtime change**: `FileSystem::GetAssetPath()` resolves from the cooked directory
 first, falling back to raw assets in development (so you can iterate without cooking).
 
-### Phase C — Virtual File System (VFS)
+### Phase C - Virtual File System (VFS)
 
 **Goal**: Decouple resource access from physical filesystem layout.
 
@@ -184,7 +184,7 @@ public:
 2. Change all callsites from `FileSystem::ReadTextFile(path)` → `VFS::ReadFile(virtualPath)`.
 3. Add `ArchiveMount` when packaging support is needed.
 
-### Phase D — Archive Packaging (`.pak`)
+### Phase D - Archive Packaging (`.pak`)
 
 **Goal**: Ship all runtime resources as a single archive.
 
@@ -367,10 +367,10 @@ User configs at runtime: `%LOCALAPPDATA%/RTRLab/configs/`
 
 | Phase | Depends on | Aligns with roadmap |
 |-------|------------|---------------------|
-| A — Incremental copy, remove compile-time paths | Slang migration (done) | Current (R3+) |
-| B — Asset cooking | Vulkan/Metal backends landing | R4 (Metal), R5 (Vulkan) |
-| C — Virtual file system | Phase B (multiple asset formats) | R5–R6 |
-| D — Archive packaging | Phase C (VFS abstraction in place) | R7+ (Distribution) |
+| A - Incremental copy, remove compile-time paths | Slang migration (done) | Current (R3+) |
+| B - Asset cooking | Vulkan/Metal backends landing | R4 (Metal), R5 (Vulkan) |
+| C - Virtual file system | Phase B (multiple asset formats) | R5–R6 |
+| D - Archive packaging | Phase C (VFS abstraction in place) | R7+ (Distribution) |
 
 ---
 
@@ -380,5 +380,5 @@ User configs at runtime: `%LOCALAPPDATA%/RTRLab/configs/`
 |------|-----------|
 | VFS abstraction adds indirection overhead | Profile; DirectoryMount is a thin wrapper with near-zero cost. Archive mount uses memory-mapping. |
 | ZIP random-access too slow for many small shaders | Batch-read at startup into a cache; or migrate to custom `.pak` |
-| Cook pipeline complexity | Start minimal (shaders only — already done). Add texture cooking only when texture count or format diversity demands it. |
+| Cook pipeline complexity | Start minimal (shaders only - already done). Add texture cooking only when texture count or format diversity demands it. |
 | Breaking change for existing `FileSystem` callers | Phase C wraps `FileSystem` as a mount; existing callsites can migrate incrementally via a compatibility shim. |

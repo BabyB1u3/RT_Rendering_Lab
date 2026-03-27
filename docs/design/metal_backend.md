@@ -1,4 +1,4 @@
-# Metal Backend — Architecture and Implementation Plan
+# Metal Backend - Architecture and Implementation Plan
 
 This document describes the design for adding a Metal rendering backend to RTRLab.
 It covers the mapping from the existing RHI interfaces to Metal API concepts,
@@ -16,15 +16,15 @@ Resource Packaging doc (`resource_packaging.md`).
 - Implement all 9 RHI interfaces (`IGraphicsDevice`, `IRenderCommand`, `IShader`,
   `IVertexBuffer`, `IIndexBuffer`, `IVertexArray`, `ITexture2D`, `IFramebuffer`,
   `IRenderTarget`) against the Metal 3 API.
-- Share the same Slang shader source — `slangc` compiles to MSL at build time.
-- Coexist with the OpenGL backend — backend selection at application startup via
+- Share the same Slang shader source - `slangc` compiles to MSL at build time.
+- Coexist with the OpenGL backend - backend selection at application startup via
   `SetDevice()`, no compile-time `#ifdef` in application code.
 - Run on macOS 14+ (Sonoma) with Apple Silicon and Intel GPUs.
 
 ### 1.2 Non-Goals (This Phase)
 
 - iOS / iPadOS / visionOS support (future).
-- Runtime shader compilation — all MSL is pre-compiled to `MTLLibrary` at load time.
+- Runtime shader compilation - all MSL is pre-compiled to `MTLLibrary` at load time.
 - Mesh shaders, ray tracing, or Metal 3.2 features beyond what the RHI exposes.
 - Vulkan backend (separate effort, see roadmap R5).
 
@@ -60,9 +60,9 @@ nextDrawable → MTLDrawable (per-frame backbuffer)
 
 The window creation path must be parameterized by the backend. Two approaches:
 
-- **Option A — Build-time**: CMake option `GLAB_GRAPHICS_BACKEND` selects OpenGL
+- **Option A - Build-time**: CMake option `GLAB_GRAPHICS_BACKEND` selects OpenGL
   or Metal. Only one backend is compiled. Simpler, avoids shipping unused code.
-- **Option B — Runtime**: Window accepts a `GraphicsAPI` enum and configures GLFW
+- **Option B - Runtime**: Window accepts a `GraphicsAPI` enum and configures GLFW
   hints accordingly. Both backends are compiled; selected at startup.
 
 **Recommendation**: Start with **Option A** for simplicity. The `SetDevice()` pattern
@@ -73,13 +73,13 @@ the only platform-specific fork.
 
 Metal is an Objective-C API. All Metal backend files must be compiled as
 Objective-C++ (`.mm` extension or `/ObjC++` flag). This is isolated to
-`src/graphics/metal/` — no Objective-C leaks into the rest of the codebase.
+`src/graphics/metal/` - no Objective-C leaks into the rest of the codebase.
 
 **Header convention**: Public headers (`.h`) use opaque `void*` or forward-declared
 wrapper types so that non-Metal translation units never see `#import <Metal/Metal.h>`.
 
 ```cpp
-// MetalGraphicsDevice.h — clean C++ header
+// MetalGraphicsDevice.h - clean C++ header
 class MetalGraphicsDevice : public IGraphicsDevice
 {
     // ...
@@ -144,7 +144,7 @@ This maps cleanly to the existing frame loop:
 
 ```
 Application::Run()
-  ├── [BeginFrame — create command buffer, acquire drawable]
+  ├── [BeginFrame - create command buffer, acquire drawable]
   ├── layer.OnUpdate()
   ├── layer.OnRender()
   │     ├── renderTarget->Bind()     → begin encoder
@@ -153,7 +153,7 @@ Application::Run()
   │     ├── vao->Bind()              → set vertex/index buffers
   │     ├── renderCommand->DrawIndexed() → record draw
   │     └── renderTarget->Unbind()   → end encoder
-  └── [EndFrame — present, commit]
+  └── [EndFrame - present, commit]
 ```
 
 ### 3.3 Pipeline State Management
@@ -289,6 +289,12 @@ Metal has no runtime uniform reflection like `glGetUniformLocation`. Strategy:
   `setVertexBuffer(buffer, offset, index)`. This is the target architecture
   described in `shader_material_system.md` Phase B.
 
+Important clarification: `SetUniformBlock(binding, data, size)` only standardizes
+the binding slot. It does **not** guarantee that the byte layout of `data` is
+portable across backends. If application code passes a raw C++ struct, that struct
+must already match the layout that Slang generated for the current backend target.
+This is easy to get wrong when a block mixes matrices, `float3`, scalars, and bools.
+
 **Offset mapping**: Slang's reflection API (or a build-time metadata export) provides
 the byte offset of each named uniform within its constant buffer. A JSON sidecar
 per shader stores this mapping:
@@ -308,8 +314,54 @@ per shader stores this mapping:
 }
 ```
 
-This sidecar is generated at build time by `slangc -dump-reflection` and consumed
+This sidecar is generated at build time by `slangc -reflection-json <path>` and consumed
 by `MetalShader` at load time.
+
+#### Cross-Backend Uniform Layout Pitfall
+
+The first real bug encountered on macOS exposed an important design lesson:
+sharing the same Slang source does **not** imply that a hardcoded C++ mirror
+struct is portable.
+
+Observed case: Tutorial 06 `BasicLight` uploaded a single block via
+`SetUniformBlock(0, &params, sizeof(params))`. The C++ struct was written to
+match the OpenGL/std140 offsets:
+
+- `u_LightIntensity` at byte 236
+- `u_Albedo` at byte 240
+- `u_SpecularPower` at byte 252
+- `u_AmbientStrength` at byte 256
+
+For the Metal target, Slang generated a different "natural" layout for the same
+shader:
+
+- `u_LightIntensity` at byte 240
+- `u_Albedo` at byte 256
+- `u_SpecularPower` at byte 272
+- `u_AmbientStrength` at byte 276
+
+The result was not a validation error or a crash. Rendering simply looked wrong:
+lighting colors were skewed, diffuse/specular response was broken, and only Metal
+reproduced the issue. The immediate fix was an Apple-specific struct layout with
+`static_assert` checks. That was acceptable as a hotfix, but it is **not** the
+desired architecture.
+
+Design conclusion:
+
+- Slot-based binding is necessary, but insufficient on its own.
+- The bytes inside a bound uniform block must come from Slang reflection or codegen,
+  not from handwritten backend-assumed padding rules.
+- Every place that currently does `SetUniformBlock(..., &cppStruct, sizeof(cppStruct))`
+  is carrying this risk until packing is reflection-driven.
+
+Recommended implementation path:
+
+1. Generate reflection metadata for every compiled backend artifact at build time.
+2. Load that metadata with the shader so each binding has an authoritative field layout.
+3. Replace handwritten mirror structs in demos/passes with a packed uniform-block helper
+   that writes by field name or generated field ID.
+4. Keep temporary backend-specific structs only as short-lived stopgaps while the
+   reflection-driven packer is being rolled out.
 
 ### 4.4 `MetalVertexArray` : `IVertexArray`
 
@@ -429,7 +481,7 @@ staging `MTLBuffer`, then reads from the buffer. This requires a GPU sync
 
 ### 4.9 `MetalRenderTarget` : `IRenderTarget`
 
-Two modes, same as OpenGL. No `Bind()` / `Unbind()` — binding is handled by
+Two modes, same as OpenGL. No `Bind()` / `Unbind()` - binding is handled by
 `MetalRenderCommand::BeginRenderPass()`.
 
 | Mode | `GetFramebuffer()` | `BeginRenderPass` behavior |
@@ -461,7 +513,7 @@ Already supported in `cmake/CompileShaders.cmake`:
 set(GLAB_SHADER_TARGET_METAL ON)
 ```
 
-Output: `build/shaders/metal/{ShaderName}.metal` — a single `.metal` file
+Output: `build/shaders/metal/{ShaderName}.metal` - a single `.metal` file
 containing both vertex and fragment functions.
 
 ### 5.2 Runtime Loading
@@ -496,9 +548,19 @@ For name-based uniform setters to work, a build-time step extracts reflection:
 # Added to glab_compile_shaders() for Metal target
 add_custom_command(
     OUTPUT ${SHADER_NAME}.reflect.json
-    COMMAND slangc -target metal -dump-ir-ids -reflection-json ...
+    COMMAND slangc ${INPUT}
+        -target metal
+        -matrix-layout-column-major
+        -reflection-json ${SHADER_NAME}.reflect.json
+        -o ${SHADER_NAME}.metal
 )
 ```
+
+Practical note for the current codebase: `MetalShader` already looks for
+`compiled/metal/<ShaderName>.reflect.json` when loading a shader. The missing piece
+is wiring this file into `cmake/CompileShaders.cmake` for every Metal shader build.
+Until that sidecar is emitted, the backend cannot use reflection to pack or validate
+uniform blocks.
 
 Alternatively, use Slang's C++ reflection API at load time (linked into the
 application). The JSON sidecar is simpler and avoids a Slang runtime dependency.
@@ -588,7 +650,7 @@ CMake-defined backend.
 
 ## 7. Implementation Phases
 
-### Phase 1 — Skeleton & Triangle (1–2 weeks)
+### Phase 1 - Skeleton & Triangle (1–2 weeks)
 
 **Goal**: Metal window with a colored triangle on screen.
 
@@ -606,7 +668,7 @@ CMake-defined backend.
 
 **Validation**: Hardcoded triangle renders with correct vertex colors.
 
-### Phase 2 — Uniforms & Transforms (1 week)
+### Phase 2 - Uniforms & Transforms (1 week)
 
 **Goal**: Rotating 3D cube with camera.
 
@@ -620,7 +682,7 @@ CMake-defined backend.
 
 **Validation**: Existing `ShadowMapping` demo loads and renders geometry (no shadows yet).
 
-### Phase 3 — Textures & Framebuffers (1–2 weeks)
+### Phase 3 - Textures & Framebuffers (1–2 weeks)
 
 **Goal**: Full feature parity with OpenGL backend for existing demos.
 
@@ -635,7 +697,7 @@ CMake-defined backend.
 
 **Validation**: `ShadowMapping` and `MaterialPlayground` demos run correctly.
 
-### Phase 4 — Polish & Integration (1 week)
+### Phase 4 - Polish & Integration (1 week)
 
 **Goal**: Production-ready Metal backend.
 
@@ -655,10 +717,10 @@ no errors, stable frame times.
 ## 8. RHI Interface Evolution (Completed)
 
 The following interface changes have been implemented to support Metal/Vulkan backends.
-These changes are backwards-compatible — the OpenGL backend continues to work with
+These changes are backwards-compatible - the OpenGL backend continues to work with
 the same semantics, just expressed through the new API.
 
-### 8.1 Frame Lifecycle — `BeginFrame()` / `EndFrame()`
+### 8.1 Frame Lifecycle - `BeginFrame()` / `EndFrame()`
 
 **File**: `IRenderCommand.h`
 
@@ -679,7 +741,7 @@ RenderCommand::EndFrame();
 
 OpenGL: no-op. Metal/Vulkan: command buffer lifecycle.
 
-### 8.2 Render Pass Descriptors — `BeginRenderPass()` / `EndRenderPass()`
+### 8.2 Render Pass Descriptors - `BeginRenderPass()` / `EndRenderPass()`
 
 **Files**: `RenderTypes.h`, `IRenderCommand.h`
 
@@ -709,7 +771,7 @@ Metal maps directly to `MTLRenderPassDescriptor`. Vulkan maps to
 `VkRenderPassBeginInfo`. OpenGL translates to `glBindFramebuffer` +
 `glClearColor` + `glClear`.
 
-### 8.3 Pipeline State Object — `SetPipelineState()`
+### 8.3 Pipeline State Object - `SetPipelineState()`
 
 **Files**: `RenderTypes.h`, `IRenderCommand.h`
 
@@ -731,7 +793,7 @@ virtual void SetPipelineState(const PipelineState& state) = 0;
 Metal/Vulkan bake this into a cached pipeline state object (keyed by shader +
 vertex layout + state). OpenGL translates to `glEnable` / `glDisable` calls.
 
-### 8.4 Explicit Texture Binding — `SetTexture()`
+### 8.4 Explicit Texture Binding - `SetTexture()`
 
 **File**: `IRenderCommand.h`
 
@@ -756,7 +818,7 @@ Render targets are now created once and cached as class members, not per-frame:
 - `ShadowPass` owns `m_RenderTarget` (created in constructor)
 - `ForwardPass` owns `m_RenderTarget` (created in constructor)
 - `SceneRenderer` owns `m_BackBufferTarget` (resized on viewport change)
-- `FrameResources` no longer carries `Ref<IRenderTarget>` — it carries
+- `FrameResources` no longer carries `Ref<IRenderTarget>` - it carries
   `Ref<ITexture2D>` output textures and a shared `BackBuffer` target
 
 ### 8.6 Name-Based Uniforms → Slot-Based (Future)
@@ -764,8 +826,29 @@ Render targets are now created once and cached as class members, not per-frame:
 As noted in `shader_material_system.md`, the long-term target is slot-based
 `SetUniformBlock(binding, data, size)`. The Metal backend implements name-based
 setters via reflection as a bridge, but the slot-based path should be prioritized
-as the next material system evolution — it maps directly to Metal's buffer
+as the next material system evolution - it maps directly to Metal's buffer
 binding model and eliminates the reflection sidecar.
+
+One more nuance is important here: moving to slot-based APIs does not, by itself,
+eliminate layout bugs. The following two concerns are separate and both must be solved:
+
+- Resource binding abstraction:
+  `BindUniformBuffer(slot)` / `SetUniformBlock(binding, ...)` lets all backends talk
+  about the same slots.
+- Buffer packing abstraction:
+  the bytes written into that buffer must come from reflection or generated layout
+  code, not from manually duplicated C++ structs.
+
+The target end state is therefore:
+
+1. Shader code declares resources in stable slots (`PerFrame`, `PerMaterial`, `PerPass`,
+   per-draw/push).
+2. Build-time or load-time reflection provides the exact byte layout for each block.
+3. C++ packs data through that reflected layout.
+4. Backends only bind buffers/textures; they do not reinterpret application structs.
+
+That is the point where "one shader source, one application-side upload path" becomes
+real across OpenGL, Vulkan, and Metal rather than just nominally shared.
 
 ---
 
@@ -813,25 +896,25 @@ src/graphics/metal/
 Files to modify:
 
 ```
-CMakeLists.txt (or src/CMakeLists.txt)  — add GLAB_BACKEND_METAL option
-cmake/CompileShaders.cmake              — enable METAL target when backend is Metal
-src/core/app/Window.cpp                 — GLFW_NO_API path for Metal
-src/core/app/Application.cpp            — MetalGraphicsDevice creation path (BeginFrame/EndFrame already added)
+CMakeLists.txt (or src/CMakeLists.txt)  - add GLAB_BACKEND_METAL option
+cmake/CompileShaders.cmake              - enable METAL target when backend is Metal
+src/core/app/Window.cpp                 - GLFW_NO_API path for Metal
+src/core/app/Application.cpp            - MetalGraphicsDevice creation path (BeginFrame/EndFrame already added)
 ```
 
 Files already modified (RHI evolution, §8):
 
 ```
-src/graphics/RenderTypes.h              — NEW: RenderPassDescriptor, PipelineState, LoadAction, StoreAction
-src/graphics/interface/IRenderCommand.h — BeginFrame/EndFrame, BeginRenderPass/EndRenderPass, SetPipelineState, SetTexture
-src/graphics/interface/IRenderTarget.h  — removed Bind/Unbind, added GetFramebuffer()
-src/graphics/RenderCommand.h/.cpp       — static wrapper updated to match new interface
-src/graphics/opengl/GLRenderCommand.h/.cpp  — OpenGL implementation of new methods
-src/graphics/opengl/GLRenderTarget.h/.cpp   — removed Bind/Unbind override, kept GL-internal logic
-src/renderer/RenderContext.h            — FrameResources simplified (textures + BackBuffer only)
-src/renderer/SceneRenderer.h/.cpp       — cached m_BackBufferTarget
-src/renderer/passes/ShadowPass.h/.cpp   — uses BeginRenderPass + PipelineState + cached target
-src/renderer/passes/ForwardPass.h/.cpp  — uses BeginRenderPass + PipelineState + SetTexture + cached target
-src/renderer/passes/TexturePreviewPass.cpp — uses BeginRenderPass + PipelineState + SetTexture
-tests/integration/TestRenderTarget.cpp  — updated for new API
+src/graphics/RenderTypes.h              - NEW: RenderPassDescriptor, PipelineState, LoadAction, StoreAction
+src/graphics/interface/IRenderCommand.h - BeginFrame/EndFrame, BeginRenderPass/EndRenderPass, SetPipelineState, SetTexture
+src/graphics/interface/IRenderTarget.h  - removed Bind/Unbind, added GetFramebuffer()
+src/graphics/RenderCommand.h/.cpp       - static wrapper updated to match new interface
+src/graphics/opengl/GLRenderCommand.h/.cpp  - OpenGL implementation of new methods
+src/graphics/opengl/GLRenderTarget.h/.cpp   - removed Bind/Unbind override, kept GL-internal logic
+src/renderer/RenderContext.h            - FrameResources simplified (textures + BackBuffer only)
+src/renderer/SceneRenderer.h/.cpp       - cached m_BackBufferTarget
+src/renderer/passes/ShadowPass.h/.cpp   - uses BeginRenderPass + PipelineState + cached target
+src/renderer/passes/ForwardPass.h/.cpp  - uses BeginRenderPass + PipelineState + SetTexture + cached target
+src/renderer/passes/TexturePreviewPass.cpp - uses BeginRenderPass + PipelineState + SetTexture
+tests/integration/TestRenderTarget.cpp  - updated for new API
 ```

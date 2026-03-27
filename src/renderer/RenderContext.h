@@ -1,14 +1,14 @@
 #pragma once
 
-// RenderContext.h — Per-frame rendering state passed to all render passes.
+// RenderContext.h - Per-frame rendering state passed to all render passes.
 //
 // Design rationale:
-//   SceneView    — (which camera looks at which scene)
+//   SceneView    - (which camera looks at which scene)
 //                  Decouples scene content from rendering viewpoint. To support
 //                  editor camera, game camera, or preview camera in the future,
 //                  simply construct a different SceneView.
 //
-//   FrameResources — (inter-pass shared outputs)
+//   FrameResources - (inter-pass shared outputs)
 //                    Each pass still owns its framebuffer and render target
 //                    internally. FrameResources holds Ref<ITexture2D> pointing
 //                    to attachment textures so that downstream passes can sample
@@ -16,7 +16,7 @@
 //                    Extension: add output textures here when new passes
 //                    are introduced.
 //
-//   RenderContext  — (everything a pass needs)
+//   RenderContext  - (everything a pass needs)
 //                    The unified parameter for Execute(). Passes read inputs and
 //                    write outputs through this struct.
 //                    Extension: add debug flags, render stats, feature toggles, etc.

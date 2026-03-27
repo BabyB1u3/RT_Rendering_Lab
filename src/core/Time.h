@@ -3,7 +3,7 @@
 /// @file Time.h
 /// @brief Global frame-time tracking.
 ///
-/// Time does not query the clock itself — the Application main loop calls
+/// Time does not query the clock itself - the Application main loop calls
 /// Update(glfwGetTime()) each frame, keeping the time source explicit and
 /// easy to replace for testing or fixed-timestep modes.
 ///

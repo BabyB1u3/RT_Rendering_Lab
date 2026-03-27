@@ -1,7 +1,7 @@
 #pragma once
 
 /// @file MetalVertexBuffer.h
-/// @brief Metal implementation of IVertexBuffer — wraps a MTLBuffer.
+/// @brief Metal implementation of IVertexBuffer - wraps a MTLBuffer.
 ///
 /// StaticDraw  → MTLResourceStorageModeManaged (fast GPU reads, one-time upload)
 /// DynamicDraw → MTLResourceStorageModeShared  (CPU-writable every frame)
@@ -41,6 +41,6 @@ private:
 	std::unique_ptr<Impl> m_Impl;
 
 	BufferLayout m_Layout;
-	BufferUsage  m_Usage          = BufferUsage::StaticDraw;
-	uint32_t     m_AllocatedSize  = 0;
+	BufferUsage m_Usage = BufferUsage::StaticDraw;
+	uint32_t m_AllocatedSize = 0;
 };

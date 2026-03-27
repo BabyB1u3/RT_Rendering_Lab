@@ -4,7 +4,7 @@
 /// @brief Tutorial 02: draw a colored triangle from hand-built NDC vertex data.
 ///
 /// Validates the minimum draw path: IVertexBuffer, IVertexArray, BufferLayout,
-/// IShader bind + DrawArrays. No MeshFactory, no index buffer, no MVP — just
+/// IShader bind + DrawArrays. No MeshFactory, no index buffer, no MVP - just
 /// three vertices in NDC fed through FlatColor.slang.
 
 #include <cstdint>

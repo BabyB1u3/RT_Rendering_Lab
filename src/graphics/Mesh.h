@@ -5,7 +5,7 @@
 ///
 /// A Mesh packages an IVertexArray, one or more IVertexBuffers, and an IIndexBuffer
 /// into a single drawable unit. GPU resources are created via GetDevice().
-/// It does NOT include material or transform data — those are stored separately
+/// It does NOT include material or transform data - those are stored separately
 /// in RenderItem.
 ///
 /// Meshes are typically created via MeshFactory (cube, plane, sphere, quad)

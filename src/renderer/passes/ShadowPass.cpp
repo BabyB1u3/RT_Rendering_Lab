@@ -57,7 +57,7 @@ void ShadowPass::Execute(const RenderContext &ctx)
     RTRLAB_ASSERT_MSG(m_Framebuffer, "ShadowPass framebuffer is null");
     RTRLAB_ASSERT_MSG(m_Shader, "ShadowPass shader is null");
 
-    // P2: Explicit render pass descriptor — clear depth, no color attachment
+    // P2: Explicit render pass descriptor - clear depth, no color attachment
     RenderPassDescriptor rpDesc;
     rpDesc.ColorLoadAction = LoadAction::DontCare;
     rpDesc.ColorStoreAction = StoreAction::DontCare;
@@ -67,7 +67,7 @@ void ShadowPass::Execute(const RenderContext &ctx)
 
     RenderCommand::BeginRenderPass(m_RenderTarget, rpDesc);
 
-    // P3: Pipeline state — depth only, cull front faces to reduce shadow acne
+    // P3: Pipeline state - depth only, cull front faces to reduce shadow acne
     PipelineState pso;
     pso.DepthTestEnabled = true;
     pso.DepthWriteEnabled = true;
