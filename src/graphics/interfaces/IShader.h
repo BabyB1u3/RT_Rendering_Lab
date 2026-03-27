@@ -8,6 +8,8 @@
 
 #include <glm/glm.hpp>
 
+#include "graphics/ShaderUniformLayout.h"
+
 class IShader
 {
 public:
@@ -31,4 +33,8 @@ public:
 	/// Upload data to a uniform block at the specified binding point.
 	/// Maps to UBO on OpenGL, descriptor set buffer on Vulkan.
 	virtual void SetUniformBlock(uint32_t binding, const void *data, uint32_t size) = 0;
+
+	/// Returns the authoritative reflected layout for the requested uniform block,
+	/// or nullptr when the backend has no layout metadata for that binding yet.
+	virtual const ShaderUniformBlockLayout *GetUniformBlockLayout(uint32_t binding) const = 0;
 };

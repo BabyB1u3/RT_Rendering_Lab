@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstring>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -11,6 +12,7 @@
 #include "core/Base.h"
 #include "graphics/Framebuffer.h"
 #include "graphics/RenderTypes.h"
+#include "graphics/ShaderUniformLayout.h"
 #include "graphics/Texture.h"
 #include "graphics/interfaces/IFramebuffer.h"
 #include "graphics/interfaces/IGraphicsDevice.h"
@@ -291,12 +293,22 @@ public:
             std::memcpy(LastUniformBytes.data(), data, size);
     }
 
+    const ShaderUniformBlockLayout *GetUniformBlockLayout(uint32_t binding) const override
+    {
+        auto it = BlockLayouts.find(binding);
+        if (it == BlockLayouts.end())
+            return nullptr;
+
+        return &it->second;
+    }
+
 public:
     uint32_t LastUniformBinding = 0;
     const void *LastUniformData = nullptr;
     uint32_t LastUniformSize = 0;
     uint32_t UniformUploadCount = 0;
     std::vector<std::byte> LastUniformBytes;
+    std::unordered_map<uint32_t, ShaderUniformBlockLayout> BlockLayouts;
 
 private:
     std::string m_Name;
@@ -523,6 +535,7 @@ public:
     Ref<IShader> CreateShader(const std::string &name) override
     {
         auto shader = CreateRef<FakeShader>(name);
+        PopulateShaderLayouts(*shader);
         CreatedShaders.push_back(shader);
         return shader;
     }
@@ -578,4 +591,70 @@ public:
     std::vector<Ref<FakeFramebuffer>> CreatedFramebuffers;
     std::vector<Ref<FakeRenderTarget>> BackBufferTargets;
     std::vector<Ref<FakeRenderTarget>> FramebufferTargets;
+
+private:
+    static void AddField(ShaderUniformBlockLayout &layout,
+                         const std::string &name,
+                         uint32_t offset,
+                         uint32_t size,
+                         ShaderUniformValueType type = ShaderUniformValueType::Unknown)
+    {
+        layout.AddField({name, offset, size, type});
+    }
+
+    static void PopulateShaderLayouts(FakeShader &shader)
+    {
+        if (shader.GetName() == "BasicLit")
+        {
+            ShaderUniformBlockLayout layout("GlobalParams", 0, 272);
+            AddField(layout, "u_ViewProjection", 0, 64, ShaderUniformValueType::Mat4);
+            AddField(layout, "u_Model", 64, 64, ShaderUniformValueType::Mat4);
+            AddField(layout, "u_NormalMatrix", 128, 64, ShaderUniformValueType::Mat4);
+            AddField(layout, "u_CameraPosition", 192, 12, ShaderUniformValueType::Float3);
+            AddField(layout, "u_LightDirection", 208, 12, ShaderUniformValueType::Float3);
+            AddField(layout, "u_LightColor", 224, 12, ShaderUniformValueType::Float3);
+            AddField(layout, "u_LightIntensity", 236, 4, ShaderUniformValueType::Float);
+            AddField(layout, "u_Albedo", 240, 12, ShaderUniformValueType::Float3);
+            AddField(layout, "u_SpecularPower", 252, 4, ShaderUniformValueType::Float);
+            AddField(layout, "u_AmbientStrength", 256, 4, ShaderUniformValueType::Float);
+            shader.BlockLayouts[0] = std::move(layout);
+            return;
+        }
+
+        if (shader.GetName() == "ForwardLit")
+        {
+            ShaderUniformBlockLayout layout("GlobalParams", 0, 336);
+            AddField(layout, "u_ViewProjection", 0, 64, ShaderUniformValueType::Mat4);
+            AddField(layout, "u_Model", 64, 64, ShaderUniformValueType::Mat4);
+            AddField(layout, "u_NormalMatrix", 128, 64, ShaderUniformValueType::Mat4);
+            AddField(layout, "u_LightViewProjection", 192, 64, ShaderUniformValueType::Mat4);
+            AddField(layout, "u_CameraPosition", 256, 12, ShaderUniformValueType::Float3);
+            AddField(layout, "u_LightDirection", 272, 12, ShaderUniformValueType::Float3);
+            AddField(layout, "u_LightColor", 288, 12, ShaderUniformValueType::Float3);
+            AddField(layout, "u_LightIntensity", 300, 4, ShaderUniformValueType::Float);
+            AddField(layout, "u_Albedo", 304, 12, ShaderUniformValueType::Float3);
+            AddField(layout, "u_SpecularPower", 316, 4, ShaderUniformValueType::Float);
+            AddField(layout, "u_AmbientStrength", 320, 4, ShaderUniformValueType::Float);
+            AddField(layout, "u_UseAlbedoMap", 324, 4, ShaderUniformValueType::Bool);
+            AddField(layout, "u_ShadowMapTexelSize", 328, 8, ShaderUniformValueType::Float2);
+            shader.BlockLayouts[0] = std::move(layout);
+            return;
+        }
+
+        if (shader.GetName() == "ShadowDepth")
+        {
+            ShaderUniformBlockLayout layout("GlobalParams", 0, 128);
+            AddField(layout, "u_LightViewProjection", 0, 64, ShaderUniformValueType::Mat4);
+            AddField(layout, "u_Model", 64, 64, ShaderUniformValueType::Mat4);
+            shader.BlockLayouts[0] = std::move(layout);
+            return;
+        }
+
+        if (shader.GetName() == "TexturePreview")
+        {
+            ShaderUniformBlockLayout layout("GlobalParams", 0, 4);
+            AddField(layout, "u_IsDepthTexture", 0, 4, ShaderUniformValueType::Bool);
+            shader.BlockLayouts[0] = std::move(layout);
+        }
+    }
 };
