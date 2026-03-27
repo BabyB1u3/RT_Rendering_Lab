@@ -14,6 +14,12 @@
 
 namespace
 {
+    const std::filesystem::path &ContractTestLogPath()
+    {
+        static const auto path = FileSystem::GetSavedPath("logs/diagnostics-contract.log");
+        return path;
+    }
+
     void RemovePathIfExists(const std::filesystem::path &path)
     {
         std::error_code ec;
@@ -31,7 +37,7 @@ TEST(DiagnosticsContractTests, LoggerWritesIntoSavedLogsDirectory)
 {
     FileSystem::Init();
 
-    const auto logPath = FileSystem::GetSavedPath("logs/diagnostics-contract.log");
+    const auto &logPath = ContractTestLogPath();
     RemovePathIfExists(logPath);
 
     Diagnostics::Logger::Init(logPath);
@@ -47,12 +53,13 @@ TEST(DiagnosticsContractTests, LoggerWritesIntoSavedLogsDirectory)
 TEST(DiagnosticsContractTests, CrashHandlerInitIsIdempotent)
 {
     FileSystem::Init();
-    Diagnostics::Logger::Init(FileSystem::GetSavedPath("logs/diagnostics-contract.log"));
+    Diagnostics::Logger::Init(ContractTestLogPath());
 
     EXPECT_NO_THROW(Diagnostics::CrashHandler::Init());
     EXPECT_NO_THROW(Diagnostics::CrashHandler::Init());
 
     Diagnostics::Logger::Shutdown();
+    RemovePathIfExists(ContractTestLogPath());
 }
 
 TEST(DiagnosticsContractTests, CrashHandlerUsesSavedLogsCrashDirectory)
@@ -162,10 +169,12 @@ TEST_F(ImGuiConsoleSinkTests, MultipleCategoriesAreCaptured)
 TEST_F(ImGuiConsoleSinkTests, ConsoleSinkIsRegisteredByLogger)
 {
     FileSystem::Init();
-    Diagnostics::Logger::Init(FileSystem::GetSavedPath("logs/diagnostics-contract.log"));
+    const auto &logPath = ContractTestLogPath();
+    Diagnostics::Logger::Init(logPath);
 
     auto sink = Diagnostics::Logger::GetConsoleSink();
     EXPECT_NE(sink, nullptr);
 
     Diagnostics::Logger::Shutdown();
+    RemovePathIfExists(logPath);
 }
