@@ -1,6 +1,6 @@
 #include "GraphicsDevice.h"
 
-#include <cassert>
+#include "core/diagnostics/Assert.h"
 
 static Ref<IGraphicsDevice> s_Device = nullptr;
 
@@ -11,6 +11,6 @@ void SetDevice(Ref<IGraphicsDevice> device)
 
 Ref<IGraphicsDevice> GetDevice()
 {
-	assert(s_Device && "GetDevice(): no graphics device set. Call SetDevice() first.");
+	RTRLAB_ASSERT_MSG(s_Device, "GetDevice(): no graphics device set. Call SetDevice() first.");
 	return s_Device;
 }

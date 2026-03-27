@@ -1,11 +1,11 @@
 #include "renderer/passes/ForwardPass.h"
 
-#include <cassert>
 #include <memory>
 
 #include <glm/glm.hpp>
 
-#include "core/Logger.h"
+#include "core/diagnostics/Assert.h"
+#include "core/diagnostics/LogMacros.h"
 #include "graphics/Framebuffer.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/Material.h"
@@ -65,7 +65,7 @@ void ForwardPass::Resize(unsigned int width, unsigned int height)
 
 void ForwardPass::Execute(const RenderContext &ctx)
 {
-    assert(m_Shader && "ForwardPass shader is null");
+    RTRLAB_ASSERT_MSG(m_Shader, "ForwardPass shader is null");
 
     // Determine render target: own FBO or back buffer from context
     auto target = m_RenderToTarget

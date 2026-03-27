@@ -7,6 +7,8 @@
     core/input/InputNames.cpp
     core/app/Layer.cpp
     core/app/LayerStack.cpp
+    core/diagnostics/Assert.cpp
+    core/diagnostics/Callstack.cpp
     core/diagnostics/Logger.cpp
     core/serialization/PropertyTree.cpp
     core/serialization/JsonBackend.cpp
@@ -59,6 +61,8 @@ set(GLAB_CORE_HEADERS
     core/app/LayerStack.h
     core/input/MouseCode.h
     core/Logger.h
+    core/diagnostics/Assert.h
+    core/diagnostics/Callstack.h
     core/diagnostics/LogCategories.h
     core/diagnostics/Logger.h
     core/diagnostics/LogMacros.h

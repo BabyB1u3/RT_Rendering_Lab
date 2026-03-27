@@ -1,13 +1,13 @@
 #include "GLTexture2D.h"
 
-#include <cassert>
 #include <stdexcept>
 #include <utility>
 
 #include <glad/glad.h>
 #include <stb_image.h>
 
-#include "core/Logger.h"
+#include "core/diagnostics/Assert.h"
+#include "core/diagnostics/LogMacros.h"
 
 static GLenum TextureWrapToGL(TextureWrap wrap)
 {
@@ -142,7 +142,7 @@ Ref<GLTexture2D> GLTexture2D::Create(const TextureSpecification &spec)
 	glCreateTextures(GL_TEXTURE_2D, 1, &rendererID);
 
 	GLenum internalFormat = TextureFormatToGLInternalFormat(spec.Format);
-	assert(internalFormat != 0 && "Unsupported texture format");
+	RTRLAB_ASSERT_MSG(internalFormat != 0, "Unsupported texture format");
 
 	uint32_t mipLevels = 1;
 	if (spec.GenerateMips)

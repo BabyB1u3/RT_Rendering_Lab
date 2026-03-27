@@ -17,7 +17,8 @@
 #include <string>
 #include <vector>
 #include <initializer_list>
-#include <cassert>
+
+#include "core/diagnostics/Assert.h"
 
 /// Enumerates the data types that can appear in a vertex attribute.
 enum class ShaderDataType
@@ -67,7 +68,7 @@ inline uint32_t ShaderDataTypeSize(ShaderDataType type)
         return 0;
     }
 
-    assert(false && "Unknown ShaderDataType");
+    RTRLAB_ASSERT_MSG(false, "Unknown ShaderDataType");
     return 0;
 }
 
@@ -118,7 +119,7 @@ struct BufferElement
             return 0;
         }
 
-        assert(false && "Unknown ShaderDataType");
+        RTRLAB_ASSERT_MSG(false, "Unknown ShaderDataType");
         return 0;
     }
 };
@@ -169,4 +170,3 @@ enum class BufferUsage
     DynamicDraw,
     StreamDraw
 };
-

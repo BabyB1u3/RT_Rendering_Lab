@@ -1,10 +1,10 @@
 #include "GLVertexArray.h"
 
-#include <cassert>
 #include <utility>
 
 #include <glad/glad.h>
 
+#include "core/diagnostics/Assert.h"
 #include "graphics/Buffers.h"
 #include "GLCast.h"
 #include "GLVertexBuffer.h"
@@ -63,7 +63,7 @@ void GLVertexArray::AddVertexBuffer(const Ref<IVertexBuffer> &vb)
 {
 	auto *glVB = AsGL<GLVertexBuffer>(vb);
 	const auto &layout = glVB->GetLayout();
-	assert(!layout.GetElements().empty() && "VertexBuffer has no layout!");
+	RTRLAB_ASSERT_MSG(!layout.GetElements().empty(), "VertexBuffer has no layout!");
 
 	GLuint bindingIndex = static_cast<GLuint>(m_VertexBuffers.size());
 	glVertexArrayVertexBuffer(m_RendererID, bindingIndex, glVB->GetRendererID(), 0, layout.GetStride());
@@ -133,7 +133,7 @@ void GLVertexArray::AddVertexBuffer(const Ref<IVertexBuffer> &vb)
 
 		case ShaderDataType::None:
 		default:
-			assert(false && "Unknown ShaderDataType in GLVertexArray::AddVertexBuffer");
+			RTRLAB_ASSERT_MSG(false, "Unknown ShaderDataType in GLVertexArray::AddVertexBuffer");
 		}
 	}
 

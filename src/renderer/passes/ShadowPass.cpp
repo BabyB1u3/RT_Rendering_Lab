@@ -1,11 +1,11 @@
 #include "ShadowPass.h"
 
-#include <cassert>
 #include <memory>
 
 #include <glm/glm.hpp>
 
-#include "core/Logger.h"
+#include "core/diagnostics/Assert.h"
+#include "core/diagnostics/LogMacros.h"
 #include "graphics/Framebuffer.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/Mesh.h"
@@ -46,14 +46,14 @@ void ShadowPass::Resize(unsigned int width, unsigned int height)
 
 Ref<ITexture2D> ShadowPass::GetDepthTexture() const
 {
-    assert(m_Framebuffer && "ShadowPass framebuffer is null");
+    RTRLAB_ASSERT_MSG(m_Framebuffer, "ShadowPass framebuffer is null");
     return m_Framebuffer->GetDepthAttachment();
 }
 
 void ShadowPass::Execute(const RenderContext &ctx)
 {
-    assert(m_Framebuffer && "ShadowPass framebuffer is null");
-    assert(m_Shader && "ShadowPass shader is null");
+    RTRLAB_ASSERT_MSG(m_Framebuffer, "ShadowPass framebuffer is null");
+    RTRLAB_ASSERT_MSG(m_Shader, "ShadowPass shader is null");
 
     // P2: Explicit render pass descriptor — clear depth, no color attachment
     RenderPassDescriptor rpDesc;

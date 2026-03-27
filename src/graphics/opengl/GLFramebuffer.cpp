@@ -1,12 +1,12 @@
 #include "GLFramebuffer.h"
 
-#include <cassert>
 #include <stdexcept>
 #include <utility>
 
 #include <glad/glad.h>
 
-#include "core/Logger.h"
+#include "core/diagnostics/Assert.h"
+#include "core/diagnostics/LogMacros.h"
 #include "GLCast.h"
 #include "GLTexture2D.h"
 
@@ -110,9 +110,9 @@ Ref<ITexture2D> GLFramebuffer::GetDepthAttachment() const
 
 int GLFramebuffer::ReadPixel(uint32_t attachmentIndex, int x, int y) const
 {
-	assert(attachmentIndex < m_ColorAttachments.size() && "Attachment index out of range");
-	assert(IsIntegerFormat(m_ColorAttachmentSpecifications[attachmentIndex].Format) &&
-		   "ReadPixel requires an integer-format attachment");
+	RTRLAB_ASSERT_MSG(attachmentIndex < m_ColorAttachments.size(), "Attachment index out of range");
+	RTRLAB_ASSERT_MSG(IsIntegerFormat(m_ColorAttachmentSpecifications[attachmentIndex].Format),
+					  "ReadPixel requires an integer-format attachment");
 
 	glNamedFramebufferReadBuffer(m_RendererID, GL_COLOR_ATTACHMENT0 + attachmentIndex);
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, m_RendererID);
@@ -124,9 +124,9 @@ int GLFramebuffer::ReadPixel(uint32_t attachmentIndex, int x, int y) const
 
 void GLFramebuffer::ClearAttachment(uint32_t attachmentIndex, int value)
 {
-	assert(attachmentIndex < m_ColorAttachments.size() && "Attachment index out of range");
-	assert(IsIntegerFormat(m_ColorAttachmentSpecifications[attachmentIndex].Format) &&
-		   "ClearAttachment requires an integer-format attachment");
+	RTRLAB_ASSERT_MSG(attachmentIndex < m_ColorAttachments.size(), "Attachment index out of range");
+	RTRLAB_ASSERT_MSG(IsIntegerFormat(m_ColorAttachmentSpecifications[attachmentIndex].Format),
+					  "ClearAttachment requires an integer-format attachment");
 
 	auto *glTex = AsGL<GLTexture2D>(m_ColorAttachments[attachmentIndex]);
 	glClearTexImage(glTex->GetRendererID(), 0, GL_RED_INTEGER, GL_INT, &value);
@@ -196,7 +196,7 @@ void GLFramebuffer::Invalidate()
 
 	if (!m_ColorAttachments.empty())
 	{
-		assert(m_ColorAttachments.size() <= 4 && "Too many color attachments");
+		RTRLAB_ASSERT_MSG(m_ColorAttachments.size() <= 4, "Too many color attachments");
 
 		GLenum buffers[4] = {
 			GL_COLOR_ATTACHMENT0,

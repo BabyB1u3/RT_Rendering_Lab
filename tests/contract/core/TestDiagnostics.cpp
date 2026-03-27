@@ -3,6 +3,7 @@
 #include <filesystem>
 
 #include "core/FileSystem.h"
+#include "core/diagnostics/Assert.h"
 #include "core/diagnostics/LogCategories.h"
 #include "core/diagnostics/LogMacros.h"
 #include "core/diagnostics/Logger.h"
@@ -31,4 +32,11 @@ TEST(DiagnosticsContractTests, LoggerWritesIntoSavedLogsDirectory)
     EXPECT_TRUE(std::filesystem::exists(logPath));
 
     RemovePathIfExists(logPath);
+}
+
+TEST(DiagnosticsContractTests, EnsureIsNonFatalAndReturnsBooleanStatus)
+{
+    EXPECT_TRUE(RTRLAB_ENSURE(true));
+    EXPECT_FALSE(RTRLAB_ENSURE(false));
+    EXPECT_FALSE(RTRLAB_ENSURE_MSG(false, "diagnostics ensure contract"));
 }

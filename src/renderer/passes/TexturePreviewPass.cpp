@@ -1,7 +1,6 @@
 #include "TexturePreviewPass.h"
 
-#include <cassert>
-
+#include "core/diagnostics/Assert.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/Mesh.h"
 #include "graphics/MeshFactory.h"
@@ -27,9 +26,9 @@ void TexturePreviewPass::Resize(unsigned int width, unsigned int height)
 
 void TexturePreviewPass::Execute(const RenderContext &ctx)
 {
-    assert(m_Shader && "TexturePreviewPass shader is null");
-    assert(m_FullscreenQuad && "TexturePreviewPass fullscreen quad is null");
-    assert(ctx.Resources.BackBuffer && "TexturePreviewPass: no back buffer target in context");
+    RTRLAB_ASSERT_MSG(m_Shader, "TexturePreviewPass shader is null");
+    RTRLAB_ASSERT_MSG(m_FullscreenQuad, "TexturePreviewPass fullscreen quad is null");
+    RTRLAB_ASSERT_MSG(ctx.Resources.BackBuffer, "TexturePreviewPass: no back buffer target in context");
 
     Ref<ITexture2D> texture;
     bool isDepth = false;
@@ -47,7 +46,7 @@ void TexturePreviewPass::Execute(const RenderContext &ctx)
         break;
     }
 
-    assert(texture && "TexturePreviewPass: no texture for current output mode");
+    RTRLAB_ASSERT_MSG(texture, "TexturePreviewPass: no texture for current output mode");
 
     // P2: Explicit render pass — clear the back buffer
     RenderPassDescriptor rpDesc;

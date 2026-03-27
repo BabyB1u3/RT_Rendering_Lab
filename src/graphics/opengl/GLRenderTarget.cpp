@@ -1,7 +1,6 @@
 #include "GLRenderTarget.h"
 
-#include <cassert>
-
+#include "core/diagnostics/Assert.h"
 #include "graphics/Framebuffer.h" // FramebufferSpecification (full definition)
 
 Ref<GLRenderTarget> GLRenderTarget::CreateBackBuffer(uint32_t width, uint32_t height)
@@ -15,7 +14,7 @@ Ref<GLRenderTarget> GLRenderTarget::CreateBackBuffer(uint32_t width, uint32_t he
 
 Ref<GLRenderTarget> GLRenderTarget::CreateFromFramebuffer(const Ref<IFramebuffer> &fb)
 {
-	assert(fb && "GLRenderTarget::CreateFromFramebuffer requires a valid framebuffer");
+	RTRLAB_ASSERT_MSG(fb, "GLRenderTarget::CreateFromFramebuffer requires a valid framebuffer");
 
 	auto target = Ref<GLRenderTarget>(new GLRenderTarget());
 	target->m_IsBackBuffer = false;
@@ -32,7 +31,7 @@ void GLRenderTarget::Resize(uint32_t width, uint32_t height)
 	}
 	else
 	{
-		assert(m_Framebuffer && "Framebuffer target is null");
+		RTRLAB_ASSERT_MSG(m_Framebuffer, "Framebuffer target is null");
 		m_Framebuffer->Resize(width, height);
 	}
 }
@@ -41,7 +40,7 @@ uint32_t GLRenderTarget::GetWidth() const
 {
 	if (!m_IsBackBuffer)
 	{
-		assert(m_Framebuffer && "Framebuffer target is null");
+		RTRLAB_ASSERT_MSG(m_Framebuffer, "Framebuffer target is null");
 		return m_Framebuffer->GetSpecification().Width;
 	}
 	return m_Width;
@@ -51,7 +50,7 @@ uint32_t GLRenderTarget::GetHeight() const
 {
 	if (!m_IsBackBuffer)
 	{
-		assert(m_Framebuffer && "Framebuffer target is null");
+		RTRLAB_ASSERT_MSG(m_Framebuffer, "Framebuffer target is null");
 		return m_Framebuffer->GetSpecification().Height;
 	}
 	return m_Height;
@@ -61,7 +60,7 @@ Ref<ITexture2D> GLRenderTarget::GetColorAttachment(uint32_t index) const
 {
 	if (!m_IsBackBuffer)
 	{
-		assert(m_Framebuffer && "Framebuffer target is null");
+		RTRLAB_ASSERT_MSG(m_Framebuffer, "Framebuffer target is null");
 		return m_Framebuffer->GetColorAttachment(index);
 	}
 	return nullptr;
@@ -71,7 +70,7 @@ Ref<ITexture2D> GLRenderTarget::GetDepthAttachment() const
 {
 	if (!m_IsBackBuffer)
 	{
-		assert(m_Framebuffer && "Framebuffer target is null");
+		RTRLAB_ASSERT_MSG(m_Framebuffer, "Framebuffer target is null");
 		return m_Framebuffer->GetDepthAttachment();
 	}
 	return nullptr;
