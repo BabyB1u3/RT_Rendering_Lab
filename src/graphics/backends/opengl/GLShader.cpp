@@ -10,6 +10,8 @@
 #include "core/FileSystem.h"
 #include "core/diagnostics/LogCategories.h"
 #include "core/diagnostics/LogMacros.h"
+#include "graphics/backends/opengl/GLCast.h"
+#include "graphics/backends/opengl/GLUniformBuffer.h"
 #include "graphics/interfaces/ITexture2D.h"
 
 namespace
@@ -373,6 +375,18 @@ void GLShader::SetUniformBlock(uint32_t binding, const void *data, uint32_t size
 		glNamedBufferSubData(it->second, 0, size, data);
 		glBindBufferBase(GL_UNIFORM_BUFFER, binding, it->second);
 	}
+}
+
+void GLShader::BindUniformBuffer(uint32_t slot, const Ref<IUniformBuffer> &buffer)
+{
+	if (!buffer)
+	{
+		glBindBufferBase(GL_UNIFORM_BUFFER, slot, 0);
+		return;
+	}
+
+	auto *glBuffer = AsGL<GLUniformBuffer>(buffer);
+	glBindBufferBase(GL_UNIFORM_BUFFER, slot, glBuffer->GetRendererID());
 }
 
 void GLShader::BindTexture(uint32_t slot, const Ref<ITexture2D> &texture)

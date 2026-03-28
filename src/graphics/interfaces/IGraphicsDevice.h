@@ -15,6 +15,7 @@
 
 class IVertexBuffer;
 class IIndexBuffer;
+class IUniformBuffer;
 class IVertexArray;
 class ITexture2D;
 class IShader;
@@ -33,6 +34,7 @@ public:
 	virtual Ref<IVertexBuffer> CreateVertexBuffer(uint32_t size, BufferUsage usage = BufferUsage::DynamicDraw) = 0;
 	virtual Ref<IVertexBuffer> CreateVertexBuffer(const void *data, uint32_t size, BufferUsage usage = BufferUsage::StaticDraw) = 0;
 	virtual Ref<IIndexBuffer> CreateIndexBuffer(const uint32_t *indices, uint32_t count) = 0;
+	virtual Ref<IUniformBuffer> CreateUniformBuffer(uint32_t size) = 0;
 
 	// --- Vertex Array ---
 	virtual Ref<IVertexArray> CreateVertexArray() = 0;

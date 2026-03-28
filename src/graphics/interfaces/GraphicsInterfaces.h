@@ -7,6 +7,7 @@
 #include "ITexture2D.h"
 #include "IVertexBuffer.h"
 #include "IIndexBuffer.h"
+#include "IUniformBuffer.h"
 #include "IVertexArray.h"
 #include "IShader.h"
 #include "IFramebuffer.h"

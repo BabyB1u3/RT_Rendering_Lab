@@ -13,8 +13,9 @@
 ///   each draw call. Offset mapping is loaded from a JSON sidecar produced by
 ///   slangc -dump-reflection; if absent, named setters are silent no-ops.
 ///
-///   SetUniformBlock(binding, data, size) uploads a raw block to both stages
-///   at buffer index (kUniformBaseSlot + binding) = binding, matching [[buffer(N)]].
+///   SetUniformBlock(binding, data, size) uploads a transient raw block to both
+///   stages. BindUniformBuffer(slot, buffer) binds a persistent buffer object at
+///   the same logical [[buffer(N)]] slot.
 ///
 /// Binding index convention - see kUniformBaseSlot / kMetalVertexBufferBase below.
 ///
@@ -34,7 +35,8 @@
 
 /// Binding index convention - Vulkan descriptor model as canonical abstraction.
 ///
-/// SetUniformBlock(N) / SetTexture(N) use the [vk::binding(N, 0)] index directly,
+/// SetUniformBlock(N) / BindUniformBuffer(N) / BindTexture(N) use the
+/// [vk::binding(N, 0)] index directly,
 /// consistent across all three backends:
 ///   OpenGL  : UBO → glBindBufferBase(GL_UNIFORM_BUFFER, N)
 ///             Tex → glBindTextureUnit(N, ...)
@@ -72,6 +74,7 @@ public:
 	void SetMat3(const std::string &name, const glm::mat3 &value) override;
 	void SetMat4(const std::string &name, const glm::mat4 &value) override;
 	void SetUniformBlock(uint32_t binding, const void *data, uint32_t size) override;
+	void BindUniformBuffer(uint32_t slot, const Ref<IUniformBuffer> &buffer) override;
 	void BindTexture(uint32_t slot, const Ref<ITexture2D> &texture) override;
 	const ShaderUniformBlockLayout *GetUniformBlockLayout(uint32_t binding) const override;
 

@@ -30,6 +30,7 @@ public:
 	Ref<IVertexBuffer> CreateVertexBuffer(uint32_t size, BufferUsage usage) override;
 	Ref<IVertexBuffer> CreateVertexBuffer(const void *data, uint32_t size, BufferUsage usage) override;
 	Ref<IIndexBuffer> CreateIndexBuffer(const uint32_t *indices, uint32_t count) override;
+	Ref<IUniformBuffer> CreateUniformBuffer(uint32_t size) override;
 	Ref<IVertexArray> CreateVertexArray() override;
 	Ref<ITexture2D> CreateTexture2D(const TextureSpecification &spec) override;
 	Ref<ITexture2D> CreateTexture2DFromFile(const std::string &path, bool flipVertically) override;

@@ -12,6 +12,7 @@
 #include "graphics/ShaderUniformLayout.h"
 
 class ITexture2D;
+class IUniformBuffer;
 
 class IShader
 {
@@ -36,6 +37,9 @@ public:
 	/// Upload data to a uniform block at the specified binding point.
 	/// Maps to UBO on OpenGL, descriptor set buffer on Vulkan.
 	virtual void SetUniformBlock(uint32_t binding, const void *data, uint32_t size) = 0;
+
+	/// Bind a persistent uniform buffer object at the specified slot.
+	virtual void BindUniformBuffer(uint32_t slot, const Ref<IUniformBuffer> &buffer) = 0;
 
 	/// Bind a texture at the specified slot.
 	/// OpenGL binding is stage-agnostic. Metal currently binds the texture to both

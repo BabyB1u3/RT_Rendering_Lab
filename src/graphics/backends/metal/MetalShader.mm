@@ -21,6 +21,7 @@
 #include "graphics/backends/metal/MetalGraphicsDevice.h"
 #include "graphics/backends/metal/MetalRenderCommand.h"
 #include "graphics/backends/metal/MetalTexture2D.h"
+#include "graphics/backends/metal/MetalUniformBuffer.h"
 
 // --- PSO cache key ---
 
@@ -105,6 +106,7 @@ struct MetalShader::Impl
 	// Explicit uniform blocks (SetUniformBlock)
 	std::unordered_map<uint32_t, std::vector<uint8_t>> uniformBlocks;
 	std::unordered_map<uint32_t, ShaderUniformBlockLayout> blockLayouts;
+	std::unordered_map<uint32_t, Ref<IUniformBuffer>> uniformBuffers;
 	std::unordered_map<uint32_t, Ref<ITexture2D>> boundTextures;
 
 	// Metal buffer binding indices
@@ -550,6 +552,14 @@ void MetalShader::SetUniformBlock(uint32_t binding, const void *data, uint32_t s
 	memcpy(block.data(), data, size);
 }
 
+void MetalShader::BindUniformBuffer(uint32_t slot, const Ref<IUniformBuffer> &buffer)
+{
+	if (buffer)
+		m_Impl->uniformBuffers[slot] = buffer;
+	else
+		m_Impl->uniformBuffers.erase(slot);
+}
+
 void MetalShader::BindTexture(uint32_t slot, const Ref<ITexture2D> &texture)
 {
 	if (texture)
@@ -674,6 +684,15 @@ void MetalShader::FlushUniforms(void *mtlEncoder)
 		uint32_t slotIndex = kUniformBaseSlot + binding;
 		[encoder setVertexBytes:data.data()   length:data.size() atIndex:slotIndex];
 		[encoder setFragmentBytes:data.data() length:data.size() atIndex:slotIndex];
+	}
+
+	for (const auto &[slot, buffer] : m_Impl->uniformBuffers)
+	{
+		uint32_t slotIndex = kUniformBaseSlot + slot;
+		auto *metalBuffer = AsMetal<MetalUniformBuffer>(buffer);
+		id<MTLBuffer> nativeBuffer = (__bridge id<MTLBuffer>)metalBuffer->GetMTLBuffer();
+		[encoder setVertexBuffer:nativeBuffer offset:0 atIndex:slotIndex];
+		[encoder setFragmentBuffer:nativeBuffer offset:0 atIndex:slotIndex];
 	}
 
 	const uint32_t textureBase = m_Impl->textureBindingBase;

@@ -3,6 +3,7 @@
 #include "GLTexture2D.h"
 #include "GLVertexBuffer.h"
 #include "GLIndexBuffer.h"
+#include "GLUniformBuffer.h"
 #include "GLVertexArray.h"
 #include "GLShader.h"
 #include "GLFramebuffer.h"
@@ -29,6 +30,11 @@ Ref<IVertexBuffer> GLGraphicsDevice::CreateVertexBuffer(const void *data, uint32
 Ref<IIndexBuffer> GLGraphicsDevice::CreateIndexBuffer(const uint32_t *indices, uint32_t count)
 {
 	return CreateRef<GLIndexBuffer>(indices, count);
+}
+
+Ref<IUniformBuffer> GLGraphicsDevice::CreateUniformBuffer(uint32_t size)
+{
+	return CreateRef<GLUniformBuffer>(size);
 }
 
 // --- Vertex Array ---
