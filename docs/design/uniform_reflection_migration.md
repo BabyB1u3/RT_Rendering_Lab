@@ -3,13 +3,14 @@
 This document defines the concrete migration plan from the current
 "Slang source + mixed upload paths + handwritten C++ block layouts"
 state to the intended
-"slot-based resource binding + reflection-driven buffer packing"
+"set-aware logical resource binding + reflection-driven buffer packing"
 architecture.
 
 It is a companion document to:
 
 - `docs/design/shader_material_system.md`
 - `docs/design/metal_backend.md`
+- `docs/design/set_aware_shader_binding_model.md`
 
 Those two documents define the target architecture and design principles.
 This document focuses on execution order, repository-local constraints, and
@@ -28,11 +29,11 @@ The current repository has already moved past the old OpenGL-only shader model:
 
 However, the repository is still in an intermediate state:
 
-- slot-based upload exists only partially
-- shader data is still usually packed by handwritten C++ structs
-- reflection metadata is not yet part of the normal build pipeline
+- the current bridge resource API still uses flat slots
+- shader data is reflected and packed correctly on the mainline paths, but not yet everywhere
+- reflection metadata is in place, but not yet in the final set-aware form
 - shader source still uses loose `uniform` declarations instead of explicit
-  `ParameterBlock<T>` groupings
+  resource groupings
 
 The macOS `BasicLight` bug made this gap concrete:
 
@@ -51,44 +52,46 @@ This plan exists to close that gap without trying to rewrite the renderer in one
 
 ### 2.1 What Is Already True
 
-- `IShader` still exposes name-based setters and `SetUniformBlock()`
+- `IShader` exposes name-based setters, `SetUniformBlock()`, `BindTexture()`,
+  and `BindUniformBuffer()`
 - `Material` is still a pass-centric data container with string-keyed properties
 - `ForwardPass`, `ShadowPass`, `TexturePreviewPass`, and some tutorial demos already
-  use `SetUniformBlock()`
+  use reflected uniform block layouts
 - `Material::UploadToShader()` still exists and still uses name-based setters
-- `MetalShader` can load a `.reflect.json` sidecar, but the build does not emit one
-- OpenGL and Metal both accept raw bytes for `SetUniformBlock()`
+- OpenGL and Metal both consume reflected packing metadata
+- OpenGL and Metal both accept either raw bytes (`SetUniformBlock`) or owned
+  uniform buffers (`BindUniformBuffer`) on the bridge path
 
 ### 2.2 What Is Not True Yet
 
-- there is no shared `PackedUniformBlock` or equivalent helper
-- there is no `BindUniformBuffer()` / `SetPushConstants()` API in `IShader`
-- there is no reflection-driven validation of pass-owned block layouts
+- there is no set-aware logical binding API yet
+- there is no `SetPushConstants()` API in `IShader`
 - shaders do not yet organize resources as `PerFrame` / `PerMaterial` / `PerPass`
   explicit blocks
-- no part of the runtime treats Slang reflection as the authoritative description
-  of buffer packing
+- the runtime does not yet preserve logical `set + binding` identity separately
+  from backend-local indices
 
 ### 2.3 Stage Assessment
 
 Using the terminology from `shader_material_system.md`, the repository is currently:
 
-- mostly **Phase A**
-- with a few **Phase B-style upload APIs**
-- but without the reflection-driven packing that makes Phase B actually portable
+- past the original packer migration and Phase 5 bridge work
+- in a handoff state between:
+  - reflected packing + bridge slot APIs
+  - the next set-aware binding redesign
 
 That means the next steps should not be:
 
 - "delete name-based setters immediately"
 - "rewrite all shaders to `ParameterBlock<T>` at once"
 - "generalize materials first"
+- "treat flat slots as the final architecture"
 
 The next steps should be:
 
-- make reflected layout information available
-- consume that information in one shared packer
-- migrate high-risk passes first
-- only then move the public shader/resource APIs forward
+- preserve logical `set + binding` identity in the runtime
+- redesign the public shader/resource APIs around that identity
+- then migrate production shaders to explicit resource groupings
 
 ---
 
@@ -123,38 +126,64 @@ This migration does **not** attempt to solve all renderer evolution work:
 
 The end state of this migration is:
 
-1. Shader resources are grouped by update frequency and bound by stable slots.
+1. Shader resources are grouped by update frequency and bound by stable logical
+   `set + binding` points.
 2. Slang reflection or generated layout metadata defines the memory layout for each block.
 3. C++ packs uniform data through that metadata rather than through handwritten mirror structs.
 4. Backends bind buffers/textures; they do not reinterpret application-owned structs.
 
-The target slot convention remains:
+The long-term binding model is now defined in `set_aware_shader_binding_model.md`.
+For this migration document, the important practical split is:
+
+- **completed bridge work**: flat-slot `BindUniformBuffer(slot, ...)` /
+  `BindTexture(slot, ...)`
+- **next redesign step**: logical `ShaderBindingPoint { set, binding }`
+
+The transitional flat-slot convention already implemented in the repository is:
 
 - slot 0: `PerFrame`
-- slot 1: `PerMaterial`
-- slot 2: `PerPass`
-- push/per-draw: `PerDraw`
+- slot 1: `PerPass`
+- slot 2: `PerMaterial`
+- `PerDraw`: reserved / TBD until the engine commits to a stable push-data path
+- texture resources: start at slot 3
 
 The target upload flow becomes:
 
 ```cpp
-PackedUniformBlock perFrame(shader->GetUniformBlockLayout(0));
+PackedUniformBlock perFrame(shader->GetUniformBlockLayout(/*bridge slot=*/0));
 perFrame.Write("ViewProjection", vp);
 perFrame.Write("CameraPosition", cameraPos);
 
-PackedUniformBlock perDraw(shader->GetUniformBlockLayout(3));
+PackedUniformBlock perDraw(shader->GetUniformBlockLayout(/*bridge slot=*/3));
 perDraw.Write("Model", model);
 perDraw.Write("NormalMatrix", normalMatrix);
 
-shader->BindUniformBuffer(0, perFrameBuffer);
-shader->BindUniformBuffer(3, perDrawBuffer);
-shader->BindTexture(1, albedoTexture);
+shader->BindUniformBuffer(0, perFrameBuffer);   // transitional bridge
+shader->BindUniformBuffer(3, perDrawBuffer);    // transitional bridge
+shader->BindTexture(1, albedoTexture);          // transitional bridge
 ```
 
 The important part is not the exact method spelling. The important part is:
 
 - C++ no longer owns layout rules
 - Slang does
+
+### 4.1 Transitional Binding Slot Table
+
+| Slot | Semantic | Current Status |
+|------|----------|----------------|
+| 0 | `PerFrame` | Reserved for frame/global buffer-backed data |
+| 1 | `PerPass` | Reserved for pass-local buffer-backed data |
+| 2 | `PerMaterial` | Reserved for material buffer-backed data |
+| 3+ | Textures / samplers | First texture slot range |
+| Push / TBD | `PerDraw` | Reserved until push-constant policy is finalized |
+
+`PerDraw` is intentionally not assigned a numeric slot yet. The project has not
+committed to a final cross-backend push-data mechanism, and the next set-aware phase should not
+pre-decide that policy while the explicit block model is still being proven.
+
+This table is now considered a compatibility bridge, not the final architecture.
+The long-term logical resource model is `set + binding`, not one flattened slot integer.
 
 ---
 
@@ -235,7 +264,7 @@ the right choice at that layer. The contract here governs the single-block layer
 
 #### Validating the Contract at Phase 6
 
-When Phase 6 introduces `ParameterBlock<T>`, the raw names produced by each backend
+When Phase 6 introduces explicit resource blocks, the raw names produced by each backend
 will change:
 
 - OpenGL: GL introspection may return `gPerFrame.u_CameraPosition` instead of
@@ -527,11 +556,11 @@ cleanup / consistency task, not a blocker for the reflection migration itself.
 
 ---
 
-## 6.6 Phase 5 - Evolve IShader to the Slot-Based Resource API
+## 6.6 Phase 5 - Evolve `IShader` to the Bridge Resource API
 
 ### Goal
 
-Finish the public resource binding model described in `shader_material_system.md`.
+Finish the bridge resource binding model described in `shader_material_system.md`.
 
 ### Required API Changes
 
@@ -541,7 +570,14 @@ Add the following capabilities to `IShader`:
 - `BindTexture(slot, texture)`
 - `SetPushConstants(stage, data, size)`
 
-The exact final method names may vary, but the semantics should match the design doc.
+Repository status update:
+
+- `BindUniformBuffer(slot, buffer)` is implemented
+- `BindTexture(slot, texture)` is implemented
+- `SetPushConstants()` remains deferred
+
+So Phase 5 should now be treated as largely complete bridge work rather than the
+final binding architecture.
 
 ### Required Backend Changes
 
@@ -557,7 +593,7 @@ Metal:
 
 ### Exit Criteria
 
-- slot-based resource APIs exist in `IShader`
+- bridge slot-based resource APIs exist in `IShader`
 - at least one real rendering path uses them end-to-end
 - name-based setters are no longer required for mainline rendering
 
@@ -568,40 +604,47 @@ This phase becomes safer only after Phase 2 and Phase 3 have removed handwritten
 
 ---
 
-## 6.7 Phase 6 - Restructure Shader Resources into Explicit Blocks
+## 6.7 Phase 6 - Set-Aware Resource Model Redesign Before Production Shader Migration
 
 ### Goal
 
-Move shader source away from loose `uniform` declarations packed into one implicit block.
+Replace the current flat-slot bridge with a logical `set + binding` resource model
+before migrating production shaders to explicit resource groupings.
 
 ### Required Changes
 
-Refactor shader resource layout toward:
+Phase 6 is now split conceptually into two layers:
 
-- `PerFrame`
-- `PerMaterial`
-- `PerPass`
-- `PerDraw`
+1. **Engine/runtime redesign**
+   - introduce `ShaderBindingPoint { set, binding }`
+   - make runtime resource/block layout keyed by logical binding identity
+   - preserve backend-local binding indices as derived metadata
+   - update `IShader` binding APIs to target logical bindings
 
-using explicit blocks or `ParameterBlock<T>` depending on the chosen Slang strategy.
+2. **Shader migration after the redesign**
+   - move shaders away from loose implicit blocks
+   - adopt explicit `ConstantBuffer<T>` or later `ParameterBlock<T>` resources
+   - keep the canonical field-name contract intact across OpenGL and Metal
 
 ### Recommended Adoption Order
 
-1. `ForwardLit.slang`
-2. `ShadowDepth.slang`
-3. `TexturePreview.slang`
-4. tutorial shaders (`BasicLit`, `UnlitTransformed`, etc.)
+1. set-aware engine/runtime binding types and metadata
+2. `TexturePreview.slang` as the first pilot shader
+3. `ShadowDepth.slang`
+4. `ForwardLit.slang`
+5. tutorial shaders (`BasicLit`, `UnlitTransformed`, etc.)
 
 ### Exit Criteria
 
+- runtime/resource APIs are keyed by logical `set + binding`
 - core renderer shaders use explicit resource grouping
-- slot assignment becomes clear in shader source
-- call sites no longer think in terms of one giant "binding 0 everything block"
+- call sites no longer think in terms of one flattened slot table
 
 ### Notes
 
 This phase is intentionally later than packer introduction.
-It changes shader source organization and should be done after reflected packing is stable.
+It changes both runtime binding identity and shader source organization, so it
+should be done only after reflected packing is already stable.
 
 ### Reflection Path Coupling (Must Read Before Starting)
 
@@ -623,6 +666,31 @@ Currently parses a flat `parameters` array from the slangc sidecar. With
 parameter block entry rather than listing them at the top level. The parser will
 need to recurse into that structure.
 
+**Binding-model warning from the first `TexturePreview` trials**
+
+The first local `TexturePreview` trials also exposed a second issue beyond field-name
+normalization:
+
+- `ParameterBlock<T>` consumes a whole descriptor set
+- `ConstantBuffer<T>` keeps a simpler authoring shape, but Metal still compacts
+  backend resource indices
+
+- GLSL emission uses `layout(binding = 0, set = N)` for the block, not a flat
+  `layout(binding = N)`.
+- Metal reflection reports backend-local indices such as `buffer(0)`,
+  `buffer(1)`, and `texture(0)`, which are not guaranteed to equal the logical
+  bindings authored in Slang.
+
+This means the current flat `BindUniformBuffer(slot, buffer)` API is not a strong
+enough final abstraction for Phase 6. Before migrating production shaders to
+explicit resource groupings, the engine must preserve:
+
+- logical resource identity
+- backend-local binding indices
+
+The detailed target architecture for this redesign is defined in
+`set_aware_shader_binding_model.md`.
+
 **Invariant to maintain:** after both updates, `block.Write("fieldName", value)` must
 resolve to the same logical field on both OpenGL and Metal. If the two paths produce
 different keys for the same field, `WriteRequired()` will assert in required paths and
@@ -642,15 +710,15 @@ Move material uploads from per-property setter calls to packed material buffers.
 1. Keep `Material` as a pass-centric data container.
 2. Replace `Material::UploadToShader()` internals with:
    - packed material block generation
-   - `BindUniformBuffer(slot 1, materialBuffer)`
-   - `BindTexture(slot, texture)`
+   - `BindUniformBuffer(materialBinding, materialBuffer)`
+   - `BindTexture(materialTextureBinding, texture)`
 
 3. Stop requiring `ForwardPass` to manually pull every material property into a local struct.
 
 ### Exit Criteria
 
 - material properties are packed from reflected layout metadata
-- textures bind through slot-based APIs
+- textures bind through logical resource APIs
 - the main forward path does not need to duplicate material upload logic
 
 ### Notes
@@ -684,7 +752,7 @@ or remove them entirely if the team decides the API should be strict.
 ### Exit Criteria
 
 - the main renderer no longer depends on handwritten uniform layouts
-- the primary upload path is reflected and slot-based
+- the primary upload path is reflected and keyed by stable logical resource bindings
 - new shader fields are added once in Slang and consumed automatically in C++
 
 ---
@@ -699,17 +767,19 @@ If the team wants the highest value with the lowest migration risk, the recommen
 4. Phase 3 - migrate `BasicLighting` + `ForwardPass`
 5. Phase 3 - migrate `ShadowPass` + `TexturePreviewPass`
 6. Phase 4 - make reflected packing backend-agnostic
-7. Phase 5 - evolve `IShader`
-8. Phase 6 - explicit shader blocks / `ParameterBlock<T>`
-9. Phase 7 - material buffer integration
-10. Phase 8 - cleanup and deprecation
+7. Phase 5 - evolve `IShader` bridge APIs
+8. Phase 6 - set-aware binding redesign
+9. Phase 6 - explicit shader blocks / pilot shader migrations
+10. Phase 7 - material buffer integration
+11. Phase 8 - cleanup and deprecation
 
 If work must be split into milestones, use:
 
 - Milestone A: "No more handwritten block layouts in high-risk passes"
 - Milestone B: "Reflection is part of the build and runtime"
-- Milestone C: "Slot-based resource API is live"
-- Milestone D: "Materials and shaders use explicit block groupings"
+- Milestone C: "Bridge resource API is live"
+- Milestone D: "Set-aware resource model is live"
+- Milestone E: "Materials and shaders use explicit block groupings"
 
 ---
 
@@ -803,7 +873,7 @@ These scenes should be checked on:
 | Reflection loader is migrated to the shared serialization layer too early | Extra churn in both systems while the schema is still moving | Defer serialization integration until reflected packing and shader APIs stabilize |
 | Packer is introduced but only used on Metal | Upload path diverges again | Apply the same packer to OpenGL call sites once stable |
 | API refactor starts before packer migration | Too many moving parts at once | Finish Phase 2-3 first |
-| Shader block refactor happens too early | Large cross-file churn | Delay explicit `ParameterBlock<T>` adoption until the packer is proven |
+| Shader block refactor happens before the set-aware redesign | Large cross-file churn and backend-binding confusion | Finish the logical `set + binding` redesign before production shader migration |
 | Material refactor happens before pass refactor stabilizes | Renderer logic churn spreads too wide | Keep material integration later in the plan |
 
 ---
@@ -816,7 +886,7 @@ This migration is complete when all of the following are true:
 - runtime consumes reflection metadata as authoritative layout input
 - main rendering passes do not upload handwritten mirror structs
 - OpenGL and Metal use the same logical packing path
-- `IShader` exposes stable slot-based resource binding APIs
+- `IShader` exposes stable logical resource binding APIs
 - shader source organizes resources into explicit update-frequency blocks
 - materials bind packed buffers/textures rather than issuing per-property setter calls
 

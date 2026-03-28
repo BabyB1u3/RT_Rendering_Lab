@@ -8,6 +8,8 @@ platform integration, build system changes, and the phased implementation plan.
 Resource Packaging doc (`resource_packaging.md`).
 For the concrete migration sequence from handwritten uniform blocks to
 reflection-driven packing, see `uniform_reflection_migration.md`.
+For the next-stage logical resource model that replaces the current flat-slot
+bridge, see `set_aware_shader_binding_model.md`.
 
 ---
 
@@ -47,30 +49,33 @@ What is already implemented:
   - named setter staging buffers (`SetFloat`, `SetMat4`, etc.)
   - raw `SetUniformBlock(binding, data, size)` uploads
   - `BindUniformBuffer(slot, buffer)` with per-draw snapshot semantics
+  - `BindTexture(slot, texture)` with shader-owned binding state on the mainline path
 
 What is only partially implemented:
 
-- `MetalShader` already has code to load a `.reflect.json` sidecar for named
-  uniform offsets, but the current CMake shader build does not emit those files.
-- Application/render-pass code has started migrating to `SetUniformBlock()`, but
-  the payload is still typically a handwritten C++ struct.
+- `MetalShader` already has code to load a `.reflect.json` sidecar for reflected
+  uniform layouts and named-setter compatibility, but the runtime metadata still
+  reflects the transitional flat-slot binding model.
+- Mainline passes have migrated off handwritten packing, but material upload and
+  explicit shader resource grouping are not finished yet.
 
 What is not implemented yet:
 
 - No `SetPushConstants()` API exists in `IShader` yet.
-- No reflection-driven or generated packing helper exists for uniform blocks.
+- No set-aware logical binding model exists in the runtime API yet.
 - Shaders still rely on loose `uniform` declarations grouped into Slang's implicit
-  global parameter block rather than explicit `ParameterBlock<T>` resources.
+  global parameter block rather than explicit `ConstantBuffer<T>` / `ParameterBlock<T>`
+  resources.
 
 In other words, the repository is currently in a transitional state:
 
 - more advanced than the original OpenGL-only/name-based model
-- not yet at the final slot-based + reflection-packed architecture
+- not yet at the final set-aware + reflection-packed architecture
 
 The later sections of this document should therefore be read as:
 
 - "implemented now" for the basic backend plumbing
-- "next migration target" for reflection-driven packing and slot-based resource APIs
+- "next migration target" for set-aware resource binding and explicit shader resources
 
 ---
 
@@ -328,10 +333,12 @@ Metal has no runtime uniform reflection like `glGetUniformLocation`. Strategy:
   uniforms (< 4 KB). The `MetalShader` maintains a CPU-side staging buffer per
   stage. `SetMat4()` etc. write into this buffer at known offsets. On draw,
   the buffer is uploaded via `setVertexBytes`.
-- **Phase 2 (shader material system evolution)**: Migrate to slot-based
-  `SetUniformBlock(binding, data, size)` which maps directly to
-  `setVertexBuffer(buffer, offset, index)`. This is the target architecture
-  described in `shader_material_system.md` Phase B.
+- **Phase 2 (bridge evolution)**: Migrate to `SetUniformBlock(binding, data, size)`
+  and `BindUniformBuffer(slot, buffer)`, which map cleanly onto Metal buffer
+  binding and were the right intermediate step for the first cross-backend path.
+- **Phase 3 (next architecture step)**: Move from flat bridge slots to the
+  set-aware logical binding model described in
+  `set_aware_shader_binding_model.md`.
 
 Important clarification: `SetUniformBlock(binding, data, size)` only standardizes
 the binding slot. It does **not** guarantee that the byte layout of `data` is
@@ -924,31 +931,42 @@ Render targets are now created once and cached as class members, not per-frame:
 - `FrameResources` no longer carries `Ref<IRenderTarget>` - it carries
   `Ref<ITexture2D>` output textures and a shared `BackBuffer` target
 
-### 8.6 Name-Based Uniforms → Slot-Based (Future)
+### 8.6 Name-Based Uniforms -> Bridge Slots -> Set-Aware Binding
 
-As noted in `shader_material_system.md`, the long-term target is slot-based
-`SetUniformBlock(binding, data, size)`. The Metal backend implements name-based
-setters via reflection as a bridge, but the slot-based path should be prioritized
-as the next material system evolution - it maps directly to Metal's buffer
-binding model and eliminates the reflection sidecar.
+As noted in `shader_material_system.md`, the repository already passed through a
+useful intermediate stage:
 
-One more nuance is important here: moving to slot-based APIs does not, by itself,
-eliminate layout bugs. The following two concerns are separate and both must be solved:
+- name-based setters for early bring-up
+- flat-slot `SetUniformBlock(binding, ...)` / `BindUniformBuffer(slot, ...)`
+  bridge APIs for the first cross-backend rendering paths
+
+That bridge was valuable, but it is no longer the intended end state.
+
+The next-stage target is a set-aware logical binding model, described in
+`set_aware_shader_binding_model.md`. Metal is one of the main reasons this is
+necessary:
+
+- Slang may compile authored logical bindings into compacted Metal backend-local
+  indices such as `[[buffer(0)]]`, `[[buffer(1)]]`, and `[[texture(0)]]`
+- those backend indices are not guaranteed to equal the logical bindings that
+  renderer code should target
+
+So the long-term backend contract is:
+
+1. renderer code binds resources by logical `set + binding`
+2. MetalShader maps that logical binding to the backend-local Metal indices used
+   by the compiled artifact
+3. `PackedUniformBlock` still packs bytes from reflected field layouts
+4. Metal binds buffers/textures; it does not reinterpret application structs
+
+One more nuance is important here: changing the binding model does not, by itself,
+eliminate layout bugs. The following two concerns remain separate and both must be solved:
 
 - Resource binding abstraction:
-  `BindUniformBuffer(slot)` / `SetUniformBlock(binding, ...)` lets all backends talk
-  about the same slots.
+  renderer code should target logical `set + binding`, not backend-local Metal indices.
 - Buffer packing abstraction:
   the bytes written into that buffer must come from reflection or generated layout
   code, not from manually duplicated C++ structs.
-
-The target end state is therefore:
-
-1. Shader code declares resources in stable slots (`PerFrame`, `PerMaterial`, `PerPass`,
-   per-draw/push).
-2. Build-time or load-time reflection provides the exact byte layout for each block.
-3. C++ packs data through that reflected layout.
-4. Backends only bind buffers/textures; they do not reinterpret application structs.
 
 That is the point where "one shader source, one application-side upload path" becomes
 real across OpenGL, Vulkan, and Metal rather than just nominally shared.

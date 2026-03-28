@@ -10,6 +10,8 @@ It supersedes:
 For the Slang migration itself (toolchain swap, build system, shader rewrites), see `slang-migration.md`.
 For the step-by-step execution plan that applies this design to the current repository,
 see `uniform_reflection_migration.md`.
+For the next-stage logical resource model that replaces the current flat-slot bridge,
+see `set_aware_shader_binding_model.md`.
 
 ---
 
@@ -61,21 +63,31 @@ Implemented today:
 - Build-time compilation to backend-specific artifacts is in place:
   - GLSL when building the OpenGL backend
   - MSL when building the Metal backend
-- The renderer already uses a mix of:
-  - name-based setters (`SetFloat`, `SetMat4`, etc.)
-  - slot-indexed `SetUniformBlock(binding, data, size)`
+- Reflection-driven uniform block layouts and `PackedUniformBlock` are implemented
+  for the mainline passes that previously relied on handwritten mirror structs.
+- `IShader` already exposes transitional resource-binding APIs:
+  - `BindTexture(slot, texture)`
+  - `BindUniformBuffer(slot, buffer)`
+- The renderer currently uses a mix of:
+  - legacy name-based setters (`SetFloat`, `SetMat4`, etc.)
+  - raw `SetUniformBlock(binding, data, size)` for compatibility/demo paths
+  - owned uniform buffers and shader-scoped texture binding on the mainline passes
 
 Not implemented yet:
 
-- No `ParameterBlock<T>` resources are used in shader source yet; current shaders
-  still declare loose `uniform` values that Slang packs into an implicit global block.
-- `IShader` does not yet expose the target API sketched in Section 2.2
-  (`BindUniformBuffer`, `BindTexture`, `SetPushConstants`).
-- No reflection-driven packing helper exists for pass or material uniform blocks.
+- No production shader uses explicit `ConstantBuffer<T>` / `ParameterBlock<T>`
+  resource grouping yet; current shaders still rely on Slang's implicit global block.
+- No set-aware logical resource API exists yet; the current `slot`-based binding
+  surface is a transitional bridge.
+- `SetPushConstants()` is still intentionally deferred.
+- Material upload is not yet reflection-packed end-to-end.
 
 Practical summary: the project is no longer in the old GLSL-only world, but it is
-also not yet at the final "slot-based buffers + reflected packing" design.
-It is best described as Phase A plus a few Phase B-style experiments.
+also not yet at the final "set-aware logical bindings + reflected packing" design.
+It is best described as:
+
+- reflected packing and Phase 5 bridge APIs are in place
+- the next major step is replacing flat slots with a logical `set + binding` model
 
 ### 1.3 Long-Term Target (R5+)
 
@@ -84,7 +96,7 @@ Source:     Slang (.slang) - full use of generics, interfaces, modules
 Compile:    slangc (build-time) → final backend format per platform
 Variants:   Resolved at build time via Slang specialization
 Reflection: Slang reflection API drives automatic resource binding
-Binding:    Buffer-based (UBO/push constant/argument buffer), not name-based
+Binding:    Set-aware logical resource binding + reflected block packing
 ```
 
 ---
@@ -109,9 +121,9 @@ virtual void SetMat4(const std::string& name, const glm::mat4& value) = 0;
 
 This cannot map to Vulkan or Metal without per-call string lookups and translation layers.
 
-### 2.2 Target Abstraction: Slot-Based Binding
+### 2.2 Transitional Abstraction: Flat Slot Binding
 
-The abstraction that works across all three backends is **slot-based buffer and resource binding**:
+The repository currently exposes a **flat slot-based bridge**:
 
 ```cpp
 class IShader
@@ -121,76 +133,127 @@ public:
     virtual void Unbind() const = 0;
     virtual const std::string& GetName() const = 0;
 
-    // --- Buffer Binding (maps to UBO / descriptor / argument buffer) ---
-    virtual void BindUniformBuffer(uint32_t slot, const Ref<IBuffer>& buffer) = 0;
-
-    // --- Texture Binding ---
+    virtual void BindUniformBuffer(uint32_t slot, const Ref<IUniformBuffer>& buffer) = 0;
     virtual void BindTexture(uint32_t slot, const Ref<ITexture2D>& texture) = 0;
-
-    // --- Per-Draw Push Data (small, updated every draw call) ---
     virtual void SetPushConstants(ShaderStage stage, const void* data, uint32_t size) = 0;
 };
 ```
 
-How each backend implements this:
+This bridge was the right Phase 5 step because it:
+
+- removed name-based resource binding from the mainline passes
+- let OpenGL and Metal share one renderer-side upload path
+- unblocked the introduction of owned uniform buffers
+
+However, it is not the intended end state. The Phase 6 experiments showed why:
+
+- `ParameterBlock<T>` naturally speaks in descriptor-set style bindings
+- Metal reflection reports backend-local compacted indices
+- Vulkan needs logical `set + binding` to remain explicit
+
+So the flat `slot` abstraction is now officially a compatibility layer, not the
+final cross-backend design.
+
+### 2.3 Target Abstraction: Set-Aware Binding
+
+The long-term abstraction is a logical binding point:
+
+```cpp
+struct ShaderBindingPoint
+{
+    uint32_t Set = 0;
+    uint32_t Binding = 0;
+};
+```
+
+with `IShader` APIs that bind by logical identity rather than by one flattened slot:
+
+```cpp
+class IShader
+{
+public:
+    virtual void BindUniformBuffer(
+        ShaderBindingPoint binding,
+        const Ref<IUniformBuffer>& buffer) = 0;
+
+    virtual void BindTexture(
+        ShaderBindingPoint binding,
+        const Ref<ITexture2D>& texture) = 0;
+};
+```
+
+How each backend conceptually implements this:
 
 | Method | OpenGL | Vulkan | Metal |
 |--------|--------|--------|-------|
-| `BindUniformBuffer(slot, buf)` | `glBindBufferBase(GL_UNIFORM_BUFFER, slot, ...)` | `vkCmdBindDescriptorSets` | `setVertexBuffer:offset:atIndex:` |
-| `BindTexture(slot, tex)` | `glBindTextureUnit(slot, ...)` | Descriptor write | `setFragmentTexture:atIndex:` |
+| `BindUniformBuffer(binding, buf)` | Bind to a backend-local flattened UBO index | Descriptor write/bind at logical `set + binding` | Bind via logical-to-backend buffer index map |
+| `BindTexture(binding, tex)` | Bind to a backend-local flattened texture unit | Descriptor write/bind at logical `set + binding` | Bind via logical-to-backend texture index map |
 | `SetPushConstants(stage, data, size)` | Upload to a dedicated small UBO or use `glUniform*` | `vkCmdPushConstants` | `setVertexBytes` / `setFragmentBytes` |
 
-Important: slot-based binding solves the "where is this resource bound?" problem.
-It does **not** solve the "how are bytes packed inside this buffer?" problem.
-Those are separate concerns. A cross-platform renderer needs both:
+Important: changing from flat slots to set-aware binding still only solves the
+"where is this resource bound?" problem. It does **not** solve the "how are bytes
+packed inside this buffer?" problem. Those are separate concerns. A cross-platform
+renderer needs both:
 
-- Stable slot conventions across backends
+- Stable logical resource identities across backends
 - A single source of truth for field offsets/sizes inside each uniform block
 
 If application code still hand-writes a C++ struct and passes it to
 `SetUniformBlock(binding, data, size)`, layout mismatches can still happen even
-when all backends agree on the binding slot.
+when all backends agree on the logical binding point.
 
-### 2.3 Resource Slot Convention
+For the detailed rationale and metadata model behind this change, see
+`set_aware_shader_binding_model.md`.
 
-Shader resources are organized by update frequency, following a convention shared across all shaders:
+### 2.4 Resource Set Convention
 
-| Slot | Update Frequency | Content | Slang Declaration |
-|------|-----------------|---------|-------------------|
-| 0 | Per-frame | Camera, lights, time | `ParameterBlock<PerFrameData> gPerFrame;` |
-| 1 | Per-material | Albedo, roughness, metallic | `ParameterBlock<MaterialData> gMaterial;` |
-| 2 | Per-pass | Pass-specific data (shadow map, etc.) | `ParameterBlock<PerPassData> gPerPass;` |
-| Push | Per-draw | Model matrix, normal matrix | `[[vk::push_constant]]` or `ParameterBlock<PerDrawData>` |
-| Texture slots | Varies | Albedo map, normal map, shadow map | `Texture2D gAlbedoMap;` |
+Logical resources should be grouped by update frequency:
 
-This convention minimizes descriptor set / buffer rebinding:
-- Slot 0 is bound once per frame
-- Slot 1 changes per material (batched by material)
-- Slot 2 changes per pass
-- Push constants change per draw call (cheapest to update)
+| Set | Update Frequency Domain | Typical Content |
+|-----|-------------------------|-----------------|
+| 0 | Frame / pass | `PerFrame`, `PerPass`, pass-global textures |
+| 1 | Material | `PerMaterial`, albedo/normal/roughness textures |
+| 2 | Draw / instance | `PerDraw`, skinning/instance data |
 
-Slang maps `ParameterBlock<T>` to the appropriate backend mechanism:
-- OpenGL: `uniform` block with `layout(binding = N)`
-- Vulkan: descriptor set N, binding 0
-- Metal: buffer at index N
+Within each set, bindings are assigned explicitly per resource.
 
-### 2.4 Evolution Path for IShader
+Illustrative convention:
 
-The transition from name-based to slot-based binding happens in phases:
+| Logical Binding | Meaning |
+|-----------------|---------|
+| `{0, 0}` | `PerFrame` |
+| `{0, 1}` | `PerPass` |
+| `{0, 8}` | pass/global shadow map |
+| `{1, 0}` | `PerMaterial` |
+| `{1, 1}` | material albedo texture |
+| `{1, 2}` | material normal texture |
+| `{2, 0}` | `PerDraw` |
+
+Any flat-slot convenience table retained during the bridge period should be
+treated only as a temporary flattening of a subset of this model, not as the
+primary design concept.
+
+### 2.5 Evolution Path for `IShader`
+
+The transition now happens in four steps:
 
 **Phase A (During Slang Migration)**: Keep name-based setters. Slang GLSL output produces
 named uniforms within uniform blocks. OpenGL can still access them via
 `glGetUniformLocation("PerFrameData.viewProjection")` or by using
 `glGetUniformBlockIndex` + `glUniformBlockBinding`.
 
-**Phase B (First Non-OpenGL Backend)**: Add `BindUniformBuffer()` and `BindTexture()` to `IShader`.
-OpenGL backend implements them. Material and render passes migrate to buffer-based uploads.
-Name-based setters become deprecated but remain for test convenience.
-At the same time, introduce reflected or generated packing metadata so that
-"buffer-based upload" does not merely become "memcpy a handwritten struct into a slot."
+**Phase B (Current Bridge)**: Add flat-slot `BindUniformBuffer()` and `BindTexture()`
+to `IShader`. OpenGL and Metal implement them. Mainline passes migrate to buffer-
+based uploads. At the same time, reflected packing removes handwritten layout
+assumptions from the highest-risk blocks.
 
-**Phase C (Cleanup)**: Remove name-based setters from `IShader`. All uniform data goes through
-pre-packed buffers.
+**Phase C (Next Binding Redesign)**: Introduce set-aware binding types and make
+logical `ShaderBindingPoint` the primary identity in runtime layout objects and
+public shader/resource APIs.
+
+**Phase D (Cleanup)**: Remove or narrow flat-slot compatibility APIs once the
+set-aware path is proven. Name-based setters remain only where they still provide
+clear value for tests, tiny demos, or tooling.
 
 #### 2.4.1 Concrete Lesson from the Metal Bring-Up
 
@@ -431,11 +494,11 @@ void Material::UploadToShader(const Ref<IShader>& shader)
     // Pack all material properties into a byte buffer matching the shader's
     // MaterialData layout (obtained via Slang reflection at shader load time)
     m_UniformBuffer->SetData(m_PackedData.data(), m_PackedData.size());
-    shader->BindUniformBuffer(/*slot=*/1, m_UniformBuffer);
+    shader->BindUniformBuffer(/*binding=*/{1, 0}, m_UniformBuffer);
 
-    // Bind textures to their slots
-    for (auto& [slot, texture] : m_Textures)
-        shader->BindTexture(slot.GetBindingIndex(), texture);
+    // Bind textures to their logical material bindings
+    for (auto& [binding, texture] : m_Textures)
+        shader->BindTexture(binding, texture);
 }
 ```
 
