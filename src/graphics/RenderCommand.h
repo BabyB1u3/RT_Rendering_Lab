@@ -38,6 +38,7 @@ public:
 	static void SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height);
 
 	// --- Resource binding ---
+	[[deprecated("Use IShader::BindTexture instead")]]
 	static void SetTexture(uint32_t slot, const Ref<ITexture2D> &texture);
 
 	/// Draw indexed triangles. If indexCount is 0, uses the full index buffer.

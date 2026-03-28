@@ -8,7 +8,10 @@
 
 #include <glm/glm.hpp>
 
+#include "core/Base.h"
 #include "graphics/ShaderUniformLayout.h"
+
+class ITexture2D;
 
 class IShader
 {
@@ -33,6 +36,11 @@ public:
 	/// Upload data to a uniform block at the specified binding point.
 	/// Maps to UBO on OpenGL, descriptor set buffer on Vulkan.
 	virtual void SetUniformBlock(uint32_t binding, const void *data, uint32_t size) = 0;
+
+	/// Bind a texture at the specified slot.
+	/// OpenGL binding is stage-agnostic. Metal currently binds the texture to both
+	/// vertex and fragment stages to preserve a simple slot-only abstraction.
+	virtual void BindTexture(uint32_t slot, const Ref<ITexture2D> &texture) = 0;
 
 	/// Returns the authoritative reflected layout for the requested uniform block,
 	/// or nullptr when the backend has no layout metadata for that binding yet.

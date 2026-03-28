@@ -10,6 +10,7 @@
 #include "core/FileSystem.h"
 #include "core/diagnostics/LogCategories.h"
 #include "core/diagnostics/LogMacros.h"
+#include "graphics/interfaces/ITexture2D.h"
 
 namespace
 {
@@ -372,6 +373,14 @@ void GLShader::SetUniformBlock(uint32_t binding, const void *data, uint32_t size
 		glNamedBufferSubData(it->second, 0, size, data);
 		glBindBufferBase(GL_UNIFORM_BUFFER, binding, it->second);
 	}
+}
+
+void GLShader::BindTexture(uint32_t slot, const Ref<ITexture2D> &texture)
+{
+	if (texture)
+		texture->Bind(slot);
+	else
+		glBindTextureUnit(slot, 0);
 }
 
 const ShaderUniformBlockLayout *GLShader::GetUniformBlockLayout(uint32_t binding) const

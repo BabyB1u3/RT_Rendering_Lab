@@ -103,6 +103,7 @@ struct MetalShader::Impl
 	// Explicit uniform blocks (SetUniformBlock)
 	std::unordered_map<uint32_t, std::vector<uint8_t>> uniformBlocks;
 	std::unordered_map<uint32_t, ShaderUniformBlockLayout> blockLayouts;
+	std::unordered_map<uint32_t, Ref<ITexture2D>> boundTextures;
 
 	// Metal buffer binding indices
 	uint32_t vertexUniformBinding   = 1;   // default; overridden by JSON sidecar
@@ -547,6 +548,14 @@ void MetalShader::SetUniformBlock(uint32_t binding, const void *data, uint32_t s
 	memcpy(block.data(), data, size);
 }
 
+void MetalShader::BindTexture(uint32_t slot, const Ref<ITexture2D> &texture)
+{
+	if (texture)
+		m_Impl->boundTextures[slot] = texture;
+	else
+		m_Impl->boundTextures.erase(slot);
+}
+
 const ShaderUniformBlockLayout *MetalShader::GetUniformBlockLayout(uint32_t binding) const
 {
 	auto it = m_Impl->blockLayouts.find(binding);
@@ -663,5 +672,19 @@ void MetalShader::FlushUniforms(void *mtlEncoder)
 		uint32_t slotIndex = kUniformBaseSlot + binding;
 		[encoder setVertexBytes:data.data()   length:data.size() atIndex:slotIndex];
 		[encoder setFragmentBytes:data.data() length:data.size() atIndex:slotIndex];
+	}
+
+	const uint32_t textureBase = m_Impl->textureBindingBase;
+	for (const auto &[slot, texture] : m_Impl->boundTextures)
+	{
+		const uint32_t metalSlot = (slot >= textureBase) ? (slot - textureBase) : slot;
+		auto *metalTexture = AsMetal<MetalTexture2D>(texture);
+		id<MTLTexture> nativeTexture = (__bridge id<MTLTexture>)metalTexture->GetMTLTexture();
+		id<MTLSamplerState> samplerState = (__bridge id<MTLSamplerState>)metalTexture->GetMTLSamplerState();
+
+		[encoder setVertexTexture:nativeTexture atIndex:metalSlot];
+		[encoder setFragmentTexture:nativeTexture atIndex:metalSlot];
+		[encoder setVertexSamplerState:samplerState atIndex:metalSlot];
+		[encoder setFragmentSamplerState:samplerState atIndex:metalSlot];
 	}
 }

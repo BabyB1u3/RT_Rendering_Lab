@@ -105,9 +105,9 @@ void ForwardPass::Execute(const RenderContext &ctx)
     RTRLAB_ASSERT_MSG(blockLayout,
                       "ForwardPass: shader must provide reflected layout for uniform block binding 0.");
 
-    // P4: Explicit texture binding - shadow map at slot 1
+    // P5a: Shader-scoped texture binding - shadow map at slot 1
     const auto &shadow = ctx.Resources.ShadowMap ? ctx.Resources.ShadowMap : m_FallbackShadowMap;
-    RenderCommand::SetTexture(1, shadow);
+    m_Shader->BindTexture(1, shadow);
     const glm::vec2 shadowMapTexelSize = {
         1.0f / static_cast<float>(shadow->GetWidth()),
         1.0f / static_cast<float>(shadow->GetHeight())};
@@ -132,8 +132,8 @@ void ForwardPass::Execute(const RenderContext &ctx)
         const bool useAlbedoMap = (albedoTex != nullptr);
         if (albedoTex)
         {
-            // P4: Explicit texture binding - albedo at slot 2
-            RenderCommand::SetTexture(2, albedoTex);
+            // P5a: Shader-scoped texture binding - albedo at slot 2
+            m_Shader->BindTexture(2, albedoTex);
         }
 
         PackedUniformBlock block(*blockLayout);
