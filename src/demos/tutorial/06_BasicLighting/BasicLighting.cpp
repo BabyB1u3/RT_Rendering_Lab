@@ -15,6 +15,11 @@
 #include "graphics/interfaces/IShader.h"
 #include "graphics/interfaces/IUniformBuffer.h"
 
+namespace
+{
+    constexpr ShaderBindingPoint kBasicLitParamsBinding{0, 0};
+}
+
 BasicLighting::BasicLighting(uint32_t width, uint32_t height)
     : m_ViewportWidth(width),
       m_ViewportHeight(height)
@@ -29,11 +34,11 @@ void BasicLighting::OnAttach()
 
     m_Shader = GetDevice()->CreateShader("BasicLit");
     RTRLAB_ASSERT_MSG(m_Shader, "BasicLighting demo failed to create BasicLit shader");
-    m_UniformBlockLayout = m_Shader->GetUniformBlockLayout(0);
+    m_UniformBlockLayout = m_Shader->GetUniformBlockLayout(kBasicLitParamsBinding);
     RTRLAB_ASSERT_MSG(m_UniformBlockLayout,
-                      "BasicLighting: shader must provide reflected layout for uniform block binding 0.");
+                      "BasicLighting: shader must provide reflected layout for logical binding {0, 0}.");
     m_UniformBuffer = GetDevice()->CreateUniformBuffer(m_UniformBlockLayout->GetSize());
-    RTRLAB_ASSERT_MSG(m_UniformBuffer, "BasicLighting demo failed to create uniform buffer for binding 0");
+    RTRLAB_ASSERT_MSG(m_UniformBuffer, "BasicLighting demo failed to create uniform buffer for logical binding {0, 0}");
 
     m_CubeMesh = MeshFactory::CreateCube();
 
@@ -94,7 +99,7 @@ void BasicLighting::DrawCube(const glm::mat4 &vp, const glm::mat4 &model,
     block.WriteRequired("u_SpecularPower", specPower);
     block.WriteRequired("u_AmbientStrength", ambient);
     m_UniformBuffer->SetData(block.Data(), block.Size());
-    m_Shader->BindUniformBuffer(0, m_UniformBuffer);
+    m_Shader->BindUniformBuffer(kBasicLitParamsBinding, m_UniformBuffer);
 
     RenderCommand::DrawIndexed(m_CubeMesh->GetVertexArray());
 }

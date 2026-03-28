@@ -47,12 +47,15 @@ What has **not** landed yet:
 
 - metadata coverage and schema are not yet in their final production shape for
   every resource kind and backend case
-- production passes and shaders still use bridge-era slot assumptions
+- `ShadowDepth`, `ForwardLit`, and tutorial/demo shaders still use bridge-era
+  slot assumptions
 
 Practical consequence: the repository has now entered the set-aware migration,
 and has crossed into the "logical identity, metadata, and backend binding
-resolution all exist" stage. The remaining work is coverage, shader migration,
-and eventual cleanup of bridge-era assumptions.
+resolution all exist" stage. The first production pilot (`TexturePreview`) has
+also crossed end-to-end into explicit logical bindings. The remaining work is
+the rest of shader migration, coverage refinement, and eventual cleanup of
+bridge-era assumptions.
 
 ---
 
@@ -606,7 +609,8 @@ Migration rule:
 Status on March 28, 2026:
 
 - the set-aware overloads and compatibility shims are already in place
-- full migration of renderer call sites is still pending
+- renderer call-site migration has started with `TexturePreview`
+- most production and tutorial call sites are still pending
 
 ### 9.3.1 Practical Repository State After Stage 2 + Stage 3 Foundations
 
@@ -633,6 +637,16 @@ The pilot success criteria are:
 - logical bindings are stable across OpenGL and Metal
 - `PackedUniformBlock` still resolves the same canonical field names
 - no backend-specific binding numbers leak into pass code
+
+Status on March 28, 2026:
+
+- `TexturePreview` is complete as the first end-to-end production pilot:
+  - shader source now uses an explicit constant buffer at logical binding `{0, 0}`
+  - pass code now queries layouts and binds resources through logical binding points
+  - unit, contract, and OpenGL integration coverage now protect this path
+- the next production migrations remain `ShadowDepth`, then `ForwardLit`
+- tutorial/demo shaders such as `BasicLit` can migrate in parallel, but they do
+  not replace the three production pilots that validate the renderer mainline
 
 ### 9.5 Stage 5 - Material Integration
 

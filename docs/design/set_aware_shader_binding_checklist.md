@@ -81,21 +81,36 @@ Recommended rule: each batch should leave the repository buildable and testable.
   - OpenGL resolves uniform-buffer and texture binding through preserved backend metadata
   - Metal binding execution now resolves buffer/texture/sampler indices through
     preserved backend metadata, with compatibility fallback still retained
+- `Batch 5` regression coverage is now also in code:
+  - unit tests cover:
+    - `ShaderBindingPoint` lookup / hashing
+    - layout lookup by logical binding
+    - logical binding to backend binding metadata lookup
+  - fake-backend contract tests now assert logical binding points directly
+  - OpenGL integration tests now cover:
+    - metadata-driven binding by logical binding point
+    - explicit `TexturePreview` resource metadata preservation
+- `Batch 6.1` is now also in code:
+  - `TexturePreview.slang` uses an explicit constant buffer at logical binding `{0, 0}`
+  - `TexturePreviewPass` now queries layouts and binds resources through
+    logical binding points
 - what is still **not** done:
   - the current runtime metadata coverage is enough for the live binding path,
     but not yet the final production shape for every resource kind and backend case
-  - production shaders/passes still use bridge-era slot assumptions
+  - `ShadowDepth`, `ForwardLit`, and tutorial/demo shaders such as `BasicLit`
+    still use bridge-era slot assumptions
 
 ### Immediate Next Step
 
-Proceed to `Batch 5`, then `Batch 6.1`.
+Proceed to `Batch 6.2`.
 
 The concrete objective for the next implementation wave is:
 
-- add more explicit regression coverage for logical binding lookup and
-  metadata-driven backend mapping
-- then prove the full path on the first pilot shader migration
-  (`TexturePreview`)
+- apply the explicit-block and logical-binding pattern proven by
+  `TexturePreview` to `ShadowDepth`
+- keep `ForwardLit` as the next production pass after that
+- tutorial/demo shaders may migrate in parallel, but they do not replace the
+  three production pilot passes that validate the renderer mainline
 
 ---
 
@@ -344,6 +359,10 @@ Make OpenGL and Metal actually consume the logical-to-backend mapping.
 
 ## 7. Batch 5 - Test Infrastructure and Regression Coverage
 
+### Status
+
+Completed on March 28, 2026.
+
 ### Goal
 
 Add enough coverage that the binding redesign is safe to build on.
@@ -411,6 +430,10 @@ path.
 #### Exit Criteria
 
 - `TexturePreviewPass` runs through set-aware bindings end-to-end
+
+#### Status
+
+Completed on March 28, 2026.
 
 ### 8.2 ShadowDepth
 
@@ -481,6 +504,8 @@ If the goal is to begin implementation immediately with the least churn:
 4. Batch 4 - Backend binding application
 5. Batch 5 - Test coverage
 6. Batch 6.1 - `TexturePreview`
+7. Batch 6.2 - `ShadowDepth`
 
-Do not start `ShadowDepth` or `ForwardLit` before `TexturePreview` proves the
-full logical-binding path on both OpenGL and Metal.
+`TexturePreview` has now proven the first full logical-binding path in the
+repository. The next mainline production step is `ShadowDepth`, followed by
+`ForwardLit`.

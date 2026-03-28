@@ -178,6 +178,24 @@ TEST_F(ShaderIntegrationTests, CreateShader_LoadsForwardLitFromCompiledGlsl)
 	shader->Unbind();
 }
 
+TEST_F(ShaderIntegrationTests, CreateShader_LoadsBasicLitFromCompiledGlsl)
+{
+	ShaderTestUtils::SkipOrFailIfShaderMissing("BasicLit");
+
+	auto shader = GetDevice()->CreateShader("BasicLit");
+	ASSERT_NE(shader, nullptr);
+	const auto *layout = shader->GetUniformBlockLayout({0, 0});
+	ASSERT_NE(layout, nullptr);
+	EXPECT_NE(layout->FindField("u_ViewProjection"), nullptr);
+	EXPECT_NE(layout->FindField("u_AmbientStrength"), nullptr);
+
+	auto *glShader = AsGL<GLShader>(shader);
+	const auto *blockResource = glShader->GetResourceLayout({0, 0});
+	ASSERT_NE(blockResource, nullptr);
+	EXPECT_NE(blockResource->Name.find("GlobalParams"), std::string::npos);
+	EXPECT_EQ(blockResource->Kind, ShaderResourceKind::UniformBuffer);
+}
+
 TEST_F(ShaderIntegrationTests, CreateShader_PreservesCompiledResourceBindingMetadata)
 {
 	ShaderTestUtils::SkipOrFailIfShaderMissing("ForwardLit");

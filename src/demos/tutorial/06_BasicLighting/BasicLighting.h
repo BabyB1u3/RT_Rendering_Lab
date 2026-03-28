@@ -4,7 +4,7 @@
 /// @brief Tutorial 06: Blinn-Phong lighting with a single directional light.
 ///
 /// Validates: normal data passing, lighting calculation (ambient + diffuse +
-/// specular), multiple uniform uploads via BindUniformBuffer.
+/// specular), multiple uniform uploads via logical BindUniformBuffer.
 /// Uses BasicLit.slang — Phong lighting with ViewProjection, Model,
 /// NormalMatrix, light params, and material params.
 
