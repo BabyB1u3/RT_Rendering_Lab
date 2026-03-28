@@ -54,6 +54,10 @@ static constexpr uint32_t kMetalVertexBufferBase = 8;
 class MetalShader : public IShader
 {
 public:
+	using IShader::BindTexture;
+	using IShader::BindUniformBuffer;
+	using IShader::GetUniformBlockLayout;
+
 	~MetalShader() override;
 
 	MetalShader(const MetalShader &) = delete;
@@ -75,9 +79,9 @@ public:
 	void SetMat3(const std::string &name, const glm::mat3 &value) override;
 	void SetMat4(const std::string &name, const glm::mat4 &value) override;
 	void SetUniformBlock(uint32_t binding, const void *data, uint32_t size) override;
-	void BindUniformBuffer(uint32_t slot, const Ref<IUniformBuffer> &buffer) override;
-	void BindTexture(uint32_t slot, const Ref<ITexture2D> &texture) override;
-	const ShaderUniformBlockLayout *GetUniformBlockLayout(uint32_t binding) const override;
+	void BindUniformBuffer(ShaderBindingPoint binding, const Ref<IUniformBuffer> &buffer) override;
+	void BindTexture(ShaderBindingPoint binding, const Ref<ITexture2D> &texture) override;
+	const ShaderUniformBlockLayout *GetUniformBlockLayout(ShaderBindingPoint binding) const override;
 
 	// --- Metal-internal (call only from .mm files) ---
 

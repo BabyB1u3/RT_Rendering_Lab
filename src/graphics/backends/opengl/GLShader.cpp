@@ -377,8 +377,9 @@ void GLShader::SetUniformBlock(uint32_t binding, const void *data, uint32_t size
 	}
 }
 
-void GLShader::BindUniformBuffer(uint32_t slot, const Ref<IUniformBuffer> &buffer)
+void GLShader::BindUniformBuffer(ShaderBindingPoint binding, const Ref<IUniformBuffer> &buffer)
 {
+	const uint32_t slot = binding.Binding;
 	if (!buffer)
 	{
 		glBindBufferBase(GL_UNIFORM_BUFFER, slot, 0);
@@ -389,15 +390,16 @@ void GLShader::BindUniformBuffer(uint32_t slot, const Ref<IUniformBuffer> &buffe
 	glBindBufferBase(GL_UNIFORM_BUFFER, slot, glBuffer->GetRendererID());
 }
 
-void GLShader::BindTexture(uint32_t slot, const Ref<ITexture2D> &texture)
+void GLShader::BindTexture(ShaderBindingPoint binding, const Ref<ITexture2D> &texture)
 {
+	const uint32_t slot = binding.Binding;
 	if (texture)
 		texture->Bind(slot);
 	else
 		glBindTextureUnit(slot, 0);
 }
 
-const ShaderUniformBlockLayout *GLShader::GetUniformBlockLayout(uint32_t binding) const
+const ShaderUniformBlockLayout *GLShader::GetUniformBlockLayout(ShaderBindingPoint binding) const
 {
 	auto it = m_BlockLayouts.find(binding);
 	if (it == m_BlockLayouts.end())
@@ -431,7 +433,9 @@ void GLShader::ReflectUniformBlocks()
 		glGetProgramResourceName(m_RendererID, GL_UNIFORM_BLOCK, blockIndex,
 		                         static_cast<GLsizei>(blockName.size()), nullptr, blockName.data());
 
-		ShaderUniformBlockLayout layout(TrimTrailingNull(std::move(blockName)), binding, blockSize);
+		ShaderUniformBlockLayout layout(TrimTrailingNull(std::move(blockName)),
+		                               MakeFlatShaderBindingPoint(binding),
+		                               blockSize);
 
 		if (uniformCount > 0)
 		{
@@ -473,6 +477,6 @@ void GLShader::ReflectUniformBlocks()
 
 		LOG_TRACE_CAT(LogCategory::Shader, "GLShader '{}': reflected uniform block '{}' at binding {} ({} bytes, {} fields)",
 		              m_Name, layout.GetName(), binding, layout.GetSize(), layout.GetFields().size());
-		m_BlockLayouts[binding] = std::move(layout);
+		m_BlockLayouts[layout.GetBindingPoint()] = std::move(layout);
 	}
 }

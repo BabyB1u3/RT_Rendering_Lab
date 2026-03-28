@@ -219,12 +219,14 @@ class FakeShader final : public IShader
 public:
     struct UniformBufferBindEvent
     {
+        ShaderBindingPoint BindingPoint = {};
         uint32_t Slot = 0;
         Ref<IUniformBuffer> Buffer;
     };
 
     struct TextureBindEvent
     {
+        ShaderBindingPoint BindingPoint = {};
         uint32_t Slot = 0;
         Ref<ITexture2D> Texture;
     };
@@ -306,33 +308,56 @@ public:
             std::memcpy(LastUniformBytes.data(), data, size);
     }
 
-    void BindUniformBuffer(uint32_t slot, const Ref<IUniformBuffer> &buffer) override
+    void BindUniformBuffer(ShaderBindingPoint binding, const Ref<IUniformBuffer> &buffer) override
     {
         if (buffer)
-            BoundUniformBuffers[slot] = buffer;
+            LogicalBoundUniformBuffers[binding] = buffer;
         else
-            BoundUniformBuffers.erase(slot);
+            LogicalBoundUniformBuffers.erase(binding);
 
-        UniformBufferBindEvents.push_back({slot, buffer});
+        if (binding.Set == 0)
+        {
+            if (buffer)
+                BoundUniformBuffers[binding.Binding] = buffer;
+            else
+                BoundUniformBuffers.erase(binding.Binding);
+        }
+
+        UniformBufferBindEvents.push_back({binding, binding.Binding, buffer});
     }
 
-    void BindTexture(uint32_t slot, const Ref<ITexture2D> &texture) override
+    void BindTexture(ShaderBindingPoint binding, const Ref<ITexture2D> &texture) override
     {
         if (texture)
-            BoundTextures[slot] = texture;
+            LogicalBoundTextures[binding] = texture;
         else
-            BoundTextures.erase(slot);
+            LogicalBoundTextures.erase(binding);
 
-        TextureBindEvents.push_back({slot, texture});
+        if (binding.Set == 0)
+        {
+            if (texture)
+                BoundTextures[binding.Binding] = texture;
+            else
+                BoundTextures.erase(binding.Binding);
+        }
+
+        TextureBindEvents.push_back({binding, binding.Binding, texture});
     }
 
-    const ShaderUniformBlockLayout *GetUniformBlockLayout(uint32_t binding) const override
+    const ShaderUniformBlockLayout *GetUniformBlockLayout(ShaderBindingPoint binding) const override
     {
-        auto it = BlockLayouts.find(binding);
-        if (it == BlockLayouts.end())
+        auto logicalIt = LogicalBlockLayouts.find(binding);
+        if (logicalIt != LogicalBlockLayouts.end())
+            return &logicalIt->second;
+
+        if (binding.Set != 0)
             return nullptr;
 
-        return &it->second;
+        auto flatIt = BlockLayouts.find(binding.Binding);
+        if (flatIt == BlockLayouts.end())
+            return nullptr;
+
+        return &flatIt->second;
     }
 
 public:
@@ -342,9 +367,12 @@ public:
     uint32_t UniformUploadCount = 0;
     std::vector<std::byte> LastUniformBytes;
     std::unordered_map<uint32_t, ShaderUniformBlockLayout> BlockLayouts;
+    std::unordered_map<ShaderBindingPoint, ShaderUniformBlockLayout, ShaderBindingPointHash> LogicalBlockLayouts;
     std::unordered_map<uint32_t, Ref<IUniformBuffer>> BoundUniformBuffers;
+    std::unordered_map<ShaderBindingPoint, Ref<IUniformBuffer>, ShaderBindingPointHash> LogicalBoundUniformBuffers;
     std::vector<UniformBufferBindEvent> UniformBufferBindEvents;
     std::unordered_map<uint32_t, Ref<ITexture2D>> BoundTextures;
+    std::unordered_map<ShaderBindingPoint, Ref<ITexture2D>, ShaderBindingPointHash> LogicalBoundTextures;
     std::vector<TextureBindEvent> TextureBindEvents;
 
 private:
@@ -697,6 +725,7 @@ private:
             AddField(layout, "u_SpecularPower", 252, 4, ShaderUniformValueType::Float);
             AddField(layout, "u_AmbientStrength", 256, 4, ShaderUniformValueType::Float);
             shader.BlockLayouts[0] = std::move(layout);
+            shader.LogicalBlockLayouts[MakeFlatShaderBindingPoint(0)] = shader.BlockLayouts.at(0);
             return;
         }
 
@@ -717,6 +746,7 @@ private:
             AddField(layout, "u_UseAlbedoMap", 324, 4, ShaderUniformValueType::Bool);
             AddField(layout, "u_ShadowMapTexelSize", 328, 8, ShaderUniformValueType::Float2);
             shader.BlockLayouts[0] = std::move(layout);
+            shader.LogicalBlockLayouts[MakeFlatShaderBindingPoint(0)] = shader.BlockLayouts.at(0);
             return;
         }
 
@@ -726,6 +756,7 @@ private:
             AddField(layout, "u_LightViewProjection", 0, 64, ShaderUniformValueType::Mat4);
             AddField(layout, "u_Model", 64, 64, ShaderUniformValueType::Mat4);
             shader.BlockLayouts[0] = std::move(layout);
+            shader.LogicalBlockLayouts[MakeFlatShaderBindingPoint(0)] = shader.BlockLayouts.at(0);
             return;
         }
 
@@ -734,6 +765,7 @@ private:
             ShaderUniformBlockLayout layout("GlobalParams", 0, 4);
             AddField(layout, "u_IsDepthTexture", 0, 4, ShaderUniformValueType::Bool);
             shader.BlockLayouts[0] = std::move(layout);
+            shader.LogicalBlockLayouts[MakeFlatShaderBindingPoint(0)] = shader.BlockLayouts.at(0);
         }
     }
 };

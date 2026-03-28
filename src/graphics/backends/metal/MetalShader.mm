@@ -105,9 +105,9 @@ struct MetalShader::Impl
 
 	// Explicit uniform blocks (SetUniformBlock)
 	std::unordered_map<uint32_t, std::vector<uint8_t>> uniformBlocks;
-	std::unordered_map<uint32_t, ShaderUniformBlockLayout> blockLayouts;
-	std::unordered_map<uint32_t, Ref<IUniformBuffer>> uniformBuffers;
-	std::unordered_map<uint32_t, Ref<ITexture2D>> boundTextures;
+	std::unordered_map<ShaderBindingPoint, ShaderUniformBlockLayout, ShaderBindingPointHash> blockLayouts;
+	std::unordered_map<ShaderBindingPoint, Ref<IUniformBuffer>, ShaderBindingPointHash> uniformBuffers;
+	std::unordered_map<ShaderBindingPoint, Ref<ITexture2D>, ShaderBindingPointHash> boundTextures;
 
 	// Metal buffer binding indices
 	uint32_t vertexUniformBinding   = 1;   // default; overridden by JSON sidecar
@@ -227,7 +227,7 @@ static void LoadReflectionSidecar(const std::string &name,
                                   ReflectionMap &vertex, ReflectionMap &fragment,
                                   uint32_t &vertexBinding, uint32_t &fragmentBinding,
                                   uint32_t &textureBase,
-                                  std::unordered_map<uint32_t, ShaderUniformBlockLayout> &blockLayouts)
+                                  std::unordered_map<ShaderBindingPoint, ShaderUniformBlockLayout, ShaderBindingPointHash> &blockLayouts)
 {
 	auto path = FileSystem::GetCompiledShaderDir() / "metal" / (name + ".reflect.json");
 	if (!FileSystem::Exists(path))
@@ -254,7 +254,7 @@ static void LoadReflectionSidecar(const std::string &name,
 		{
 			uint32_t computedBlockSize = 0;
 			uint32_t minTextureBindingBase = std::numeric_limits<uint32_t>::max();
-			ShaderUniformBlockLayout globalLayout("GlobalParams", 0, 0);
+			ShaderUniformBlockLayout globalLayout("GlobalParams", MakeFlatShaderBindingPoint(0), 0);
 			bool hasGlobalUniforms = false;
 
 			for (const auto &parameter : json["parameters"])
@@ -287,7 +287,7 @@ static void LoadReflectionSidecar(const std::string &name,
 			if (hasGlobalUniforms)
 			{
 				globalLayout.SetSize(computedBlockSize);
-				blockLayouts[0] = std::move(globalLayout);
+				blockLayouts[MakeFlatShaderBindingPoint(0)] = std::move(globalLayout);
 			}
 
 			if (json.contains("entryPoints") && json["entryPoints"].is_array())
@@ -362,7 +362,7 @@ static void LoadReflectionSidecar(const std::string &name,
 					}
 				}
 
-				blockLayouts[layout.GetBinding()] = std::move(layout);
+				blockLayouts[layout.GetBindingPoint()] = std::move(layout);
 			}
 		}
 
@@ -552,23 +552,23 @@ void MetalShader::SetUniformBlock(uint32_t binding, const void *data, uint32_t s
 	memcpy(block.data(), data, size);
 }
 
-void MetalShader::BindUniformBuffer(uint32_t slot, const Ref<IUniformBuffer> &buffer)
+void MetalShader::BindUniformBuffer(ShaderBindingPoint binding, const Ref<IUniformBuffer> &buffer)
 {
 	if (buffer)
-		m_Impl->uniformBuffers[slot] = buffer;
+		m_Impl->uniformBuffers[binding] = buffer;
 	else
-		m_Impl->uniformBuffers.erase(slot);
+		m_Impl->uniformBuffers.erase(binding);
 }
 
-void MetalShader::BindTexture(uint32_t slot, const Ref<ITexture2D> &texture)
+void MetalShader::BindTexture(ShaderBindingPoint binding, const Ref<ITexture2D> &texture)
 {
 	if (texture)
-		m_Impl->boundTextures[slot] = texture;
+		m_Impl->boundTextures[binding] = texture;
 	else
-		m_Impl->boundTextures.erase(slot);
+		m_Impl->boundTextures.erase(binding);
 }
 
-const ShaderUniformBlockLayout *MetalShader::GetUniformBlockLayout(uint32_t binding) const
+const ShaderUniformBlockLayout *MetalShader::GetUniformBlockLayout(ShaderBindingPoint binding) const
 {
 	auto it = m_Impl->blockLayouts.find(binding);
 	if (it == m_Impl->blockLayouts.end())
@@ -686,9 +686,9 @@ void MetalShader::FlushUniforms(void *mtlEncoder)
 		[encoder setFragmentBytes:data.data() length:data.size() atIndex:slotIndex];
 	}
 
-	for (const auto &[slot, buffer] : m_Impl->uniformBuffers)
+	for (const auto &[binding, buffer] : m_Impl->uniformBuffers)
 	{
-		uint32_t slotIndex = kUniformBaseSlot + slot;
+		uint32_t slotIndex = kUniformBaseSlot + binding.Binding;
 		auto *metalBuffer = AsMetal<MetalUniformBuffer>(buffer);
 		id<MTLBuffer> nativeBuffer = (__bridge id<MTLBuffer>)metalBuffer->GetMTLBuffer();
 		void *contents = nativeBuffer.contents;
@@ -704,9 +704,10 @@ void MetalShader::FlushUniforms(void *mtlEncoder)
 	}
 
 	const uint32_t textureBase = m_Impl->textureBindingBase;
-	for (const auto &[slot, texture] : m_Impl->boundTextures)
+	for (const auto &[binding, texture] : m_Impl->boundTextures)
 	{
-		const uint32_t metalSlot = (slot >= textureBase) ? (slot - textureBase) : slot;
+		const uint32_t logicalBinding = binding.Binding;
+		const uint32_t metalSlot = (logicalBinding >= textureBase) ? (logicalBinding - textureBase) : logicalBinding;
 		auto *metalTexture = AsMetal<MetalTexture2D>(texture);
 		id<MTLTexture> nativeTexture = (__bridge id<MTLTexture>)metalTexture->GetMTLTexture();
 		id<MTLSamplerState> samplerState = (__bridge id<MTLSamplerState>)metalTexture->GetMTLSamplerState();

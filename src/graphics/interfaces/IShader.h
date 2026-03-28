@@ -49,14 +49,32 @@ public:
 	/// This requirement became explicit after a Metal regression where directly
 	/// binding one mutable MTLBuffer caused every draw in the pass to observe the
 	/// final upload instead of the upload current at that draw.
-	virtual void BindUniformBuffer(uint32_t slot, const Ref<IUniformBuffer> &buffer) = 0;
+	virtual void BindUniformBuffer(ShaderBindingPoint binding, const Ref<IUniformBuffer> &buffer) = 0;
+
+	/// Compatibility shim for bridge code that still uses flat slots.
+	void BindUniformBuffer(uint32_t slot, const Ref<IUniformBuffer> &buffer)
+	{
+		BindUniformBuffer(MakeFlatShaderBindingPoint(slot), buffer);
+	}
 
 	/// Bind a texture at the specified slot.
 	/// OpenGL binding is stage-agnostic. Metal currently binds the texture to both
 	/// vertex and fragment stages to preserve a simple slot-only abstraction.
-	virtual void BindTexture(uint32_t slot, const Ref<ITexture2D> &texture) = 0;
+	virtual void BindTexture(ShaderBindingPoint binding, const Ref<ITexture2D> &texture) = 0;
+
+	/// Compatibility shim for bridge code that still uses flat slots.
+	void BindTexture(uint32_t slot, const Ref<ITexture2D> &texture)
+	{
+		BindTexture(MakeFlatShaderBindingPoint(slot), texture);
+	}
 
 	/// Returns the authoritative reflected layout for the requested uniform block,
 	/// or nullptr when the backend has no layout metadata for that binding yet.
-	virtual const ShaderUniformBlockLayout *GetUniformBlockLayout(uint32_t binding) const = 0;
+	virtual const ShaderUniformBlockLayout *GetUniformBlockLayout(ShaderBindingPoint binding) const = 0;
+
+	/// Compatibility shim for bridge code that still uses flat slots.
+	const ShaderUniformBlockLayout *GetUniformBlockLayout(uint32_t binding) const
+	{
+		return GetUniformBlockLayout(MakeFlatShaderBindingPoint(binding));
+	}
 };

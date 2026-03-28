@@ -12,6 +12,24 @@ TEST(ShaderUniformLayoutTests, ValueTypeSizesMatchPackingExpectations)
     EXPECT_EQ(GetShaderUniformValueTypeSize(ShaderUniformValueType::Mat4), 64u);
 }
 
+TEST(ShaderUniformLayoutTests, ShaderBindingPointSupportsEqualityAndHashLookup)
+{
+    std::unordered_map<ShaderBindingPoint, int, ShaderBindingPointHash> lookup;
+    lookup[{1, 2}] = 42;
+
+    EXPECT_EQ(lookup.at({1, 2}), 42);
+    EXPECT_EQ(lookup.find({1, 3}), lookup.end());
+}
+
+TEST(ShaderUniformLayoutTests, BlockLayoutStoresLogicalBindingPointAndFlatCompatibilityBinding)
+{
+    ShaderUniformBlockLayout layout("TestBlock", ShaderBindingPoint{1, 3}, 16);
+
+    EXPECT_EQ(layout.GetBindingPoint(), (ShaderBindingPoint{1, 3}));
+    EXPECT_EQ(layout.GetSet(), 1u);
+    EXPECT_EQ(layout.GetBinding(), 3u);
+}
+
 TEST(ShaderUniformLayoutTests, PackedUniformBlockWritesFieldsAtReflectedOffsets)
 {
     ShaderUniformBlockLayout layout("TestBlock", 0, 32);
