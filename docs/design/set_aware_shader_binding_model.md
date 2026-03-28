@@ -20,6 +20,34 @@ For the implementation-facing task breakdown, read
 
 ---
 
+## Implementation Status (March 28, 2026)
+
+The first foundational runtime wave has landed in code:
+
+- `ShaderBindingPoint` exists as a shared engine type
+- `ShaderResourceKind` exists as a shared engine type
+- `ShaderUniformBlockLayout` now stores logical `{set, binding}` identity
+- `IShader` exposes set-aware overloads for:
+  - `BindUniformBuffer(ShaderBindingPoint, ...)`
+  - `BindTexture(ShaderBindingPoint, ...)`
+  - `GetUniformBlockLayout(ShaderBindingPoint)`
+- flat-slot compatibility wrappers remain in place and currently use the bridge rule
+  `N -> { set = 0, binding = N }`
+
+What has **not** landed yet:
+
+- shader metadata still does not preserve backend-local indices as first-class
+  runtime data
+- OpenGL and Metal binding application still depends on compatibility flattening
+  instead of an explicit logical-to-backend mapping layer
+- production passes and shaders still use bridge-era slot assumptions
+
+Practical consequence: the repository has now entered the set-aware migration,
+but it is still between the "logical identity exists" stage and the
+"metadata-driven backend mapping exists" stage.
+
+---
+
 ## 1. Why This Document Exists
 
 The repository successfully completed the first cross-backend correctness wave:
@@ -295,6 +323,8 @@ Notes:
 - `SetPushConstants()` stays out of this first redesign wave.
 - Existing slot-based overloads may remain temporarily as compatibility shims for
   `{set = 0}`-style bindings or for tutorial/demo code.
+- In the repository as of March 28, 2026, these compatibility shims already
+  exist and are the primary path used by current renderer code.
 - The runtime should stop using raw integers as the primary public identity for a
   resource binding once the new API lands.
 
@@ -534,6 +564,11 @@ Add:
 Then extend runtime layout objects so blocks/resources are keyed by logical
 binding, not just flat slot.
 
+Status on March 28, 2026:
+
+- complete for block layout/runtime identity
+- compatibility flattening still retained intentionally for existing callers
+
 ### 9.2 Stage 2 - Expand Reflection / Build Metadata
 
 Update shader build outputs and runtime parsing so each shader carries:
@@ -545,6 +580,10 @@ Update shader build outputs and runtime parsing so each shader carries:
 This is the stage where Metal's compacted indices stop being a blocker, because
 they become just one backend view layered under a preserved logical binding.
 
+Status on March 28, 2026:
+
+- this is the next required implementation step
+
 ### 9.3 Stage 3 - Add Set-Aware `IShader` APIs
 
 Introduce set-aware binding methods and keep flat-slot compatibility overloads
@@ -554,6 +593,11 @@ Migration rule:
 
 - new renderer code uses `ShaderBindingPoint`
 - old tutorial/demo code may continue to use flat slots during the bridge period
+
+Status on March 28, 2026:
+
+- the set-aware overloads and compatibility shims are already in place
+- full migration of renderer call sites is still pending
 
 ### 9.4 Stage 4 - Pilot Shader Migration
 

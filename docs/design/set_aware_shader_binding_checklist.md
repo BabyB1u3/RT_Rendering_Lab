@@ -49,9 +49,49 @@ The work should land in six batches:
 
 Recommended rule: each batch should leave the repository buildable and testable.
 
+### Current Implementation Status (March 28, 2026)
+
+- `Batch 1` is complete in code:
+  - `ShaderBindingPoint`
+  - `ShaderResourceKind`
+  - hash/equality support
+  - `ShaderUniformBlockLayout` stores logical `{set, binding}`
+  - block layouts are queryable by `ShaderBindingPoint`
+- the repository also has the first `Batch 3` foundation in place:
+  - `IShader` now exposes set-aware overloads for:
+    - `BindUniformBuffer(ShaderBindingPoint, ...)`
+    - `BindTexture(ShaderBindingPoint, ...)`
+    - `GetUniformBlockLayout(ShaderBindingPoint)`
+  - flat-slot compatibility shims remain in place and currently map
+    `N -> { set = 0, binding = N }`
+  - OpenGL, Metal, and the fake backend compile and run through the shim path
+- what is still **not** done:
+  - shader metadata does not yet preserve backend-local binding indices as
+    first-class runtime data
+  - OpenGL and Metal still derive their actual binding behavior from the
+    compatibility flattening rather than from a true logical-to-backend map
+  - production shaders/passes still use bridge-era slot assumptions
+
+### Immediate Next Step
+
+Proceed to `Batch 2`.
+
+The concrete objective for the next implementation wave is:
+
+- keep the newly introduced logical binding identity as the runtime source of truth
+- add explicit backend binding metadata instead of recovering backend indices
+  from bridge conventions
+- make shader load answer both:
+  - "what resource is this logically?"
+  - "where does this backend actually bind it?"
+
 ---
 
 ## 3. Batch 1 - Core Binding Types and Runtime Layout Keys
+
+### Status
+
+Completed on March 28, 2026.
 
 ### Goal
 
@@ -93,6 +133,10 @@ Introduce logical resource identity as a first-class runtime concept.
 
 ## 4. Batch 2 - Reflection and Build Metadata Expansion
 
+### Status
+
+Ready to start. This is now the critical-path next step.
+
 ### Goal
 
 Preserve both logical binding identity and backend-local binding indices in
@@ -122,6 +166,29 @@ shader metadata.
   - one richer sidecar
   - multiple sidecars
   - or one build-generated merged blob
+
+### Preparation Notes For This Repository
+
+The current repository already has the minimum runtime preconditions needed for
+this batch:
+
+- logical binding identity exists in shared runtime types
+- `ShaderUniformBlockLayout` is already keyed by `ShaderBindingPoint`
+- `IShader` already has set-aware overloads with flat-slot compatibility wrappers
+
+The next implementation wave should therefore focus on metadata, not on another
+API rewrite first.
+
+Recommended repository-local sequence:
+
+1. introduce shared runtime metadata structs for:
+   - logical resource layout
+   - backend binding map
+2. extend Metal reflection loading to populate both layers explicitly
+3. extend the OpenGL path to preserve logical binding identity alongside the
+   lowered GL binding/unit index
+4. only after both backends carry this metadata, route binding calls through it
+   in `Batch 4`
 
 ### Important Constraint
 

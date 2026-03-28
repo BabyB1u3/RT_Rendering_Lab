@@ -64,21 +64,40 @@ This plan exists to close that gap without trying to rewrite the renderer in one
 
 ### 2.2 What Is Not True Yet
 
-- there is no set-aware logical binding API yet
+- the repository does not yet use set-aware binding metadata end-to-end
 - there is no `SetPushConstants()` API in `IShader`
 - shaders do not yet organize resources as `PerFrame` / `PerMaterial` / `PerPass`
   explicit blocks
-- the runtime does not yet preserve logical `set + binding` identity separately
-  from backend-local indices
+- the runtime does not yet preserve backend-local binding indices as data that is
+  cleanly separated from logical `set + binding` identity
+
+### 2.2.1 Update After Batch 1 (March 28, 2026)
+
+The repository has now crossed the first set-aware foundation milestone:
+
+- `ShaderBindingPoint` and `ShaderResourceKind` exist in shared runtime code
+- `ShaderUniformBlockLayout` stores logical `{set, binding}` identity
+- `IShader` exposes set-aware overloads for uniform-buffer binding, texture
+  binding, and block-layout queries
+- flat-slot compatibility shims remain in place and currently map
+  `slot N -> { set = 0, binding = N }`
+
+This means the repository is no longer in the "no set-aware API exists" state.
+It is now in a transitional state where:
+
+- logical binding identity exists in runtime types and public shader APIs
+- backend metadata and binding application still rely on bridge-era flattening
 
 ### 2.3 Stage Assessment
 
 Using the terminology from `shader_material_system.md`, the repository is currently:
 
 - past the original packer migration and Phase 5 bridge work
-- in a handoff state between:
-  - reflected packing + bridge slot APIs
-  - the next set-aware binding redesign
+- in the early implementation stage of the set-aware binding redesign
+- specifically:
+  - foundational runtime types are in place
+  - compatibility shims are in place
+  - backend metadata separation is the next missing layer
 
 That means the next steps should not be:
 
@@ -89,8 +108,9 @@ That means the next steps should not be:
 
 The next steps should be:
 
-- preserve logical `set + binding` identity in the runtime
-- redesign the public shader/resource APIs around that identity
+- preserve logical `set + binding` identity as the runtime source of truth
+- extend shader metadata so backend-local indices are preserved separately
+- route backend binding through that metadata
 - then migrate production shaders to explicit resource groupings
 
 ---
@@ -645,6 +665,18 @@ Phase 6 is now split conceptually into two layers:
 This phase is intentionally later than packer introduction.
 It changes both runtime binding identity and shader source organization, so it
 should be done only after reflected packing is already stable.
+
+Progress note as of March 28, 2026:
+
+- the first half of item 1 is complete:
+  - `ShaderBindingPoint` exists
+  - runtime block layouts are keyed by logical binding identity
+  - `IShader` exposes set-aware overloads
+- the second half of item 1 is still pending:
+  - backend-local binding metadata is not yet preserved as a first-class layer
+  - backend binding calls still depend on compatibility flattening
+- practical next step:
+  - complete the metadata layer before touching pilot shader migrations
 
 ### Reflection Path Coupling (Must Read Before Starting)
 

@@ -77,8 +77,12 @@ Not implemented yet:
 
 - No production shader uses explicit `ConstantBuffer<T>` / `ParameterBlock<T>`
   resource grouping yet; current shaders still rely on Slang's implicit global block.
-- No set-aware logical resource API exists yet; the current `slot`-based binding
-  surface is a transitional bridge.
+- The repository now has the first set-aware logical resource API foundation:
+  - `ShaderBindingPoint`
+  - set-aware `IShader` overloads
+  - logical binding identity stored in runtime block layouts
+  but current production paths still execute through flat-slot compatibility
+  shims and do not yet preserve backend-local binding metadata separately.
 - `SetPushConstants()` is still intentionally deferred.
 - Material upload is not yet reflection-packed end-to-end.
 
@@ -87,7 +91,9 @@ also not yet at the final "set-aware logical bindings + reflected packing" desig
 It is best described as:
 
 - reflected packing and Phase 5 bridge APIs are in place
-- the next major step is replacing flat slots with a logical `set + binding` model
+- the set-aware migration has started at the runtime/API level
+- the next major step is preserving backend binding metadata separately from the
+  compatibility flat-slot lowering
 
 ### 1.3 Long-Term Target (R5+)
 
