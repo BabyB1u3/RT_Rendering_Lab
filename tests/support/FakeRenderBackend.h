@@ -731,22 +731,30 @@ private:
 
         if (shader.GetName() == "ForwardLit")
         {
-            ShaderUniformBlockLayout layout("GlobalParams", 0, 336);
-            AddField(layout, "u_ViewProjection", 0, 64, ShaderUniformValueType::Mat4);
-            AddField(layout, "u_Model", 64, 64, ShaderUniformValueType::Mat4);
-            AddField(layout, "u_NormalMatrix", 128, 64, ShaderUniformValueType::Mat4);
-            AddField(layout, "u_LightViewProjection", 192, 64, ShaderUniformValueType::Mat4);
-            AddField(layout, "u_CameraPosition", 256, 12, ShaderUniformValueType::Float3);
-            AddField(layout, "u_LightDirection", 272, 12, ShaderUniformValueType::Float3);
-            AddField(layout, "u_LightColor", 288, 12, ShaderUniformValueType::Float3);
-            AddField(layout, "u_LightIntensity", 300, 4, ShaderUniformValueType::Float);
-            AddField(layout, "u_Albedo", 304, 12, ShaderUniformValueType::Float3);
-            AddField(layout, "u_SpecularPower", 316, 4, ShaderUniformValueType::Float);
-            AddField(layout, "u_AmbientStrength", 320, 4, ShaderUniformValueType::Float);
-            AddField(layout, "u_UseAlbedoMap", 324, 4, ShaderUniformValueType::Bool);
-            AddField(layout, "u_ShadowMapTexelSize", 328, 8, ShaderUniformValueType::Float2);
-            shader.BlockLayouts[0] = std::move(layout);
-            shader.LogicalBlockLayouts[MakeFlatShaderBindingPoint(0)] = shader.BlockLayouts.at(0);
+            ShaderUniformBlockLayout perPass("FramePassParams", ShaderBindingPoints::PerFrame, 192);
+            AddField(perPass, "u_ViewProjection", 0, 64, ShaderUniformValueType::Mat4);
+            AddField(perPass, "u_LightViewProjection", 64, 64, ShaderUniformValueType::Mat4);
+            AddField(perPass, "u_CameraPosition", 128, 12, ShaderUniformValueType::Float3);
+            AddField(perPass, "u_LightDirection", 144, 12, ShaderUniformValueType::Float3);
+            AddField(perPass, "u_LightColor", 160, 12, ShaderUniformValueType::Float3);
+            AddField(perPass, "u_LightIntensity", 172, 4, ShaderUniformValueType::Float);
+            AddField(perPass, "u_ShadowMapTexelSize", 176, 8, ShaderUniformValueType::Float2);
+            shader.BlockLayouts[FlattenShaderBindingPointForOpenGL(ShaderBindingPoints::PerFrame)] = perPass;
+            shader.LogicalBlockLayouts[ShaderBindingPoints::PerFrame] = std::move(perPass);
+
+            ShaderUniformBlockLayout perMaterial("MaterialParams", ShaderBindingPoints::PerMaterial, 32);
+            AddField(perMaterial, "u_Albedo", 0, 12, ShaderUniformValueType::Float3);
+            AddField(perMaterial, "u_SpecularPower", 12, 4, ShaderUniformValueType::Float);
+            AddField(perMaterial, "u_AmbientStrength", 16, 4, ShaderUniformValueType::Float);
+            AddField(perMaterial, "u_UseAlbedoMap", 20, 4, ShaderUniformValueType::Bool);
+            shader.BlockLayouts[FlattenShaderBindingPointForOpenGL(ShaderBindingPoints::PerMaterial)] = perMaterial;
+            shader.LogicalBlockLayouts[ShaderBindingPoints::PerMaterial] = std::move(perMaterial);
+
+            ShaderUniformBlockLayout perDraw("DrawParams", ShaderBindingPoints::PerDraw, 128);
+            AddField(perDraw, "u_Model", 0, 64, ShaderUniformValueType::Mat4);
+            AddField(perDraw, "u_NormalMatrix", 64, 64, ShaderUniformValueType::Mat4);
+            shader.BlockLayouts[FlattenShaderBindingPointForOpenGL(ShaderBindingPoints::PerDraw)] = perDraw;
+            shader.LogicalBlockLayouts[ShaderBindingPoints::PerDraw] = std::move(perDraw);
             return;
         }
 

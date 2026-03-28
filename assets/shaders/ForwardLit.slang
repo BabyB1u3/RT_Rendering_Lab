@@ -5,32 +5,43 @@
 
 import shadow;
 
-// Binding convention (matches [vk::binding(N, 0)] → consistent across OpenGL/Metal/Vulkan):
-//   binding 0 : explicit GlobalParams CB
-//   binding 1 : u_ShadowMap
-//   binding 2 : u_AlbedoMap
+// Binding convention:
+//   set 0 / binding 0 : per-pass data
+//   set 0 / binding 1 : shadow map
+//   set 1 / binding 0 : per-material data
+//   set 1 / binding 1 : albedo map
+//   set 2 / binding 0 : per-draw data
 [vk::binding(0, 0)]
-cbuffer GlobalParams
+cbuffer FramePassParams
 {
     float4x4 u_ViewProjection;
-    float4x4 u_Model;
-    float4x4 u_NormalMatrix;   // transpose(inverse(model)), computed on CPU, passed as mat4
     float4x4 u_LightViewProjection;
 
     float3 u_CameraPosition;
     float3 u_LightDirection;
     float3 u_LightColor;
     float  u_LightIntensity;
+    float2 u_ShadowMapTexelSize;
+}
 
+[vk::binding(0, 1)]
+cbuffer MaterialParams
+{
     float3 u_Albedo;
     float  u_SpecularPower;
     float  u_AmbientStrength;
     bool   u_UseAlbedoMap;
-    float2 u_ShadowMapTexelSize;
 }
 
 [vk::binding(1, 0)] uniform Sampler2D u_ShadowMap;
-[vk::binding(2, 0)] uniform Sampler2D u_AlbedoMap;
+[vk::binding(1, 1)] uniform Sampler2D u_AlbedoMap;
+
+[vk::binding(0, 2)]
+cbuffer DrawParams
+{
+    float4x4 u_Model;
+    float4x4 u_NormalMatrix;   // transpose(inverse(model)), computed on CPU, passed as mat4
+}
 
 // --- Vertex stage ---
 
