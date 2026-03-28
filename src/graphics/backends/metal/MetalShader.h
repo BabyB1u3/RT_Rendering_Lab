@@ -14,8 +14,9 @@
 ///   slangc -dump-reflection; if absent, named setters are silent no-ops.
 ///
 ///   SetUniformBlock(binding, data, size) uploads a transient raw block to both
-///   stages. BindUniformBuffer(slot, buffer) binds a persistent buffer object at
-///   the same logical [[buffer(N)]] slot.
+///   stages. BindUniformBuffer(slot, buffer) binds a logical persistent buffer;
+///   FlushUniforms snapshots its current contents per draw to preserve stable
+///   per-draw uniform data when callers reuse one buffer across many draws.
 ///
 /// Binding index convention - see kUniformBaseSlot / kMetalVertexBufferBase below.
 ///

@@ -691,8 +691,16 @@ void MetalShader::FlushUniforms(void *mtlEncoder)
 		uint32_t slotIndex = kUniformBaseSlot + slot;
 		auto *metalBuffer = AsMetal<MetalUniformBuffer>(buffer);
 		id<MTLBuffer> nativeBuffer = (__bridge id<MTLBuffer>)metalBuffer->GetMTLBuffer();
-		[encoder setVertexBuffer:nativeBuffer offset:0 atIndex:slotIndex];
-		[encoder setFragmentBuffer:nativeBuffer offset:0 atIndex:slotIndex];
+		void *contents = nativeBuffer.contents;
+		const uint32_t size = buffer->GetSize();
+		RTRLAB_ASSERT_MSG(contents != nullptr,
+		                  "MetalShader::FlushUniforms: bound uniform buffer has no CPU-visible contents");
+
+		// Snapshot the current UBO contents into the command encoder. This preserves
+		// SetUniformBlock-like semantics when the same MetalUniformBuffer is reused
+		// and updated across multiple draw calls in a single render pass.
+		[encoder setVertexBytes:contents length:size atIndex:slotIndex];
+		[encoder setFragmentBytes:contents length:size atIndex:slotIndex];
 	}
 
 	const uint32_t textureBase = m_Impl->textureBindingBase;
