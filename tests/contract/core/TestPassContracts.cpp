@@ -67,6 +67,18 @@ namespace
         return nullptr;
     }
 
+    Ref<ITexture2D> GetBoundTexture(const Ref<FakeShader> &shader, uint32_t slot)
+    {
+        if (!shader)
+            return nullptr;
+
+        const auto it = shader->BoundTextures.find(slot);
+        if (it == shader->BoundTextures.end())
+            return nullptr;
+
+        return it->second;
+    }
+
     void ExpectVec2Near(const glm::vec2 &actual, const glm::vec2 &expected, float epsilon = 1e-5f)
     {
         EXPECT_NEAR(actual.x, expected.x, epsilon);
@@ -136,7 +148,6 @@ TEST_F(SharedRenderPassContractTests, ForwardPassUsesExpectedDescriptorAndPipeli
     ASSERT_EQ(m_Device->RenderCommand->BeginRenderPasses.size(), 1u);
     ASSERT_EQ(m_Device->RenderCommand->PipelineStates.size(), 1u);
     ASSERT_EQ(m_Device->RenderCommand->Viewports.size(), 1u);
-    ASSERT_EQ(m_Device->RenderCommand->TextureBinds.size(), 1u);
 
     const auto &begin = m_Device->RenderCommand->BeginRenderPasses[0];
     EXPECT_EQ(begin.Target->GetFramebuffer(), pass.GetFramebuffer());
@@ -160,10 +171,12 @@ TEST_F(SharedRenderPassContractTests, ForwardPassUsesExpectedDescriptorAndPipeli
     EXPECT_EQ(viewport.Width, 64u);
     EXPECT_EQ(viewport.Height, 32u);
 
-    const auto &shadowBind = m_Device->RenderCommand->TextureBinds[0];
-    EXPECT_EQ(shadowBind.PassIndex, 0);
-    EXPECT_EQ(shadowBind.Slot, 1u);
-    auto *fallbackShadow = dynamic_cast<FakeTexture2D *>(shadowBind.Texture.get());
+    const auto shader = FindShader(m_Device, "ForwardLit");
+    ASSERT_NE(shader, nullptr);
+    ASSERT_EQ(shader->TextureBindEvents.size(), 1u);
+    EXPECT_EQ(shader->TextureBindEvents[0].Slot, 1u);
+
+    auto *fallbackShadow = dynamic_cast<FakeTexture2D *>(GetBoundTexture(shader, 1).get());
     ASSERT_NE(fallbackShadow, nullptr);
     EXPECT_EQ(fallbackShadow->GetWidth(), 1u);
     EXPECT_EQ(fallbackShadow->GetHeight(), 1u);
@@ -264,7 +277,6 @@ TEST_F(SharedRenderPassContractTests, TexturePreviewPassUsesExpectedDescriptorPi
 
     ASSERT_EQ(m_Device->RenderCommand->BeginRenderPasses.size(), 1u);
     ASSERT_EQ(m_Device->RenderCommand->PipelineStates.size(), 1u);
-    ASSERT_EQ(m_Device->RenderCommand->TextureBinds.size(), 1u);
     ASSERT_EQ(m_Device->RenderCommand->DrawIndexedCalls.size(), 1u);
 
     const auto &finalBegin = m_Device->RenderCommand->BeginRenderPasses[0];
@@ -280,10 +292,11 @@ TEST_F(SharedRenderPassContractTests, TexturePreviewPassUsesExpectedDescriptorPi
     EXPECT_FALSE(pipeline.BlendEnabled);
     EXPECT_FALSE(pipeline.CullFaceEnabled);
 
-    EXPECT_EQ(m_Device->RenderCommand->TextureBinds[0].Texture, sceneColor);
-
     auto previewShader = FindShader(m_Device, "TexturePreview");
     ASSERT_NE(previewShader, nullptr);
+    ASSERT_EQ(previewShader->TextureBindEvents.size(), 1u);
+    EXPECT_EQ(previewShader->TextureBindEvents[0].Slot, 1u);
+    EXPECT_EQ(GetBoundTexture(previewShader, 1), sceneColor);
     ASSERT_EQ(previewShader->LastUniformSize, sizeof(int32_t));
     EXPECT_EQ(ReadUniformBlock<int32_t>(previewShader), 0);
 
@@ -292,8 +305,9 @@ TEST_F(SharedRenderPassContractTests, TexturePreviewPassUsesExpectedDescriptorPi
     RenderContext shadowCtx{view, SceneRendererSpecification{}, resources, SceneRendererOutput::ShadowMap};
     pass.Execute(shadowCtx);
 
-    ASSERT_EQ(m_Device->RenderCommand->TextureBinds.size(), 1u);
-    EXPECT_EQ(m_Device->RenderCommand->TextureBinds[0].Texture, shadowMap);
+    ASSERT_EQ(previewShader->TextureBindEvents.size(), 2u);
+    EXPECT_EQ(previewShader->TextureBindEvents.back().Slot, 1u);
+    EXPECT_EQ(GetBoundTexture(previewShader, 1), shadowMap);
     EXPECT_EQ(ReadUniformBlock<int32_t>(previewShader), 1);
 }
 
@@ -339,9 +353,8 @@ TEST_F(SharedRenderPassContractTests, SceneRendererPreparesConsistentFrameResour
         {1.0f / static_cast<float>(spec.ShadowMapWidth),
          1.0f / static_cast<float>(spec.ShadowMapHeight)});
 
-    ASSERT_GE(m_Device->RenderCommand->TextureBinds.size(), 2u);
-    EXPECT_EQ(m_Device->RenderCommand->TextureBinds[0].Texture, renderer.GetShadowPass()->GetDepthTexture());
-    EXPECT_EQ(m_Device->RenderCommand->TextureBinds[1].Texture,
+    EXPECT_EQ(GetBoundTexture(forwardShader, 1), renderer.GetShadowPass()->GetDepthTexture());
+    EXPECT_EQ(GetBoundTexture(previewShader, 1),
               renderer.GetForwardPass()->GetFramebuffer()->GetColorAttachment(0));
     EXPECT_EQ(ReadUniformBlock<int32_t>(previewShader), 0);
 }

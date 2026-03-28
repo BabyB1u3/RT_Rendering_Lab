@@ -8,6 +8,32 @@
 #include "scene/SceneData.h"
 #include "FakeRenderBackend.h"
 
+namespace
+{
+    Ref<FakeShader> FindShader(const Ref<FakeGraphicsDevice> &device, const char *name)
+    {
+        for (const auto &shader : device->CreatedShaders)
+        {
+            if (shader && shader->GetName() == name)
+                return shader;
+        }
+
+        return nullptr;
+    }
+
+    Ref<ITexture2D> GetBoundTexture(const Ref<FakeShader> &shader, uint32_t slot)
+    {
+        if (!shader)
+            return nullptr;
+
+        const auto it = shader->BoundTextures.find(slot);
+        if (it == shader->BoundTextures.end())
+            return nullptr;
+
+        return it->second;
+    }
+}
+
 class SceneRendererFlowContractTests : public ::testing::Test
 {
 protected:
@@ -61,24 +87,20 @@ TEST_F(SceneRendererFlowContractTests, FinalColorAndShadowMapModesRouteExpectedT
     renderer.SetOutputMode(SceneRendererOutput::FinalColor);
     renderer.Render(scene, camera);
 
-    ASSERT_GE(m_Device->RenderCommand->TextureBinds.size(), 2u);
-    EXPECT_EQ(m_Device->RenderCommand->TextureBinds[0].PassIndex, 1);
-    EXPECT_EQ(m_Device->RenderCommand->TextureBinds[0].Slot, 1u);
-    EXPECT_EQ(m_Device->RenderCommand->TextureBinds[0].Texture, shadowTexture);
-    EXPECT_EQ(m_Device->RenderCommand->TextureBinds[1].PassIndex, 2);
-    EXPECT_EQ(m_Device->RenderCommand->TextureBinds[1].Slot, 1u);
-    EXPECT_EQ(m_Device->RenderCommand->TextureBinds[1].Texture, sceneColor);
+    const auto forwardShader = FindShader(m_Device, "ForwardLit");
+    const auto previewShader = FindShader(m_Device, "TexturePreview");
+    ASSERT_NE(forwardShader, nullptr);
+    ASSERT_NE(previewShader, nullptr);
+    EXPECT_EQ(GetBoundTexture(forwardShader, 1), shadowTexture);
+    EXPECT_EQ(GetBoundTexture(previewShader, 1), sceneColor);
 
     m_Device->RenderCommand->Reset();
 
     renderer.SetOutputMode(SceneRendererOutput::ShadowMap);
     renderer.Render(scene, camera);
 
-    ASSERT_GE(m_Device->RenderCommand->TextureBinds.size(), 2u);
-    EXPECT_EQ(m_Device->RenderCommand->TextureBinds[0].PassIndex, 1);
-    EXPECT_EQ(m_Device->RenderCommand->TextureBinds[0].Texture, shadowTexture);
-    EXPECT_EQ(m_Device->RenderCommand->TextureBinds[1].PassIndex, 2);
-    EXPECT_EQ(m_Device->RenderCommand->TextureBinds[1].Texture, shadowTexture);
+    EXPECT_EQ(GetBoundTexture(forwardShader, 1), shadowTexture);
+    EXPECT_EQ(GetBoundTexture(previewShader, 1), shadowTexture);
 }
 
 TEST_F(SceneRendererFlowContractTests, ResizePropagatesToForwardFramebufferAndBackBufferTarget)

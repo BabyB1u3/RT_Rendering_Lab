@@ -164,20 +164,22 @@ function(glab_compile_shaders)
 
             # Metal emits both stages into a single file
             set(MTL_OUTPUT "${METAL_DIR}/${SHADER_NAME}.metal")
+            set(REFLECT_OUTPUT "${METAL_DIR}/${SHADER_NAME}.reflect.json")
             add_custom_command(
-                OUTPUT "${MTL_OUTPUT}"
+                OUTPUT "${MTL_OUTPUT}" "${REFLECT_OUTPUT}"
                 COMMAND "${CMAKE_COMMAND}" -E make_directory "${METAL_DIR}"
                 COMMAND "${SLANGC}" "${INPUT}"
                     -target metal
                     -matrix-layout-column-major
                     -I "${SLANG_MODULE_DIR}"
+                    -reflection-json "${REFLECT_OUTPUT}"
                     -o "${MTL_OUTPUT}"
                 DEPENDS "${INPUT}" ${MODULE_DEPS}
                 COMMENT "Slang -> Metal: ${SHADER_NAME}"
                 VERBATIM
             )
 
-            list(APPEND ALL_OUTPUTS "${MTL_OUTPUT}")
+            list(APPEND ALL_OUTPUTS "${MTL_OUTPUT}" "${REFLECT_OUTPUT}")
         endif()
 
     endforeach()

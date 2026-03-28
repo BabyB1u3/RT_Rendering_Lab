@@ -163,6 +163,11 @@ TEST_F(ShaderIntegrationTests, CreateShader_LoadsForwardLitFromCompiledGlsl)
 	auto shader = GetDevice()->CreateShader("ForwardLit");
 	ASSERT_NE(shader, nullptr);
 	EXPECT_EQ(shader->GetName(), "ForwardLit");
+	const auto *layout = shader->GetUniformBlockLayout(0);
+	ASSERT_NE(layout, nullptr);
+	EXPECT_NE(layout->FindField("u_ViewProjection"), nullptr);
+	EXPECT_NE(layout->FindField("u_LightViewProjection"), nullptr);
+	EXPECT_NE(layout->FindField("u_UseAlbedoMap"), nullptr);
 
 	shader->Bind();
 	shader->SetFloat("u_LightIntensity", 1.0f);
@@ -177,6 +182,10 @@ TEST_F(ShaderIntegrationTests, CreateShader_LoadsShadowDepthFromCompiledGlsl)
 
 	auto shader = GetDevice()->CreateShader("ShadowDepth");
 	ASSERT_NE(shader, nullptr);
+	const auto *layout = shader->GetUniformBlockLayout(0);
+	ASSERT_NE(layout, nullptr);
+	EXPECT_NE(layout->FindField("u_LightViewProjection"), nullptr);
+	EXPECT_NE(layout->FindField("u_Model"), nullptr);
 
 	shader->Bind();
 	shader->SetMat4("u_LightViewProjection", glm::mat4(1.0f));
@@ -190,6 +199,9 @@ TEST_F(ShaderIntegrationTests, CreateShader_LoadsTexturePreviewFromCompiledGlsl)
 
 	auto shader = GetDevice()->CreateShader("TexturePreview");
 	ASSERT_NE(shader, nullptr);
+	const auto *layout = shader->GetUniformBlockLayout(0);
+	ASSERT_NE(layout, nullptr);
+	EXPECT_NE(layout->FindField("u_IsDepthTexture"), nullptr);
 
 	shader->Bind();
 	shader->SetBool("u_IsDepthTexture", false);
@@ -296,14 +308,18 @@ TEST_F(ShaderIntegrationTests, CompiledTexturePreviewShaderProducesRealDrawOutpu
 	pso.BlendEnabled = false;
 	pso.CullFaceEnabled = false;
 
+	const auto *layout = shader->GetUniformBlockLayout(0);
+	ASSERT_NE(layout, nullptr);
+	PackedUniformBlock block(*layout);
 	const int32_t isDepthTexture = 0;
+	ASSERT_TRUE(block.Write("u_IsDepthTexture", isDepthTexture));
 
 	RenderCommand::BeginRenderPass(target, desc);
 	RenderCommand::SetPipelineState(pso);
 	RenderCommand::SetViewport(0, 0, 8, 8);
 	shader->Bind();
 	RenderCommand::SetTexture(1, texture);
-	shader->SetUniformBlock(0, &isDepthTexture, sizeof(isDepthTexture));
+	shader->SetUniformBlock(0, block.Data(), block.Size());
 	RenderCommand::DrawIndexed(quad->GetVertexArray());
 	RenderCommand::EndRenderPass();
 

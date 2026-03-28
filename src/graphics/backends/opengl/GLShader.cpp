@@ -1,6 +1,7 @@
 #include "GLShader.h"
 
 #include <array>
+#include <string>
 #include <vector>
 
 #include <glad/glad.h>
@@ -9,10 +10,44 @@
 #include "core/FileSystem.h"
 #include "core/diagnostics/LogCategories.h"
 #include "core/diagnostics/LogMacros.h"
+#include "graphics/interfaces/ITexture2D.h"
+
+namespace
+{
+
+ShaderUniformValueType MapGLUniformType(GLenum type)
+{
+	switch (type)
+	{
+	case GL_BOOL:       return ShaderUniformValueType::Bool;
+	case GL_INT:        return ShaderUniformValueType::Int;
+	case GL_INT_VEC2:   return ShaderUniformValueType::Int2;
+	case GL_INT_VEC3:   return ShaderUniformValueType::Int3;
+	case GL_INT_VEC4:   return ShaderUniformValueType::Int4;
+	case GL_FLOAT:      return ShaderUniformValueType::Float;
+	case GL_FLOAT_VEC2: return ShaderUniformValueType::Float2;
+	case GL_FLOAT_VEC3: return ShaderUniformValueType::Float3;
+	case GL_FLOAT_VEC4: return ShaderUniformValueType::Float4;
+	case GL_FLOAT_MAT3: return ShaderUniformValueType::Mat3;
+	case GL_FLOAT_MAT4: return ShaderUniformValueType::Mat4;
+	default:            return ShaderUniformValueType::Unknown;
+	}
+}
+
+
+std::string TrimTrailingNull(std::string value)
+{
+	if (!value.empty() && value.back() == '\0')
+		value.pop_back();
+	return value;
+}
+
+} // namespace
 
 GLShader::GLShader(uint32_t program, std::string name)
 	: m_RendererID(program), m_Name(std::move(name))
 {
+	ReflectUniformBlocks();
 }
 
 GLShader::~GLShader()
@@ -337,5 +372,93 @@ void GLShader::SetUniformBlock(uint32_t binding, const void *data, uint32_t size
 	{
 		glNamedBufferSubData(it->second, 0, size, data);
 		glBindBufferBase(GL_UNIFORM_BUFFER, binding, it->second);
+	}
+}
+
+void GLShader::BindTexture(uint32_t slot, const Ref<ITexture2D> &texture)
+{
+	if (texture)
+		texture->Bind(slot);
+	else
+		glBindTextureUnit(slot, 0);
+}
+
+const ShaderUniformBlockLayout *GLShader::GetUniformBlockLayout(uint32_t binding) const
+{
+	auto it = m_BlockLayouts.find(binding);
+	if (it == m_BlockLayouts.end())
+		return nullptr;
+
+	return &it->second;
+}
+
+void GLShader::ReflectUniformBlocks()
+{
+	GLint blockCount = 0;
+	glGetProgramInterfaceiv(m_RendererID, GL_UNIFORM_BLOCK, GL_ACTIVE_RESOURCES, &blockCount);
+	if (blockCount <= 0)
+		return;
+
+	const GLenum blockProps[] = {GL_BUFFER_BINDING, GL_BUFFER_DATA_SIZE, GL_NAME_LENGTH, GL_NUM_ACTIVE_VARIABLES};
+	constexpr GLsizei blockPropCount = 4;
+
+	for (GLint blockIndex = 0; blockIndex < blockCount; ++blockIndex)
+	{
+		GLint blockValues[blockPropCount] = {};
+		glGetProgramResourceiv(m_RendererID, GL_UNIFORM_BLOCK, blockIndex,
+		                       blockPropCount, blockProps, blockPropCount, nullptr, blockValues);
+
+		const uint32_t binding = static_cast<uint32_t>(blockValues[0]);
+		const uint32_t blockSize = static_cast<uint32_t>(blockValues[1]);
+		const GLint blockNameLength = blockValues[2];
+		const GLint uniformCount = blockValues[3];
+
+		std::string blockName(blockNameLength > 0 ? blockNameLength : 1, '\0');
+		glGetProgramResourceName(m_RendererID, GL_UNIFORM_BLOCK, blockIndex,
+		                         static_cast<GLsizei>(blockName.size()), nullptr, blockName.data());
+
+		ShaderUniformBlockLayout layout(TrimTrailingNull(std::move(blockName)), binding, blockSize);
+
+		if (uniformCount > 0)
+		{
+			std::vector<GLint> uniformIndices(static_cast<size_t>(uniformCount), -1);
+			const GLenum activeVariablesProp = GL_ACTIVE_VARIABLES;
+			glGetProgramResourceiv(m_RendererID, GL_UNIFORM_BLOCK, blockIndex,
+			                       1, &activeVariablesProp, uniformCount, nullptr, uniformIndices.data());
+
+			const GLenum uniformProps[] = {GL_OFFSET, GL_TYPE, GL_NAME_LENGTH, GL_ARRAY_SIZE};
+			constexpr GLsizei uniformPropCount = 4;
+
+			for (GLint uniformIndex : uniformIndices)
+			{
+				if (uniformIndex < 0)
+					continue;
+
+				GLint uniformValues[uniformPropCount] = {};
+				glGetProgramResourceiv(m_RendererID, GL_UNIFORM, uniformIndex,
+				                       uniformPropCount, uniformProps, uniformPropCount, nullptr, uniformValues);
+
+				std::string uniformName(uniformValues[2] > 0 ? uniformValues[2] : 1, '\0');
+				glGetProgramResourceName(m_RendererID, GL_UNIFORM, uniformIndex,
+				                         static_cast<GLsizei>(uniformName.size()), nullptr, uniformName.data());
+
+				const ShaderUniformValueType type = MapGLUniformType(static_cast<GLenum>(uniformValues[1]));
+				uint32_t fieldSize = GetShaderUniformValueTypeSize(type);
+				const uint32_t arraySize = static_cast<uint32_t>(uniformValues[3]);
+				if (arraySize > 1)
+					fieldSize *= arraySize;
+
+				layout.AddField({
+					NormalizeGLUniformFieldName(TrimTrailingNull(std::move(uniformName))),
+					static_cast<uint32_t>(uniformValues[0]),
+					fieldSize,
+					type
+				});
+			}
+		}
+
+		LOG_TRACE_CAT(LogCategory::Shader, "GLShader '{}': reflected uniform block '{}' at binding {} ({} bytes, {} fields)",
+		              m_Name, layout.GetName(), binding, layout.GetSize(), layout.GetFields().size());
+		m_BlockLayouts[binding] = std::move(layout);
 	}
 }

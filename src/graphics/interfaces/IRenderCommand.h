@@ -10,7 +10,7 @@
 ///     BeginRenderPass(target, descriptor)  - one per render target switch
 ///       SetPipelineState(state)
 ///       SetViewport(...)
-///       SetTexture(slot, texture)
+///       shader->BindTexture(slot, texture)
 ///       shader->SetUniformBlock(...)
 ///       DrawIndexed(...) / DrawArrays(...)
 ///     EndRenderPass()
@@ -66,6 +66,7 @@ public:
 	// Metal: [encoder setFragmentTexture:atIndex:]
 	// Vulkan: update descriptor set binding.
 	// OpenGL: glBindTextureUnit(slot, textureID).
+	[[deprecated("Use IShader::BindTexture instead")]]
 	virtual void SetTexture(uint32_t slot, const Ref<ITexture2D> &texture) = 0;
 
 	virtual void DrawIndexed(const Ref<IVertexArray> &vao, uint32_t indexCount = 0) = 0;

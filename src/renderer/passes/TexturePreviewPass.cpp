@@ -69,13 +69,16 @@ void TexturePreviewPass::Execute(const RenderContext &ctx)
     RenderCommand::SetPipelineState(pso);
 
     m_Shader->Bind();
+    const ShaderUniformBlockLayout *blockLayout = m_Shader->GetUniformBlockLayout(0);
+    RTRLAB_ASSERT_MSG(blockLayout,
+                      "TexturePreviewPass: shader must provide reflected layout for uniform block binding 0.");
 
-    // P4: Explicit texture binding - source texture at slot 1
-    RenderCommand::SetTexture(1, texture);
+    // P5a: Shader-scoped texture binding - source texture at slot 1
+    m_Shader->BindTexture(1, texture);
 
-    // std140 layout: bool maps to a 4-byte int (0 or 1)
-    int32_t isDepthInt = isDepth ? 1 : 0;
-    m_Shader->SetUniformBlock(0, &isDepthInt, sizeof(isDepthInt));
+    PackedUniformBlock block(*blockLayout);
+    block.WriteRequired("u_IsDepthTexture", isDepth);
+    m_Shader->SetUniformBlock(0, block.Data(), block.Size());
 
     RenderCommand::DrawIndexed(m_FullscreenQuad->GetVertexArray());
 

@@ -8,12 +8,14 @@ It supersedes:
 - `material_system_design.md` (Material system evolution - merged here)
 
 For the Slang migration itself (toolchain swap, build system, shader rewrites), see `slang-migration.md`.
+For the step-by-step execution plan that applies this design to the current repository,
+see `uniform_reflection_migration.md`.
 
 ---
 
 ## 1. Shader Pipeline Architecture
 
-### 1.1 Pre-Migration State (R3a - Current)
+### 1.1 Pre-Migration State (R3a - Historical)
 
 ```
 Source:     GLSL (.vert / .frag) - bare uniforms, no UBOs
@@ -46,6 +48,34 @@ Advantages:
 - No runtime transpilation - all compilation is offline
 - Structured resource model is native to the language
 - Module system and generics solve code reuse and variant explosion
+
+### 1.2.1 Current Repository Status (2026-03)
+
+The repository has completed the Slang source migration for the shaders that are
+currently in use, but the surrounding material/binding architecture is still in an
+intermediate stage.
+
+Implemented today:
+
+- Shader sources are authored in Slang (`assets/shaders/*.slang`).
+- Build-time compilation to backend-specific artifacts is in place:
+  - GLSL when building the OpenGL backend
+  - MSL when building the Metal backend
+- The renderer already uses a mix of:
+  - name-based setters (`SetFloat`, `SetMat4`, etc.)
+  - slot-indexed `SetUniformBlock(binding, data, size)`
+
+Not implemented yet:
+
+- No `ParameterBlock<T>` resources are used in shader source yet; current shaders
+  still declare loose `uniform` values that Slang packs into an implicit global block.
+- `IShader` does not yet expose the target API sketched in Section 2.2
+  (`BindUniformBuffer`, `BindTexture`, `SetPushConstants`).
+- No reflection-driven packing helper exists for pass or material uniform blocks.
+
+Practical summary: the project is no longer in the old GLSL-only world, but it is
+also not yet at the final "slot-based buffers + reflected packing" design.
+It is best described as Phase A plus a few Phase B-style experiments.
 
 ### 1.3 Long-Term Target (R5+)
 
@@ -232,6 +262,19 @@ ShadowPass
 
 Material has no shader reference and no `Bind()` method. It is a pure surface data container.
 Passes are fully in control.
+
+Current repository note:
+
+- This pass-centric ownership model is implemented.
+- However, the upload path is currently mixed:
+  - `Material::UploadToShader()` still exists and uses name-based setters
+  - `ForwardPass`, `ShadowPass`, `TexturePreviewPass`, and tutorial demos already
+    use `SetUniformBlock()` in several places
+  - `ForwardPass` currently reads material values directly and packs them into a
+    local C++ struct instead of delegating all upload work to `Material`
+
+So the repository is firmly in Model B, but the uniform upload mechanism has already
+started transitioning away from pure per-uniform setter calls.
 
 ### 3.3 Evolution: Model B → Hybrid (Model C)
 
@@ -626,10 +669,23 @@ This is acceptable for initial bring-up and very small shader counts, but it sho
 now be considered explicitly temporary. The Metal bring-up demonstrated that "works
 for a few shaders" is not the same as "portable across backends."
 
+Current repository status: this is still the dominant implementation strategy for
+pass-owned uniform data. `ForwardPass`, `ShadowPass`, tutorial demos, and preview
+passes all upload raw structs or raw scalars directly via `SetUniformBlock()`.
+
 **Phase B (Buffer binding)**: Introduce Slang reflection metadata to validate and/or pack uniform
 buffers at load time. At minimum, log warnings when a handwritten struct disagrees
 with the shader layout. Preferably, stop uploading handwritten structs directly and
 instead pack bytes through a shared `PackedUniformBlock`-style helper.
+
+Current repository status: only partial groundwork exists.
+
+- `SetUniformBlock(binding, data, size)` is available in `IShader`
+- Metal has optional reflection-sidecar loading code for named setters
+- the build does not yet generate reflection sidecars
+- there is no shared block-packing helper yet
+
+So Phase B should be considered "started conceptually, not completed in code."
 
 **Phase C (Full reflection)**: Material properties are dynamically mapped to shader buffer offsets
 via reflection. No hardcoded layout structs needed. Adding a property to a shader automatically

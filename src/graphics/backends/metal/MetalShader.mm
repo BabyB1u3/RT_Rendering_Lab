@@ -3,6 +3,8 @@
 #import <Metal/Metal.h>
 
 #include <array>
+#include <algorithm>
+#include <limits>
 #include <unordered_map>
 #include <vector>
 #include <functional>
@@ -15,8 +17,10 @@
 #include "core/diagnostics/LogMacros.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/RenderTypes.h"
+#include "graphics/backends/metal/MetalCast.h"
 #include "graphics/backends/metal/MetalGraphicsDevice.h"
 #include "graphics/backends/metal/MetalRenderCommand.h"
+#include "graphics/backends/metal/MetalTexture2D.h"
 
 // --- PSO cache key ---
 
@@ -100,6 +104,8 @@ struct MetalShader::Impl
 
 	// Explicit uniform blocks (SetUniformBlock)
 	std::unordered_map<uint32_t, std::vector<uint8_t>> uniformBlocks;
+	std::unordered_map<uint32_t, ShaderUniformBlockLayout> blockLayouts;
+	std::unordered_map<uint32_t, Ref<ITexture2D>> boundTextures;
 
 	// Metal buffer binding indices
 	uint32_t vertexUniformBinding   = 1;   // default; overridden by JSON sidecar
@@ -134,14 +140,100 @@ static uint64_t HashVertexDescriptor(MTLVertexDescriptor *desc)
 	return h;
 }
 
+static ShaderUniformValueType ParseReflectionValueType(const nlohmann::json &typeJson)
+{
+	if (!typeJson.is_object())
+		return ShaderUniformValueType::Unknown;
+
+	const std::string kind = typeJson.value("kind", std::string{});
+	if (kind == "scalar")
+	{
+		const std::string scalarType = typeJson.value("scalarType", std::string{});
+		if (scalarType == "bool")
+			return ShaderUniformValueType::Bool;
+		if (scalarType == "float32")
+			return ShaderUniformValueType::Float;
+		if (scalarType == "int32" || scalarType == "uint32")
+			return ShaderUniformValueType::Int;
+		return ShaderUniformValueType::Unknown;
+	}
+
+	if (kind == "vector")
+	{
+		const uint32_t elementCount = typeJson.value("elementCount", 0u);
+		const ShaderUniformValueType elementType =
+			ParseReflectionValueType(typeJson.value("elementType", nlohmann::json::object()));
+
+		if (elementType == ShaderUniformValueType::Float)
+		{
+			switch (elementCount)
+			{
+			case 2: return ShaderUniformValueType::Float2;
+			case 3: return ShaderUniformValueType::Float3;
+			case 4: return ShaderUniformValueType::Float4;
+			default: return ShaderUniformValueType::Unknown;
+			}
+		}
+
+		if (elementType == ShaderUniformValueType::Int)
+		{
+			switch (elementCount)
+			{
+			case 2: return ShaderUniformValueType::Int2;
+			case 3: return ShaderUniformValueType::Int3;
+			case 4: return ShaderUniformValueType::Int4;
+			default: return ShaderUniformValueType::Unknown;
+			}
+		}
+
+		return ShaderUniformValueType::Unknown;
+	}
+
+	if (kind == "matrix")
+	{
+		const uint32_t rowCount = typeJson.value("rowCount", 0u);
+		const uint32_t columnCount = typeJson.value("columnCount", 0u);
+		const ShaderUniformValueType elementType =
+			ParseReflectionValueType(typeJson.value("elementType", nlohmann::json::object()));
+
+		if (elementType != ShaderUniformValueType::Float)
+			return ShaderUniformValueType::Unknown;
+
+		if (rowCount == 3 && columnCount == 3)
+			return ShaderUniformValueType::Mat3;
+		if (rowCount == 4 && columnCount == 4)
+			return ShaderUniformValueType::Mat4;
+	}
+
+	return ShaderUniformValueType::Unknown;
+}
+
+// Parse the slangc -reflection-json sidecar and populate the runtime layout structures.
+//
+// Field names stored here must match what PackedUniformBlock::Write() callers use,
+// and must also match the names produced by NormalizeGLUniformFieldName()
+// on the OpenGL side — both backends share the same PackedUniformBlock call sites.
+//
+// Phase 6 coupling note:
+//   When shaders migrate to explicit ParameterBlock<T> blocks (Phase 6), the sidecar
+//   JSON structure will change: uniform parameters will be nested inside a parameter
+//   block entry rather than appearing as top-level "parameters". The parsing logic
+//   below (both the "parameters" array path and the legacy "uniformBlocks" path) must
+//   be updated at that point. Update together with NormalizeGLUniformFieldName() in
+//   ShaderUniformLayout.cpp so that both backends expose consistent field names.
 static void LoadReflectionSidecar(const std::string &name,
                                   ReflectionMap &vertex, ReflectionMap &fragment,
                                   uint32_t &vertexBinding, uint32_t &fragmentBinding,
-                                  uint32_t &textureBase)
+                                  uint32_t &textureBase,
+                                  std::unordered_map<uint32_t, ShaderUniformBlockLayout> &blockLayouts)
 {
 	auto path = FileSystem::GetCompiledShaderDir() / "metal" / (name + ".reflect.json");
 	if (!FileSystem::Exists(path))
+	{
+		LOG_WARN_CAT(LogCategory::Shader, "MetalShader '{}': reflection sidecar missing at '{}'",
+		             name, path.string());
 		return;
+	}
 
 	const auto reflectionText = FileSystem::ReadTextFile(path);
 	if (!reflectionText)
@@ -154,6 +246,89 @@ static void LoadReflectionSidecar(const std::string &name,
 	try
 	{
 		auto json = nlohmann::json::parse(*reflectionText);
+
+		// New path: consume raw slangc -reflection-json output directly.
+		if (json.contains("parameters") && json["parameters"].is_array())
+		{
+			uint32_t computedBlockSize = 0;
+			uint32_t minTextureBindingBase = std::numeric_limits<uint32_t>::max();
+			ShaderUniformBlockLayout globalLayout("GlobalParams", 0, 0);
+			bool hasGlobalUniforms = false;
+
+			for (const auto &parameter : json["parameters"])
+			{
+				if (!parameter.contains("name") || !parameter.contains("binding"))
+					continue;
+
+				const auto &binding = parameter["binding"];
+				const std::string kind = binding.value("kind", std::string{});
+				if (kind == "uniform")
+				{
+					const uint32_t offset = binding.value("offset", 0u);
+					const uint32_t size = binding.value("size", 0u);
+					globalLayout.AddField({
+						parameter.value("name", std::string{}),
+						offset,
+						size,
+						ParseReflectionValueType(parameter.value("type", nlohmann::json::object()))
+					});
+					computedBlockSize = std::max(computedBlockSize, offset + size);
+					hasGlobalUniforms = true;
+				}
+				else if (kind == "descriptorTableSlot")
+				{
+					const uint32_t index = binding.value("index", 0u);
+					minTextureBindingBase = std::min(minTextureBindingBase, index);
+				}
+			}
+
+			if (hasGlobalUniforms)
+			{
+				globalLayout.SetSize(computedBlockSize);
+				blockLayouts[0] = std::move(globalLayout);
+			}
+
+			if (json.contains("entryPoints") && json["entryPoints"].is_array())
+			{
+				for (const auto &entryPoint : json["entryPoints"])
+				{
+					const std::string stage = entryPoint.value("stage", std::string{});
+					ReflectionMap *targetStage = nullptr;
+					if (stage == "vertex")
+						targetStage = &vertex;
+					else if (stage == "fragment")
+						targetStage = &fragment;
+
+					if (!targetStage || !entryPoint.contains("bindings") || !entryPoint["bindings"].is_array())
+						continue;
+
+					for (const auto &bindingEntry : entryPoint["bindings"])
+					{
+						if (!bindingEntry.contains("name") || !bindingEntry.contains("binding"))
+							continue;
+
+						const auto &binding = bindingEntry["binding"];
+						if (binding.value("kind", std::string{}) != "uniform")
+							continue;
+
+						(*targetStage)[bindingEntry.value("name", std::string{})] = {
+							binding.value("offset", 0u),
+							binding.value("size", 0u)
+						};
+					}
+				}
+			}
+
+			if (minTextureBindingBase != std::numeric_limits<uint32_t>::max())
+				textureBase = minTextureBindingBase;
+			else
+				textureBase = 1;
+
+			LOG_TRACE_CAT(LogCategory::Shader, "MetalShader '{}': loaded raw slang reflection sidecar", name);
+			return;
+		}
+
+		// Legacy/custom schema path.
 		auto &entry = json.at(name);
 
 		if (entry.contains("vertexUniformBinding"))
@@ -162,6 +337,32 @@ static void LoadReflectionSidecar(const std::string &name,
 			fragmentBinding = entry["fragmentUniformBinding"].get<uint32_t>();
 		if (entry.contains("textureBindingBase"))
 			textureBase = entry["textureBindingBase"].get<uint32_t>();
+
+		if (entry.contains("uniformBlocks") && entry["uniformBlocks"].is_array())
+		{
+			for (const auto &blockJson : entry["uniformBlocks"])
+			{
+				ShaderUniformBlockLayout layout(
+					blockJson.value("name", std::string{}),
+					blockJson.value("binding", 0u),
+					blockJson.value("size", 0u));
+
+				if (blockJson.contains("fields") && blockJson["fields"].is_array())
+				{
+					for (const auto &fieldJson : blockJson["fields"])
+					{
+						layout.AddField({
+							fieldJson.value("name", std::string{}),
+							fieldJson.value("offset", 0u),
+							fieldJson.value("size", 0u),
+							ShaderUniformValueType::Unknown
+						});
+					}
+				}
+
+				blockLayouts[layout.GetBinding()] = std::move(layout);
+			}
+		}
 
 		if (entry.contains("vertex"))
 		{
@@ -219,7 +420,8 @@ Ref<MetalShader> MetalShader::CreateFromMSLSource(const std::string &name,
 	                      shader->m_Impl->fragmentReflection,
 	                      shader->m_Impl->vertexUniformBinding,
 	                      shader->m_Impl->fragmentUniformBinding,
-	                      shader->m_Impl->textureBindingBase);
+	                      shader->m_Impl->textureBindingBase,
+	                      shader->m_Impl->blockLayouts);
 
 	LOG_INFO_CAT(LogCategory::Shader, "MetalShader: loaded '{}'", name);
 	return Ref<MetalShader>(shader);
@@ -348,6 +550,23 @@ void MetalShader::SetUniformBlock(uint32_t binding, const void *data, uint32_t s
 	memcpy(block.data(), data, size);
 }
 
+void MetalShader::BindTexture(uint32_t slot, const Ref<ITexture2D> &texture)
+{
+	if (texture)
+		m_Impl->boundTextures[slot] = texture;
+	else
+		m_Impl->boundTextures.erase(slot);
+}
+
+const ShaderUniformBlockLayout *MetalShader::GetUniformBlockLayout(uint32_t binding) const
+{
+	auto it = m_Impl->blockLayouts.find(binding);
+	if (it == m_Impl->blockLayouts.end())
+		return nullptr;
+
+	return &it->second;
+}
+
 // --- Metal-internal ---
 
 void *MetalShader::GetOrCreatePSO(void *mtlDevice,
@@ -455,5 +674,19 @@ void MetalShader::FlushUniforms(void *mtlEncoder)
 		uint32_t slotIndex = kUniformBaseSlot + binding;
 		[encoder setVertexBytes:data.data()   length:data.size() atIndex:slotIndex];
 		[encoder setFragmentBytes:data.data() length:data.size() atIndex:slotIndex];
+	}
+
+	const uint32_t textureBase = m_Impl->textureBindingBase;
+	for (const auto &[slot, texture] : m_Impl->boundTextures)
+	{
+		const uint32_t metalSlot = (slot >= textureBase) ? (slot - textureBase) : slot;
+		auto *metalTexture = AsMetal<MetalTexture2D>(texture);
+		id<MTLTexture> nativeTexture = (__bridge id<MTLTexture>)metalTexture->GetMTLTexture();
+		id<MTLSamplerState> samplerState = (__bridge id<MTLSamplerState>)metalTexture->GetMTLSamplerState();
+
+		[encoder setVertexTexture:nativeTexture atIndex:metalSlot];
+		[encoder setFragmentTexture:nativeTexture atIndex:metalSlot];
+		[encoder setVertexSamplerState:samplerState atIndex:metalSlot];
+		[encoder setFragmentSamplerState:samplerState atIndex:metalSlot];
 	}
 }

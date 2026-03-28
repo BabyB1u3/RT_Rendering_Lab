@@ -23,6 +23,7 @@ set(GLAB_CORE_SOURCES
     graphics/Mesh.cpp
     graphics/MeshFactory.cpp
     graphics/RenderCommand.cpp
+    graphics/ShaderUniformLayout.cpp
 
     graphics/GraphicsDevice.cpp
 
@@ -96,6 +97,7 @@ set(GLAB_CORE_HEADERS
     graphics/Mesh.h
     graphics/MeshFactory.h
     graphics/RenderCommand.h
+    graphics/ShaderUniformLayout.h
     graphics/Texture.h
 
     graphics/GraphicsDevice.h
