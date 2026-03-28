@@ -195,6 +195,60 @@ If a step cannot be landed incrementally, it should be split.
 The plan should not produce "ten carefully hand-maintained call sites."
 It should produce one `PackedUniformBlock`-style abstraction used everywhere.
 
+### 5.5 Canonical Field Name Contract
+
+This contract governs how field names are resolved across OpenGL and Metal reflection
+paths into `PackedUniformBlock`. It must be satisfied at every phase, including after
+Phase 6 restructures shader resources into explicit blocks.
+
+#### The Contract
+
+1. **`PackedUniformBlock` is always block-scoped.**
+   One instance represents exactly one uniform block. The block context is established
+   at construction time via `GetUniformBlockLayout(binding)`. Within a single block,
+   field names are unambiguous by construction — `ShaderUniformBlockLayout::AddField()`
+   rejects duplicate names at layout build time.
+
+2. **The field name used in `Write()` / `WriteRequired()` is the Slang original leaf name.**
+   Examples: `u_ViewProjection`, `u_CameraPosition`, `u_UseAlbedoMap`.
+   This is the name as it appears in the Slang source, without any block variable prefix
+   or backend-generated suffix.
+
+3. **Both reflection paths must normalize to the same leaf name.**
+   - OpenGL: `NormalizeGLUniformFieldName()` strips the GL block prefix
+     (`BlockName.fieldName` → `fieldName`) and Slang-generated numeric suffixes (`_N`).
+   - Metal: field names are read directly from the slangc sidecar, which already uses
+     the original Slang name.
+   The invariant is: after normalization, both backends expose the same key for the
+   same logical field.
+
+#### What This Contract Defers
+
+**Block-relative keys** (`PerFrame.ViewProjection`) are not part of this contract.
+They would only be needed if a future API allowed writing to multiple blocks through
+a single interface. No such API exists today. Introducing block-relative keys now would
+require changing every `WriteRequired()` call site with no correctness benefit, since
+`PackedUniformBlock` is already block-scoped.
+
+If a cross-block write API is introduced in the future, block-relative keys become
+the right choice at that layer. The contract here governs the single-block layer only.
+
+#### Validating the Contract at Phase 6
+
+When Phase 6 introduces `ParameterBlock<T>`, the raw names produced by each backend
+will change:
+
+- OpenGL: GL introspection may return `gPerFrame.u_CameraPosition` instead of
+  `u_CameraPosition`. The dot-strip in `NormalizeGLUniformFieldName()` handles one
+  level of nesting; deeper nesting (e.g. nested structs) requires an update.
+- Metal: the sidecar JSON structure changes from a flat `parameters` array to nested
+  entries inside a parameter block. `LoadReflectionSidecar()` in `MetalShader.mm`
+  must be updated to extract the same leaf name.
+
+Before merging the first Phase 6 shader, verify that both paths produce the same leaf
+name for every field in that shader by checking that all `WriteRequired()` calls
+succeed on both OpenGL and Metal.
+
 ---
 
 ## 6. Migration Phases
@@ -548,6 +602,32 @@ using explicit blocks or `ParameterBlock<T>` depending on the chosen Slang strat
 
 This phase is intentionally later than packer introduction.
 It changes shader source organization and should be done after reflected packing is stable.
+
+### Reflection Path Coupling (Must Read Before Starting)
+
+Phase 6 changes how Slang emits shader resource names, which directly affects both
+runtime reflection paths introduced in Phase 1 and Phase 4. These two paths must be
+updated together when the first Phase 6 shader lands:
+
+**OpenGL — `NormalizeGLUniformFieldName()` in `ShaderUniformLayout.cpp`**
+
+Currently strips one level of block prefix (`BlockName.fieldName` → `fieldName`).
+With `ParameterBlock<T>`, GL introspection may return deeper names such as
+`gPerFrame.LightData.direction`. The function handles single-level dot stripping
+but not nested structs. Review and extend before migrating the first shader.
+
+**Metal — `LoadReflectionSidecar()` in `MetalShader.mm`**
+
+Currently parses a flat `parameters` array from the slangc sidecar. With
+`ParameterBlock<T>`, the sidecar JSON structure will nest uniform fields inside a
+parameter block entry rather than listing them at the top level. The parser will
+need to recurse into that structure.
+
+**Invariant to maintain:** after both updates, `block.Write("fieldName", value)` must
+resolve to the same logical field on both OpenGL and Metal. If the two paths produce
+different keys for the same field, `WriteRequired()` will assert in required paths and
+plain `Write()` will fail and leave that field zeroed. Verify cross-backend field name
+consistency before merging any Phase 6 shader.
 
 ---
 
