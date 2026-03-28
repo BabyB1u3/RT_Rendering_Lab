@@ -5,7 +5,7 @@
 ///
 /// Validates: normal data passing, lighting calculation (ambient + diffuse +
 /// specular), multiple uniform uploads via logical BindUniformBuffer.
-/// Uses BasicLit.slang — Phong lighting with ViewProjection, Model,
+/// Uses BasicLit.slang: Phong lighting with ViewProjection, Model,
 /// NormalMatrix, light params, and material params.
 
 #include <cstdint>

@@ -3,7 +3,7 @@
 /// @file MetalShader.h
 /// @brief Metal implementation of IShader.
 ///
-/// Loads pre-compiled MSL from the shader directory (Slang → MSL pipeline),
+/// Loads pre-compiled MSL from the shader directory (Slang -> MSL pipeline),
 /// creates MTLLibrary + MTLFunction objects, and manages a pipeline state
 /// object (PSO) cache keyed by vertex layout, attachment formats, and blend state.
 ///
@@ -14,7 +14,7 @@
 ///   slangc -dump-reflection; if absent, named setters are silent no-ops.
 ///
 ///   SetUniformBlock(binding, data, size) uploads a transient raw block to both
-///   stages. BindUniformBuffer(slot, buffer) binds a logical persistent buffer;
+///   stages. BindUniformBuffer(binding, buffer) binds a logical persistent buffer;
 ///   FlushUniforms snapshots its current contents per draw to preserve stable
 ///   per-draw uniform data when callers reuse one buffer across many draws.
 ///
@@ -37,18 +37,20 @@
 
 /// Binding index convention - Vulkan descriptor model as canonical abstraction.
 ///
-/// SetUniformBlock(N) / BindUniformBuffer(N) / BindTexture(N) use the
-/// [vk::binding(N, 0)] index directly,
-/// consistent across all three backends:
-///   OpenGL  : UBO → glBindBufferBase(GL_UNIFORM_BUFFER, N)
-///             Tex → glBindTextureUnit(N, ...)
-///   Metal   : CB  → setVertexBytes / setFragmentBytes at index N  ([[buffer(N)]])
-///             Tex → setFragmentTexture at index N                  ([[texture(N)]])
+/// Flat compatibility shims still map slot N -> logical binding {0, N}, but the
+/// runtime now resolves actual backend indices through reflected metadata.
+///
+/// For the common bridge case where shaders still use [vk::binding(N, 0)], that
+/// metadata resolves to the same index across all three backends:
+///   OpenGL  : UBO -> glBindBufferBase(GL_UNIFORM_BUFFER, N)
+///             Tex -> glBindTextureUnit(N, ...)
+///   Metal   : CB  -> setVertexBytes / setFragmentBytes at index N  ([[buffer(N)]])
+///             Tex -> setFragmentTexture at index N                  ([[texture(N)]])
 ///   Vulkan  : descriptor set 0, binding N
 ///
 /// Metal buffer index partition (vertex stage shares buffer indices with CBs):
-///   [0, kMetalVertexBufferBase)   → constant / uniform buffers ([[buffer(N)]])
-///   [kMetalVertexBufferBase, ...) → vertex data (MTLVertexDescriptor + setVertexBuffer)
+///   [0, kMetalVertexBufferBase)   -> constant / uniform buffers ([[buffer(N)]])
+///   [kMetalVertexBufferBase, ...) -> vertex data (MTLVertexDescriptor + setVertexBuffer)
 static constexpr uint32_t kUniformBaseSlot = 0;
 static constexpr uint32_t kMetalVertexBufferBase = 8;
 
@@ -105,7 +107,7 @@ public:
 
 	/// Number of UBO bindings that precede textures in the GLSL/Vulkan binding layout.
 	/// Slang MSL assigns texture indices 0-based independently, so the Metal backend
-	/// subtracts this offset when translating C++ SetTexture(slot) → [[texture(N)]]:
+	/// subtracts this offset when translating C++ SetTexture(slot) -> [[texture(N)]]:
 	///   Metal texture index = slot - GetTextureBindingBase()
 	/// Default: 1 (one GlobalParams CB at binding 0; textures start at binding 1).
 	/// Overridable via the reflection sidecar ("textureBindingBase" field).

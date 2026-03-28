@@ -3,6 +3,7 @@
 #include <cstring>
 #include <glm/glm.hpp>
 
+#include "FakeRenderBackend.h"
 #include "graphics/ShaderResourceMetadata.h"
 #include "graphics/ShaderUniformLayout.h"
 
@@ -49,6 +50,43 @@ TEST(ShaderUniformLayoutTests, BackendBindingMetadataMapsLogicalBindingToBackend
     ASSERT_TRUE(it->second.SamplerIndex.has_value());
     EXPECT_EQ(*it->second.TextureIndex, 2u);
     EXPECT_EQ(*it->second.SamplerIndex, 5u);
+}
+
+TEST(ShaderUniformLayoutTests, FlatSlotCompatibilityWrappersMapToSetZeroLogicalBindings)
+{
+    FakeShader shader("CompatibilityShader");
+    IShader *interface = &shader;
+
+    auto uniformBuffer = CreateRef<FakeUniformBuffer>(64);
+    TextureSpecification textureSpec;
+    auto texture = CreateRef<FakeTexture2D>(textureSpec);
+
+    interface->BindUniformBuffer(4, uniformBuffer);
+    interface->BindTexture(7, texture);
+
+    ASSERT_EQ(shader.UniformBufferBindEvents.size(), 1u);
+    EXPECT_EQ(shader.UniformBufferBindEvents.back().BindingPoint, (ShaderBindingPoint{0, 4}));
+    EXPECT_EQ(shader.UniformBufferBindEvents.back().Slot, 4u);
+    EXPECT_EQ(shader.LogicalBoundUniformBuffers.at(ShaderBindingPoint{0, 4}), uniformBuffer);
+
+    ASSERT_EQ(shader.TextureBindEvents.size(), 1u);
+    EXPECT_EQ(shader.TextureBindEvents.back().BindingPoint, (ShaderBindingPoint{0, 7}));
+    EXPECT_EQ(shader.TextureBindEvents.back().Slot, 7u);
+    EXPECT_EQ(shader.LogicalBoundTextures.at(ShaderBindingPoint{0, 7}), texture);
+}
+
+TEST(ShaderUniformLayoutTests, FlatSlotLayoutLookupUsesSetZeroLogicalBinding)
+{
+    FakeShader shader("CompatibilityShader");
+    IShader *interface = &shader;
+
+    ShaderUniformBlockLayout layout("BridgeBlock", ShaderBindingPoint{0, 5}, 32);
+    shader.LogicalBlockLayouts.emplace(layout.GetBindingPoint(), layout);
+
+    const auto *found = interface->GetUniformBlockLayout(5);
+    ASSERT_NE(found, nullptr);
+    EXPECT_EQ(found->GetName(), "BridgeBlock");
+    EXPECT_EQ(found->GetBindingPoint(), (ShaderBindingPoint{0, 5}));
 }
 
 TEST(ShaderUniformLayoutTests, PackedUniformBlockWritesFieldsAtReflectedOffsets)

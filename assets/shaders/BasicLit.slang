@@ -1,10 +1,11 @@
 // BasicLit.slang
 //
 // Tutorial 06: Blinn-Phong lighting with a single directional light.
-// No shadows, no texture — solid color albedo with ambient + diffuse + specular.
+// No shadows, no texture: solid color albedo with ambient + diffuse + specular.
 //
-// Uniforms are packed into the implicit GlobalParams CB (binding 0) by Slang.
-// The C++ side must upload a matching struct via SetUniformBlock(0, ...).
+// GlobalParams is an explicit logical uniform block at binding {0, 0}.
+// The C++ side queries its reflected layout and updates a matching UBO through
+// IShader::BindUniformBuffer().
 
 [vk::binding(0, 0)]
 cbuffer GlobalParams

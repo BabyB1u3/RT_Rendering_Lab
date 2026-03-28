@@ -38,7 +38,7 @@ public:
 	/// Maps to UBO on OpenGL, descriptor set buffer on Vulkan.
 	virtual void SetUniformBlock(uint32_t binding, const void *data, uint32_t size) = 0;
 
-	/// Bind a logical uniform buffer object at the specified slot.
+	/// Bind a logical uniform buffer object at the specified binding point.
 	///
 	/// Cross-backend contract:
 	/// - Call sites may reuse one IUniformBuffer across many draw calls in the same
@@ -57,9 +57,9 @@ public:
 		BindUniformBuffer(MakeFlatShaderBindingPoint(slot), buffer);
 	}
 
-	/// Bind a texture at the specified slot.
+	/// Bind a texture at the specified logical binding point.
 	/// OpenGL binding is stage-agnostic. Metal currently binds the texture to both
-	/// vertex and fragment stages to preserve a simple slot-only abstraction.
+	/// vertex and fragment stages to preserve a simple stage-agnostic abstraction.
 	virtual void BindTexture(ShaderBindingPoint binding, const Ref<ITexture2D> &texture) = 0;
 
 	/// Compatibility shim for bridge code that still uses flat slots.
