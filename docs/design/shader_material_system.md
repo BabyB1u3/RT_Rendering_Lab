@@ -54,8 +54,9 @@ Advantages:
 ### 1.2.1 Current Repository Status (2026-03)
 
 The repository has completed the Slang source migration for the shaders that are
-currently in use, but the surrounding material/binding architecture is still in an
-intermediate stage.
+currently in use, and the set-aware shader binding redesign is now complete for
+the runtime/shader layer. The surrounding material architecture is still evolving,
+but it is no longer blocked on the binding-model migration.
 
 Implemented today:
 
@@ -65,9 +66,12 @@ Implemented today:
   - MSL when building the Metal backend
 - Reflection-driven uniform block layouts and `PackedUniformBlock` are implemented
   for the mainline passes that previously relied on handwritten mirror structs.
-- `IShader` already exposes transitional resource-binding APIs:
-  - `BindTexture(slot, texture)`
-  - `BindUniformBuffer(slot, buffer)`
+- `IShader` now exposes set-aware resource-binding APIs:
+  - `BindTexture(ShaderBindingPoint, texture)`
+  - `BindUniformBuffer(ShaderBindingPoint, buffer)`
+  - `GetUniformBlockLayout(ShaderBindingPoint)`
+- backend resource metadata preserves backend-local binding indices separately
+  from logical binding identity on both OpenGL and Metal.
 - The renderer currently uses a mix of:
   - legacy name-based setters (`SetFloat`, `SetMat4`, etc.)
   - raw `SetUniformBlock(binding, data, size)` for compatibility/demo paths
@@ -75,25 +79,19 @@ Implemented today:
 
 Not implemented yet:
 
-- No production shader uses explicit `ConstantBuffer<T>` / `ParameterBlock<T>`
-  resource grouping yet; current shaders still rely on Slang's implicit global block.
-- The repository now has the first set-aware logical resource API foundation:
-  - `ShaderBindingPoint`
-  - set-aware `IShader` overloads
-  - logical binding identity stored in runtime block layouts
-  but current production paths still execute through flat-slot compatibility
-  shims and do not yet preserve backend-local binding metadata separately.
 - `SetPushConstants()` is still intentionally deferred.
 - Material upload is not yet reflection-packed end-to-end.
+- The renderer has not yet fully adopted the long-term multi-set convention
+  (`PerFrame`, `PerPass`, `PerMaterial`, `PerDraw`) as the dominant organization.
+- Flat-slot overloads remain as compatibility shims for bridge/demo coverage.
 
 Practical summary: the project is no longer in the old GLSL-only world, but it is
-also not yet at the final "set-aware logical bindings + reflected packing" design.
+also not yet at the final "fully material-driven multi-set architecture" design.
 It is best described as:
 
 - reflected packing and Phase 5 bridge APIs are in place
-- the set-aware migration has started at the runtime/API level
-- the next major step is preserving backend binding metadata separately from the
-  compatibility flat-slot lowering
+- the Phase 6 set-aware binding redesign is complete
+- the next major step is evolving materials/resource grouping on top of that
 
 ### 1.3 Long-Term Target (R5+)
 
@@ -253,11 +251,11 @@ to `IShader`. OpenGL and Metal implement them. Mainline passes migrate to buffer
 based uploads. At the same time, reflected packing removes handwritten layout
 assumptions from the highest-risk blocks.
 
-**Phase C (Next Binding Redesign)**: Introduce set-aware binding types and make
+**Phase C (Completed Binding Redesign)**: Introduce set-aware binding types and make
 logical `ShaderBindingPoint` the primary identity in runtime layout objects and
 public shader/resource APIs.
 
-**Phase D (Cleanup)**: Remove or narrow flat-slot compatibility APIs once the
+**Phase D (Cleanup / Material Evolution)**: Remove or narrow flat-slot compatibility APIs once the
 set-aware path is proven. Name-based setters remain only where they still provide
 clear value for tests, tiny demos, or tooling.
 
@@ -738,23 +736,25 @@ This is acceptable for initial bring-up and very small shader counts, but it sho
 now be considered explicitly temporary. The Metal bring-up demonstrated that "works
 for a few shaders" is not the same as "portable across backends."
 
-Current repository status: this is still the dominant implementation strategy for
-pass-owned uniform data. `ForwardPass`, `ShadowPass`, tutorial demos, and preview
-passes all upload raw structs or raw scalars directly via `SetUniformBlock()`.
+Current repository status: this is no longer the dominant implementation strategy
+for the mainline rendering paths. `ForwardPass`, `ShadowPass`,
+`TexturePreviewPass`, and `BasicLighting` now rely on reflected block layouts plus
+owned uniform buffers. Raw `SetUniformBlock()` remains mostly for compatibility
+tests and older tutorial/demo paths.
 
 **Phase B (Buffer binding)**: Introduce Slang reflection metadata to validate and/or pack uniform
 buffers at load time. At minimum, log warnings when a handwritten struct disagrees
 with the shader layout. Preferably, stop uploading handwritten structs directly and
 instead pack bytes through a shared `PackedUniformBlock`-style helper.
 
-Current repository status: only partial groundwork exists.
+Current repository status: Phase B is complete on the mainline path.
 
 - `SetUniformBlock(binding, data, size)` is available in `IShader`
-- Metal has optional reflection-sidecar loading code for named setters
-- the build does not yet generate reflection sidecars
-- there is no shared block-packing helper yet
-
-So Phase B should be considered "started conceptually, not completed in code."
+- the build generates reflection sidecars where needed
+- OpenGL and Metal both consume reflected layout/binding metadata
+- `PackedUniformBlock` exists as a shared block-packing helper
+- migrated passes/shaders now use reflected layouts instead of handwritten
+  backend-assumption structs
 
 **Phase C (Full reflection)**: Material properties are dynamically mapped to shader buffer offsets
 via reflection. No hardcoded layout structs needed. Adding a property to a shader automatically

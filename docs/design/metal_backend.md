@@ -34,9 +34,9 @@ bridge, see `set_aware_shader_binding_model.md`.
 
 ### 1.3 Current Repository Status (2026-03)
 
-The implementation in this repository has progressed beyond "design only", but it
-has not yet reached the full buffer/reflection architecture described later in
-this document.
+The implementation in this repository has progressed beyond "design only", and the
+set-aware shader binding redesign described by the companion docs is now complete
+for the Metal runtime path.
 
 What is already implemented:
 
@@ -48,34 +48,37 @@ What is already implemented:
 - `MetalShader` supports both:
   - named setter staging buffers (`SetFloat`, `SetMat4`, etc.)
   - raw `SetUniformBlock(binding, data, size)` uploads
-  - `BindUniformBuffer(slot, buffer)` with per-draw snapshot semantics
-  - `BindTexture(slot, texture)` with shader-owned binding state on the mainline path
+  - set-aware `BindUniformBuffer(ShaderBindingPoint, buffer)` with per-draw
+    snapshot semantics
+  - set-aware `BindTexture(ShaderBindingPoint, texture)` with shader-owned
+    binding state on the mainline path
+- `MetalShader` preserves backend-local buffer/texture/sampler indices separately
+  from logical binding identity and resolves bindings through that metadata.
+- The migrated shader/passes (`TexturePreview`, `ShadowDepth`, `ForwardLit`,
+  `BasicLit`) have been validated on macOS.
 
 What is only partially implemented:
 
-- `MetalShader` already has code to load a `.reflect.json` sidecar for reflected
-  uniform layouts and named-setter compatibility, but the runtime metadata still
-  reflects the transitional flat-slot binding model.
-- Mainline passes have migrated off handwritten packing, but material upload and
-  explicit shader resource grouping are not finished yet.
+- Material upload and the full multi-set material/resource organization are not
+  finished yet.
 
 What is not implemented yet:
 
 - No `SetPushConstants()` API exists in `IShader` yet.
-- No set-aware logical binding model exists in the runtime API yet.
-- Shaders still rely on loose `uniform` declarations grouped into Slang's implicit
-  global parameter block rather than explicit `ConstantBuffer<T>` / `ParameterBlock<T>`
-  resources.
+- The renderer has not yet fully moved to the final multi-set material convention
+  described in the higher-level design docs.
+- Flat-slot compatibility shims still exist for bridge/demo coverage.
 
 In other words, the repository is currently in a transitional state:
 
-- more advanced than the original OpenGL-only/name-based model
-- not yet at the final set-aware + reflection-packed architecture
+- beyond the original OpenGL-only/name-based model
+- finished with the core set-aware + reflection-packed binding migration
+- still evolving toward the final material/resource-organization architecture
 
 The later sections of this document should therefore be read as:
 
-- "implemented now" for the basic backend plumbing
-- "next migration target" for set-aware resource binding and explicit shader resources
+- "implemented now" for the Metal backend plumbing and set-aware binding path
+- "next migration target" for material/resource-organization evolution on top of it
 
 ---
 

@@ -27,13 +27,16 @@ The current repository has already moved past the old OpenGL-only shader model:
 - `SetUniformBlock(binding, data, size)` is already used in multiple passes
 - Metal backend is implemented and running
 
-However, the repository is still in an intermediate state:
+The original gap described by this document has now been closed on the mainline
+rendering paths:
 
-- the current bridge resource API still uses flat slots
-- shader data is reflected and packed correctly on the mainline paths, but not yet everywhere
-- reflection metadata is in place, but not yet in the final set-aware form
-- shader source still uses loose `uniform` declarations instead of explicit
-  resource groupings
+- runtime/public shader APIs now use logical `ShaderBindingPoint { set, binding }`
+- backend binding is routed through preserved backend-local metadata on both
+  OpenGL and Metal
+- mainline shaders now use explicit reflected blocks/resources instead of relying
+  on the old implicit-global-block bridge shape
+- the production pilot shaders (`TexturePreview`, `ShadowDepth`, `ForwardLit`)
+  and the tutorial `BasicLit` path all run through the set-aware model
 
 The macOS `BasicLight` bug made this gap concrete:
 
@@ -64,40 +67,36 @@ This plan exists to close that gap without trying to rewrite the renderer in one
 
 ### 2.2 What Is Not True Yet
 
-- the repository does not yet use set-aware binding metadata end-to-end
-- there is no `SetPushConstants()` API in `IShader`
-- shaders do not yet organize resources as `PerFrame` / `PerMaterial` / `PerPass`
-  explicit blocks
-- the runtime does not yet preserve backend-local binding indices as data that is
-  cleanly separated from logical `set + binding` identity
+- there is still no `SetPushConstants()` API in `IShader`
+- the renderer has not yet been reorganized around the full `PerFrame` /
+  `PerMaterial` / `PerPass` / `PerDraw` set convention described in the target
+  architecture docs
+- `Material` is still not reflection-packed end-to-end or resolved through a
+  dedicated multi-set material binding workflow
+- flat-slot compatibility shims still exist for bridge/demo coverage, even though
+  they are no longer the primary model
 
-### 2.2.1 Update After Batch 1 (March 28, 2026)
+### 2.2.1 Completion Update (March 28, 2026)
 
-The repository has now crossed the first set-aware foundation milestone:
+The set-aware binding redesign is now complete for the shader/runtime layer:
 
 - `ShaderBindingPoint` and `ShaderResourceKind` exist in shared runtime code
 - `ShaderUniformBlockLayout` stores logical `{set, binding}` identity
 - `IShader` exposes set-aware overloads for uniform-buffer binding, texture
   binding, and block-layout queries
-- flat-slot compatibility shims remain in place and currently map
-  `slot N -> { set = 0, binding = N }`
-
-This means the repository is no longer in the "no set-aware API exists" state.
-It is now in a transitional state where:
-
-- logical binding identity exists in runtime types and public shader APIs
-- backend metadata and binding application still rely on bridge-era flattening
+- runtime resource metadata preserves backend-local buffer/texture/sampler indices
+- OpenGL and Metal resolve binding through that metadata instead of relying on
+  flat-slot identity
+- production pilot shaders and the tutorial `BasicLit` path have all been migrated
+- Windows/OpenGL and macOS/Metal have both been validated on the migrated paths
 
 ### 2.3 Stage Assessment
 
 Using the terminology from `shader_material_system.md`, the repository is currently:
 
 - past the original packer migration and Phase 5 bridge work
-- in the early implementation stage of the set-aware binding redesign
-- specifically:
-  - foundational runtime types are in place
-  - compatibility shims are in place
-  - backend metadata separation is the next missing layer
+- finished with the core Phase 6 set-aware binding redesign
+- now in post-migration cleanup / next-architecture territory
 
 That means the next steps should not be:
 
@@ -108,10 +107,9 @@ That means the next steps should not be:
 
 The next steps should be:
 
-- preserve logical `set + binding` identity as the runtime source of truth
-- extend shader metadata so backend-local indices are preserved separately
-- route backend binding through that metadata
-- then migrate production shaders to explicit resource groupings
+- finish documentation cleanup outside the checklist/model pair
+- decide how aggressively to narrow or remove flat-slot compatibility overloads
+- evolve the material system onto explicit multi-set resource grouping
 
 ---
 
@@ -157,7 +155,8 @@ For this migration document, the important practical split is:
 
 - **completed bridge work**: flat-slot `BindUniformBuffer(slot, ...)` /
   `BindTexture(slot, ...)`
-- **next redesign step**: logical `ShaderBindingPoint { set, binding }`
+- **completed redesign work**: logical `ShaderBindingPoint { set, binding }`
+  plus backend-local metadata-driven binding
 
 The transitional flat-slot convention already implemented in the repository is:
 
@@ -666,17 +665,22 @@ This phase is intentionally later than packer introduction.
 It changes both runtime binding identity and shader source organization, so it
 should be done only after reflected packing is already stable.
 
-Progress note as of March 28, 2026:
+Completion note as of March 28, 2026:
 
-- the first half of item 1 is complete:
+- item 1 is complete end-to-end:
   - `ShaderBindingPoint` exists
   - runtime block layouts are keyed by logical binding identity
   - `IShader` exposes set-aware overloads
-- the second half of item 1 is still pending:
-  - backend-local binding metadata is not yet preserved as a first-class layer
-  - backend binding calls still depend on compatibility flattening
+  - backend-local binding metadata is preserved as a first-class layer
+  - backend binding calls route through that metadata
+- the production pilot migrations are also complete:
+  - `TexturePreview`
+  - `ShadowDepth`
+  - `ForwardLit`
+  - tutorial `BasicLit`
 - practical next step:
-  - complete the metadata layer before touching pilot shader migrations
+  - move beyond the binding-model redesign into material-system evolution and
+    compatibility cleanup
 
 ### Reflection Path Coupling (Must Read Before Starting)
 
