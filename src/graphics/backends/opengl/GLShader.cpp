@@ -45,6 +45,26 @@ std::string TrimTrailingNull(std::string value)
 	return value;
 }
 
+uint32_t ResolveGLBufferBindingIndex(const ShaderBackendBindingMap &backendBindings,
+                                     ShaderBindingPoint logicalBinding)
+{
+	auto it = backendBindings.find(logicalBinding);
+	if (it != backendBindings.end() && it->second.BufferIndex.has_value())
+		return *it->second.BufferIndex;
+
+	return logicalBinding.Binding;
+}
+
+uint32_t ResolveGLTextureBindingIndex(const ShaderBackendBindingMap &backendBindings,
+                                      ShaderBindingPoint logicalBinding)
+{
+	auto it = backendBindings.find(logicalBinding);
+	if (it != backendBindings.end() && it->second.TextureIndex.has_value())
+		return *it->second.TextureIndex;
+
+	return logicalBinding.Binding;
+}
+
 } // namespace
 
 GLShader::GLShader(uint32_t program, std::string name)
@@ -391,7 +411,7 @@ void GLShader::SetUniformBlock(uint32_t binding, const void *data, uint32_t size
 
 void GLShader::BindUniformBuffer(ShaderBindingPoint binding, const Ref<IUniformBuffer> &buffer)
 {
-	const uint32_t slot = binding.Binding;
+	const uint32_t slot = ResolveGLBufferBindingIndex(m_BackendBindings, binding);
 	if (!buffer)
 	{
 		glBindBufferBase(GL_UNIFORM_BUFFER, slot, 0);
@@ -404,7 +424,7 @@ void GLShader::BindUniformBuffer(ShaderBindingPoint binding, const Ref<IUniformB
 
 void GLShader::BindTexture(ShaderBindingPoint binding, const Ref<ITexture2D> &texture)
 {
-	const uint32_t slot = binding.Binding;
+	const uint32_t slot = ResolveGLTextureBindingIndex(m_BackendBindings, binding);
 	if (texture)
 		texture->Bind(slot);
 	else

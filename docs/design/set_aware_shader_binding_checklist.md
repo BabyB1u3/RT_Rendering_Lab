@@ -77,25 +77,25 @@ Recommended rule: each batch should leave the repository buildable and testable.
     - logical resource entries
     - backend-local binding metadata for the resource kinds currently surfaced by
       the sidecar path
+- `Batch 4` backend binding application is now also in code:
+  - OpenGL resolves uniform-buffer and texture binding through preserved backend metadata
+  - Metal binding execution now resolves buffer/texture/sampler indices through
+    preserved backend metadata, with compatibility fallback still retained
 - what is still **not** done:
-  - OpenGL and Metal do not yet route live binding calls through the new
-    logical-to-backend metadata layer
-  - the current runtime metadata coverage is enough for the next redesign step,
+  - the current runtime metadata coverage is enough for the live binding path,
     but not yet the final production shape for every resource kind and backend case
   - production shaders/passes still use bridge-era slot assumptions
 
 ### Immediate Next Step
 
-Proceed to `Batch 4`.
+Proceed to `Batch 5`, then `Batch 6.1`.
 
 The concrete objective for the next implementation wave is:
 
-- make OpenGL and Metal bind through the preserved metadata instead of through
-  compatibility flattening assumptions
-- keep the set-aware public API stable while changing only backend-internal
-  binding resolution
-- leave current bridge call sites buildable while proving the metadata-driven
-  path on real shaders
+- add more explicit regression coverage for logical binding lookup and
+  metadata-driven backend mapping
+- then prove the full path on the first pilot shader migration
+  (`TexturePreview`)
 
 ---
 
@@ -217,7 +217,6 @@ Recommended repository-local sequence:
 
 ### What Still Belongs To Later Batches
 
-- backend binding execution still does not consume this metadata end-to-end
 - metadata coverage and schema may still need refinement during the first live
   backend-mapping wave
 - pass code and shader source have not been migrated yet
@@ -287,7 +286,7 @@ current repository in one step.
 
 ### Status
 
-Ready to start. This is now the critical-path next step.
+Completed on March 28, 2026.
 
 ### Goal
 
@@ -327,6 +326,19 @@ Make OpenGL and Metal actually consume the logical-to-backend mapping.
 - OpenGL and Metal both bind resources through the same logical API
 - renderer code no longer needs to know backend-local resource indices
 - current bridge paths still work
+
+### What Landed In Code
+
+- OpenGL `BindUniformBuffer()` now resolves logical binding through preserved GL
+  buffer binding metadata
+- OpenGL `BindTexture()` now resolves logical binding through preserved GL
+  texture binding metadata
+- Metal uniform-buffer binding execution now resolves backend buffer indices
+  through preserved metadata
+- Metal texture/sampler binding execution now resolves backend indices through
+  preserved metadata
+- compatibility fallback behavior remains in place when a binding entry is not
+  yet present in metadata
 
 ---
 

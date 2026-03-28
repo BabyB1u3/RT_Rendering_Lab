@@ -90,6 +90,47 @@ static std::optional<ShaderBindingPoint> ParseLogicalBindingPoint(const nlohmann
 	};
 }
 
+uint32_t ResolveMetalBufferBindingIndex(const ShaderBackendBindingMap &backendBindings,
+                                        ShaderBindingPoint logicalBinding)
+{
+	auto it = backendBindings.find(logicalBinding);
+	if (it != backendBindings.end() && it->second.BufferIndex.has_value())
+		return *it->second.BufferIndex;
+
+	return logicalBinding.Binding;
+}
+
+uint32_t ResolveMetalTextureBindingIndex(const ShaderBackendBindingMap &backendBindings,
+                                         ShaderBindingPoint logicalBinding,
+                                         uint32_t textureBindingBase)
+{
+	auto it = backendBindings.find(logicalBinding);
+	if (it != backendBindings.end() && it->second.TextureIndex.has_value())
+		return *it->second.TextureIndex;
+
+	return (logicalBinding.Binding >= textureBindingBase)
+		? (logicalBinding.Binding - textureBindingBase)
+		: logicalBinding.Binding;
+}
+
+uint32_t ResolveMetalSamplerBindingIndex(const ShaderBackendBindingMap &backendBindings,
+                                         ShaderBindingPoint logicalBinding,
+                                         uint32_t textureBindingBase)
+{
+	auto it = backendBindings.find(logicalBinding);
+	if (it != backendBindings.end())
+	{
+		if (it->second.SamplerIndex.has_value())
+			return *it->second.SamplerIndex;
+		if (it->second.TextureIndex.has_value())
+			return *it->second.TextureIndex;
+	}
+
+	return (logicalBinding.Binding >= textureBindingBase)
+		? (logicalBinding.Binding - textureBindingBase)
+		: logicalBinding.Binding;
+}
+
 // --- Impl ---
 
 static constexpr size_t kStagingBufferSize = 4096;
@@ -781,7 +822,8 @@ void MetalShader::FlushUniforms(void *mtlEncoder)
 
 	for (const auto &[binding, buffer] : m_Impl->uniformBuffers)
 	{
-		uint32_t slotIndex = kUniformBaseSlot + binding.Binding;
+		const uint32_t slotIndex = kUniformBaseSlot +
+			ResolveMetalBufferBindingIndex(m_Impl->backendBindings, binding);
 		auto *metalBuffer = AsMetal<MetalUniformBuffer>(buffer);
 		id<MTLBuffer> nativeBuffer = (__bridge id<MTLBuffer>)metalBuffer->GetMTLBuffer();
 		void *contents = nativeBuffer.contents;
@@ -799,15 +841,17 @@ void MetalShader::FlushUniforms(void *mtlEncoder)
 	const uint32_t textureBase = m_Impl->textureBindingBase;
 	for (const auto &[binding, texture] : m_Impl->boundTextures)
 	{
-		const uint32_t logicalBinding = binding.Binding;
-		const uint32_t metalSlot = (logicalBinding >= textureBase) ? (logicalBinding - textureBase) : logicalBinding;
+		const uint32_t metalTextureSlot =
+			ResolveMetalTextureBindingIndex(m_Impl->backendBindings, binding, textureBase);
+		const uint32_t metalSamplerSlot =
+			ResolveMetalSamplerBindingIndex(m_Impl->backendBindings, binding, textureBase);
 		auto *metalTexture = AsMetal<MetalTexture2D>(texture);
 		id<MTLTexture> nativeTexture = (__bridge id<MTLTexture>)metalTexture->GetMTLTexture();
 		id<MTLSamplerState> samplerState = (__bridge id<MTLSamplerState>)metalTexture->GetMTLSamplerState();
 
-		[encoder setVertexTexture:nativeTexture atIndex:metalSlot];
-		[encoder setFragmentTexture:nativeTexture atIndex:metalSlot];
-		[encoder setVertexSamplerState:samplerState atIndex:metalSlot];
-		[encoder setFragmentSamplerState:samplerState atIndex:metalSlot];
+		[encoder setVertexTexture:nativeTexture atIndex:metalTextureSlot];
+		[encoder setFragmentTexture:nativeTexture atIndex:metalTextureSlot];
+		[encoder setVertexSamplerState:samplerState atIndex:metalSamplerSlot];
+		[encoder setFragmentSamplerState:samplerState atIndex:metalSamplerSlot];
 	}
 }

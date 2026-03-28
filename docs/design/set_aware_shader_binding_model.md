@@ -45,13 +45,14 @@ The first two foundational runtime waves have landed in code:
 
 What has **not** landed yet:
 
-- OpenGL and Metal binding application still depends on compatibility flattening
-  instead of an explicit logical-to-backend mapping layer
+- metadata coverage and schema are not yet in their final production shape for
+  every resource kind and backend case
 - production passes and shaders still use bridge-era slot assumptions
 
 Practical consequence: the repository has now entered the set-aware migration,
-and has crossed from the "logical identity exists" stage into the
-"metadata exists but binding still uses compatibility flattening" stage.
+and has crossed into the "logical identity, metadata, and backend binding
+resolution all exist" stage. The remaining work is coverage, shader migration,
+and eventual cleanup of bridge-era assumptions.
 
 ---
 
@@ -590,8 +591,7 @@ they become just one backend view layered under a preserved logical binding.
 Status on March 28, 2026:
 
 - foundational metadata support is in place
-- the next required implementation step is consuming that metadata in backend
-  binding application
+- that metadata is now also consumed by backend binding execution
 
 ### 9.3 Stage 3 - Add Set-Aware `IShader` APIs
 
@@ -614,9 +614,11 @@ At the current repository state:
 
 - runtime identity and public API now both speak in logical `ShaderBindingPoint`
 - runtime metadata also preserves backend-local binding information
-- the remaining gap is execution:
-  backend binding code still has to resolve through this metadata instead of
+- backend binding execution now resolves through this metadata rather than
   using the bridge-era flattening rule directly
+- the remaining gap is production adoption:
+  shader migrations, wider regression coverage, and cleanup of compatibility-only
+  assumptions
 
 ### 9.4 Stage 4 - Pilot Shader Migration
 
