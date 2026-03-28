@@ -390,7 +390,7 @@ TEST_F(ShaderIntegrationTests, CompiledTexturePreviewShaderProducesRealDrawOutpu
 	pso.BlendEnabled = false;
 	pso.CullFaceEnabled = false;
 
-	const auto *layout = shader->GetUniformBlockLayout(0);
+	const auto *layout = shader->GetUniformBlockLayout({0, 0});
 	ASSERT_NE(layout, nullptr);
 	PackedUniformBlock block(*layout);
 	const int32_t isDepthTexture = 0;
@@ -400,7 +400,7 @@ TEST_F(ShaderIntegrationTests, CompiledTexturePreviewShaderProducesRealDrawOutpu
 	RenderCommand::SetPipelineState(pso);
 	RenderCommand::SetViewport(0, 0, 8, 8);
 	shader->Bind();
-	RenderCommand::SetTexture(1, texture);
+	shader->BindTexture({0, 1}, texture);
 	shader->SetUniformBlock(0, block.Data(), block.Size());
 	RenderCommand::DrawIndexed(quad->GetVertexArray());
 	RenderCommand::EndRenderPass();

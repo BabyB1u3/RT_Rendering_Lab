@@ -52,6 +52,7 @@ public:
 	virtual void BindUniformBuffer(ShaderBindingPoint binding, const Ref<IUniformBuffer> &buffer) = 0;
 
 	/// Compatibility shim for bridge code that still uses flat slots.
+	[[deprecated("Use BindUniformBuffer(ShaderBindingPoint, ...) instead")]]
 	void BindUniformBuffer(uint32_t slot, const Ref<IUniformBuffer> &buffer)
 	{
 		BindUniformBuffer(MakeFlatShaderBindingPoint(slot), buffer);
@@ -63,6 +64,7 @@ public:
 	virtual void BindTexture(ShaderBindingPoint binding, const Ref<ITexture2D> &texture) = 0;
 
 	/// Compatibility shim for bridge code that still uses flat slots.
+	[[deprecated("Use BindTexture(ShaderBindingPoint, ...) instead")]]
 	void BindTexture(uint32_t slot, const Ref<ITexture2D> &texture)
 	{
 		BindTexture(MakeFlatShaderBindingPoint(slot), texture);
@@ -73,6 +75,7 @@ public:
 	virtual const ShaderUniformBlockLayout *GetUniformBlockLayout(ShaderBindingPoint binding) const = 0;
 
 	/// Compatibility shim for bridge code that still uses flat slots.
+	[[deprecated("Use GetUniformBlockLayout(ShaderBindingPoint) instead")]]
 	const ShaderUniformBlockLayout *GetUniformBlockLayout(uint32_t binding) const
 	{
 		return GetUniformBlockLayout(MakeFlatShaderBindingPoint(binding));
