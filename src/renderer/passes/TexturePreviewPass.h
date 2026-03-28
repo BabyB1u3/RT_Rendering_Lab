@@ -18,6 +18,8 @@
 class IShader;
 class Mesh;
 class ITexture2D;
+class IUniformBuffer;
+class ShaderUniformBlockLayout;
 
 class TexturePreviewPass : public RenderPass
 {
@@ -29,5 +31,7 @@ public:
 
 private:
     Ref<IShader> m_Shader;
+    const ShaderUniformBlockLayout *m_UniformBlockLayout = nullptr;
+    Ref<IUniformBuffer> m_UniformBuffer;
     Ref<Mesh> m_FullscreenQuad;
 };

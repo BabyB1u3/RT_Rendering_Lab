@@ -27,6 +27,8 @@ class IFramebuffer;
 class IRenderTarget;
 class IShader;
 class ITexture2D;
+class IUniformBuffer;
+class ShaderUniformBlockLayout;
 
 class ForwardPass : public RenderPass
 {
@@ -49,5 +51,7 @@ private:
     glm::vec4 m_ClearColor = {0.1f, 0.1f, 0.12f, 1.0f};
 
     Ref<IShader> m_Shader;
+    const ShaderUniformBlockLayout *m_UniformBlockLayout = nullptr;
+    Ref<IUniformBuffer> m_UniformBuffer;
     Ref<ITexture2D> m_FallbackShadowMap;
 };

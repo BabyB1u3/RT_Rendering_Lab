@@ -4,7 +4,7 @@
 /// @brief Tutorial 06: Blinn-Phong lighting with a single directional light.
 ///
 /// Validates: normal data passing, lighting calculation (ambient + diffuse +
-/// specular), multiple uniform uploads via SetUniformBlock.
+/// specular), multiple uniform uploads via BindUniformBuffer.
 /// Uses BasicLit.slang — Phong lighting with ViewProjection, Model,
 /// NormalMatrix, light params, and material params.
 
@@ -20,7 +20,9 @@
 
 class IRenderTarget;
 class IShader;
+class IUniformBuffer;
 class Mesh;
+class ShaderUniformBlockLayout;
 
 class BasicLighting : public DemoBase
 {
@@ -46,6 +48,8 @@ private:
     Ref<IRenderTarget> m_BackBuffer;
     Ref<Mesh> m_CubeMesh;
     Ref<IShader> m_Shader;
+    const ShaderUniformBlockLayout *m_UniformBlockLayout = nullptr;
+    Ref<IUniformBuffer> m_UniformBuffer;
 
     Camera m_Camera;
     DebugCameraController m_CameraController;

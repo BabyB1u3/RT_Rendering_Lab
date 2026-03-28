@@ -13,6 +13,7 @@
 #include "graphics/RenderCommand.h"
 #include "graphics/interfaces/IRenderTarget.h"
 #include "graphics/interfaces/IShader.h"
+#include "graphics/interfaces/IUniformBuffer.h"
 
 BasicLighting::BasicLighting(uint32_t width, uint32_t height)
     : m_ViewportWidth(width),
@@ -28,6 +29,11 @@ void BasicLighting::OnAttach()
 
     m_Shader = GetDevice()->CreateShader("BasicLit");
     RTRLAB_ASSERT_MSG(m_Shader, "BasicLighting demo failed to create BasicLit shader");
+    m_UniformBlockLayout = m_Shader->GetUniformBlockLayout(0);
+    RTRLAB_ASSERT_MSG(m_UniformBlockLayout,
+                      "BasicLighting: shader must provide reflected layout for uniform block binding 0.");
+    m_UniformBuffer = GetDevice()->CreateUniformBuffer(m_UniformBlockLayout->GetSize());
+    RTRLAB_ASSERT_MSG(m_UniformBuffer, "BasicLighting demo failed to create uniform buffer for binding 0");
 
     m_CubeMesh = MeshFactory::CreateCube();
 
@@ -55,6 +61,8 @@ void BasicLighting::OnAttach()
 void BasicLighting::OnDetach()
 {
     m_CubeMesh.reset();
+    m_UniformBuffer.reset();
+    m_UniformBlockLayout = nullptr;
     m_Shader.reset();
     m_BackBuffer.reset();
     m_InputMap.Clear();
@@ -69,13 +77,12 @@ void BasicLighting::OnUpdate(double dt)
 void BasicLighting::DrawCube(const glm::mat4 &vp, const glm::mat4 &model,
                              const glm::vec3 &albedo, float specPower, float ambient)
 {
-    const ShaderUniformBlockLayout *blockLayout = m_Shader->GetUniformBlockLayout(0);
-    RTRLAB_ASSERT_MSG(blockLayout,
-                      "BasicLighting: shader must provide reflected layout for uniform block binding 0.");
+    RTRLAB_ASSERT_MSG(m_UniformBlockLayout, "BasicLighting uniform block layout is null");
+    RTRLAB_ASSERT_MSG(m_UniformBuffer, "BasicLighting uniform buffer is null");
 
     const glm::mat4 normalMatrix = glm::transpose(glm::inverse(model));
     const glm::vec3 lightDirection = glm::normalize(m_LightDirection);
-    PackedUniformBlock block(*blockLayout);
+    PackedUniformBlock block(*m_UniformBlockLayout);
     block.WriteRequired("u_ViewProjection", vp);
     block.WriteRequired("u_Model", model);
     block.WriteRequired("u_NormalMatrix", normalMatrix);
@@ -86,7 +93,8 @@ void BasicLighting::DrawCube(const glm::mat4 &vp, const glm::mat4 &model,
     block.WriteRequired("u_Albedo", albedo);
     block.WriteRequired("u_SpecularPower", specPower);
     block.WriteRequired("u_AmbientStrength", ambient);
-    m_Shader->SetUniformBlock(0, block.Data(), block.Size());
+    m_UniformBuffer->SetData(block.Data(), block.Size());
+    m_Shader->BindUniformBuffer(0, m_UniformBuffer);
 
     RenderCommand::DrawIndexed(m_CubeMesh->GetVertexArray());
 }
@@ -141,7 +149,7 @@ void BasicLighting::OnImGuiRender()
     ImGui::Begin("06 - Basic Lighting");
     ImGui::TextWrapped(
         "Blinn-Phong lighting with a single directional light.\n"
-        "Validates: normal passing, ambient + diffuse + specular, SetUniformBlock.");
+        "Validates: normal passing, ambient + diffuse + specular, BindUniformBuffer.");
 
     ImGui::Separator();
     ImGui::Text("Directional Light");

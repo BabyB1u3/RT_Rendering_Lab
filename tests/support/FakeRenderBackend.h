@@ -21,6 +21,7 @@
 #include "graphics/interfaces/IRenderTarget.h"
 #include "graphics/interfaces/IShader.h"
 #include "graphics/interfaces/ITexture2D.h"
+#include "graphics/interfaces/IUniformBuffer.h"
 #include "graphics/interfaces/IVertexArray.h"
 #include "graphics/interfaces/IVertexBuffer.h"
 
@@ -216,6 +217,12 @@ private:
 class FakeShader final : public IShader
 {
 public:
+    struct UniformBufferBindEvent
+    {
+        uint32_t Slot = 0;
+        Ref<IUniformBuffer> Buffer;
+    };
+
     struct TextureBindEvent
     {
         uint32_t Slot = 0;
@@ -299,6 +306,16 @@ public:
             std::memcpy(LastUniformBytes.data(), data, size);
     }
 
+    void BindUniformBuffer(uint32_t slot, const Ref<IUniformBuffer> &buffer) override
+    {
+        if (buffer)
+            BoundUniformBuffers[slot] = buffer;
+        else
+            BoundUniformBuffers.erase(slot);
+
+        UniformBufferBindEvents.push_back({slot, buffer});
+    }
+
     void BindTexture(uint32_t slot, const Ref<ITexture2D> &texture) override
     {
         if (texture)
@@ -325,6 +342,8 @@ public:
     uint32_t UniformUploadCount = 0;
     std::vector<std::byte> LastUniformBytes;
     std::unordered_map<uint32_t, ShaderUniformBlockLayout> BlockLayouts;
+    std::unordered_map<uint32_t, Ref<IUniformBuffer>> BoundUniformBuffers;
+    std::vector<UniformBufferBindEvent> UniformBufferBindEvents;
     std::unordered_map<uint32_t, Ref<ITexture2D>> BoundTextures;
     std::vector<TextureBindEvent> TextureBindEvents;
 
@@ -379,6 +398,40 @@ public:
 
 private:
     uint32_t m_Count = 0;
+};
+
+class FakeUniformBuffer final : public IUniformBuffer
+{
+public:
+    explicit FakeUniformBuffer(uint32_t size)
+        : m_Size(size), Bytes(size)
+    {
+    }
+
+    void SetData(const void *data, uint32_t size, uint32_t offset = 0) override
+    {
+        LastSetData = data;
+        LastSetSize = size;
+        LastSetOffset = offset;
+
+        if (offset + size > Bytes.size())
+            Bytes.resize(offset + size);
+
+        if (size > 0 && data)
+            std::memcpy(Bytes.data() + offset, data, size);
+    }
+
+    uint32_t GetSize() const override
+    {
+        return m_Size;
+    }
+
+public:
+    uint32_t m_Size = 0;
+    const void *LastSetData = nullptr;
+    uint32_t LastSetSize = 0;
+    uint32_t LastSetOffset = 0;
+    std::vector<std::byte> Bytes;
 };
 
 class FakeVertexArray final : public IVertexArray
@@ -530,6 +583,13 @@ public:
         return CreateRef<FakeIndexBuffer>(count);
     }
 
+    Ref<IUniformBuffer> CreateUniformBuffer(uint32_t size) override
+    {
+        auto buffer = CreateRef<FakeUniformBuffer>(size);
+        CreatedUniformBuffers.push_back(buffer);
+        return buffer;
+    }
+
     Ref<IVertexArray> CreateVertexArray() override
     {
         return CreateRef<FakeVertexArray>();
@@ -606,6 +666,7 @@ public:
     Ref<FakeRenderTarget> LastBackBufferTarget;
     std::vector<Ref<FakeTexture2D>> CreatedTextures;
     std::vector<Ref<FakeShader>> CreatedShaders;
+    std::vector<Ref<FakeUniformBuffer>> CreatedUniformBuffers;
     std::vector<Ref<FakeFramebuffer>> CreatedFramebuffers;
     std::vector<Ref<FakeRenderTarget>> BackBufferTargets;
     std::vector<Ref<FakeRenderTarget>> FramebufferTargets;
