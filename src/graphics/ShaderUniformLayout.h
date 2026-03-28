@@ -42,7 +42,8 @@ uint32_t GetShaderUniformValueTypeSize(ShaderUniformValueType type);
 ///      (Slang may append _N to disambiguate GLSL output; the Slang source name has no suffix.)
 ///
 /// The result must match the field name used in Write() / WriteRequired() and the name
-/// stored in the Metal reflection sidecar. See Section 5.5 of uniform_reflection_migration.md.
+/// stored in the Metal reflection sidecar. See the field-name contract in
+/// `docs/design/shader_binding.md`.
 std::string NormalizeGLUniformFieldName(std::string name);
 
 struct ShaderUniformFieldInfo
