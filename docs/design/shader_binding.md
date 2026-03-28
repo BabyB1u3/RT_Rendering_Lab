@@ -145,11 +145,12 @@ mostly behaves as if the working layout were a flattened set-0 bridge.
 
 Current evidence of this transitional state:
 
-- `ForwardLit` still keeps its active resources in the current set-0 layout
-- `ForwardPass` explicitly says it is keeping the current flat set-0 binding
-  layout while moving to logical binding points
-- engine constants for `FramePass`, `Material`, and `Draw` exist, but they are
-  not yet the real production organization of shader resources
+- the repository only has one maintained production pass (`ForwardPass`) fully
+  migrated to the final set-aware layout so far
+- other maintained or future renderer paths still need to adopt the same
+  ownership split to make the layout truly repository-wide
+- bridge-era flat binding helpers still exist for compatibility and are still
+  exercised by older demos/tests
 
 Target state:
 
@@ -175,6 +176,17 @@ Acceptance criteria:
 - `ForwardLit` no longer treats material textures/resources as part of the
   bridge-era set-0 layout
 
+Current repository note:
+
+- `ForwardLit` now uses the intended split:
+  - set 0 = frame/pass
+  - set 1 = material
+  - set 2 = draw
+- `ForwardPass` now binds those three ownership domains independently
+- OpenGL still executes a flattened binding space at runtime, but the flattening
+  now happens as an explicit backend translation from logical binding metadata,
+  not as the authored shader contract
+
 ### 4.2 Complete the Material-Side Adoption
 
 The pilot migration intentionally stopped short of the full material rewrite.
@@ -184,8 +196,8 @@ Current evidence:
 
 - `Material` still exposes textures through `TextureSlot`
 - `Material` still carries a legacy `UploadToShader()` path
-- `ForwardPass` still manually extracts material values and binds material
-  textures itself
+- the new reflection-driven material helpers exist, but only the first
+  maintained production path is using them today
 
 This means the repository has set-aware shader binding, but not yet a final
 set-aware material/resource organization.
@@ -207,6 +219,14 @@ Acceptance criteria:
 - production material paths no longer require passes to manually preserve a
   bridge-era texture binding convention
 
+Current repository note:
+
+- `Material` now has minimal reflection-driven helpers for:
+  - writing per-material fields into `PackedUniformBlock`
+  - binding material-owned textures through logical binding points
+- this is enough for `ForwardPass`, but it is intentionally not yet the final
+  material rewrite
+
 ### 4.3 Finish Metadata Coverage and Schema Refinement
 
 The current metadata path is sufficient for the live binding path, but it is
@@ -215,7 +235,9 @@ case.
 
 Current evidence:
 
-- OpenGL still preserves some resource bindings by parsing generated GLSL
+- OpenGL now prefers Slang reflection sidecars for block/resource metadata when
+  they are available, and only falls back to generated-GLSL parsing for older
+  paths that do not yet emit sidecars
 - Metal still carries fallback behavior that can collapse to flat bindings when
   richer metadata is absent
 - the active shader/resource set in the repository is still small enough that

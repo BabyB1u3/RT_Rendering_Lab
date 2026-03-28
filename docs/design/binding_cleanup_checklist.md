@@ -166,6 +166,27 @@
 - 它同时覆盖 shader binding、material ownership、reflected packing 三条主线
 - 先把这一条跑通，后面再迁 `ShadowPass` 和其他路径，风险最低
 
+### 当前进度（2026-03-28）
+
+首批闭环已经落地，当前已完成：
+
+1. `ForwardLit` 已切到真实的 `set 0 / 1 / 2` 布局：
+   - `set 0` = `FramePassParams` + `u_ShadowMap`
+   - `set 1` = `MaterialParams` + `u_AlbedoMap`
+   - `set 2` = `DrawParams`
+2. `ForwardPass` 已改为分别绑定 per-pass、per-material、per-draw 数据，不再在 pass 内手工拼 material 字段。
+3. `Material` 已增加最小可用的新接口，能够：
+   - 向反射 block 写入 material 数据
+   - 按逻辑 binding 绑定 material textures
+4. OpenGL 已补上 Slang reflection sidecar 读取路径，并在构建时把带 `set` 的 GLSL binding 扁平化为 OpenGL 可执行布局。
+5. 相关 unit / contract / OpenGL integration tests 已更新并通过。
+
+这意味着：
+
+- P0 对 `ForwardLit` / `ForwardPass` 这条生产路径已经形成首个真实样本。
+- P1 已完成最小可用切片，但 `TextureSlot` 与 `UploadToShader()` 仍未删除。
+- P2 对 `ForwardPass` 已基本落地，`ShadowPass` 仍是下一批重点。
+
 ---
 
 ## 5. 首批可能会改动的文件
