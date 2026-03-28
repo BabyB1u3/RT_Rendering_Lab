@@ -338,6 +338,15 @@ portable across backends. If application code passes a raw C++ struct, that stru
 must already match the layout that Slang generated for the current backend target.
 This is easy to get wrong when a block mixes matrices, `float3`, scalars, and bools.
 
+Later migration work confirmed one more detail: offset + size metadata is not
+enough on its own. The runtime also needs the reflected field type so it can
+distinguish:
+
+- a legal logical write, such as `glm::vec3` into a reflected `float3` field that
+  occupies 16 bytes on Metal
+- a legal bool write whose reflected field size may be 1 byte in raw Slang metadata
+- an actually invalid write
+
 Current repository status:
 
 - OpenGL uses `SetUniformBlock()` with raw C++ structs and UBO uploads.
@@ -366,6 +375,11 @@ per shader stores this mapping:
 
 This sidecar is generated at build time by `slangc -reflection-json <path>` and consumed
 by `MetalShader` at load time.
+
+The important practical detail is that the sidecar must preserve reflected type
+information in addition to offsets and sizes. If the runtime drops type information
+and records every field as "unknown", a shared packer cannot correctly validate or
+encode padded `float3` and backend-specific bool fields.
 
 #### Cross-Backend Uniform Layout Pitfall
 

@@ -215,6 +215,7 @@ Make reflection metadata part of the normal shader build output.
    - shader name
    - stage
    - field name
+   - field type / kind
    - offset
    - size
    - optional binding index metadata
@@ -253,6 +254,7 @@ Turn reflection metadata from a dormant capability into an active runtime input.
    - keep current sidecar loading
    - log whether sidecar was found, parsed, and applied
    - surface parse/schema errors clearly
+   - preserve reflected field types, not just offsets and sizes
 
 2. Introduce a layout representation in the runtime:
    - `ShaderUniformFieldInfo`
@@ -264,6 +266,15 @@ Turn reflection metadata from a dormant capability into an active runtime input.
    - field exists
    - write size is valid for field type/size
    - final block size matches reflected block size
+
+Implementation note from the Metal bring-up:
+
+- raw Slang reflection type info is required, not optional metadata
+- offset + size alone is not enough to validate legal writes
+- example: a reflected `float3` field may occupy 16 bytes even though the logical
+  value written from C++ is 12 bytes
+- example: a reflected `bool` field may occupy 1 byte in raw reflection, so the
+  runtime must not hardcode a 4-byte std140 assumption
 
 ### Repository Files
 
@@ -311,6 +322,10 @@ public:
    - allocate the correct block size
    - zero-initialize unused bytes
    - write fields at reflected offsets
+   - accept either an exact reflected-size write or a legal logical-size write
+     for known reflected field types
+   - zero any remaining padding bytes when a logical-size write is smaller than
+     the reflected field size
    - reject invalid writes
 
 3. Keep backend concerns out of call sites:
@@ -331,6 +346,13 @@ public:
 ### Notes
 
 This is the first phase where the project meaningfully becomes more portable.
+In practice, this helper must handle cases like:
+
+- `glm::vec3` written into a reflected `float3` field that occupies 16 bytes
+- `bool` written into a reflected field whose size comes from the backend sidecar
+
+If the helper only accepts `sizeof(T) == reflectedSize`, migration will still fail
+on legitimate Metal layouts.
 
 ---
 
@@ -353,6 +375,13 @@ Remove the most dangerous handwritten block layouts from production paths.
 - `ForwardPass` mixes the most fields and has the highest long-term risk
 - `ShadowPass` is simple and should become the cleanest example
 - `TexturePreviewPass` is small and a good smoke test for trivial blocks
+
+Observed during migration:
+
+- `BasicLighting` on Metal immediately exposed a reflected `float3` field whose
+  reflected size was 16 bytes (`u_CameraPosition`)
+- `ForwardPass` and `TexturePreviewPass` also require bool writes to follow the
+  reflected field size instead of a hardcoded CPU-side encoding assumption
 
 ### Required Changes
 
@@ -409,6 +438,38 @@ If skipped, the project risks ending up with:
 - Metal using another
 
 That would repeat the same problem at a different layer.
+
+### Explicit Non-Goal For The Current Push
+
+Do **not** migrate reflection sidecar parsing onto the shared serialization framework
+as part of the current packing migration.
+
+Reasoning:
+
+- the current priority is runtime correctness for reflected packing across OpenGL and Metal
+- the reflection sidecar schema is still settling as the packer and loader evolve
+- moving the loader to `PropertyTree` too early would add a second axis of churn
+  without changing any renderer behavior by itself
+- the existing direct JSON parse path is inelegant, but currently local to
+  `MetalShader` and therefore contained
+
+Recommended timing:
+
+- earliest reasonable time: after Phase 4 is stable on both backends
+- preferred time: after Phase 5 when shader/block APIs have stabilized enough
+  that the reflection schema is unlikely to keep changing every few commits
+- also acceptable later: alongside Phase 7 / editor-facing material serialization
+  work, if the team wants a broader "data loading consistency" pass
+
+What "stable enough" means before focusing this:
+
+- reflected field names, sizes, and types are no longer changing frequently
+- the runtime layout objects (`ShaderUniformFieldInfo`, `ShaderUniformBlockLayout`)
+  are considered settled
+- the loader no longer needs rapid one-off tweaks to match evolving Slang output
+
+Until then, treat serialization integration for reflection sidecars as a deferred
+cleanup / consistency task, not a blocker for the reflection migration itself.
 
 ---
 
@@ -648,6 +709,8 @@ These scenes should be checked on:
 - blocks containing mixed `float3` + scalar fields
 - bool packing
 - matrix packing
+- raw reflection type mapping for `float3`, matrices, and bools
+- legal logical-size writes into padded reflected fields
 - texture binding offsets on Metal
 
 ---
@@ -657,6 +720,7 @@ These scenes should be checked on:
 | Risk | Impact | Mitigation |
 |------|--------|------------|
 | Reflection sidecar schema changes repeatedly | Loader and build become unstable | Freeze a minimal schema early and version it if needed |
+| Reflection loader is migrated to the shared serialization layer too early | Extra churn in both systems while the schema is still moving | Defer serialization integration until reflected packing and shader APIs stabilize |
 | Packer is introduced but only used on Metal | Upload path diverges again | Apply the same packer to OpenGL call sites once stable |
 | API refactor starts before packer migration | Too many moving parts at once | Finish Phase 2-3 first |
 | Shader block refactor happens too early | Large cross-file churn | Delay explicit `ParameterBlock<T>` adoption until the packer is proven |
