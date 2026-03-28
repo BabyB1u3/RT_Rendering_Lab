@@ -226,13 +226,35 @@ TEST_F(ShaderIntegrationTests, CreateShader_LoadsTexturePreviewFromCompiledGlsl)
 
 	auto shader = GetDevice()->CreateShader("TexturePreview");
 	ASSERT_NE(shader, nullptr);
-	const auto *layout = shader->GetUniformBlockLayout(0);
+	const auto *layout = shader->GetUniformBlockLayout({0, 0});
 	ASSERT_NE(layout, nullptr);
 	EXPECT_NE(layout->FindField("u_IsDepthTexture"), nullptr);
 
 	shader->Bind();
 	shader->SetBool("u_IsDepthTexture", false);
 	shader->Unbind();
+}
+
+TEST_F(ShaderIntegrationTests, CreateShader_TexturePreviewPreservesExplicitLogicalResourceMetadata)
+{
+	ShaderTestUtils::SkipOrFailIfShaderMissing("TexturePreview");
+
+	auto shader = GetDevice()->CreateShader("TexturePreview");
+	ASSERT_NE(shader, nullptr);
+	auto *glShader = AsGL<GLShader>(shader);
+
+	const auto *blockResource = glShader->GetResourceLayout({0, 0});
+	ASSERT_NE(blockResource, nullptr);
+	EXPECT_NE(blockResource->Name.find("GlobalParams"), std::string::npos);
+	EXPECT_EQ(blockResource->Kind, ShaderResourceKind::UniformBuffer);
+
+	const auto *textureBinding = glShader->GetBackendBinding({0, 1});
+	ASSERT_NE(textureBinding, nullptr);
+	EXPECT_EQ(textureBinding->Kind, ShaderResourceKind::CombinedTextureSampler);
+	ASSERT_TRUE(textureBinding->TextureIndex.has_value());
+	ASSERT_TRUE(textureBinding->SamplerIndex.has_value());
+	EXPECT_EQ(*textureBinding->TextureIndex, 1u);
+	EXPECT_EQ(*textureBinding->SamplerIndex, 1u);
 }
 
 TEST_F(ShaderIntegrationTests, UniformBlockUploadInfluencesRealDrawOutput)

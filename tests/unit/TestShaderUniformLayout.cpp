@@ -3,6 +3,7 @@
 #include <cstring>
 #include <glm/glm.hpp>
 
+#include "graphics/ShaderResourceMetadata.h"
 #include "graphics/ShaderUniformLayout.h"
 
 TEST(ShaderUniformLayoutTests, ValueTypeSizesMatchPackingExpectations)
@@ -28,6 +29,26 @@ TEST(ShaderUniformLayoutTests, BlockLayoutStoresLogicalBindingPointAndFlatCompat
     EXPECT_EQ(layout.GetBindingPoint(), (ShaderBindingPoint{1, 3}));
     EXPECT_EQ(layout.GetSet(), 1u);
     EXPECT_EQ(layout.GetBinding(), 3u);
+}
+
+TEST(ShaderUniformLayoutTests, BackendBindingMetadataMapsLogicalBindingToBackendIndices)
+{
+    ShaderBackendBindingMap bindings;
+    ShaderBackendBinding metadata;
+    metadata.Kind = ShaderResourceKind::CombinedTextureSampler;
+    metadata.LogicalBinding = {0, 7};
+    metadata.TextureIndex = 2;
+    metadata.SamplerIndex = 5;
+
+    bindings.emplace(metadata.LogicalBinding, metadata);
+
+    const auto it = bindings.find({0, 7});
+    ASSERT_NE(it, bindings.end());
+    EXPECT_EQ(it->second.Kind, ShaderResourceKind::CombinedTextureSampler);
+    ASSERT_TRUE(it->second.TextureIndex.has_value());
+    ASSERT_TRUE(it->second.SamplerIndex.has_value());
+    EXPECT_EQ(*it->second.TextureIndex, 2u);
+    EXPECT_EQ(*it->second.SamplerIndex, 5u);
 }
 
 TEST(ShaderUniformLayoutTests, PackedUniformBlockWritesFieldsAtReflectedOffsets)
