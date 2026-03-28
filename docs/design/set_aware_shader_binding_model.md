@@ -9,10 +9,14 @@ It is the companion design for:
 - `docs/design/shader_material_system.md`
 - `docs/design/uniform_reflection_migration.md`
 - `docs/design/metal_backend.md`
+- `docs/design/set_aware_shader_binding_checklist.md`
 
 Those documents describe the broader renderer and migration context. This one
 focuses specifically on the logical resource model, runtime metadata, backend
 mapping, and the migration path away from the current slot-only abstraction.
+
+For the implementation-facing task breakdown, read
+`set_aware_shader_binding_checklist.md` immediately after this document.
 
 ---
 
