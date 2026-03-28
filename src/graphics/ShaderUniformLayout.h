@@ -73,8 +73,7 @@ public:
     {
         if constexpr (std::is_same_v<T, bool>)
         {
-            const int32_t encoded = value ? 1 : 0;
-            return WriteRaw(fieldName, &encoded, sizeof(encoded));
+            return WriteBool(fieldName, value);
         }
         else
         {
@@ -91,6 +90,7 @@ public:
     bool HasError() const { return !m_LastError.empty(); }
 
 private:
+    bool WriteBool(const std::string &fieldName, bool value);
     void SetError(std::string error);
 
 private:

@@ -76,10 +76,8 @@ void TexturePreviewPass::Execute(const RenderContext &ctx)
     // P4: Explicit texture binding - source texture at slot 1
     RenderCommand::SetTexture(1, texture);
 
-    // std140 layout: bool maps to a 4-byte int (0 or 1)
-    int32_t isDepthInt = isDepth ? 1 : 0;
     PackedUniformBlock block(*blockLayout);
-    RTRLAB_ASSERTF(block.Write("u_IsDepthTexture", isDepthInt), "{}", block.GetLastError());
+    RTRLAB_ASSERTF(block.Write("u_IsDepthTexture", isDepth), "{}", block.GetLastError());
     m_Shader->SetUniformBlock(0, block.Data(), block.Size());
 
     RenderCommand::DrawIndexed(m_FullscreenQuad->GetVertexArray());

@@ -129,7 +129,7 @@ void ForwardPass::Execute(const RenderContext &ctx)
         const float ambientStrength = item.Material->GetFloat("u_AmbientStrength", 0.1f);
 
         auto albedoTex = item.Material->GetTexture(TextureSlot::Albedo);
-        const int32_t useAlbedoMap = albedoTex ? 1 : 0;
+        const bool useAlbedoMap = (albedoTex != nullptr);
         if (albedoTex)
         {
             // P4: Explicit texture binding - albedo at slot 2

@@ -137,6 +137,74 @@ static uint64_t HashVertexDescriptor(MTLVertexDescriptor *desc)
 	return h;
 }
 
+static ShaderUniformValueType ParseReflectionValueType(const nlohmann::json &typeJson)
+{
+	if (!typeJson.is_object())
+		return ShaderUniformValueType::Unknown;
+
+	const std::string kind = typeJson.value("kind", std::string{});
+	if (kind == "scalar")
+	{
+		const std::string scalarType = typeJson.value("scalarType", std::string{});
+		if (scalarType == "bool")
+			return ShaderUniformValueType::Bool;
+		if (scalarType == "float32")
+			return ShaderUniformValueType::Float;
+		if (scalarType == "int32" || scalarType == "uint32")
+			return ShaderUniformValueType::Int;
+		return ShaderUniformValueType::Unknown;
+	}
+
+	if (kind == "vector")
+	{
+		const uint32_t elementCount = typeJson.value("elementCount", 0u);
+		const ShaderUniformValueType elementType =
+			ParseReflectionValueType(typeJson.value("elementType", nlohmann::json::object()));
+
+		if (elementType == ShaderUniformValueType::Float)
+		{
+			switch (elementCount)
+			{
+			case 2: return ShaderUniformValueType::Float2;
+			case 3: return ShaderUniformValueType::Float3;
+			case 4: return ShaderUniformValueType::Float4;
+			default: return ShaderUniformValueType::Unknown;
+			}
+		}
+
+		if (elementType == ShaderUniformValueType::Int)
+		{
+			switch (elementCount)
+			{
+			case 2: return ShaderUniformValueType::Int2;
+			case 3: return ShaderUniformValueType::Int3;
+			case 4: return ShaderUniformValueType::Int4;
+			default: return ShaderUniformValueType::Unknown;
+			}
+		}
+
+		return ShaderUniformValueType::Unknown;
+	}
+
+	if (kind == "matrix")
+	{
+		const uint32_t rowCount = typeJson.value("rowCount", 0u);
+		const uint32_t columnCount = typeJson.value("columnCount", 0u);
+		const ShaderUniformValueType elementType =
+			ParseReflectionValueType(typeJson.value("elementType", nlohmann::json::object()));
+
+		if (elementType != ShaderUniformValueType::Float)
+			return ShaderUniformValueType::Unknown;
+
+		if (rowCount == 3 && columnCount == 3)
+			return ShaderUniformValueType::Mat3;
+		if (rowCount == 4 && columnCount == 4)
+			return ShaderUniformValueType::Mat4;
+	}
+
+	return ShaderUniformValueType::Unknown;
+}
+
 static void LoadReflectionSidecar(const std::string &name,
                                   ReflectionMap &vertex, ReflectionMap &fragment,
                                   uint32_t &vertexBinding, uint32_t &fragmentBinding,
@@ -186,7 +254,7 @@ static void LoadReflectionSidecar(const std::string &name,
 						parameter.value("name", std::string{}),
 						offset,
 						size,
-						ShaderUniformValueType::Unknown
+						ParseReflectionValueType(parameter.value("type", nlohmann::json::object()))
 					});
 					computedBlockSize = std::max(computedBlockSize, offset + size);
 					hasGlobalUniforms = true;

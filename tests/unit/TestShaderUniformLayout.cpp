@@ -66,3 +66,18 @@ TEST(ShaderUniformLayoutTests, PackedUniformBlockAcceptsLogicalFloat3WriteIntoPa
     EXPECT_EQ(storedValue, value);
     EXPECT_EQ(padding, 0.0f);
 }
+
+TEST(ShaderUniformLayoutTests, PackedUniformBlockWritesBoolUsingReflectedFieldSize)
+{
+    ShaderUniformBlockLayout layout("TestBlock", 0, 8);
+    ASSERT_TRUE(layout.AddField({"u_Flag", 0, 1, ShaderUniformValueType::Bool}));
+
+    PackedUniformBlock block(layout);
+    ASSERT_TRUE(block.Write("u_Flag", true));
+
+    const auto *bytes = static_cast<const std::byte *>(block.Data());
+    uint8_t storedValue = 0;
+    std::memcpy(&storedValue, bytes + 0, sizeof(storedValue));
+
+    EXPECT_EQ(storedValue, 1u);
+}

@@ -63,6 +63,19 @@ PackedUniformBlock::PackedUniformBlock(const ShaderUniformBlockLayout &layout)
 {
 }
 
+bool PackedUniformBlock::WriteBool(const std::string &fieldName, bool value)
+{
+    const ShaderUniformFieldInfo *field = m_Layout.FindField(fieldName);
+    if (!field)
+        return WriteRaw(fieldName, &value, sizeof(value));
+
+    std::vector<std::byte> encoded(field->Size, std::byte{0});
+    if (value && !encoded.empty())
+        encoded[0] = std::byte{1};
+
+    return WriteRaw(fieldName, encoded.data(), static_cast<uint32_t>(encoded.size()));
+}
+
 bool PackedUniformBlock::WriteRaw(const std::string &fieldName, const void *data, uint32_t size)
 {
     const ShaderUniformFieldInfo *field = m_Layout.FindField(fieldName);
