@@ -264,6 +264,66 @@ static ShaderUniformValueType ParseReflectionValueType(const nlohmann::json &typ
 	return ShaderUniformValueType::Unknown;
 }
 
+static uint32_t ComputeReflectedLayoutSize(const ShaderUniformBlockLayout &layout)
+{
+	uint32_t size = 0;
+	for (const auto &field : layout.GetFields())
+		size = std::max(size, field.Offset + field.Size);
+
+	return size;
+}
+
+static void AppendReflectedStructFields(const nlohmann::json &typeJson,
+                                        ShaderUniformBlockLayout &layout,
+                                        uint32_t baseOffset = 0)
+{
+	if (!typeJson.is_object())
+		return;
+
+	const std::string kind = typeJson.value("kind", std::string{});
+	if (kind == "constantBuffer" ||
+	    kind == "parameterBlock" ||
+	    kind == "textureBuffer" ||
+	    kind == "shaderStorageBuffer")
+	{
+		AppendReflectedStructFields(typeJson.value("elementType", nlohmann::json::object()),
+		                            layout,
+		                            baseOffset);
+		return;
+	}
+
+	if (kind != "struct" || !typeJson.contains("fields") || !typeJson["fields"].is_array())
+		return;
+
+	for (const auto &fieldJson : typeJson["fields"])
+	{
+		const auto fieldType = fieldJson.value("type", nlohmann::json::object());
+		const auto fieldBinding = fieldJson.value("binding", nlohmann::json::object());
+		const uint32_t fieldOffset = baseOffset + fieldBinding.value("offset", 0u);
+		const uint32_t fieldSize = fieldBinding.value("size", 0u);
+
+		const std::string fieldKind = fieldType.value("kind", std::string{});
+		if (fieldKind == "struct" ||
+		    fieldKind == "constantBuffer" ||
+		    fieldKind == "parameterBlock")
+		{
+			AppendReflectedStructFields(fieldType, layout, fieldOffset);
+			continue;
+		}
+
+		const std::string fieldName = fieldJson.value("name", std::string{});
+		if (fieldName.empty() || fieldSize == 0)
+			continue;
+
+		layout.AddField({
+			fieldName,
+			fieldOffset,
+			fieldSize,
+			ParseReflectionValueType(fieldType)
+		});
+	}
+}
+
 // Parse the slangc -reflection-json sidecar and populate the runtime layout structures.
 //
 // Field names stored here must match what PackedUniformBlock::Write() callers use,
@@ -357,8 +417,15 @@ static void LoadReflectionSidecar(const std::string &name,
 				{
 					const ShaderBindingPoint logicalBinding =
 						ParseLogicalBindingPoint(binding).value_or(MakeFlatShaderBindingPoint(binding.value("index", 0u)));
+					ShaderUniformBlockLayout layout(
+						parameter.value("name", std::string{"GlobalParams"}),
+						logicalBinding,
+						0u);
+					AppendReflectedStructFields(parameter.value("type", nlohmann::json::object()), layout);
+					layout.SetSize(std::max(binding.value("size", 0u), ComputeReflectedLayoutSize(layout)));
+
 					resourceLayouts[logicalBinding] = {
-						parameter.value("name", std::string{}),
+						layout.GetName(),
 						ShaderResourceKind::UniformBuffer,
 						logicalBinding
 					};
@@ -369,6 +436,8 @@ static void LoadReflectionSidecar(const std::string &name,
 						std::nullopt,
 						std::nullopt
 					};
+					if (!layout.GetFields().empty() || layout.GetSize() > 0)
+						blockLayouts[logicalBinding] = std::move(layout);
 				}
 			}
 
