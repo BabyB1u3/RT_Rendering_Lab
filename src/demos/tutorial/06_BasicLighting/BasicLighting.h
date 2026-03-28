@@ -49,6 +49,9 @@ private:
     Ref<Mesh> m_CubeMesh;
     Ref<IShader> m_Shader;
     const ShaderUniformBlockLayout *m_UniformBlockLayout = nullptr;
+    // Reused for multiple draws in one pass. Backend BindUniformBuffer()
+    // implementations must preserve per-draw contents even when this buffer is
+    // updated again before the command buffer finishes executing.
     Ref<IUniformBuffer> m_UniformBuffer;
 
     Camera m_Camera;

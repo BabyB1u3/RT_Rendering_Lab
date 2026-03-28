@@ -89,6 +89,12 @@ Phase 1-2 的 demo 使用 name-based uniform 上传（SetMat4、SetFloat、SetVe
 2. IShader 已有 `SetUniformBlock(binding, data, size)` 接口，OpenGL 端映射到 UBO，Metal 端映射到 setVertexBytes/setFragmentBytes
 3. Metal 后端的 uniform staging buffer 策略（FlushUniforms）本质上就是 block 上传，散装 SetFloat 在 Metal 上只是写入 CPU staging buffer 再整体 flush，不如直接走 block 路径清晰
 
+补充约束：
+
+- 如果 demo / pass 改成复用一个 `IUniformBuffer` 并在每个 draw 前 `SetData()`，后端仍然必须保证“每次 draw 看到的是当次写入的快照”
+- 不能把 `BindUniformBuffer()` 实现成“直接长期引用一块之后还会继续被改写的底层 GPU 内存”，否则不同后端会出现行为分叉
+- 这个约束来自一次真实回归：Windows 正常，但 macOS Metal 因为直接绑定同一个可变 `MTLBuffer`，导致同一 pass 里的多个 draw 全都读到了最后一次上传的数据
+
 **迁移方式**：
 
 - 定义 `PerFrameData`（ViewProjection、CameraPosition、光源数据）和 `PerDrawData`（Model、NormalMatrix、材质参数）两个 struct

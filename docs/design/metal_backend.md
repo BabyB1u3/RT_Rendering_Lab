@@ -46,6 +46,7 @@ What is already implemented:
 - `MetalShader` supports both:
   - named setter staging buffers (`SetFloat`, `SetMat4`, etc.)
   - raw `SetUniformBlock(binding, data, size)` uploads
+  - `BindUniformBuffer(slot, buffer)` with per-draw snapshot semantics
 
 What is only partially implemented:
 
@@ -56,7 +57,7 @@ What is only partially implemented:
 
 What is not implemented yet:
 
-- No `BindUniformBuffer()` / `SetPushConstants()` API exists in `IShader` yet.
+- No `SetPushConstants()` API exists in `IShader` yet.
 - No reflection-driven or generated packing helper exists for uniform blocks.
 - Shaders still rely on loose `uniform` declarations grouped into Slang's implicit
   global parameter block rather than explicit `ParameterBlock<T>` resources.
@@ -351,7 +352,8 @@ Current repository status:
 
 - OpenGL uses `SetUniformBlock()` with raw C++ structs and UBO uploads.
 - Metal uses `SetUniformBlock()` with raw byte uploads to `setVertexBytes` /
-  `setFragmentBytes`.
+  `setFragmentBytes`, and `BindUniformBuffer()` as a logical UBO API whose
+  contents are snapshotted per draw.
 - No shared packing layer currently sits between pass code and these backend calls.
 
 **Offset mapping**: Slang's reflection API (or a build-time metadata export) provides
@@ -417,6 +419,36 @@ Design conclusion:
   not from handwritten backend-assumed padding rules.
 - Every place that currently does `SetUniformBlock(..., &cppStruct, sizeof(cppStruct))`
   is carrying this risk until packing is reflection-driven.
+
+#### Cross-Backend Uniform Buffer Lifetime Pitfall
+
+Another regression surfaced after the codebase migrated reflected passes from
+`SetUniformBlock()` to owned `IUniformBuffer` objects.
+
+Observed case: `BasicLighting`, `ForwardPass`, and `ShadowPass` each reused one
+uniform buffer object, called `SetData()` before every draw, and rebound that
+same object with `BindUniformBuffer(0, buffer)`.
+
+That usage is valid in the RHI. The intended abstraction is:
+
+- one logical uniform buffer handle may be reused across many draws
+- each draw must see the bytes current at the moment that draw is encoded
+- a later `SetData()` must not mutate the data already consumed by an earlier draw
+
+OpenGL happened to preserve this well enough for the existing demos, but an early
+Metal implementation bound the underlying `MTLBuffer` directly. Because the same
+Metal buffer was mutated again before the GPU consumed the previous draws, all
+draws in the pass could observe the final upload. The visible symptom was that
+only the last object in the pass rendered with the expected transform/material.
+
+Design conclusion:
+
+- `BindUniformBuffer()` is not just "store this backend buffer handle".
+- It is a logical slot-binding API with per-draw stable semantics.
+- Backends may satisfy that contract by snapshotting bytes at draw time, using a
+  ring buffer, dynamic offsets, or another equivalent strategy.
+- Future backend work must treat uniform-buffer lifetime semantics as part of the
+  cross-backend contract, not as an implementation detail.
 
 Recommended implementation path:
 

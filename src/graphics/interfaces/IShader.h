@@ -38,7 +38,17 @@ public:
 	/// Maps to UBO on OpenGL, descriptor set buffer on Vulkan.
 	virtual void SetUniformBlock(uint32_t binding, const void *data, uint32_t size) = 0;
 
-	/// Bind a persistent uniform buffer object at the specified slot.
+	/// Bind a logical uniform buffer object at the specified slot.
+	///
+	/// Cross-backend contract:
+	/// - Call sites may reuse one IUniformBuffer across many draw calls in the same
+	///   pass and update it with SetData() between draws.
+	/// - Backends must preserve per-draw stability. A later SetData() must not
+	///   retroactively change the bytes consumed by previously encoded draws.
+	///
+	/// This requirement became explicit after a Metal regression where directly
+	/// binding one mutable MTLBuffer caused every draw in the pass to observe the
+	/// final upload instead of the upload current at that draw.
 	virtual void BindUniformBuffer(uint32_t slot, const Ref<IUniformBuffer> &buffer) = 0;
 
 	/// Bind a texture at the specified slot.
