@@ -17,8 +17,10 @@
 #include "core/diagnostics/LogMacros.h"
 #include "graphics/GraphicsDevice.h"
 #include "graphics/RenderTypes.h"
+#include "graphics/backends/metal/MetalCast.h"
 #include "graphics/backends/metal/MetalGraphicsDevice.h"
 #include "graphics/backends/metal/MetalRenderCommand.h"
+#include "graphics/backends/metal/MetalTexture2D.h"
 
 // --- PSO cache key ---
 
