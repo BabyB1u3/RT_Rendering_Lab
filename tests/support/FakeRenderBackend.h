@@ -216,6 +216,12 @@ private:
 class FakeShader final : public IShader
 {
 public:
+    struct TextureBindEvent
+    {
+        uint32_t Slot = 0;
+        Ref<ITexture2D> Texture;
+    };
+
     explicit FakeShader(std::string name)
         : m_Name(std::move(name))
     {
@@ -293,6 +299,16 @@ public:
             std::memcpy(LastUniformBytes.data(), data, size);
     }
 
+    void BindTexture(uint32_t slot, const Ref<ITexture2D> &texture) override
+    {
+        if (texture)
+            BoundTextures[slot] = texture;
+        else
+            BoundTextures.erase(slot);
+
+        TextureBindEvents.push_back({slot, texture});
+    }
+
     const ShaderUniformBlockLayout *GetUniformBlockLayout(uint32_t binding) const override
     {
         auto it = BlockLayouts.find(binding);
@@ -309,6 +325,8 @@ public:
     uint32_t UniformUploadCount = 0;
     std::vector<std::byte> LastUniformBytes;
     std::unordered_map<uint32_t, ShaderUniformBlockLayout> BlockLayouts;
+    std::unordered_map<uint32_t, Ref<ITexture2D>> BoundTextures;
+    std::vector<TextureBindEvent> TextureBindEvents;
 
 private:
     std::string m_Name;
