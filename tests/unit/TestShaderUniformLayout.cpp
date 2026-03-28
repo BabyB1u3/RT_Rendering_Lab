@@ -81,3 +81,65 @@ TEST(ShaderUniformLayoutTests, PackedUniformBlockWritesBoolUsingReflectedFieldSi
 
     EXPECT_EQ(storedValue, 1u);
 }
+
+TEST(ShaderUniformLayoutTests, WriteRequiredSucceedsAndWritesData)
+{
+    ShaderUniformBlockLayout layout("TestBlock", 0, 8);
+    ASSERT_TRUE(layout.AddField({"u_Value", 0, 4, ShaderUniformValueType::Float}));
+
+    PackedUniformBlock block(layout);
+    block.WriteRequired("u_Value", 7.5f);
+
+    const auto *bytes = static_cast<const std::byte *>(block.Data());
+    float stored = 0.0f;
+    std::memcpy(&stored, bytes, sizeof(stored));
+    EXPECT_EQ(stored, 7.5f);
+}
+
+TEST(ShaderUniformLayoutTests, WriteReturnsFalseAndSetsErrorForUnknownField)
+{
+    ShaderUniformBlockLayout layout("TestBlock", 0, 8);
+    ASSERT_TRUE(layout.AddField({"u_Real", 0, 4, ShaderUniformValueType::Float}));
+
+    PackedUniformBlock block(layout);
+    EXPECT_FALSE(block.Write("u_Missing", 1.0f));
+    EXPECT_FALSE(block.GetLastError().empty());
+}
+
+// --- NormalizeGLUniformFieldName ---
+
+TEST(NormalizeGLUniformFieldNameTests, LeafNameIsUnchanged)
+{
+    EXPECT_EQ(NormalizeGLUniformFieldName("u_CameraPosition"), "u_CameraPosition");
+}
+
+TEST(NormalizeGLUniformFieldNameTests, StripBlockPrefix)
+{
+    EXPECT_EQ(NormalizeGLUniformFieldName("PerFrameBlock.u_ViewProjection"), "u_ViewProjection");
+}
+
+TEST(NormalizeGLUniformFieldNameTests, StripArraySuffix)
+{
+    EXPECT_EQ(NormalizeGLUniformFieldName("u_Lights[0]"), "u_Lights");
+}
+
+TEST(NormalizeGLUniformFieldNameTests, StripSlangNumericSuffix)
+{
+    EXPECT_EQ(NormalizeGLUniformFieldName("u_CameraPosition_0"), "u_CameraPosition");
+}
+
+TEST(NormalizeGLUniformFieldNameTests, StripBlockPrefixAndNumericSuffix)
+{
+    EXPECT_EQ(NormalizeGLUniformFieldName("GlobalBlock.u_LightDir_0"), "u_LightDir");
+}
+
+TEST(NormalizeGLUniformFieldNameTests, DoesNotStripNonNumericSuffix)
+{
+    EXPECT_EQ(NormalizeGLUniformFieldName("u_Value_final"), "u_Value_final");
+}
+
+TEST(NormalizeGLUniformFieldNameTests, UseLastDotForNestedPath)
+{
+    // Single-level nesting: last dot wins.
+    EXPECT_EQ(NormalizeGLUniformFieldName("Outer.Inner.u_Field"), "u_Field");
+}

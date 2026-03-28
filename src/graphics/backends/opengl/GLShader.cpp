@@ -33,34 +33,6 @@ ShaderUniformValueType MapGLUniformType(GLenum type)
 	}
 }
 
-std::string NormalizeUniformFieldName(std::string name)
-{
-	const size_t dotPos = name.find_last_of('.');
-	if (dotPos != std::string::npos)
-		name = name.substr(dotPos + 1);
-
-	if (name.size() > 3 && name.compare(name.size() - 3, 3, "[0]") == 0)
-		name.resize(name.size() - 3);
-
-	const size_t suffixUnderscore = name.find_last_of('_');
-	if (suffixUnderscore != std::string::npos && suffixUnderscore + 1 < name.size())
-	{
-		bool numericSuffix = true;
-		for (size_t i = suffixUnderscore + 1; i < name.size(); ++i)
-		{
-			if (name[i] < '0' || name[i] > '9')
-			{
-				numericSuffix = false;
-				break;
-			}
-		}
-
-		if (numericSuffix)
-			name.resize(suffixUnderscore);
-	}
-
-	return name;
-}
 
 std::string TrimTrailingNull(std::string value)
 {
@@ -468,7 +440,7 @@ void GLShader::ReflectUniformBlocks()
 					fieldSize *= arraySize;
 
 				layout.AddField({
-					NormalizeUniformFieldName(TrimTrailingNull(std::move(uniformName))),
+					NormalizeGLUniformFieldName(TrimTrailingNull(std::move(uniformName))),
 					static_cast<uint32_t>(uniformValues[0]),
 					fieldSize,
 					type

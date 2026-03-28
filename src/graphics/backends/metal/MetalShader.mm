@@ -205,6 +205,19 @@ static ShaderUniformValueType ParseReflectionValueType(const nlohmann::json &typ
 	return ShaderUniformValueType::Unknown;
 }
 
+// Parse the slangc -reflection-json sidecar and populate the runtime layout structures.
+//
+// Field names stored here must match what PackedUniformBlock::Write() callers use,
+// and must also match the names produced by NormalizeGLUniformFieldName()
+// on the OpenGL side — both backends share the same PackedUniformBlock call sites.
+//
+// Phase 6 coupling note:
+//   When shaders migrate to explicit ParameterBlock<T> blocks (Phase 6), the sidecar
+//   JSON structure will change: uniform parameters will be nested inside a parameter
+//   block entry rather than appearing as top-level "parameters". The parsing logic
+//   below (both the "parameters" array path and the legacy "uniformBlocks" path) must
+//   be updated at that point. Update together with NormalizeGLUniformFieldName() in
+//   ShaderUniformLayout.cpp so that both backends expose consistent field names.
 static void LoadReflectionSidecar(const std::string &name,
                                   ReflectionMap &vertex, ReflectionMap &fragment,
                                   uint32_t &vertexBinding, uint32_t &fragmentBinding,

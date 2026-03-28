@@ -94,13 +94,8 @@ void ShadowPass::Execute(const RenderContext &ctx)
         const glm::mat4 model = item.Transform.GetMatrix();
 
         PackedUniformBlock block(*blockLayout);
-        auto requireWrite = [&](const char *fieldName, const auto &value)
-        {
-            RTRLAB_ASSERTF(block.Write(fieldName, value), "{}", block.GetLastError());
-        };
-
-        requireWrite("u_LightViewProjection", ctx.Resources.LightViewProjection);
-        requireWrite("u_Model", model);
+        block.WriteRequired("u_LightViewProjection", ctx.Resources.LightViewProjection);
+        block.WriteRequired("u_Model", model);
         m_Shader->SetUniformBlock(0, block.Data(), block.Size());
 
         RenderCommand::DrawIndexed(item.Mesh->GetVertexArray());

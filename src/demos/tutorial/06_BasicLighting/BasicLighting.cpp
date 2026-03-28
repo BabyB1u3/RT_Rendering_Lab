@@ -76,21 +76,16 @@ void BasicLighting::DrawCube(const glm::mat4 &vp, const glm::mat4 &model,
     const glm::mat4 normalMatrix = glm::transpose(glm::inverse(model));
     const glm::vec3 lightDirection = glm::normalize(m_LightDirection);
     PackedUniformBlock block(*blockLayout);
-    auto requireWrite = [&](const char *fieldName, const auto &value)
-    {
-        RTRLAB_ASSERTF(block.Write(fieldName, value), "{}", block.GetLastError());
-    };
-
-    requireWrite("u_ViewProjection", vp);
-    requireWrite("u_Model", model);
-    requireWrite("u_NormalMatrix", normalMatrix);
-    requireWrite("u_CameraPosition", m_Camera.GetPosition());
-    requireWrite("u_LightDirection", lightDirection);
-    requireWrite("u_LightColor", m_LightColor);
-    requireWrite("u_LightIntensity", m_LightIntensity);
-    requireWrite("u_Albedo", albedo);
-    requireWrite("u_SpecularPower", specPower);
-    requireWrite("u_AmbientStrength", ambient);
+    block.WriteRequired("u_ViewProjection", vp);
+    block.WriteRequired("u_Model", model);
+    block.WriteRequired("u_NormalMatrix", normalMatrix);
+    block.WriteRequired("u_CameraPosition", m_Camera.GetPosition());
+    block.WriteRequired("u_LightDirection", lightDirection);
+    block.WriteRequired("u_LightColor", m_LightColor);
+    block.WriteRequired("u_LightIntensity", m_LightIntensity);
+    block.WriteRequired("u_Albedo", albedo);
+    block.WriteRequired("u_SpecularPower", specPower);
+    block.WriteRequired("u_AmbientStrength", ambient);
     m_Shader->SetUniformBlock(0, block.Data(), block.Size());
 
     RenderCommand::DrawIndexed(m_CubeMesh->GetVertexArray());

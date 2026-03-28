@@ -11,6 +11,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "core/diagnostics/Assert.h"
+
 enum class ShaderUniformValueType : uint8_t
 {
     Unknown = 0,
@@ -28,6 +30,19 @@ enum class ShaderUniformValueType : uint8_t
 };
 
 uint32_t GetShaderUniformValueTypeSize(ShaderUniformValueType type);
+
+/// Normalize a raw GL uniform name as returned by glGetProgramResourceName() to the
+/// canonical leaf field name used in PackedUniformBlock::Write() / WriteRequired().
+///
+/// Three transforms are applied in order:
+///   1. Strip block prefix:   "BlockName.fieldName" → "fieldName"
+///   2. Strip array suffix:   "fieldName[0]"        → "fieldName"
+///   3. Strip numeric suffix: "fieldName_0"         → "fieldName"
+///      (Slang may append _N to disambiguate GLSL output; the Slang source name has no suffix.)
+///
+/// The result must match the field name used in Write() / WriteRequired() and the name
+/// stored in the Metal reflection sidecar. See Section 5.5 of uniform_reflection_migration.md.
+std::string NormalizeGLUniformFieldName(std::string name);
 
 struct ShaderUniformFieldInfo
 {
@@ -68,6 +83,9 @@ class PackedUniformBlock
 public:
     explicit PackedUniformBlock(const ShaderUniformBlockLayout &layout);
 
+    /// Write a field by name. Returns false if the field is not found or the size
+    /// is incompatible with the reflected type. Prefer WriteRequired() for fields
+    /// that must be present; use Write() only when a missing field is recoverable.
     template<typename T>
     bool Write(const std::string &fieldName, const T &value)
     {
@@ -79,6 +97,18 @@ public:
         {
             return WriteRaw(fieldName, &value, sizeof(T));
         }
+    }
+
+    /// Write a field that must exist in the reflected layout. Asserts on failure.
+    /// Use this for fields that are structurally required by the shader — a miss
+    /// indicates a field name mismatch between C++ and the reflection data, which
+    /// is always a bug and should never be silently ignored.
+    template<typename T>
+    void WriteRequired(const std::string &fieldName, const T &value)
+    {
+        RTRLAB_ASSERTF(Write(fieldName, value),
+                       "Required field '{}' write failed in block '{}': {}",
+                       fieldName, m_Layout.GetName(), m_LastError);
     }
 
     bool WriteRaw(const std::string &fieldName, const void *data, uint32_t size);

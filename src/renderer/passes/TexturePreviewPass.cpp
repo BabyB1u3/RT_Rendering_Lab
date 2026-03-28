@@ -77,7 +77,7 @@ void TexturePreviewPass::Execute(const RenderContext &ctx)
     RenderCommand::SetTexture(1, texture);
 
     PackedUniformBlock block(*blockLayout);
-    RTRLAB_ASSERTF(block.Write("u_IsDepthTexture", isDepth), "{}", block.GetLastError());
+    block.WriteRequired("u_IsDepthTexture", isDepth);
     m_Shader->SetUniformBlock(0, block.Data(), block.Size());
 
     RenderCommand::DrawIndexed(m_FullscreenQuad->GetVertexArray());

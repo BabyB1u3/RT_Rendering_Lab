@@ -137,24 +137,19 @@ void ForwardPass::Execute(const RenderContext &ctx)
         }
 
         PackedUniformBlock block(*blockLayout);
-        auto requireWrite = [&](const char *fieldName, const auto &value)
-        {
-            RTRLAB_ASSERTF(block.Write(fieldName, value), "{}", block.GetLastError());
-        };
-
-        requireWrite("u_ViewProjection", camera.GetViewProjection());
-        requireWrite("u_Model", model);
-        requireWrite("u_NormalMatrix", normalMatrix);
-        requireWrite("u_LightViewProjection", ctx.Resources.LightViewProjection);
-        requireWrite("u_CameraPosition", camera.GetPosition());
-        requireWrite("u_LightDirection", scene.MainDirectionalLight.Direction);
-        requireWrite("u_LightColor", scene.MainDirectionalLight.Color);
-        requireWrite("u_LightIntensity", scene.MainDirectionalLight.Intensity);
-        requireWrite("u_Albedo", albedo);
-        requireWrite("u_SpecularPower", specularPower);
-        requireWrite("u_AmbientStrength", ambientStrength);
-        requireWrite("u_UseAlbedoMap", useAlbedoMap);
-        requireWrite("u_ShadowMapTexelSize", shadowMapTexelSize);
+        block.WriteRequired("u_ViewProjection", camera.GetViewProjection());
+        block.WriteRequired("u_Model", model);
+        block.WriteRequired("u_NormalMatrix", normalMatrix);
+        block.WriteRequired("u_LightViewProjection", ctx.Resources.LightViewProjection);
+        block.WriteRequired("u_CameraPosition", camera.GetPosition());
+        block.WriteRequired("u_LightDirection", scene.MainDirectionalLight.Direction);
+        block.WriteRequired("u_LightColor", scene.MainDirectionalLight.Color);
+        block.WriteRequired("u_LightIntensity", scene.MainDirectionalLight.Intensity);
+        block.WriteRequired("u_Albedo", albedo);
+        block.WriteRequired("u_SpecularPower", specularPower);
+        block.WriteRequired("u_AmbientStrength", ambientStrength);
+        block.WriteRequired("u_UseAlbedoMap", useAlbedoMap);
+        block.WriteRequired("u_ShadowMapTexelSize", shadowMapTexelSize);
 
         m_Shader->SetUniformBlock(0, block.Data(), block.Size());
 
