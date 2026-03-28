@@ -636,8 +636,8 @@ Recommended timing:
 - good practical trigger: when the team wants to remove the last direct `nlohmann::json`
   parsing sites from engine code as a cleanup pass
 
-In terms of the rendering roadmap, this likely means **after Phase 4 and preferably after
-Phase 5** of `uniform_reflection_migration.md`, not during the current push.
+In terms of the rendering roadmap, this likely means after the current
+reflection/binding cleanup has stabilized, not during the current push.
 
 #### Current Team Decision
 

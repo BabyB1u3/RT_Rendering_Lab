@@ -8,7 +8,14 @@
 #include "graphics/interfaces/IRenderTarget.h"
 #include "graphics/interfaces/IShader.h"
 #include "graphics/interfaces/ITexture2D.h"
+#include "graphics/interfaces/IUniformBuffer.h"
 #include "renderer/RenderContext.h"
+
+namespace
+{
+    constexpr ShaderBindingPoint kTexturePreviewParamsBinding{0, 0};
+    constexpr ShaderBindingPoint kTexturePreviewTextureBinding{0, 1};
+}
 
 TexturePreviewPass::TexturePreviewPass()
 {
@@ -16,6 +23,11 @@ TexturePreviewPass::TexturePreviewPass()
     RTRLAB_ASSERT_MSG(m_FullscreenQuad, "TexturePreviewPass failed to create fullscreen quad");
     m_Shader = GetDevice()->CreateShader("TexturePreview");
     RTRLAB_ASSERT_MSG(m_Shader, "TexturePreviewPass failed to create TexturePreview shader");
+    m_UniformBlockLayout = m_Shader->GetUniformBlockLayout(kTexturePreviewParamsBinding);
+    RTRLAB_ASSERT_MSG(m_UniformBlockLayout,
+                      "TexturePreviewPass: shader must provide reflected layout for logical binding {0, 0}.");
+    m_UniformBuffer = GetDevice()->CreateUniformBuffer(m_UniformBlockLayout->GetSize());
+    RTRLAB_ASSERT_MSG(m_UniformBuffer, "TexturePreviewPass failed to create uniform buffer for logical binding {0, 0}");
 }
 
 void TexturePreviewPass::Resize(unsigned int width, unsigned int height)
@@ -69,16 +81,16 @@ void TexturePreviewPass::Execute(const RenderContext &ctx)
     RenderCommand::SetPipelineState(pso);
 
     m_Shader->Bind();
-    const ShaderUniformBlockLayout *blockLayout = m_Shader->GetUniformBlockLayout(0);
-    RTRLAB_ASSERT_MSG(blockLayout,
-                      "TexturePreviewPass: shader must provide reflected layout for uniform block binding 0.");
+    RTRLAB_ASSERT_MSG(m_UniformBlockLayout, "TexturePreviewPass uniform block layout is null");
+    RTRLAB_ASSERT_MSG(m_UniformBuffer, "TexturePreviewPass uniform buffer is null");
 
-    // P5a: Shader-scoped texture binding - source texture at slot 1
-    m_Shader->BindTexture(1, texture);
+    // Pilot set-aware migration: bind preview resources through logical {set, binding}.
+    m_Shader->BindTexture(kTexturePreviewTextureBinding, texture);
 
-    PackedUniformBlock block(*blockLayout);
+    PackedUniformBlock block(*m_UniformBlockLayout);
     block.WriteRequired("u_IsDepthTexture", isDepth);
-    m_Shader->SetUniformBlock(0, block.Data(), block.Size());
+    m_UniformBuffer->SetData(block.Data(), block.Size());
+    m_Shader->BindUniformBuffer(kTexturePreviewParamsBinding, m_UniformBuffer);
 
     RenderCommand::DrawIndexed(m_FullscreenQuad->GetVertexArray());
 

@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "core/diagnostics/Assert.h"
+#include "graphics/ShaderBinding.h"
 
 enum class ShaderUniformValueType : uint8_t
 {
@@ -41,7 +42,8 @@ uint32_t GetShaderUniformValueTypeSize(ShaderUniformValueType type);
 ///      (Slang may append _N to disambiguate GLSL output; the Slang source name has no suffix.)
 ///
 /// The result must match the field name used in Write() / WriteRequired() and the name
-/// stored in the Metal reflection sidecar. See Section 5.5 of uniform_reflection_migration.md.
+/// stored in the Metal reflection sidecar. See the field-name contract in
+/// `docs/design/shader_binding.md`.
 std::string NormalizeGLUniformFieldName(std::string name);
 
 struct ShaderUniformFieldInfo
@@ -56,15 +58,19 @@ class ShaderUniformBlockLayout
 {
 public:
     ShaderUniformBlockLayout() = default;
+    ShaderUniformBlockLayout(std::string name, ShaderBindingPoint logicalBinding, uint32_t size);
     ShaderUniformBlockLayout(std::string name, uint32_t binding, uint32_t size);
 
     const std::string &GetName() const { return m_Name; }
-    uint32_t GetBinding() const { return m_Binding; }
+    const ShaderBindingPoint &GetBindingPoint() const { return m_LogicalBinding; }
+    uint32_t GetSet() const { return m_LogicalBinding.Set; }
+    uint32_t GetBinding() const { return m_LogicalBinding.Binding; }
     uint32_t GetSize() const { return m_Size; }
     const std::vector<ShaderUniformFieldInfo> &GetFields() const { return m_Fields; }
 
     void SetName(std::string name) { m_Name = std::move(name); }
-    void SetBinding(uint32_t binding) { m_Binding = binding; }
+    void SetBindingPoint(ShaderBindingPoint logicalBinding) { m_LogicalBinding = logicalBinding; }
+    void SetBinding(uint32_t binding) { m_LogicalBinding = MakeFlatShaderBindingPoint(binding); }
     void SetSize(uint32_t size) { m_Size = size; }
 
     bool AddField(ShaderUniformFieldInfo field);
@@ -72,7 +78,7 @@ public:
 
 private:
     std::string m_Name;
-    uint32_t m_Binding = 0;
+    ShaderBindingPoint m_LogicalBinding = {};
     uint32_t m_Size = 0;
     std::vector<ShaderUniformFieldInfo> m_Fields;
     std::unordered_map<std::string, size_t> m_FieldLookup;

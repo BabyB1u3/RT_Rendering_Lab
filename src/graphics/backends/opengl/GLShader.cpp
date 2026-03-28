@@ -1,6 +1,7 @@
 #include "GLShader.h"
 
 #include <array>
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -10,6 +11,8 @@
 #include "core/FileSystem.h"
 #include "core/diagnostics/LogCategories.h"
 #include "core/diagnostics/LogMacros.h"
+#include "graphics/backends/opengl/GLCast.h"
+#include "graphics/backends/opengl/GLUniformBuffer.h"
 #include "graphics/interfaces/ITexture2D.h"
 
 namespace
@@ -42,6 +45,26 @@ std::string TrimTrailingNull(std::string value)
 	return value;
 }
 
+uint32_t ResolveGLBufferBindingIndex(const ShaderBackendBindingMap &backendBindings,
+                                     ShaderBindingPoint logicalBinding)
+{
+	auto it = backendBindings.find(logicalBinding);
+	if (it != backendBindings.end() && it->second.BufferIndex.has_value())
+		return *it->second.BufferIndex;
+
+	return logicalBinding.Binding;
+}
+
+uint32_t ResolveGLTextureBindingIndex(const ShaderBackendBindingMap &backendBindings,
+                                      ShaderBindingPoint logicalBinding)
+{
+	auto it = backendBindings.find(logicalBinding);
+	if (it != backendBindings.end() && it->second.TextureIndex.has_value())
+		return *it->second.TextureIndex;
+
+	return logicalBinding.Binding;
+}
+
 } // namespace
 
 GLShader::GLShader(uint32_t program, std::string name)
@@ -65,7 +88,10 @@ GLShader::GLShader(GLShader &&other) noexcept
 	: m_RendererID(other.m_RendererID),
 	  m_Name(std::move(other.m_Name)),
 	  m_UniformLocationCache(std::move(other.m_UniformLocationCache)),
-	  m_UBOCache(std::move(other.m_UBOCache))
+	  m_UBOCache(std::move(other.m_UBOCache)),
+	  m_BlockLayouts(std::move(other.m_BlockLayouts)),
+	  m_ResourceLayouts(std::move(other.m_ResourceLayouts)),
+	  m_BackendBindings(std::move(other.m_BackendBindings))
 {
 	other.m_RendererID = 0;
 }
@@ -87,6 +113,9 @@ GLShader &GLShader::operator=(GLShader &&other) noexcept
 	m_Name = std::move(other.m_Name);
 	m_UniformLocationCache = std::move(other.m_UniformLocationCache);
 	m_UBOCache = std::move(other.m_UBOCache);
+	m_BlockLayouts = std::move(other.m_BlockLayouts);
+	m_ResourceLayouts = std::move(other.m_ResourceLayouts);
+	m_BackendBindings = std::move(other.m_BackendBindings);
 
 	other.m_RendererID = 0;
 	return *this;
@@ -193,7 +222,12 @@ Ref<GLShader> GLShader::CreateFromSource(
 	uint32_t program = LinkProgram(name, shaderIDs);
 	if (program == 0)
 		return nullptr;
-	return Ref<GLShader>(new GLShader(program, name));
+	auto shader = Ref<GLShader>(new GLShader(program, name));
+	shader->ReflectResourceBindingsFromSource(vertexSource);
+	shader->ReflectResourceBindingsFromSource(fragmentSource);
+	if (!geometrySource.empty())
+		shader->ReflectResourceBindingsFromSource(geometrySource);
+	return shader;
 }
 
 Ref<GLShader> GLShader::CreateFromFiles(
@@ -375,18 +409,50 @@ void GLShader::SetUniformBlock(uint32_t binding, const void *data, uint32_t size
 	}
 }
 
-void GLShader::BindTexture(uint32_t slot, const Ref<ITexture2D> &texture)
+void GLShader::BindUniformBuffer(ShaderBindingPoint binding, const Ref<IUniformBuffer> &buffer)
 {
+	const uint32_t slot = ResolveGLBufferBindingIndex(m_BackendBindings, binding);
+	if (!buffer)
+	{
+		glBindBufferBase(GL_UNIFORM_BUFFER, slot, 0);
+		return;
+	}
+
+	auto *glBuffer = AsGL<GLUniformBuffer>(buffer);
+	glBindBufferBase(GL_UNIFORM_BUFFER, slot, glBuffer->GetRendererID());
+}
+
+void GLShader::BindTexture(ShaderBindingPoint binding, const Ref<ITexture2D> &texture)
+{
+	const uint32_t slot = ResolveGLTextureBindingIndex(m_BackendBindings, binding);
 	if (texture)
 		texture->Bind(slot);
 	else
 		glBindTextureUnit(slot, 0);
 }
 
-const ShaderUniformBlockLayout *GLShader::GetUniformBlockLayout(uint32_t binding) const
+const ShaderUniformBlockLayout *GLShader::GetUniformBlockLayout(ShaderBindingPoint binding) const
 {
 	auto it = m_BlockLayouts.find(binding);
 	if (it == m_BlockLayouts.end())
+		return nullptr;
+
+	return &it->second;
+}
+
+const ShaderResourceLayout *GLShader::GetResourceLayout(ShaderBindingPoint binding) const
+{
+	auto it = m_ResourceLayouts.find(binding);
+	if (it == m_ResourceLayouts.end())
+		return nullptr;
+
+	return &it->second;
+}
+
+const ShaderBackendBinding *GLShader::GetBackendBinding(ShaderBindingPoint binding) const
+{
+	auto it = m_BackendBindings.find(binding);
+	if (it == m_BackendBindings.end())
 		return nullptr;
 
 	return &it->second;
@@ -417,7 +483,9 @@ void GLShader::ReflectUniformBlocks()
 		glGetProgramResourceName(m_RendererID, GL_UNIFORM_BLOCK, blockIndex,
 		                         static_cast<GLsizei>(blockName.size()), nullptr, blockName.data());
 
-		ShaderUniformBlockLayout layout(TrimTrailingNull(std::move(blockName)), binding, blockSize);
+		ShaderUniformBlockLayout layout(TrimTrailingNull(std::move(blockName)),
+		                               MakeFlatShaderBindingPoint(binding),
+		                               blockSize);
 
 		if (uniformCount > 0)
 		{
@@ -459,6 +527,54 @@ void GLShader::ReflectUniformBlocks()
 
 		LOG_TRACE_CAT(LogCategory::Shader, "GLShader '{}': reflected uniform block '{}' at binding {} ({} bytes, {} fields)",
 		              m_Name, layout.GetName(), binding, layout.GetSize(), layout.GetFields().size());
-		m_BlockLayouts[binding] = std::move(layout);
+		const ShaderBindingPoint logicalBinding = layout.GetBindingPoint();
+		m_ResourceLayouts[logicalBinding] = {
+			layout.GetName(),
+			ShaderResourceKind::UniformBuffer,
+			logicalBinding
+		};
+		m_BackendBindings[logicalBinding] = {
+			ShaderResourceKind::UniformBuffer,
+			logicalBinding,
+			binding,
+			std::nullopt,
+			std::nullopt
+		};
+		m_BlockLayouts[logicalBinding] = std::move(layout);
+	}
+}
+
+void GLShader::ReflectResourceBindingsFromSource(std::string_view source)
+{
+	static const std::regex kSamplerBindingPattern(
+		R"(layout\s*\(\s*binding\s*=\s*(\d+)\s*\)\s*uniform\s+([A-Za-z_][A-Za-z0-9_]*)\s+([A-Za-z_][A-Za-z0-9_]*)\s*;)");
+
+	const std::string sourceText(source);
+	for (std::sregex_iterator it(sourceText.begin(), sourceText.end(), kSamplerBindingPattern), end; it != end; ++it)
+	{
+		const std::smatch &match = *it;
+		if (match.size() < 4)
+			continue;
+
+		const std::string typeName = match[2].str();
+		if (typeName.rfind("sampler", 0) != 0)
+			continue;
+
+		const uint32_t bindingIndex = static_cast<uint32_t>(std::stoul(match[1].str()));
+		const ShaderBindingPoint logicalBinding = MakeFlatShaderBindingPoint(bindingIndex);
+		const std::string logicalName = NormalizeGLUniformFieldName(match[3].str());
+
+		m_ResourceLayouts[logicalBinding] = {
+			logicalName,
+			ShaderResourceKind::CombinedTextureSampler,
+			logicalBinding
+		};
+		m_BackendBindings[logicalBinding] = {
+			ShaderResourceKind::CombinedTextureSampler,
+			logicalBinding,
+			std::nullopt,
+			bindingIndex,
+			bindingIndex
+		};
 	}
 }

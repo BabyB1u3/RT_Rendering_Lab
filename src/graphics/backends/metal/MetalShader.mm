@@ -21,6 +21,7 @@
 #include "graphics/backends/metal/MetalGraphicsDevice.h"
 #include "graphics/backends/metal/MetalRenderCommand.h"
 #include "graphics/backends/metal/MetalTexture2D.h"
+#include "graphics/backends/metal/MetalUniformBuffer.h"
 
 // --- PSO cache key ---
 
@@ -78,6 +79,58 @@ struct UniformInfo
 
 using ReflectionMap = std::unordered_map<std::string, UniformInfo>;
 
+static std::optional<ShaderBindingPoint> ParseLogicalBindingPoint(const nlohmann::json &bindingJson)
+{
+	if (!bindingJson.is_object() || !bindingJson.contains("index"))
+		return std::nullopt;
+
+	return ShaderBindingPoint{
+		bindingJson.value("space", 0u),
+		bindingJson.value("index", 0u)
+	};
+}
+
+uint32_t ResolveMetalBufferBindingIndex(const ShaderBackendBindingMap &backendBindings,
+                                        ShaderBindingPoint logicalBinding)
+{
+	auto it = backendBindings.find(logicalBinding);
+	if (it != backendBindings.end() && it->second.BufferIndex.has_value())
+		return *it->second.BufferIndex;
+
+	return logicalBinding.Binding;
+}
+
+uint32_t ResolveMetalTextureBindingIndex(const ShaderBackendBindingMap &backendBindings,
+                                         ShaderBindingPoint logicalBinding,
+                                         uint32_t textureBindingBase)
+{
+	auto it = backendBindings.find(logicalBinding);
+	if (it != backendBindings.end() && it->second.TextureIndex.has_value())
+		return *it->second.TextureIndex;
+
+	return (logicalBinding.Binding >= textureBindingBase)
+		? (logicalBinding.Binding - textureBindingBase)
+		: logicalBinding.Binding;
+}
+
+uint32_t ResolveMetalSamplerBindingIndex(const ShaderBackendBindingMap &backendBindings,
+                                         ShaderBindingPoint logicalBinding,
+                                         uint32_t textureBindingBase)
+{
+	auto it = backendBindings.find(logicalBinding);
+	if (it != backendBindings.end())
+	{
+		if (it->second.SamplerIndex.has_value())
+			return *it->second.SamplerIndex;
+		if (it->second.TextureIndex.has_value())
+			return *it->second.TextureIndex;
+	}
+
+	return (logicalBinding.Binding >= textureBindingBase)
+		? (logicalBinding.Binding - textureBindingBase)
+		: logicalBinding.Binding;
+}
+
 // --- Impl ---
 
 static constexpr size_t kStagingBufferSize = 4096;
@@ -104,8 +157,11 @@ struct MetalShader::Impl
 
 	// Explicit uniform blocks (SetUniformBlock)
 	std::unordered_map<uint32_t, std::vector<uint8_t>> uniformBlocks;
-	std::unordered_map<uint32_t, ShaderUniformBlockLayout> blockLayouts;
-	std::unordered_map<uint32_t, Ref<ITexture2D>> boundTextures;
+	std::unordered_map<ShaderBindingPoint, ShaderUniformBlockLayout, ShaderBindingPointHash> blockLayouts;
+	std::unordered_map<ShaderBindingPoint, Ref<IUniformBuffer>, ShaderBindingPointHash> uniformBuffers;
+	std::unordered_map<ShaderBindingPoint, Ref<ITexture2D>, ShaderBindingPointHash> boundTextures;
+	ShaderResourceLayoutMap resourceLayouts;
+	ShaderBackendBindingMap backendBindings;
 
 	// Metal buffer binding indices
 	uint32_t vertexUniformBinding   = 1;   // default; overridden by JSON sidecar
@@ -208,6 +264,66 @@ static ShaderUniformValueType ParseReflectionValueType(const nlohmann::json &typ
 	return ShaderUniformValueType::Unknown;
 }
 
+static uint32_t ComputeReflectedLayoutSize(const ShaderUniformBlockLayout &layout)
+{
+	uint32_t size = 0;
+	for (const auto &field : layout.GetFields())
+		size = std::max(size, field.Offset + field.Size);
+
+	return size;
+}
+
+static void AppendReflectedStructFields(const nlohmann::json &typeJson,
+                                        ShaderUniformBlockLayout &layout,
+                                        uint32_t baseOffset = 0)
+{
+	if (!typeJson.is_object())
+		return;
+
+	const std::string kind = typeJson.value("kind", std::string{});
+	if (kind == "constantBuffer" ||
+	    kind == "parameterBlock" ||
+	    kind == "textureBuffer" ||
+	    kind == "shaderStorageBuffer")
+	{
+		AppendReflectedStructFields(typeJson.value("elementType", nlohmann::json::object()),
+		                            layout,
+		                            baseOffset);
+		return;
+	}
+
+	if (kind != "struct" || !typeJson.contains("fields") || !typeJson["fields"].is_array())
+		return;
+
+	for (const auto &fieldJson : typeJson["fields"])
+	{
+		const auto fieldType = fieldJson.value("type", nlohmann::json::object());
+		const auto fieldBinding = fieldJson.value("binding", nlohmann::json::object());
+		const uint32_t fieldOffset = baseOffset + fieldBinding.value("offset", 0u);
+		const uint32_t fieldSize = fieldBinding.value("size", 0u);
+
+		const std::string fieldKind = fieldType.value("kind", std::string{});
+		if (fieldKind == "struct" ||
+		    fieldKind == "constantBuffer" ||
+		    fieldKind == "parameterBlock")
+		{
+			AppendReflectedStructFields(fieldType, layout, fieldOffset);
+			continue;
+		}
+
+		const std::string fieldName = fieldJson.value("name", std::string{});
+		if (fieldName.empty() || fieldSize == 0)
+			continue;
+
+		layout.AddField({
+			fieldName,
+			fieldOffset,
+			fieldSize,
+			ParseReflectionValueType(fieldType)
+		});
+	}
+}
+
 // Parse the slangc -reflection-json sidecar and populate the runtime layout structures.
 //
 // Field names stored here must match what PackedUniformBlock::Write() callers use,
@@ -225,7 +341,9 @@ static void LoadReflectionSidecar(const std::string &name,
                                   ReflectionMap &vertex, ReflectionMap &fragment,
                                   uint32_t &vertexBinding, uint32_t &fragmentBinding,
                                   uint32_t &textureBase,
-                                  std::unordered_map<uint32_t, ShaderUniformBlockLayout> &blockLayouts)
+                                  std::unordered_map<ShaderBindingPoint, ShaderUniformBlockLayout, ShaderBindingPointHash> &blockLayouts,
+                                  ShaderResourceLayoutMap &resourceLayouts,
+                                  ShaderBackendBindingMap &backendBindings)
 {
 	auto path = FileSystem::GetCompiledShaderDir() / "metal" / (name + ".reflect.json");
 	if (!FileSystem::Exists(path))
@@ -252,7 +370,7 @@ static void LoadReflectionSidecar(const std::string &name,
 		{
 			uint32_t computedBlockSize = 0;
 			uint32_t minTextureBindingBase = std::numeric_limits<uint32_t>::max();
-			ShaderUniformBlockLayout globalLayout("GlobalParams", 0, 0);
+			ShaderUniformBlockLayout globalLayout("GlobalParams", MakeFlatShaderBindingPoint(0), 0);
 			bool hasGlobalUniforms = false;
 
 			for (const auto &parameter : json["parameters"])
@@ -279,13 +397,67 @@ static void LoadReflectionSidecar(const std::string &name,
 				{
 					const uint32_t index = binding.value("index", 0u);
 					minTextureBindingBase = std::min(minTextureBindingBase, index);
+
+					const ShaderBindingPoint logicalBinding =
+						ParseLogicalBindingPoint(binding).value_or(MakeFlatShaderBindingPoint(index));
+					resourceLayouts[logicalBinding] = {
+						parameter.value("name", std::string{}),
+						ShaderResourceKind::CombinedTextureSampler,
+						logicalBinding
+					};
+					backendBindings[logicalBinding] = {
+						ShaderResourceKind::CombinedTextureSampler,
+						logicalBinding,
+						std::nullopt,
+						index,
+						index
+					};
+				}
+				else if (kind == "constantBuffer")
+				{
+					const ShaderBindingPoint logicalBinding =
+						ParseLogicalBindingPoint(binding).value_or(MakeFlatShaderBindingPoint(binding.value("index", 0u)));
+					ShaderUniformBlockLayout layout(
+						parameter.value("name", std::string{"GlobalParams"}),
+						logicalBinding,
+						0u);
+					AppendReflectedStructFields(parameter.value("type", nlohmann::json::object()), layout);
+					layout.SetSize(std::max(binding.value("size", 0u), ComputeReflectedLayoutSize(layout)));
+
+					resourceLayouts[logicalBinding] = {
+						layout.GetName(),
+						ShaderResourceKind::UniformBuffer,
+						logicalBinding
+					};
+					backendBindings[logicalBinding] = {
+						ShaderResourceKind::UniformBuffer,
+						logicalBinding,
+						binding.value("index", logicalBinding.Binding),
+						std::nullopt,
+						std::nullopt
+					};
+					if (!layout.GetFields().empty() || layout.GetSize() > 0)
+						blockLayouts[logicalBinding] = std::move(layout);
 				}
 			}
 
 			if (hasGlobalUniforms)
 			{
 				globalLayout.SetSize(computedBlockSize);
-				blockLayouts[0] = std::move(globalLayout);
+				const ShaderBindingPoint globalBinding = MakeFlatShaderBindingPoint(0);
+				resourceLayouts[globalBinding] = {
+					"GlobalParams",
+					ShaderResourceKind::UniformBuffer,
+					globalBinding
+				};
+				backendBindings[globalBinding] = {
+					ShaderResourceKind::UniformBuffer,
+					globalBinding,
+					globalBinding.Binding,
+					std::nullopt,
+					std::nullopt
+				};
+				blockLayouts[globalBinding] = std::move(globalLayout);
 			}
 
 			if (json.contains("entryPoints") && json["entryPoints"].is_array())
@@ -360,7 +532,20 @@ static void LoadReflectionSidecar(const std::string &name,
 					}
 				}
 
-				blockLayouts[layout.GetBinding()] = std::move(layout);
+				const ShaderBindingPoint logicalBinding = layout.GetBindingPoint();
+				resourceLayouts[logicalBinding] = {
+					layout.GetName(),
+					ShaderResourceKind::UniformBuffer,
+					logicalBinding
+				};
+				backendBindings[logicalBinding] = {
+					ShaderResourceKind::UniformBuffer,
+					logicalBinding,
+					layout.GetBinding(),
+					std::nullopt,
+					std::nullopt
+				};
+				blockLayouts[logicalBinding] = std::move(layout);
 			}
 		}
 
@@ -421,7 +606,9 @@ Ref<MetalShader> MetalShader::CreateFromMSLSource(const std::string &name,
 	                      shader->m_Impl->vertexUniformBinding,
 	                      shader->m_Impl->fragmentUniformBinding,
 	                      shader->m_Impl->textureBindingBase,
-	                      shader->m_Impl->blockLayouts);
+	                      shader->m_Impl->blockLayouts,
+	                      shader->m_Impl->resourceLayouts,
+	                      shader->m_Impl->backendBindings);
 
 	LOG_INFO_CAT(LogCategory::Shader, "MetalShader: loaded '{}'", name);
 	return Ref<MetalShader>(shader);
@@ -550,15 +737,23 @@ void MetalShader::SetUniformBlock(uint32_t binding, const void *data, uint32_t s
 	memcpy(block.data(), data, size);
 }
 
-void MetalShader::BindTexture(uint32_t slot, const Ref<ITexture2D> &texture)
+void MetalShader::BindUniformBuffer(ShaderBindingPoint binding, const Ref<IUniformBuffer> &buffer)
 {
-	if (texture)
-		m_Impl->boundTextures[slot] = texture;
+	if (buffer)
+		m_Impl->uniformBuffers[binding] = buffer;
 	else
-		m_Impl->boundTextures.erase(slot);
+		m_Impl->uniformBuffers.erase(binding);
 }
 
-const ShaderUniformBlockLayout *MetalShader::GetUniformBlockLayout(uint32_t binding) const
+void MetalShader::BindTexture(ShaderBindingPoint binding, const Ref<ITexture2D> &texture)
+{
+	if (texture)
+		m_Impl->boundTextures[binding] = texture;
+	else
+		m_Impl->boundTextures.erase(binding);
+}
+
+const ShaderUniformBlockLayout *MetalShader::GetUniformBlockLayout(ShaderBindingPoint binding) const
 {
 	auto it = m_Impl->blockLayouts.find(binding);
 	if (it == m_Impl->blockLayouts.end())
@@ -648,6 +843,24 @@ uint32_t MetalShader::GetTextureBindingBase() const
 	return m_Impl->textureBindingBase;
 }
 
+const ShaderResourceLayout *MetalShader::GetResourceLayout(ShaderBindingPoint binding) const
+{
+	auto it = m_Impl->resourceLayouts.find(binding);
+	if (it == m_Impl->resourceLayouts.end())
+		return nullptr;
+
+	return &it->second;
+}
+
+const ShaderBackendBinding *MetalShader::GetBackendBinding(ShaderBindingPoint binding) const
+{
+	auto it = m_Impl->backendBindings.find(binding);
+	if (it == m_Impl->backendBindings.end())
+		return nullptr;
+
+	return &it->second;
+}
+
 void MetalShader::FlushUniforms(void *mtlEncoder)
 {
 	id<MTLRenderCommandEncoder> encoder = (__bridge id<MTLRenderCommandEncoder>)mtlEncoder;
@@ -676,17 +889,38 @@ void MetalShader::FlushUniforms(void *mtlEncoder)
 		[encoder setFragmentBytes:data.data() length:data.size() atIndex:slotIndex];
 	}
 
-	const uint32_t textureBase = m_Impl->textureBindingBase;
-	for (const auto &[slot, texture] : m_Impl->boundTextures)
+	for (const auto &[binding, buffer] : m_Impl->uniformBuffers)
 	{
-		const uint32_t metalSlot = (slot >= textureBase) ? (slot - textureBase) : slot;
+		const uint32_t slotIndex = kUniformBaseSlot +
+			ResolveMetalBufferBindingIndex(m_Impl->backendBindings, binding);
+		auto *metalBuffer = AsMetal<MetalUniformBuffer>(buffer);
+		id<MTLBuffer> nativeBuffer = (__bridge id<MTLBuffer>)metalBuffer->GetMTLBuffer();
+		void *contents = nativeBuffer.contents;
+		const uint32_t size = buffer->GetSize();
+		RTRLAB_ASSERT_MSG(contents != nullptr,
+		                  "MetalShader::FlushUniforms: bound uniform buffer has no CPU-visible contents");
+
+		// Snapshot the current UBO contents into the command encoder. This preserves
+		// SetUniformBlock-like semantics when the same MetalUniformBuffer is reused
+		// and updated across multiple draw calls in a single render pass.
+		[encoder setVertexBytes:contents length:size atIndex:slotIndex];
+		[encoder setFragmentBytes:contents length:size atIndex:slotIndex];
+	}
+
+	const uint32_t textureBase = m_Impl->textureBindingBase;
+	for (const auto &[binding, texture] : m_Impl->boundTextures)
+	{
+		const uint32_t metalTextureSlot =
+			ResolveMetalTextureBindingIndex(m_Impl->backendBindings, binding, textureBase);
+		const uint32_t metalSamplerSlot =
+			ResolveMetalSamplerBindingIndex(m_Impl->backendBindings, binding, textureBase);
 		auto *metalTexture = AsMetal<MetalTexture2D>(texture);
 		id<MTLTexture> nativeTexture = (__bridge id<MTLTexture>)metalTexture->GetMTLTexture();
 		id<MTLSamplerState> samplerState = (__bridge id<MTLSamplerState>)metalTexture->GetMTLSamplerState();
 
-		[encoder setVertexTexture:nativeTexture atIndex:metalSlot];
-		[encoder setFragmentTexture:nativeTexture atIndex:metalSlot];
-		[encoder setVertexSamplerState:samplerState atIndex:metalSlot];
-		[encoder setFragmentSamplerState:samplerState atIndex:metalSlot];
+		[encoder setVertexTexture:nativeTexture atIndex:metalTextureSlot];
+		[encoder setFragmentTexture:nativeTexture atIndex:metalTextureSlot];
+		[encoder setVertexSamplerState:samplerState atIndex:metalSamplerSlot];
+		[encoder setFragmentSamplerState:samplerState atIndex:metalSamplerSlot];
 	}
 }

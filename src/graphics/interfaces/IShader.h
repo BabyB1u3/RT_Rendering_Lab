@@ -12,6 +12,7 @@
 #include "graphics/ShaderUniformLayout.h"
 
 class ITexture2D;
+class IUniformBuffer;
 
 class IShader
 {
@@ -37,12 +38,46 @@ public:
 	/// Maps to UBO on OpenGL, descriptor set buffer on Vulkan.
 	virtual void SetUniformBlock(uint32_t binding, const void *data, uint32_t size) = 0;
 
-	/// Bind a texture at the specified slot.
+	/// Bind a logical uniform buffer object at the specified binding point.
+	///
+	/// Cross-backend contract:
+	/// - Call sites may reuse one IUniformBuffer across many draw calls in the same
+	///   pass and update it with SetData() between draws.
+	/// - Backends must preserve per-draw stability. A later SetData() must not
+	///   retroactively change the bytes consumed by previously encoded draws.
+	///
+	/// This requirement became explicit after a Metal regression where directly
+	/// binding one mutable MTLBuffer caused every draw in the pass to observe the
+	/// final upload instead of the upload current at that draw.
+	virtual void BindUniformBuffer(ShaderBindingPoint binding, const Ref<IUniformBuffer> &buffer) = 0;
+
+	/// Compatibility shim for bridge code that still uses flat slots.
+	[[deprecated("Use BindUniformBuffer(ShaderBindingPoint, ...) instead")]]
+	void BindUniformBuffer(uint32_t slot, const Ref<IUniformBuffer> &buffer)
+	{
+		BindUniformBuffer(MakeFlatShaderBindingPoint(slot), buffer);
+	}
+
+	/// Bind a texture at the specified logical binding point.
 	/// OpenGL binding is stage-agnostic. Metal currently binds the texture to both
-	/// vertex and fragment stages to preserve a simple slot-only abstraction.
-	virtual void BindTexture(uint32_t slot, const Ref<ITexture2D> &texture) = 0;
+	/// vertex and fragment stages to preserve a simple stage-agnostic abstraction.
+	virtual void BindTexture(ShaderBindingPoint binding, const Ref<ITexture2D> &texture) = 0;
+
+	/// Compatibility shim for bridge code that still uses flat slots.
+	[[deprecated("Use BindTexture(ShaderBindingPoint, ...) instead")]]
+	void BindTexture(uint32_t slot, const Ref<ITexture2D> &texture)
+	{
+		BindTexture(MakeFlatShaderBindingPoint(slot), texture);
+	}
 
 	/// Returns the authoritative reflected layout for the requested uniform block,
 	/// or nullptr when the backend has no layout metadata for that binding yet.
-	virtual const ShaderUniformBlockLayout *GetUniformBlockLayout(uint32_t binding) const = 0;
+	virtual const ShaderUniformBlockLayout *GetUniformBlockLayout(ShaderBindingPoint binding) const = 0;
+
+	/// Compatibility shim for bridge code that still uses flat slots.
+	[[deprecated("Use GetUniformBlockLayout(ShaderBindingPoint) instead")]]
+	const ShaderUniformBlockLayout *GetUniformBlockLayout(uint32_t binding) const
+	{
+		return GetUniformBlockLayout(MakeFlatShaderBindingPoint(binding));
+	}
 };

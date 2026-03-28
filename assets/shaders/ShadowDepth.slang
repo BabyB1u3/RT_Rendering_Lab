@@ -3,8 +3,12 @@
 // Depth-only pass for shadow map generation.
 // Transforms vertices by light-space MVP; fragment shader is empty.
 
-uniform float4x4 u_LightViewProjection;
-uniform float4x4 u_Model;
+[vk::binding(0, 0)]
+cbuffer GlobalParams
+{
+    float4x4 u_LightViewProjection;
+    float4x4 u_Model;
+}
 
 struct VertexInput
 {

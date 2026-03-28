@@ -6,10 +6,15 @@
 // Uses Sampler2D (combined texture+sampler) for OpenGL-compatible GLSL output.
 
 // Binding convention (matches [vk::binding(N, 0)] → consistent across OpenGL/Metal/Vulkan):
-//   binding 0 : implicit GlobalParams CB  (u_IsDepthTexture, packed by Slang)
+//   binding 0 : explicit GlobalParams CB
 //   binding 1 : u_Texture
+[vk::binding(0, 0)]
+cbuffer GlobalParams
+{
+    bool u_IsDepthTexture;
+}
+
 [vk::binding(1, 0)] uniform Sampler2D u_Texture;
-uniform bool u_IsDepthTexture;
 
 struct VertexInput
 {

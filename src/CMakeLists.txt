@@ -105,6 +105,7 @@ set(GLAB_CORE_HEADERS
     graphics/interfaces/ITexture2D.h
     graphics/interfaces/IVertexBuffer.h
     graphics/interfaces/IIndexBuffer.h
+    graphics/interfaces/IUniformBuffer.h
     graphics/interfaces/IVertexArray.h
     graphics/interfaces/IShader.h
     graphics/interfaces/IFramebuffer.h
@@ -152,6 +153,7 @@ if(GLAB_BACKEND_OPENGL)
         graphics/backends/opengl/GLTexture2D.cpp
         graphics/backends/opengl/GLVertexBuffer.cpp
         graphics/backends/opengl/GLIndexBuffer.cpp
+        graphics/backends/opengl/GLUniformBuffer.cpp
         graphics/backends/opengl/GLVertexArray.cpp
         graphics/backends/opengl/GLShader.cpp
         graphics/backends/opengl/GLFramebuffer.cpp
@@ -165,6 +167,7 @@ if(GLAB_BACKEND_OPENGL)
         graphics/backends/opengl/GLTexture2D.h
         graphics/backends/opengl/GLVertexBuffer.h
         graphics/backends/opengl/GLIndexBuffer.h
+        graphics/backends/opengl/GLUniformBuffer.h
         graphics/backends/opengl/GLVertexArray.h
         graphics/backends/opengl/GLShader.h
         graphics/backends/opengl/GLFramebuffer.h
@@ -193,6 +196,7 @@ if(GLAB_BACKEND_METAL)
         graphics/backends/metal/MetalShader.mm
         graphics/backends/metal/MetalVertexBuffer.mm
         graphics/backends/metal/MetalIndexBuffer.mm
+        graphics/backends/metal/MetalUniformBuffer.mm
         graphics/backends/metal/MetalVertexArray.mm
         graphics/backends/metal/MetalTexture2D.mm
         graphics/backends/metal/MetalFramebuffer.mm
@@ -208,6 +212,7 @@ if(GLAB_BACKEND_METAL)
         graphics/backends/metal/MetalShader.h
         graphics/backends/metal/MetalVertexBuffer.h
         graphics/backends/metal/MetalIndexBuffer.h
+        graphics/backends/metal/MetalUniformBuffer.h
         graphics/backends/metal/MetalVertexArray.h
         graphics/backends/metal/MetalTexture2D.h
         graphics/backends/metal/MetalFramebuffer.h

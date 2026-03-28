@@ -1,23 +1,28 @@
 // BasicLit.slang
 //
 // Tutorial 06: Blinn-Phong lighting with a single directional light.
-// No shadows, no texture — solid color albedo with ambient + diffuse + specular.
+// No shadows, no texture: solid color albedo with ambient + diffuse + specular.
 //
-// Uniforms are packed into the implicit GlobalParams CB (binding 0) by Slang.
-// The C++ side must upload a matching struct via SetUniformBlock(0, ...).
+// GlobalParams is an explicit logical uniform block at binding {0, 0}.
+// The C++ side queries its reflected layout and updates a matching UBO through
+// IShader::BindUniformBuffer().
 
-uniform float4x4 u_ViewProjection;
-uniform float4x4 u_Model;
-uniform float4x4 u_NormalMatrix; // transpose(inverse(model)), passed as mat4
+[vk::binding(0, 0)]
+cbuffer GlobalParams
+{
+    float4x4 u_ViewProjection;
+    float4x4 u_Model;
+    float4x4 u_NormalMatrix; // transpose(inverse(model)), passed as mat4
 
-uniform float3 u_CameraPosition;
-uniform float3 u_LightDirection; // points FROM light TOWARD surface
-uniform float3 u_LightColor;
-uniform float  u_LightIntensity;
+    float3 u_CameraPosition;
+    float3 u_LightDirection; // points FROM light TOWARD surface
+    float3 u_LightColor;
+    float  u_LightIntensity;
 
-uniform float3 u_Albedo;
-uniform float  u_SpecularPower;
-uniform float  u_AmbientStrength;
+    float3 u_Albedo;
+    float  u_SpecularPower;
+    float  u_AmbientStrength;
+}
 
 struct VertexInput
 {

@@ -18,6 +18,7 @@
 #include "graphics/backends/metal/MetalRenderTarget.h"
 #include "graphics/backends/metal/MetalShader.h"
 #include "graphics/backends/metal/MetalTexture2D.h"
+#include "graphics/backends/metal/MetalUniformBuffer.h"
 #include "graphics/backends/metal/MetalVertexArray.h"
 #include "graphics/backends/metal/MetalVertexBuffer.h"
 
@@ -87,6 +88,11 @@ Ref<IVertexBuffer> MetalGraphicsDevice::CreateVertexBuffer(const void *data, uin
 Ref<IIndexBuffer> MetalGraphicsDevice::CreateIndexBuffer(const uint32_t *indices, uint32_t count)
 {
 	return CreateRef<MetalIndexBuffer>(indices, count);
+}
+
+Ref<IUniformBuffer> MetalGraphicsDevice::CreateUniformBuffer(uint32_t size)
+{
+	return CreateRef<MetalUniformBuffer>(size);
 }
 
 // --- IGraphicsDevice - Vertex Array ---

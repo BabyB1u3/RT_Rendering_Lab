@@ -17,10 +17,18 @@
 #include "graphics/interfaces/IRenderTarget.h"
 #include "graphics/interfaces/IShader.h"
 #include "graphics/interfaces/ITexture2D.h"
+#include "graphics/interfaces/IUniformBuffer.h"
 #include "renderer/RenderContext.h"
 #include "renderer/RenderItem.h"
 #include "scene/Camera.h"
 #include "scene/SceneData.h"
+
+namespace
+{
+    constexpr ShaderBindingPoint kForwardParamsBinding{0, 0};
+    constexpr ShaderBindingPoint kForwardShadowTextureBinding{0, 1};
+    constexpr ShaderBindingPoint kForwardAlbedoTextureBinding{0, 2};
+}
 
 ForwardPass::ForwardPass(uint32_t width, uint32_t height, bool renderToTarget,
                          const glm::vec4 &clearColor)
@@ -41,6 +49,11 @@ ForwardPass::ForwardPass(uint32_t width, uint32_t height, bool renderToTarget,
 
     m_Shader = GetDevice()->CreateShader("ForwardLit");
     RTRLAB_ASSERT_MSG(m_Shader, "ForwardPass failed to create ForwardLit shader");
+    m_UniformBlockLayout = m_Shader->GetUniformBlockLayout(kForwardParamsBinding);
+    RTRLAB_ASSERT_MSG(m_UniformBlockLayout,
+                      "ForwardPass: shader must provide reflected layout for logical binding {0, 0}.");
+    m_UniformBuffer = GetDevice()->CreateUniformBuffer(m_UniformBlockLayout->GetSize());
+    RTRLAB_ASSERT_MSG(m_UniformBuffer, "ForwardPass failed to create uniform buffer for logical binding {0, 0}");
 
     // 1x1 white fallback texture for when no shadow map is provided.
     // Sampling r = 1.0 means currentDepth - bias > 1.0 is always false -> no shadow.
@@ -101,13 +114,12 @@ void ForwardPass::Execute(const RenderContext &ctx)
     const auto &scene = ctx.View.Scene;
 
     m_Shader->Bind();
-    const ShaderUniformBlockLayout *blockLayout = m_Shader->GetUniformBlockLayout(0);
-    RTRLAB_ASSERT_MSG(blockLayout,
-                      "ForwardPass: shader must provide reflected layout for uniform block binding 0.");
+    RTRLAB_ASSERT_MSG(m_UniformBlockLayout, "ForwardPass uniform block layout is null");
+    RTRLAB_ASSERT_MSG(m_UniformBuffer, "ForwardPass uniform buffer is null");
 
-    // P5a: Shader-scoped texture binding - shadow map at slot 1
+    // Keep the current flat set-0 binding layout while moving the pass to logical binding points.
     const auto &shadow = ctx.Resources.ShadowMap ? ctx.Resources.ShadowMap : m_FallbackShadowMap;
-    m_Shader->BindTexture(1, shadow);
+    m_Shader->BindTexture(kForwardShadowTextureBinding, shadow);
     const glm::vec2 shadowMapTexelSize = {
         1.0f / static_cast<float>(shadow->GetWidth()),
         1.0f / static_cast<float>(shadow->GetHeight())};
@@ -132,11 +144,10 @@ void ForwardPass::Execute(const RenderContext &ctx)
         const bool useAlbedoMap = (albedoTex != nullptr);
         if (albedoTex)
         {
-            // P5a: Shader-scoped texture binding - albedo at slot 2
-            m_Shader->BindTexture(2, albedoTex);
+            m_Shader->BindTexture(kForwardAlbedoTextureBinding, albedoTex);
         }
 
-        PackedUniformBlock block(*blockLayout);
+        PackedUniformBlock block(*m_UniformBlockLayout);
         block.WriteRequired("u_ViewProjection", camera.GetViewProjection());
         block.WriteRequired("u_Model", model);
         block.WriteRequired("u_NormalMatrix", normalMatrix);
@@ -151,7 +162,8 @@ void ForwardPass::Execute(const RenderContext &ctx)
         block.WriteRequired("u_UseAlbedoMap", useAlbedoMap);
         block.WriteRequired("u_ShadowMapTexelSize", shadowMapTexelSize);
 
-        m_Shader->SetUniformBlock(0, block.Data(), block.Size());
+        m_UniformBuffer->SetData(block.Data(), block.Size());
+        m_Shader->BindUniformBuffer(kForwardParamsBinding, m_UniformBuffer);
 
         RenderCommand::DrawIndexed(item.Mesh->GetVertexArray());
     }

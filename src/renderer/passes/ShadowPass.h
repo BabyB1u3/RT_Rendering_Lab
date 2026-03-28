@@ -19,6 +19,8 @@ class IFramebuffer;
 class IRenderTarget;
 class IShader;
 class ITexture2D;
+class IUniformBuffer;
+class ShaderUniformBlockLayout;
 
 class ShadowPass : public RenderPass
 {
@@ -38,4 +40,6 @@ private:
     Ref<IFramebuffer> m_Framebuffer;
     Ref<IRenderTarget> m_RenderTarget; ///< Cached (P5)
     Ref<IShader> m_Shader;
+    const ShaderUniformBlockLayout *m_UniformBlockLayout = nullptr;
+    Ref<IUniformBuffer> m_UniformBuffer;
 };

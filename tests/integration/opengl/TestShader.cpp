@@ -18,8 +18,10 @@
 #include "graphics/interfaces/IRenderTarget.h"
 #include "graphics/interfaces/IShader.h"
 #include "graphics/interfaces/ITexture2D.h"
+#include "graphics/interfaces/IUniformBuffer.h"
 #include "graphics/backends/opengl/GLCast.h"
 #include "graphics/backends/opengl/GLFramebuffer.h"
+#include "graphics/backends/opengl/GLShader.h"
 
 class ShaderIntegrationTests : public ::testing::Test
 {
@@ -163,7 +165,7 @@ TEST_F(ShaderIntegrationTests, CreateShader_LoadsForwardLitFromCompiledGlsl)
 	auto shader = GetDevice()->CreateShader("ForwardLit");
 	ASSERT_NE(shader, nullptr);
 	EXPECT_EQ(shader->GetName(), "ForwardLit");
-	const auto *layout = shader->GetUniformBlockLayout(0);
+	const auto *layout = shader->GetUniformBlockLayout({0, 0});
 	ASSERT_NE(layout, nullptr);
 	EXPECT_NE(layout->FindField("u_ViewProjection"), nullptr);
 	EXPECT_NE(layout->FindField("u_LightViewProjection"), nullptr);
@@ -176,13 +178,57 @@ TEST_F(ShaderIntegrationTests, CreateShader_LoadsForwardLitFromCompiledGlsl)
 	shader->Unbind();
 }
 
+TEST_F(ShaderIntegrationTests, CreateShader_LoadsBasicLitFromCompiledGlsl)
+{
+	ShaderTestUtils::SkipOrFailIfShaderMissing("BasicLit");
+
+	auto shader = GetDevice()->CreateShader("BasicLit");
+	ASSERT_NE(shader, nullptr);
+	const auto *layout = shader->GetUniformBlockLayout({0, 0});
+	ASSERT_NE(layout, nullptr);
+	EXPECT_NE(layout->FindField("u_ViewProjection"), nullptr);
+	EXPECT_NE(layout->FindField("u_AmbientStrength"), nullptr);
+
+	auto *glShader = AsGL<GLShader>(shader);
+	const auto *blockResource = glShader->GetResourceLayout({0, 0});
+	ASSERT_NE(blockResource, nullptr);
+	EXPECT_NE(blockResource->Name.find("GlobalParams"), std::string::npos);
+	EXPECT_EQ(blockResource->Kind, ShaderResourceKind::UniformBuffer);
+}
+
+TEST_F(ShaderIntegrationTests, CreateShader_PreservesCompiledResourceBindingMetadata)
+{
+	ShaderTestUtils::SkipOrFailIfShaderMissing("ForwardLit");
+
+	auto shader = GetDevice()->CreateShader("ForwardLit");
+	ASSERT_NE(shader, nullptr);
+	auto *glShader = AsGL<GLShader>(shader);
+
+	const auto *blockResource = glShader->GetResourceLayout({0, 0});
+	ASSERT_NE(blockResource, nullptr);
+	EXPECT_NE(blockResource->Name.find("GlobalParams"), std::string::npos);
+	EXPECT_EQ(blockResource->Kind, ShaderResourceKind::UniformBuffer);
+
+	const auto *shadowMapResource = glShader->GetResourceLayout({0, 1});
+	ASSERT_NE(shadowMapResource, nullptr);
+	EXPECT_EQ(shadowMapResource->Name, "u_ShadowMap");
+	EXPECT_EQ(shadowMapResource->Kind, ShaderResourceKind::CombinedTextureSampler);
+
+	const auto *albedoMapBinding = glShader->GetBackendBinding({0, 2});
+	ASSERT_NE(albedoMapBinding, nullptr);
+	ASSERT_TRUE(albedoMapBinding->TextureIndex.has_value());
+	ASSERT_TRUE(albedoMapBinding->SamplerIndex.has_value());
+	EXPECT_EQ(*albedoMapBinding->TextureIndex, 2u);
+	EXPECT_EQ(*albedoMapBinding->SamplerIndex, 2u);
+}
+
 TEST_F(ShaderIntegrationTests, CreateShader_LoadsShadowDepthFromCompiledGlsl)
 {
 	ShaderTestUtils::SkipOrFailIfShaderMissing("ShadowDepth");
 
 	auto shader = GetDevice()->CreateShader("ShadowDepth");
 	ASSERT_NE(shader, nullptr);
-	const auto *layout = shader->GetUniformBlockLayout(0);
+	const auto *layout = shader->GetUniformBlockLayout({0, 0});
 	ASSERT_NE(layout, nullptr);
 	EXPECT_NE(layout->FindField("u_LightViewProjection"), nullptr);
 	EXPECT_NE(layout->FindField("u_Model"), nullptr);
@@ -193,19 +239,55 @@ TEST_F(ShaderIntegrationTests, CreateShader_LoadsShadowDepthFromCompiledGlsl)
 	shader->Unbind();
 }
 
+TEST_F(ShaderIntegrationTests, CreateShader_ShadowDepthPreservesExplicitLogicalResourceMetadata)
+{
+	ShaderTestUtils::SkipOrFailIfShaderMissing("ShadowDepth");
+
+	auto shader = GetDevice()->CreateShader("ShadowDepth");
+	ASSERT_NE(shader, nullptr);
+	auto *glShader = AsGL<GLShader>(shader);
+
+	const auto *blockResource = glShader->GetResourceLayout({0, 0});
+	ASSERT_NE(blockResource, nullptr);
+	EXPECT_NE(blockResource->Name.find("GlobalParams"), std::string::npos);
+	EXPECT_EQ(blockResource->Kind, ShaderResourceKind::UniformBuffer);
+}
+
 TEST_F(ShaderIntegrationTests, CreateShader_LoadsTexturePreviewFromCompiledGlsl)
 {
 	ShaderTestUtils::SkipOrFailIfShaderMissing("TexturePreview");
 
 	auto shader = GetDevice()->CreateShader("TexturePreview");
 	ASSERT_NE(shader, nullptr);
-	const auto *layout = shader->GetUniformBlockLayout(0);
+	const auto *layout = shader->GetUniformBlockLayout({0, 0});
 	ASSERT_NE(layout, nullptr);
 	EXPECT_NE(layout->FindField("u_IsDepthTexture"), nullptr);
 
 	shader->Bind();
 	shader->SetBool("u_IsDepthTexture", false);
 	shader->Unbind();
+}
+
+TEST_F(ShaderIntegrationTests, CreateShader_TexturePreviewPreservesExplicitLogicalResourceMetadata)
+{
+	ShaderTestUtils::SkipOrFailIfShaderMissing("TexturePreview");
+
+	auto shader = GetDevice()->CreateShader("TexturePreview");
+	ASSERT_NE(shader, nullptr);
+	auto *glShader = AsGL<GLShader>(shader);
+
+	const auto *blockResource = glShader->GetResourceLayout({0, 0});
+	ASSERT_NE(blockResource, nullptr);
+	EXPECT_NE(blockResource->Name.find("GlobalParams"), std::string::npos);
+	EXPECT_EQ(blockResource->Kind, ShaderResourceKind::UniformBuffer);
+
+	const auto *textureBinding = glShader->GetBackendBinding({0, 1});
+	ASSERT_NE(textureBinding, nullptr);
+	EXPECT_EQ(textureBinding->Kind, ShaderResourceKind::CombinedTextureSampler);
+	ASSERT_TRUE(textureBinding->TextureIndex.has_value());
+	ASSERT_TRUE(textureBinding->SamplerIndex.has_value());
+	EXPECT_EQ(*textureBinding->TextureIndex, 1u);
+	EXPECT_EQ(*textureBinding->SamplerIndex, 1u);
 }
 
 TEST_F(ShaderIntegrationTests, UniformBlockUploadInfluencesRealDrawOutput)
@@ -308,7 +390,7 @@ TEST_F(ShaderIntegrationTests, CompiledTexturePreviewShaderProducesRealDrawOutpu
 	pso.BlendEnabled = false;
 	pso.CullFaceEnabled = false;
 
-	const auto *layout = shader->GetUniformBlockLayout(0);
+	const auto *layout = shader->GetUniformBlockLayout({0, 0});
 	ASSERT_NE(layout, nullptr);
 	PackedUniformBlock block(*layout);
 	const int32_t isDepthTexture = 0;
@@ -318,8 +400,62 @@ TEST_F(ShaderIntegrationTests, CompiledTexturePreviewShaderProducesRealDrawOutpu
 	RenderCommand::SetPipelineState(pso);
 	RenderCommand::SetViewport(0, 0, 8, 8);
 	shader->Bind();
-	RenderCommand::SetTexture(1, texture);
+	shader->BindTexture({0, 1}, texture);
 	shader->SetUniformBlock(0, block.Data(), block.Size());
+	RenderCommand::DrawIndexed(quad->GetVertexArray());
+	RenderCommand::EndRenderPass();
+
+	const auto pixel = ReadRgbaPixel(framebuffer, 4, 4);
+	EXPECT_NEAR(pixel[0], pixels[0], 1);
+	EXPECT_NEAR(pixel[1], pixels[1], 1);
+	EXPECT_NEAR(pixel[2], pixels[2], 1);
+	EXPECT_EQ(pixel[3], 255);
+}
+
+TEST_F(ShaderIntegrationTests, CompiledTexturePreviewShaderBindsResourcesThroughLogicalBindingPoints)
+{
+	ShaderTestUtils::SkipOrFailIfShaderMissing("TexturePreview");
+
+	TextureSpecification spec{};
+	spec.Width = 1;
+	spec.Height = 1;
+	spec.Format = TextureFormat::RGBA8;
+
+	auto texture = GetDevice()->CreateTexture2D(spec);
+	const std::array<uint8_t, 4> pixels = {220, 96, 32, 255};
+	texture->SetData(pixels.data());
+
+	auto framebuffer = CreateColorFramebuffer();
+	auto target = GetDevice()->CreateRenderTargetFromFramebuffer(framebuffer);
+	auto shader = GetDevice()->CreateShader("TexturePreview");
+	auto quad = MeshFactory::CreateFullscreenQuad();
+
+	RenderPassDescriptor desc;
+	desc.ClearColor = {0.0f, 0.0f, 0.0f, 1.0f};
+	desc.DepthLoadAction = LoadAction::DontCare;
+	desc.DepthStoreAction = StoreAction::DontCare;
+
+	PipelineState pso;
+	pso.DepthTestEnabled = false;
+	pso.DepthWriteEnabled = false;
+	pso.BlendEnabled = false;
+	pso.CullFaceEnabled = false;
+
+	const auto *layout = shader->GetUniformBlockLayout({0, 0});
+	ASSERT_NE(layout, nullptr);
+
+	PackedUniformBlock block(*layout);
+	ASSERT_TRUE(block.Write("u_IsDepthTexture", false));
+
+	auto uniformBuffer = GetDevice()->CreateUniformBuffer(block.Size());
+	uniformBuffer->SetData(block.Data(), block.Size());
+
+	RenderCommand::BeginRenderPass(target, desc);
+	RenderCommand::SetPipelineState(pso);
+	RenderCommand::SetViewport(0, 0, 8, 8);
+	shader->Bind();
+	shader->BindTexture({0, 1}, texture);
+	shader->BindUniformBuffer({0, 0}, uniformBuffer);
 	RenderCommand::DrawIndexed(quad->GetVertexArray());
 	RenderCommand::EndRenderPass();
 

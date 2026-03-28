@@ -10,6 +10,9 @@
 
 namespace
 {
+    constexpr ShaderBindingPoint kForwardShadowTextureBinding{0, 1};
+    constexpr ShaderBindingPoint kPreviewTextureBinding{0, 1};
+
     Ref<FakeShader> FindShader(const Ref<FakeGraphicsDevice> &device, const char *name)
     {
         for (const auto &shader : device->CreatedShaders)
@@ -21,13 +24,13 @@ namespace
         return nullptr;
     }
 
-    Ref<ITexture2D> GetBoundTexture(const Ref<FakeShader> &shader, uint32_t slot)
+    Ref<ITexture2D> GetBoundTexture(const Ref<FakeShader> &shader, ShaderBindingPoint binding)
     {
         if (!shader)
             return nullptr;
 
-        const auto it = shader->BoundTextures.find(slot);
-        if (it == shader->BoundTextures.end())
+        const auto it = shader->LogicalBoundTextures.find(binding);
+        if (it == shader->LogicalBoundTextures.end())
             return nullptr;
 
         return it->second;
@@ -91,16 +94,16 @@ TEST_F(SceneRendererFlowContractTests, FinalColorAndShadowMapModesRouteExpectedT
     const auto previewShader = FindShader(m_Device, "TexturePreview");
     ASSERT_NE(forwardShader, nullptr);
     ASSERT_NE(previewShader, nullptr);
-    EXPECT_EQ(GetBoundTexture(forwardShader, 1), shadowTexture);
-    EXPECT_EQ(GetBoundTexture(previewShader, 1), sceneColor);
+    EXPECT_EQ(GetBoundTexture(forwardShader, kForwardShadowTextureBinding), shadowTexture);
+    EXPECT_EQ(GetBoundTexture(previewShader, kPreviewTextureBinding), sceneColor);
 
     m_Device->RenderCommand->Reset();
 
     renderer.SetOutputMode(SceneRendererOutput::ShadowMap);
     renderer.Render(scene, camera);
 
-    EXPECT_EQ(GetBoundTexture(forwardShader, 1), shadowTexture);
-    EXPECT_EQ(GetBoundTexture(previewShader, 1), shadowTexture);
+    EXPECT_EQ(GetBoundTexture(forwardShader, kForwardShadowTextureBinding), shadowTexture);
+    EXPECT_EQ(GetBoundTexture(previewShader, kPreviewTextureBinding), shadowTexture);
 }
 
 TEST_F(SceneRendererFlowContractTests, ResizePropagatesToForwardFramebufferAndBackBufferTarget)

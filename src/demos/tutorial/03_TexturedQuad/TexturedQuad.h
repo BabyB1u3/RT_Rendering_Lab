@@ -4,7 +4,7 @@
 /// @brief Tutorial 03: draw a textured quad using indexed drawing.
 ///
 /// Validates: IIndexBuffer (indexed draw), ITexture2D creation and sampling,
-/// CreateTexture2DFromFile, texture slot binding via RenderCommand::SetTexture.
+/// CreateTexture2DFromFile, logical shader texture binding.
 /// Uses UnlitTextured.slang - position + UV, single texture sample, no MVP.
 
 #include <cstdint>

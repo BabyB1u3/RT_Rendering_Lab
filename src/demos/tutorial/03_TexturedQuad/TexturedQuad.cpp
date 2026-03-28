@@ -16,6 +16,11 @@
 #include "graphics/interfaces/IVertexArray.h"
 #include "graphics/interfaces/IVertexBuffer.h"
 
+namespace
+{
+    constexpr ShaderBindingPoint kUnlitTextureBinding{0, 1};
+}
+
 // NDC quad - position (x, y, z) + texcoord (u, v) per vertex.
 // clang-format off
 static constexpr float kQuadVertices[] = {
@@ -96,7 +101,7 @@ void TexturedQuad::OnRender()
     RenderCommand::SetPipelineState(pipeline);
 
     m_Shader->Bind();
-    RenderCommand::SetTexture(1, m_Texture); // binding 1 matches [vk::binding(1, 0)]
+    m_Shader->BindTexture(kUnlitTextureBinding, m_Texture);
     m_VAO->Bind();
     RenderCommand::DrawIndexed(m_VAO);
 
@@ -108,7 +113,7 @@ void TexturedQuad::OnImGuiRender()
     ImGui::Begin("03 - Textured Quad");
     ImGui::TextWrapped(
         "A quad drawn with indexed rendering and a texture.\n"
-        "Validates: IBO, ITexture2D, CreateTexture2DFromFile, SetTexture, DrawIndexed.");
+        "Validates: IBO, ITexture2D, CreateTexture2DFromFile, logical texture binding, DrawIndexed.");
     ImGui::End();
 }
 

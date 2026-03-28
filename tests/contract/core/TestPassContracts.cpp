@@ -20,6 +20,12 @@
 
 namespace
 {
+    constexpr ShaderBindingPoint kPreviewParamsBinding{0, 0};
+    constexpr ShaderBindingPoint kPreviewTextureBinding{0, 1};
+    constexpr ShaderBindingPoint kForwardParamsBinding{0, 0};
+    constexpr ShaderBindingPoint kForwardShadowTextureBinding{0, 1};
+    constexpr ShaderBindingPoint kShadowParamsBinding{0, 0};
+
     struct alignas(16) ShadowParamsCapture
     {
         glm::mat4 LightViewProjection;
@@ -46,13 +52,13 @@ namespace
     };
 
     template <typename T>
-    T ReadUniformBlock(const Ref<FakeShader> &shader)
+    T ReadUniformBytes(const std::vector<std::byte> &bytes)
     {
         T value{};
-        if (!shader || shader->LastUniformBytes.size() < sizeof(T))
+        if (bytes.size() < sizeof(T))
             return value;
 
-        std::memcpy(&value, shader->LastUniformBytes.data(), sizeof(T));
+        std::memcpy(&value, bytes.data(), sizeof(T));
         return value;
     }
 
@@ -67,16 +73,28 @@ namespace
         return nullptr;
     }
 
-    Ref<ITexture2D> GetBoundTexture(const Ref<FakeShader> &shader, uint32_t slot)
+    Ref<ITexture2D> GetBoundTexture(const Ref<FakeShader> &shader, ShaderBindingPoint binding)
     {
         if (!shader)
             return nullptr;
 
-        const auto it = shader->BoundTextures.find(slot);
-        if (it == shader->BoundTextures.end())
+        const auto it = shader->LogicalBoundTextures.find(binding);
+        if (it == shader->LogicalBoundTextures.end())
             return nullptr;
 
         return it->second;
+    }
+
+    Ref<FakeUniformBuffer> GetBoundUniformBuffer(const Ref<FakeShader> &shader, ShaderBindingPoint binding)
+    {
+        if (!shader)
+            return nullptr;
+
+        const auto it = shader->LogicalBoundUniformBuffers.find(binding);
+        if (it == shader->LogicalBoundUniformBuffers.end())
+            return nullptr;
+
+        return std::dynamic_pointer_cast<FakeUniformBuffer>(it->second);
     }
 
     void ExpectVec2Near(const glm::vec2 &actual, const glm::vec2 &expected, float epsilon = 1e-5f)
@@ -174,9 +192,9 @@ TEST_F(SharedRenderPassContractTests, ForwardPassUsesExpectedDescriptorAndPipeli
     const auto shader = FindShader(m_Device, "ForwardLit");
     ASSERT_NE(shader, nullptr);
     ASSERT_EQ(shader->TextureBindEvents.size(), 1u);
-    EXPECT_EQ(shader->TextureBindEvents[0].Slot, 1u);
+    EXPECT_EQ(shader->TextureBindEvents[0].BindingPoint, kForwardShadowTextureBinding);
 
-    auto *fallbackShadow = dynamic_cast<FakeTexture2D *>(GetBoundTexture(shader, 1).get());
+    auto *fallbackShadow = dynamic_cast<FakeTexture2D *>(GetBoundTexture(shader, kForwardShadowTextureBinding).get());
     ASSERT_NE(fallbackShadow, nullptr);
     EXPECT_EQ(fallbackShadow->GetWidth(), 1u);
     EXPECT_EQ(fallbackShadow->GetHeight(), 1u);
@@ -202,7 +220,9 @@ TEST_F(SharedRenderPassContractTests, ForwardPassSkipsInvalidItemsAndUploadsOneU
 
     const auto shader = FindShader(m_Device, "ForwardLit");
     ASSERT_NE(shader, nullptr);
-    EXPECT_EQ(shader->UniformUploadCount, 1u);
+    ASSERT_EQ(shader->UniformBufferBindEvents.size(), 1u);
+    EXPECT_EQ(shader->UniformBufferBindEvents[0].BindingPoint, kForwardParamsBinding);
+    ASSERT_NE(GetBoundUniformBuffer(shader, kForwardParamsBinding), nullptr);
     EXPECT_EQ(m_Device->RenderCommand->DrawIndexedCalls.size(), 1u);
 }
 
@@ -247,7 +267,9 @@ TEST_F(SharedRenderPassContractTests, ShadowPassUsesExpectedDescriptorAndPipelin
 
     const auto shader = FindShader(m_Device, "ShadowDepth");
     ASSERT_NE(shader, nullptr);
-    EXPECT_EQ(shader->UniformUploadCount, 1u);
+    ASSERT_EQ(shader->UniformBufferBindEvents.size(), 1u);
+    EXPECT_EQ(shader->UniformBufferBindEvents[0].BindingPoint, kShadowParamsBinding);
+    ASSERT_NE(GetBoundUniformBuffer(shader, kShadowParamsBinding), nullptr);
     EXPECT_EQ(m_Device->RenderCommand->DrawIndexedCalls.size(), 1u);
 }
 
@@ -295,10 +317,12 @@ TEST_F(SharedRenderPassContractTests, TexturePreviewPassUsesExpectedDescriptorPi
     auto previewShader = FindShader(m_Device, "TexturePreview");
     ASSERT_NE(previewShader, nullptr);
     ASSERT_EQ(previewShader->TextureBindEvents.size(), 1u);
-    EXPECT_EQ(previewShader->TextureBindEvents[0].Slot, 1u);
-    EXPECT_EQ(GetBoundTexture(previewShader, 1), sceneColor);
-    ASSERT_EQ(previewShader->LastUniformSize, sizeof(int32_t));
-    EXPECT_EQ(ReadUniformBlock<int32_t>(previewShader), 0);
+    EXPECT_EQ(previewShader->TextureBindEvents[0].BindingPoint, kPreviewTextureBinding);
+    EXPECT_EQ(GetBoundTexture(previewShader, kPreviewTextureBinding), sceneColor);
+    auto previewBuffer = GetBoundUniformBuffer(previewShader, kPreviewParamsBinding);
+    ASSERT_NE(previewBuffer, nullptr);
+    EXPECT_EQ(previewBuffer->LastSetSize, sizeof(int32_t));
+    EXPECT_EQ(ReadUniformBytes<int32_t>(previewBuffer->Bytes), 0);
 
     m_Device->RenderCommand->Reset();
 
@@ -306,9 +330,11 @@ TEST_F(SharedRenderPassContractTests, TexturePreviewPassUsesExpectedDescriptorPi
     pass.Execute(shadowCtx);
 
     ASSERT_EQ(previewShader->TextureBindEvents.size(), 2u);
-    EXPECT_EQ(previewShader->TextureBindEvents.back().Slot, 1u);
-    EXPECT_EQ(GetBoundTexture(previewShader, 1), shadowMap);
-    EXPECT_EQ(ReadUniformBlock<int32_t>(previewShader), 1);
+    EXPECT_EQ(previewShader->TextureBindEvents.back().BindingPoint, kPreviewTextureBinding);
+    EXPECT_EQ(GetBoundTexture(previewShader, kPreviewTextureBinding), shadowMap);
+    previewBuffer = GetBoundUniformBuffer(previewShader, kPreviewParamsBinding);
+    ASSERT_NE(previewBuffer, nullptr);
+    EXPECT_EQ(ReadUniformBytes<int32_t>(previewBuffer->Bytes), 1);
 }
 
 TEST_F(SharedRenderPassContractTests, SceneRendererPreparesConsistentFrameResourcesForPasses)
@@ -337,11 +363,17 @@ TEST_F(SharedRenderPassContractTests, SceneRendererPreparesConsistentFrameResour
     ASSERT_NE(shadowShader, nullptr);
     ASSERT_NE(forwardShader, nullptr);
     ASSERT_NE(previewShader, nullptr);
-    ASSERT_EQ(shadowShader->LastUniformSize, sizeof(ShadowParamsCapture));
-    ASSERT_EQ(forwardShader->LastUniformSize, sizeof(ForwardParamsCapture));
+    const auto shadowBuffer = GetBoundUniformBuffer(shadowShader, kShadowParamsBinding);
+    const auto forwardBuffer = GetBoundUniformBuffer(forwardShader, kForwardParamsBinding);
+    const auto previewBuffer = GetBoundUniformBuffer(previewShader, kPreviewParamsBinding);
+    ASSERT_NE(shadowBuffer, nullptr);
+    ASSERT_NE(forwardBuffer, nullptr);
+    ASSERT_NE(previewBuffer, nullptr);
+    ASSERT_EQ(shadowBuffer->LastSetSize, sizeof(ShadowParamsCapture));
+    ASSERT_EQ(forwardBuffer->LastSetSize, sizeof(ForwardParamsCapture));
 
-    const auto shadowParams = ReadUniformBlock<ShadowParamsCapture>(shadowShader);
-    const auto forwardParams = ReadUniformBlock<ForwardParamsCapture>(forwardShader);
+    const auto shadowParams = ReadUniformBytes<ShadowParamsCapture>(shadowBuffer->Bytes);
+    const auto forwardParams = ReadUniformBytes<ForwardParamsCapture>(forwardBuffer->Bytes);
 
     ExpectMat4Near(forwardParams.LightViewProjection, shadowParams.LightViewProjection);
     ExpectVec3Near(forwardParams.CameraPosition, camera.GetPosition());
@@ -353,8 +385,8 @@ TEST_F(SharedRenderPassContractTests, SceneRendererPreparesConsistentFrameResour
         {1.0f / static_cast<float>(spec.ShadowMapWidth),
          1.0f / static_cast<float>(spec.ShadowMapHeight)});
 
-    EXPECT_EQ(GetBoundTexture(forwardShader, 1), renderer.GetShadowPass()->GetDepthTexture());
-    EXPECT_EQ(GetBoundTexture(previewShader, 1),
+    EXPECT_EQ(GetBoundTexture(forwardShader, kForwardShadowTextureBinding), renderer.GetShadowPass()->GetDepthTexture());
+    EXPECT_EQ(GetBoundTexture(previewShader, kPreviewTextureBinding),
               renderer.GetForwardPass()->GetFramebuffer()->GetColorAttachment(0));
-    EXPECT_EQ(ReadUniformBlock<int32_t>(previewShader), 0);
+    EXPECT_EQ(ReadUniformBytes<int32_t>(previewBuffer->Bytes), 0);
 }

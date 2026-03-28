@@ -18,6 +18,7 @@ public:
 	Ref<IVertexBuffer> CreateVertexBuffer(uint32_t size, BufferUsage usage = BufferUsage::DynamicDraw) override;
 	Ref<IVertexBuffer> CreateVertexBuffer(const void *data, uint32_t size, BufferUsage usage = BufferUsage::StaticDraw) override;
 	Ref<IIndexBuffer> CreateIndexBuffer(const uint32_t *indices, uint32_t count) override;
+	Ref<IUniformBuffer> CreateUniformBuffer(uint32_t size) override;
 
 	// --- Vertex Array ---
 	Ref<IVertexArray> CreateVertexArray() override;

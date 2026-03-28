@@ -60,8 +60,15 @@ std::string NormalizeGLUniformFieldName(std::string name)
     return name;
 }
 
+ShaderUniformBlockLayout::ShaderUniformBlockLayout(std::string name,
+                                                   ShaderBindingPoint logicalBinding,
+                                                   uint32_t size)
+    : m_Name(std::move(name)), m_LogicalBinding(logicalBinding), m_Size(size)
+{
+}
+
 ShaderUniformBlockLayout::ShaderUniformBlockLayout(std::string name, uint32_t binding, uint32_t size)
-    : m_Name(std::move(name)), m_Binding(binding), m_Size(size)
+    : ShaderUniformBlockLayout(std::move(name), MakeFlatShaderBindingPoint(binding), size)
 {
 }
 

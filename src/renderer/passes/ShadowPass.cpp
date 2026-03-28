@@ -14,9 +14,15 @@
 #include "graphics/interfaces/IFramebuffer.h"
 #include "graphics/interfaces/IRenderTarget.h"
 #include "graphics/interfaces/IShader.h"
+#include "graphics/interfaces/IUniformBuffer.h"
 #include "renderer/RenderContext.h"
 #include "renderer/RenderItem.h"
 #include "scene/SceneData.h"
+
+namespace
+{
+    constexpr ShaderBindingPoint kShadowParamsBinding{0, 0};
+}
 
 ShadowPass::ShadowPass(uint32_t width, uint32_t height)
     : m_Width(width), m_Height(height)
@@ -32,6 +38,11 @@ ShadowPass::ShadowPass(uint32_t width, uint32_t height)
 
     m_Shader = GetDevice()->CreateShader("ShadowDepth");
     RTRLAB_ASSERT_MSG(m_Shader, "ShadowPass failed to create ShadowDepth shader");
+    m_UniformBlockLayout = m_Shader->GetUniformBlockLayout(kShadowParamsBinding);
+    RTRLAB_ASSERT_MSG(m_UniformBlockLayout,
+                      "ShadowPass: shader must provide reflected layout for logical binding {0, 0}.");
+    m_UniformBuffer = GetDevice()->CreateUniformBuffer(m_UniformBlockLayout->GetSize());
+    RTRLAB_ASSERT_MSG(m_UniformBuffer, "ShadowPass failed to create uniform buffer for logical binding {0, 0}");
 }
 
 void ShadowPass::Resize(unsigned int width, unsigned int height)
@@ -79,9 +90,8 @@ void ShadowPass::Execute(const RenderContext &ctx)
     RenderCommand::SetViewport(0, 0, m_RenderTarget->GetWidth(), m_RenderTarget->GetHeight());
 
     m_Shader->Bind();
-    const ShaderUniformBlockLayout *blockLayout = m_Shader->GetUniformBlockLayout(0);
-    RTRLAB_ASSERT_MSG(blockLayout,
-                      "ShadowPass: shader must provide reflected layout for uniform block binding 0.");
+    RTRLAB_ASSERT_MSG(m_UniformBlockLayout, "ShadowPass uniform block layout is null");
+    RTRLAB_ASSERT_MSG(m_UniformBuffer, "ShadowPass uniform buffer is null");
 
     for (const auto &item : ctx.View.Scene.RenderItems)
     {
@@ -93,10 +103,11 @@ void ShadowPass::Execute(const RenderContext &ctx)
 
         const glm::mat4 model = item.Transform.GetMatrix();
 
-        PackedUniformBlock block(*blockLayout);
+        PackedUniformBlock block(*m_UniformBlockLayout);
         block.WriteRequired("u_LightViewProjection", ctx.Resources.LightViewProjection);
         block.WriteRequired("u_Model", model);
-        m_Shader->SetUniformBlock(0, block.Data(), block.Size());
+        m_UniformBuffer->SetData(block.Data(), block.Size());
+        m_Shader->BindUniformBuffer(kShadowParamsBinding, m_UniformBuffer);
 
         RenderCommand::DrawIndexed(item.Mesh->GetVertexArray());
     }

@@ -17,6 +17,11 @@
 #include "graphics/interfaces/IShader.h"
 #include "graphics/interfaces/ITexture2D.h"
 
+namespace
+{
+    constexpr ShaderBindingPoint kUnlitTextureBinding{0, 1};
+}
+
 TransformedCube::TransformedCube(uint32_t width, uint32_t height)
     : m_ViewportWidth(width),
       m_ViewportHeight(height)
@@ -100,7 +105,7 @@ void TransformedCube::OnRender()
 
     m_Shader->Bind();
     m_Shader->SetUniformBlock(0, &mvp, sizeof(mvp));
-    RenderCommand::SetTexture(1, m_Texture);
+    m_Shader->BindTexture(kUnlitTextureBinding, m_Texture);
     m_CubeMesh->Bind();
     RenderCommand::DrawIndexed(m_CubeMesh->GetVertexArray());
 

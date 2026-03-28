@@ -17,6 +17,11 @@
 #include "graphics/interfaces/IShader.h"
 #include "graphics/interfaces/ITexture2D.h"
 
+namespace
+{
+    constexpr ShaderBindingPoint kUnlitTextureBinding{0, 1};
+}
+
 // Positions and rotations for cubes scattered in the scene.
 // clang-format off
 static const struct { glm::vec3 pos; glm::vec3 rot; } kCubes[] = {
@@ -109,7 +114,7 @@ void CameraDemo::OnRender()
     RenderCommand::SetPipelineState(pipeline);
 
     m_Shader->Bind();
-    RenderCommand::SetTexture(1, m_Texture);
+    m_Shader->BindTexture(kUnlitTextureBinding, m_Texture);
     m_CubeMesh->Bind();
 
     // Draw each cube with its own model matrix
