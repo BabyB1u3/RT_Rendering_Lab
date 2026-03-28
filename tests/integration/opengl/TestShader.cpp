@@ -165,7 +165,7 @@ TEST_F(ShaderIntegrationTests, CreateShader_LoadsForwardLitFromCompiledGlsl)
 	auto shader = GetDevice()->CreateShader("ForwardLit");
 	ASSERT_NE(shader, nullptr);
 	EXPECT_EQ(shader->GetName(), "ForwardLit");
-	const auto *layout = shader->GetUniformBlockLayout(0);
+	const auto *layout = shader->GetUniformBlockLayout({0, 0});
 	ASSERT_NE(layout, nullptr);
 	EXPECT_NE(layout->FindField("u_ViewProjection"), nullptr);
 	EXPECT_NE(layout->FindField("u_LightViewProjection"), nullptr);
@@ -206,6 +206,7 @@ TEST_F(ShaderIntegrationTests, CreateShader_PreservesCompiledResourceBindingMeta
 
 	const auto *blockResource = glShader->GetResourceLayout({0, 0});
 	ASSERT_NE(blockResource, nullptr);
+	EXPECT_NE(blockResource->Name.find("GlobalParams"), std::string::npos);
 	EXPECT_EQ(blockResource->Kind, ShaderResourceKind::UniformBuffer);
 
 	const auto *shadowMapResource = glShader->GetResourceLayout({0, 1});

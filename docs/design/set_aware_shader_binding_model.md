@@ -47,14 +47,13 @@ What has **not** landed yet:
 
 - metadata coverage and schema are not yet in their final production shape for
   every resource kind and backend case
-- `ForwardLit` still uses bridge-era slot assumptions in the remaining
-  production path
+- broader post-pilot cleanup and fuller resource-model adoption are still pending
 
 Practical consequence: the repository has now entered the set-aware migration,
 and has crossed into the "logical identity, metadata, and backend binding
-resolution all exist" stage. The first two production pilots
-(`TexturePreview` and `ShadowDepth`) have also crossed end-to-end into explicit
-logical bindings. The remaining work is `ForwardLit`, coverage refinement, and
+resolution all exist" stage. All three planned production pilots
+(`TexturePreview`, `ShadowDepth`, and `ForwardLit`) have now crossed end-to-end
+into explicit logical bindings. The remaining work is coverage refinement and
 eventual cleanup of bridge-era assumptions.
 
 ---
@@ -648,7 +647,12 @@ Status on March 28, 2026:
   - shader source now uses an explicit constant buffer at logical binding `{0, 0}`
   - pass code now queries layouts and binds resources through logical binding points
   - OpenGL integration coverage now protects explicit resource metadata on this path
-- the remaining production migration is now `ForwardLit`
+- `ForwardLit` is now also complete as the third production pilot:
+  - shader source now uses an explicit constant buffer at logical binding `{0, 0}`
+  - pass code now queries layouts and binds resources through logical binding points
+  - the current bridge-era texture layout is retained intentionally for this pilot,
+    so the migration validates set-aware bindings without folding in the full
+    material-system rewrite
 - tutorial/demo shaders such as `BasicLit` can migrate in parallel, but they do
   not replace the three production pilots that validate the renderer mainline
 

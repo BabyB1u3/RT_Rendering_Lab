@@ -6,28 +6,31 @@
 import shadow;
 
 // Binding convention (matches [vk::binding(N, 0)] → consistent across OpenGL/Metal/Vulkan):
-//   binding 0 : implicit GlobalParams CB  (all non-opaque uniforms, packed by Slang)
+//   binding 0 : explicit GlobalParams CB
 //   binding 1 : u_ShadowMap
 //   binding 2 : u_AlbedoMap
+[vk::binding(0, 0)]
+cbuffer GlobalParams
+{
+    float4x4 u_ViewProjection;
+    float4x4 u_Model;
+    float4x4 u_NormalMatrix;   // transpose(inverse(model)), computed on CPU, passed as mat4
+    float4x4 u_LightViewProjection;
+
+    float3 u_CameraPosition;
+    float3 u_LightDirection;
+    float3 u_LightColor;
+    float  u_LightIntensity;
+
+    float3 u_Albedo;
+    float  u_SpecularPower;
+    float  u_AmbientStrength;
+    bool   u_UseAlbedoMap;
+    float2 u_ShadowMapTexelSize;
+}
+
 [vk::binding(1, 0)] uniform Sampler2D u_ShadowMap;
 [vk::binding(2, 0)] uniform Sampler2D u_AlbedoMap;
-
-// --- Non-opaque uniforms (packed into a UBO by Slang) ---
-uniform float4x4 u_ViewProjection;
-uniform float4x4 u_Model;
-uniform float4x4 u_NormalMatrix;   // transpose(inverse(model)), computed on CPU, passed as mat4
-uniform float4x4 u_LightViewProjection;
-
-uniform float3 u_CameraPosition;
-uniform float3 u_LightDirection;
-uniform float3 u_LightColor;
-uniform float  u_LightIntensity;
-
-uniform float3 u_Albedo;
-uniform float  u_SpecularPower;
-uniform float  u_AmbientStrength;
-uniform bool   u_UseAlbedoMap;
-uniform float2 u_ShadowMapTexelSize;
 
 // --- Vertex stage ---
 

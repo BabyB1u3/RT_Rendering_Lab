@@ -98,19 +98,23 @@ Recommended rule: each batch should leave the repository buildable and testable.
   - `ShadowDepth.slang` uses an explicit constant buffer at logical binding `{0, 0}`
   - `ShadowPass` now queries layouts and binds resources through logical
     binding points
+- `Batch 6.3` is now also in code:
+  - `ForwardLit.slang` uses an explicit constant buffer at logical binding `{0, 0}`
+  - `ForwardPass` now queries layouts and binds resources through logical
+    binding points while keeping the current set-0 texture layout
 - what is still **not** done:
   - the current runtime metadata coverage is enough for the live binding path,
     but not yet the final production shape for every resource kind and backend case
-  - `ForwardLit` still uses bridge-era slot assumptions for its production path
+  - full post-pilot cleanup and broader resource-model adoption are still pending
 
 ### Immediate Next Step
 
-Proceed to `Batch 6.3`.
+Proceed to post-pilot cleanup and follow-on migration work.
 
 The concrete objective for the next implementation wave is:
 
-- apply the explicit-block and logical-binding pattern proven by
-  `TexturePreview` and `ShadowDepth` to `ForwardLit`
+- decide how far to push set-aware cleanup beyond the three production pilots
+- refine metadata coverage and schema where the pilot wave exposed backend gaps
 - tutorial/demo shaders may migrate in parallel, but they do not replace the
   three production pilot passes that validate the renderer mainline
 
@@ -480,6 +484,10 @@ Completed on March 28, 2026.
 - `ForwardPass` uses the set-aware resource model without introducing the full
   Phase 7 material rewrite
 
+#### Status
+
+Completed on March 28, 2026.
+
 ---
 
 ## 9. Suggested Commit / PR Boundaries
@@ -513,6 +521,5 @@ If the goal is to begin implementation immediately with the least churn:
 7. Batch 6.2 - `ShadowDepth`
 8. Batch 6.3 - `ForwardLit`
 
-`TexturePreview` and `ShadowDepth` have now proven the first two full
-logical-binding production paths in the repository. The next mainline
-production step is `ForwardLit`.
+The three planned production pilot migrations are now complete:
+`TexturePreview`, `ShadowDepth`, and `ForwardLit`.
