@@ -65,25 +65,37 @@ Recommended rule: each batch should leave the repository buildable and testable.
   - flat-slot compatibility shims remain in place and currently map
     `N -> { set = 0, binding = N }`
   - OpenGL, Metal, and the fake backend compile and run through the shim path
+- `Batch 2` foundation is now also in code:
+  - shared runtime metadata types exist for:
+    - logical resource layout
+    - backend binding metadata
+  - OpenGL preserves:
+    - logical uniform-block metadata from reflection
+    - lowered GL UBO binding indices
+    - compiled sampler binding metadata parsed from generated GLSL
+  - Metal reflection loading now preserves:
+    - logical resource entries
+    - backend-local binding metadata for the resource kinds currently surfaced by
+      the sidecar path
 - what is still **not** done:
-  - shader metadata does not yet preserve backend-local binding indices as
-    first-class runtime data
-  - OpenGL and Metal still derive their actual binding behavior from the
-    compatibility flattening rather than from a true logical-to-backend map
+  - OpenGL and Metal do not yet route live binding calls through the new
+    logical-to-backend metadata layer
+  - the current runtime metadata coverage is enough for the next redesign step,
+    but not yet the final production shape for every resource kind and backend case
   - production shaders/passes still use bridge-era slot assumptions
 
 ### Immediate Next Step
 
-Proceed to `Batch 2`.
+Proceed to `Batch 4`.
 
 The concrete objective for the next implementation wave is:
 
-- keep the newly introduced logical binding identity as the runtime source of truth
-- add explicit backend binding metadata instead of recovering backend indices
-  from bridge conventions
-- make shader load answer both:
-  - "what resource is this logically?"
-  - "where does this backend actually bind it?"
+- make OpenGL and Metal bind through the preserved metadata instead of through
+  compatibility flattening assumptions
+- keep the set-aware public API stable while changing only backend-internal
+  binding resolution
+- leave current bridge call sites buildable while proving the metadata-driven
+  path on real shaders
 
 ---
 
@@ -135,7 +147,7 @@ Introduce logical resource identity as a first-class runtime concept.
 
 ### Status
 
-Ready to start. This is now the critical-path next step.
+Foundation complete on March 28, 2026.
 
 ### Goal
 
@@ -190,6 +202,26 @@ Recommended repository-local sequence:
 4. only after both backends carry this metadata, route binding calls through it
    in `Batch 4`
 
+### What Landed In Code
+
+- shared runtime metadata structs now exist for:
+  - logical resource layout
+  - backend binding metadata
+- OpenGL now records:
+  - reflected uniform blocks as logical uniform-buffer resources
+  - lowered GL buffer indices for those blocks
+  - sampler bindings parsed from compiled GLSL as combined texture/sampler resources
+- Metal reflection loading now records:
+  - logical resource entries
+  - backend-local metadata for the currently surfaced sidecar resource kinds
+
+### What Still Belongs To Later Batches
+
+- backend binding execution still does not consume this metadata end-to-end
+- metadata coverage and schema may still need refinement during the first live
+  backend-mapping wave
+- pass code and shader source have not been migrated yet
+
 ### Important Constraint
 
 - Do not assume Metal `bufferIndex` / `textureIndex` equals logical binding.
@@ -208,6 +240,10 @@ Recommended repository-local sequence:
 ---
 
 ## 5. Batch 3 - Set-Aware `IShader` API Surface
+
+### Status
+
+Foundation complete on March 28, 2026.
 
 ### Goal
 
@@ -248,6 +284,10 @@ current repository in one step.
 ---
 
 ## 6. Batch 4 - Backend Binding Application
+
+### Status
+
+Ready to start. This is now the critical-path next step.
 
 ### Goal
 

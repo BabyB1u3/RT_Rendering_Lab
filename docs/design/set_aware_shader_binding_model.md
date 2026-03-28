@@ -22,7 +22,7 @@ For the implementation-facing task breakdown, read
 
 ## Implementation Status (March 28, 2026)
 
-The first foundational runtime wave has landed in code:
+The first two foundational runtime waves have landed in code:
 
 - `ShaderBindingPoint` exists as a shared engine type
 - `ShaderResourceKind` exists as a shared engine type
@@ -33,18 +33,25 @@ The first foundational runtime wave has landed in code:
   - `GetUniformBlockLayout(ShaderBindingPoint)`
 - flat-slot compatibility wrappers remain in place and currently use the bridge rule
   `N -> { set = 0, binding = N }`
+- shared runtime metadata now also exists for:
+  - logical resource layout
+  - backend binding metadata
+- OpenGL now preserves:
+  - logical uniform-buffer metadata
+  - lowered GL buffer binding indices
+  - compiled sampler binding metadata parsed from generated GLSL
+- Metal reflection loading now preserves logical resource entries plus
+  backend-local metadata for the resource kinds currently surfaced by the sidecar path
 
 What has **not** landed yet:
 
-- shader metadata still does not preserve backend-local indices as first-class
-  runtime data
 - OpenGL and Metal binding application still depends on compatibility flattening
   instead of an explicit logical-to-backend mapping layer
 - production passes and shaders still use bridge-era slot assumptions
 
 Practical consequence: the repository has now entered the set-aware migration,
-but it is still between the "logical identity exists" stage and the
-"metadata-driven backend mapping exists" stage.
+and has crossed from the "logical identity exists" stage into the
+"metadata exists but binding still uses compatibility flattening" stage.
 
 ---
 
@@ -582,7 +589,9 @@ they become just one backend view layered under a preserved logical binding.
 
 Status on March 28, 2026:
 
-- this is the next required implementation step
+- foundational metadata support is in place
+- the next required implementation step is consuming that metadata in backend
+  binding application
 
 ### 9.3 Stage 3 - Add Set-Aware `IShader` APIs
 
@@ -598,6 +607,16 @@ Status on March 28, 2026:
 
 - the set-aware overloads and compatibility shims are already in place
 - full migration of renderer call sites is still pending
+
+### 9.3.1 Practical Repository State After Stage 2 + Stage 3 Foundations
+
+At the current repository state:
+
+- runtime identity and public API now both speak in logical `ShaderBindingPoint`
+- runtime metadata also preserves backend-local binding information
+- the remaining gap is execution:
+  backend binding code still has to resolve through this metadata instead of
+  using the bridge-era flattening rule directly
 
 ### 9.4 Stage 4 - Pilot Shader Migration
 
