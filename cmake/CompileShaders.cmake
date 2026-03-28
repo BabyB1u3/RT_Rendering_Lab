@@ -196,6 +196,8 @@ function(glab_compile_shaders)
         if(GLAB_SHADER_TARGET_METAL)
             set(METAL_DIR "${SHADER_BASE_DIR}/metal")
 
+            set(METAL_REFLECT_ENRICH_SCRIPT "${CMAKE_SOURCE_DIR}/tools/enrich_metal_reflection.py")
+
             # Metal emits both stages into a single file
             set(MTL_OUTPUT "${METAL_DIR}/${SHADER_NAME}.metal")
             set(REFLECT_OUTPUT "${METAL_DIR}/${SHADER_NAME}.reflect.json")
@@ -208,7 +210,10 @@ function(glab_compile_shaders)
                     -I "${SLANG_MODULE_DIR}"
                     -reflection-json "${REFLECT_OUTPUT}"
                     -o "${MTL_OUTPUT}"
-                DEPENDS "${INPUT}" ${MODULE_DEPS}
+                COMMAND "${Python3_EXECUTABLE}" "${METAL_REFLECT_ENRICH_SCRIPT}"
+                    --source "${INPUT}"
+                    --reflection "${REFLECT_OUTPUT}"
+                DEPENDS "${INPUT}" ${MODULE_DEPS} "${METAL_REFLECT_ENRICH_SCRIPT}"
                 COMMENT "Slang -> Metal: ${SHADER_NAME}"
                 VERBATIM
             )
