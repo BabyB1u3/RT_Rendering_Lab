@@ -46,3 +46,23 @@ TEST(ShaderUniformLayoutTests, PackedUniformBlockRejectsWrongSizedWrites)
     EXPECT_FALSE(block.Write("u_Value", wrongSizeValue));
     EXPECT_FALSE(block.GetLastError().empty());
 }
+
+TEST(ShaderUniformLayoutTests, PackedUniformBlockAcceptsLogicalFloat3WriteIntoPaddedField)
+{
+    ShaderUniformBlockLayout layout("TestBlock", 0, 32);
+    ASSERT_TRUE(layout.AddField({"u_Vector", 0, 16, ShaderUniformValueType::Float3}));
+
+    PackedUniformBlock block(layout);
+    const glm::vec3 value(1.0f, 2.0f, 3.0f);
+
+    ASSERT_TRUE(block.Write("u_Vector", value));
+
+    const auto *bytes = static_cast<const std::byte *>(block.Data());
+    glm::vec3 storedValue(0.0f);
+    float padding = 123.0f;
+    std::memcpy(&storedValue, bytes + 0, sizeof(storedValue));
+    std::memcpy(&padding, bytes + 12, sizeof(padding));
+
+    EXPECT_EQ(storedValue, value);
+    EXPECT_EQ(padding, 0.0f);
+}

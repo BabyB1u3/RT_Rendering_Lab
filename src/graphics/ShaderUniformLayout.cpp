@@ -79,10 +79,14 @@ bool PackedUniformBlock::WriteRaw(const std::string &fieldName, const void *data
         return false;
     }
 
-    if (size != field->Size)
+    const uint32_t logicalSize = GetShaderUniformValueTypeSize(field->Type);
+    const bool exactFieldWrite = (size == field->Size);
+    const bool logicalWriteFits = (logicalSize != 0) && (size == logicalSize) && (logicalSize <= field->Size);
+    if (!exactFieldWrite && !logicalWriteFits)
     {
-        SetError(fmt::format("Field '{}' size mismatch: tried to write {} bytes, expected {}",
-                             fieldName, size, field->Size));
+        SetError(fmt::format(
+            "Field '{}' size mismatch: tried to write {} bytes, expected {}",
+            fieldName, size, field->Size));
         return false;
     }
 
@@ -91,6 +95,12 @@ bool PackedUniformBlock::WriteRaw(const std::string &fieldName, const void *data
         SetError(fmt::format("Field '{}' range [{}..{}) exceeds block size {}",
                              fieldName, field->Offset, field->Offset + field->Size, m_Data.size()));
         return false;
+    }
+
+    if (size < field->Size)
+    {
+        // Preserve reflected padding semantics for logical-sized writes like float3 -> 16-byte slot.
+        std::memset(m_Data.data() + field->Offset, 0, field->Size);
     }
 
     std::memcpy(m_Data.data() + field->Offset, data, size);
