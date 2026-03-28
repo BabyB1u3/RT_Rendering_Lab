@@ -227,7 +227,7 @@ TEST_F(ShaderIntegrationTests, CreateShader_LoadsShadowDepthFromCompiledGlsl)
 
 	auto shader = GetDevice()->CreateShader("ShadowDepth");
 	ASSERT_NE(shader, nullptr);
-	const auto *layout = shader->GetUniformBlockLayout(0);
+	const auto *layout = shader->GetUniformBlockLayout({0, 0});
 	ASSERT_NE(layout, nullptr);
 	EXPECT_NE(layout->FindField("u_LightViewProjection"), nullptr);
 	EXPECT_NE(layout->FindField("u_Model"), nullptr);
@@ -236,6 +236,20 @@ TEST_F(ShaderIntegrationTests, CreateShader_LoadsShadowDepthFromCompiledGlsl)
 	shader->SetMat4("u_LightViewProjection", glm::mat4(1.0f));
 	shader->SetMat4("u_Model", glm::mat4(1.0f));
 	shader->Unbind();
+}
+
+TEST_F(ShaderIntegrationTests, CreateShader_ShadowDepthPreservesExplicitLogicalResourceMetadata)
+{
+	ShaderTestUtils::SkipOrFailIfShaderMissing("ShadowDepth");
+
+	auto shader = GetDevice()->CreateShader("ShadowDepth");
+	ASSERT_NE(shader, nullptr);
+	auto *glShader = AsGL<GLShader>(shader);
+
+	const auto *blockResource = glShader->GetResourceLayout({0, 0});
+	ASSERT_NE(blockResource, nullptr);
+	EXPECT_NE(blockResource->Name.find("GlobalParams"), std::string::npos);
+	EXPECT_EQ(blockResource->Kind, ShaderResourceKind::UniformBuffer);
 }
 
 TEST_F(ShaderIntegrationTests, CreateShader_LoadsTexturePreviewFromCompiledGlsl)

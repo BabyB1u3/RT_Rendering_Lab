@@ -19,6 +19,11 @@
 #include "renderer/RenderItem.h"
 #include "scene/SceneData.h"
 
+namespace
+{
+    constexpr ShaderBindingPoint kShadowParamsBinding{0, 0};
+}
+
 ShadowPass::ShadowPass(uint32_t width, uint32_t height)
     : m_Width(width), m_Height(height)
 {
@@ -33,11 +38,11 @@ ShadowPass::ShadowPass(uint32_t width, uint32_t height)
 
     m_Shader = GetDevice()->CreateShader("ShadowDepth");
     RTRLAB_ASSERT_MSG(m_Shader, "ShadowPass failed to create ShadowDepth shader");
-    m_UniformBlockLayout = m_Shader->GetUniformBlockLayout(0);
+    m_UniformBlockLayout = m_Shader->GetUniformBlockLayout(kShadowParamsBinding);
     RTRLAB_ASSERT_MSG(m_UniformBlockLayout,
-                      "ShadowPass: shader must provide reflected layout for uniform block binding 0.");
+                      "ShadowPass: shader must provide reflected layout for logical binding {0, 0}.");
     m_UniformBuffer = GetDevice()->CreateUniformBuffer(m_UniformBlockLayout->GetSize());
-    RTRLAB_ASSERT_MSG(m_UniformBuffer, "ShadowPass failed to create uniform buffer for binding 0");
+    RTRLAB_ASSERT_MSG(m_UniformBuffer, "ShadowPass failed to create uniform buffer for logical binding {0, 0}");
 }
 
 void ShadowPass::Resize(unsigned int width, unsigned int height)
@@ -102,7 +107,7 @@ void ShadowPass::Execute(const RenderContext &ctx)
         block.WriteRequired("u_LightViewProjection", ctx.Resources.LightViewProjection);
         block.WriteRequired("u_Model", model);
         m_UniformBuffer->SetData(block.Data(), block.Size());
-        m_Shader->BindUniformBuffer(0, m_UniformBuffer);
+        m_Shader->BindUniformBuffer(kShadowParamsBinding, m_UniformBuffer);
 
         RenderCommand::DrawIndexed(item.Mesh->GetVertexArray());
     }

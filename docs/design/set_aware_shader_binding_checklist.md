@@ -94,21 +94,23 @@ Recommended rule: each batch should leave the repository buildable and testable.
   - `TexturePreview.slang` uses an explicit constant buffer at logical binding `{0, 0}`
   - `TexturePreviewPass` now queries layouts and binds resources through
     logical binding points
+- `Batch 6.2` is now also in code:
+  - `ShadowDepth.slang` uses an explicit constant buffer at logical binding `{0, 0}`
+  - `ShadowPass` now queries layouts and binds resources through logical
+    binding points
 - what is still **not** done:
   - the current runtime metadata coverage is enough for the live binding path,
     but not yet the final production shape for every resource kind and backend case
-  - `ShadowDepth`, `ForwardLit`, and tutorial/demo shaders such as `BasicLit`
-    still use bridge-era slot assumptions
+  - `ForwardLit` still uses bridge-era slot assumptions for its production path
 
 ### Immediate Next Step
 
-Proceed to `Batch 6.2`.
+Proceed to `Batch 6.3`.
 
 The concrete objective for the next implementation wave is:
 
 - apply the explicit-block and logical-binding pattern proven by
-  `TexturePreview` to `ShadowDepth`
-- keep `ForwardLit` as the next production pass after that
+  `TexturePreview` and `ShadowDepth` to `ForwardLit`
 - tutorial/demo shaders may migrate in parallel, but they do not replace the
   three production pilot passes that validate the renderer mainline
 
@@ -452,6 +454,10 @@ Completed on March 28, 2026.
 
 - `ShadowPass` no longer relies on bridge slot assumptions
 
+#### Status
+
+Completed on March 28, 2026.
+
 ### 8.3 ForwardLit
 
 #### Files Likely Touched
@@ -505,7 +511,8 @@ If the goal is to begin implementation immediately with the least churn:
 5. Batch 5 - Test coverage
 6. Batch 6.1 - `TexturePreview`
 7. Batch 6.2 - `ShadowDepth`
+8. Batch 6.3 - `ForwardLit`
 
-`TexturePreview` has now proven the first full logical-binding path in the
-repository. The next mainline production step is `ShadowDepth`, followed by
-`ForwardLit`.
+`TexturePreview` and `ShadowDepth` have now proven the first two full
+logical-binding production paths in the repository. The next mainline
+production step is `ForwardLit`.
