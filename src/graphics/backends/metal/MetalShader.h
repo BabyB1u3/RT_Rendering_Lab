@@ -31,6 +31,7 @@
 
 #include "core/Base.h"
 #include "graphics/RenderTypes.h"
+#include "graphics/ShaderResourceMetadata.h"
 #include "graphics/ShaderUniformLayout.h"
 #include "graphics/interfaces/IShader.h"
 
@@ -109,6 +110,8 @@ public:
 	/// Default: 1 (one GlobalParams CB at binding 0; textures start at binding 1).
 	/// Overridable via the reflection sidecar ("textureBindingBase" field).
 	uint32_t GetTextureBindingBase() const;
+	const ShaderResourceLayout *GetResourceLayout(ShaderBindingPoint binding) const;
+	const ShaderBackendBinding *GetBackendBinding(ShaderBindingPoint binding) const;
 
 	// Factories (used by MetalGraphicsDevice)
 	static Ref<MetalShader> CreateFromCompiledMSL(const std::string &name);

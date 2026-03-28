@@ -20,6 +20,7 @@
 #include "graphics/interfaces/ITexture2D.h"
 #include "graphics/backends/opengl/GLCast.h"
 #include "graphics/backends/opengl/GLFramebuffer.h"
+#include "graphics/backends/opengl/GLShader.h"
 
 class ShaderIntegrationTests : public ::testing::Test
 {
@@ -174,6 +175,31 @@ TEST_F(ShaderIntegrationTests, CreateShader_LoadsForwardLitFromCompiledGlsl)
 	shader->SetMat4("u_ViewProjection", glm::mat4(1.0f));
 	shader->SetFloat3("u_LightDirection", glm::vec3(0.0f, -1.0f, 0.0f));
 	shader->Unbind();
+}
+
+TEST_F(ShaderIntegrationTests, CreateShader_PreservesCompiledResourceBindingMetadata)
+{
+	ShaderTestUtils::SkipOrFailIfShaderMissing("ForwardLit");
+
+	auto shader = GetDevice()->CreateShader("ForwardLit");
+	ASSERT_NE(shader, nullptr);
+	auto *glShader = AsGL<GLShader>(shader);
+
+	const auto *blockResource = glShader->GetResourceLayout({0, 0});
+	ASSERT_NE(blockResource, nullptr);
+	EXPECT_EQ(blockResource->Kind, ShaderResourceKind::UniformBuffer);
+
+	const auto *shadowMapResource = glShader->GetResourceLayout({0, 1});
+	ASSERT_NE(shadowMapResource, nullptr);
+	EXPECT_EQ(shadowMapResource->Name, "u_ShadowMap");
+	EXPECT_EQ(shadowMapResource->Kind, ShaderResourceKind::CombinedTextureSampler);
+
+	const auto *albedoMapBinding = glShader->GetBackendBinding({0, 2});
+	ASSERT_NE(albedoMapBinding, nullptr);
+	ASSERT_TRUE(albedoMapBinding->TextureIndex.has_value());
+	ASSERT_TRUE(albedoMapBinding->SamplerIndex.has_value());
+	EXPECT_EQ(*albedoMapBinding->TextureIndex, 2u);
+	EXPECT_EQ(*albedoMapBinding->SamplerIndex, 2u);
 }
 
 TEST_F(ShaderIntegrationTests, CreateShader_LoadsShadowDepthFromCompiledGlsl)

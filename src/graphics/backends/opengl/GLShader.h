@@ -5,12 +5,14 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
 #include <glm/glm.hpp>
 
 #include "core/Base.h"
+#include "graphics/ShaderResourceMetadata.h"
 #include "graphics/ShaderUniformLayout.h"
 #include "graphics/interfaces/IShader.h"
 
@@ -52,6 +54,8 @@ public:
 
 	// --- GL-specific (non-virtual) ---
 	uint32_t GetRendererID() const { return m_RendererID; }
+	const ShaderResourceLayout *GetResourceLayout(ShaderBindingPoint binding) const;
+	const ShaderBackendBinding *GetBackendBinding(ShaderBindingPoint binding) const;
 
 	// Factory methods (used by GLGraphicsDevice)
 	static Ref<GLShader> CreateFromSource(
@@ -75,6 +79,7 @@ private:
 	static uint32_t CompileStage(uint32_t stage, const std::string &source, const std::string &debugName);
 	static uint32_t LinkProgram(const std::string &name, const std::vector<uint32_t> &shaderIDs);
 	void ReflectUniformBlocks();
+	void ReflectResourceBindingsFromSource(std::string_view source);
 
 	int GetUniformLocation(const std::string &name);
 
@@ -84,4 +89,6 @@ private:
 	std::unordered_map<std::string, int> m_UniformLocationCache;
 	std::unordered_map<uint32_t, uint32_t> m_UBOCache;
 	std::unordered_map<ShaderBindingPoint, ShaderUniformBlockLayout, ShaderBindingPointHash> m_BlockLayouts;
+	ShaderResourceLayoutMap m_ResourceLayouts;
+	ShaderBackendBindingMap m_BackendBindings;
 };

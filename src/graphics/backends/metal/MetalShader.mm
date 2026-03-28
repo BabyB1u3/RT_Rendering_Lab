@@ -79,6 +79,17 @@ struct UniformInfo
 
 using ReflectionMap = std::unordered_map<std::string, UniformInfo>;
 
+static std::optional<ShaderBindingPoint> ParseLogicalBindingPoint(const nlohmann::json &bindingJson)
+{
+	if (!bindingJson.is_object() || !bindingJson.contains("index"))
+		return std::nullopt;
+
+	return ShaderBindingPoint{
+		bindingJson.value("space", 0u),
+		bindingJson.value("index", 0u)
+	};
+}
+
 // --- Impl ---
 
 static constexpr size_t kStagingBufferSize = 4096;
@@ -108,6 +119,8 @@ struct MetalShader::Impl
 	std::unordered_map<ShaderBindingPoint, ShaderUniformBlockLayout, ShaderBindingPointHash> blockLayouts;
 	std::unordered_map<ShaderBindingPoint, Ref<IUniformBuffer>, ShaderBindingPointHash> uniformBuffers;
 	std::unordered_map<ShaderBindingPoint, Ref<ITexture2D>, ShaderBindingPointHash> boundTextures;
+	ShaderResourceLayoutMap resourceLayouts;
+	ShaderBackendBindingMap backendBindings;
 
 	// Metal buffer binding indices
 	uint32_t vertexUniformBinding   = 1;   // default; overridden by JSON sidecar
@@ -227,7 +240,9 @@ static void LoadReflectionSidecar(const std::string &name,
                                   ReflectionMap &vertex, ReflectionMap &fragment,
                                   uint32_t &vertexBinding, uint32_t &fragmentBinding,
                                   uint32_t &textureBase,
-                                  std::unordered_map<ShaderBindingPoint, ShaderUniformBlockLayout, ShaderBindingPointHash> &blockLayouts)
+                                  std::unordered_map<ShaderBindingPoint, ShaderUniformBlockLayout, ShaderBindingPointHash> &blockLayouts,
+                                  ShaderResourceLayoutMap &resourceLayouts,
+                                  ShaderBackendBindingMap &backendBindings)
 {
 	auto path = FileSystem::GetCompiledShaderDir() / "metal" / (name + ".reflect.json");
 	if (!FileSystem::Exists(path))
@@ -281,13 +296,58 @@ static void LoadReflectionSidecar(const std::string &name,
 				{
 					const uint32_t index = binding.value("index", 0u);
 					minTextureBindingBase = std::min(minTextureBindingBase, index);
+
+					const ShaderBindingPoint logicalBinding =
+						ParseLogicalBindingPoint(binding).value_or(MakeFlatShaderBindingPoint(index));
+					resourceLayouts[logicalBinding] = {
+						parameter.value("name", std::string{}),
+						ShaderResourceKind::CombinedTextureSampler,
+						logicalBinding
+					};
+					backendBindings[logicalBinding] = {
+						ShaderResourceKind::CombinedTextureSampler,
+						logicalBinding,
+						std::nullopt,
+						index,
+						index
+					};
+				}
+				else if (kind == "constantBuffer")
+				{
+					const ShaderBindingPoint logicalBinding =
+						ParseLogicalBindingPoint(binding).value_or(MakeFlatShaderBindingPoint(binding.value("index", 0u)));
+					resourceLayouts[logicalBinding] = {
+						parameter.value("name", std::string{}),
+						ShaderResourceKind::UniformBuffer,
+						logicalBinding
+					};
+					backendBindings[logicalBinding] = {
+						ShaderResourceKind::UniformBuffer,
+						logicalBinding,
+						binding.value("index", logicalBinding.Binding),
+						std::nullopt,
+						std::nullopt
+					};
 				}
 			}
 
 			if (hasGlobalUniforms)
 			{
 				globalLayout.SetSize(computedBlockSize);
-				blockLayouts[MakeFlatShaderBindingPoint(0)] = std::move(globalLayout);
+				const ShaderBindingPoint globalBinding = MakeFlatShaderBindingPoint(0);
+				resourceLayouts[globalBinding] = {
+					"GlobalParams",
+					ShaderResourceKind::UniformBuffer,
+					globalBinding
+				};
+				backendBindings[globalBinding] = {
+					ShaderResourceKind::UniformBuffer,
+					globalBinding,
+					globalBinding.Binding,
+					std::nullopt,
+					std::nullopt
+				};
+				blockLayouts[globalBinding] = std::move(globalLayout);
 			}
 
 			if (json.contains("entryPoints") && json["entryPoints"].is_array())
@@ -362,7 +422,20 @@ static void LoadReflectionSidecar(const std::string &name,
 					}
 				}
 
-				blockLayouts[layout.GetBindingPoint()] = std::move(layout);
+				const ShaderBindingPoint logicalBinding = layout.GetBindingPoint();
+				resourceLayouts[logicalBinding] = {
+					layout.GetName(),
+					ShaderResourceKind::UniformBuffer,
+					logicalBinding
+				};
+				backendBindings[logicalBinding] = {
+					ShaderResourceKind::UniformBuffer,
+					logicalBinding,
+					layout.GetBinding(),
+					std::nullopt,
+					std::nullopt
+				};
+				blockLayouts[logicalBinding] = std::move(layout);
 			}
 		}
 
@@ -423,7 +496,9 @@ Ref<MetalShader> MetalShader::CreateFromMSLSource(const std::string &name,
 	                      shader->m_Impl->vertexUniformBinding,
 	                      shader->m_Impl->fragmentUniformBinding,
 	                      shader->m_Impl->textureBindingBase,
-	                      shader->m_Impl->blockLayouts);
+	                      shader->m_Impl->blockLayouts,
+	                      shader->m_Impl->resourceLayouts,
+	                      shader->m_Impl->backendBindings);
 
 	LOG_INFO_CAT(LogCategory::Shader, "MetalShader: loaded '{}'", name);
 	return Ref<MetalShader>(shader);
@@ -656,6 +731,24 @@ void *MetalShader::GetOrCreatePSO(void *mtlDevice,
 uint32_t MetalShader::GetTextureBindingBase() const
 {
 	return m_Impl->textureBindingBase;
+}
+
+const ShaderResourceLayout *MetalShader::GetResourceLayout(ShaderBindingPoint binding) const
+{
+	auto it = m_Impl->resourceLayouts.find(binding);
+	if (it == m_Impl->resourceLayouts.end())
+		return nullptr;
+
+	return &it->second;
+}
+
+const ShaderBackendBinding *MetalShader::GetBackendBinding(ShaderBindingPoint binding) const
+{
+	auto it = m_Impl->backendBindings.find(binding);
+	if (it == m_Impl->backendBindings.end())
+		return nullptr;
+
+	return &it->second;
 }
 
 void MetalShader::FlushUniforms(void *mtlEncoder)
