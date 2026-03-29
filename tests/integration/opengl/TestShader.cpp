@@ -165,11 +165,16 @@ TEST_F(ShaderIntegrationTests, CreateShader_LoadsForwardLitFromCompiledGlsl)
 	auto shader = GetDevice()->CreateShader("ForwardLit");
 	ASSERT_NE(shader, nullptr);
 	EXPECT_EQ(shader->GetName(), "ForwardLit");
-	const auto *layout = shader->GetUniformBlockLayout({0, 0});
-	ASSERT_NE(layout, nullptr);
-	EXPECT_NE(layout->FindField("u_ViewProjection"), nullptr);
-	EXPECT_NE(layout->FindField("u_LightViewProjection"), nullptr);
-	EXPECT_NE(layout->FindField("u_UseAlbedoMap"), nullptr);
+	const auto *perPassLayout = shader->GetUniformBlockLayout(ShaderBindingPoints::PerFrame);
+	const auto *perMaterialLayout = shader->GetUniformBlockLayout(ShaderBindingPoints::PerMaterial);
+	const auto *perDrawLayout = shader->GetUniformBlockLayout(ShaderBindingPoints::PerDraw);
+	ASSERT_NE(perPassLayout, nullptr);
+	ASSERT_NE(perMaterialLayout, nullptr);
+	ASSERT_NE(perDrawLayout, nullptr);
+	EXPECT_NE(perPassLayout->FindField("u_ViewProjection"), nullptr);
+	EXPECT_NE(perPassLayout->FindField("u_LightViewProjection"), nullptr);
+	EXPECT_NE(perMaterialLayout->FindField("u_UseAlbedoMap"), nullptr);
+	EXPECT_NE(perDrawLayout->FindField("u_Model"), nullptr);
 
 	shader->Bind();
 	shader->SetFloat("u_LightIntensity", 1.0f);
@@ -204,22 +209,35 @@ TEST_F(ShaderIntegrationTests, CreateShader_PreservesCompiledResourceBindingMeta
 	ASSERT_NE(shader, nullptr);
 	auto *glShader = AsGL<GLShader>(shader);
 
-	const auto *blockResource = glShader->GetResourceLayout({0, 0});
-	ASSERT_NE(blockResource, nullptr);
-	EXPECT_NE(blockResource->Name.find("GlobalParams"), std::string::npos);
-	EXPECT_EQ(blockResource->Kind, ShaderResourceKind::UniformBuffer);
+	const auto *perPassResource = glShader->GetResourceLayout(ShaderBindingPoints::PerFrame);
+	ASSERT_NE(perPassResource, nullptr);
+	EXPECT_EQ(perPassResource->Name, "FramePassParams");
+	EXPECT_EQ(perPassResource->Kind, ShaderResourceKind::UniformBuffer);
 
-	const auto *shadowMapResource = glShader->GetResourceLayout({0, 1});
+	const auto *perMaterialResource = glShader->GetResourceLayout(ShaderBindingPoints::PerMaterial);
+	ASSERT_NE(perMaterialResource, nullptr);
+	EXPECT_EQ(perMaterialResource->Name, "MaterialParams");
+	EXPECT_EQ(perMaterialResource->Kind, ShaderResourceKind::UniformBuffer);
+
+	const auto *perDrawBinding = glShader->GetBackendBinding(ShaderBindingPoints::PerDraw);
+	ASSERT_NE(perDrawBinding, nullptr);
+	ASSERT_TRUE(perDrawBinding->BufferIndex.has_value());
+	EXPECT_EQ(*perDrawBinding->BufferIndex,
+	          FlattenShaderBindingPointForOpenGL(ShaderBindingPoints::PerDraw));
+
+	const auto *shadowMapResource = glShader->GetResourceLayout(ShaderBindingPoints::ShadowMap);
 	ASSERT_NE(shadowMapResource, nullptr);
 	EXPECT_EQ(shadowMapResource->Name, "u_ShadowMap");
 	EXPECT_EQ(shadowMapResource->Kind, ShaderResourceKind::CombinedTextureSampler);
 
-	const auto *albedoMapBinding = glShader->GetBackendBinding({0, 2});
+	const auto *albedoMapBinding = glShader->GetBackendBinding(ShaderBindingPoints::MaterialAlbedoMap);
 	ASSERT_NE(albedoMapBinding, nullptr);
 	ASSERT_TRUE(albedoMapBinding->TextureIndex.has_value());
 	ASSERT_TRUE(albedoMapBinding->SamplerIndex.has_value());
-	EXPECT_EQ(*albedoMapBinding->TextureIndex, 2u);
-	EXPECT_EQ(*albedoMapBinding->SamplerIndex, 2u);
+	EXPECT_EQ(*albedoMapBinding->TextureIndex,
+	          FlattenShaderBindingPointForOpenGL(ShaderBindingPoints::MaterialAlbedoMap));
+	EXPECT_EQ(*albedoMapBinding->SamplerIndex,
+	          FlattenShaderBindingPointForOpenGL(ShaderBindingPoints::MaterialAlbedoMap));
 }
 
 TEST_F(ShaderIntegrationTests, CreateShader_LoadsShadowDepthFromCompiledGlsl)

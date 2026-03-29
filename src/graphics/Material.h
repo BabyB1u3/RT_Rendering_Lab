@@ -5,7 +5,8 @@
 ///
 /// A Material holds textures and scalar/vector properties that describe a surface,
 /// but does NOT own or reference a Shader. The RenderPass decides which shader to
-/// use; the Material just uploads its data via UploadToShader().
+/// use; the Material exposes both legacy named-uniform upload and reflection-driven
+/// block/resource binding helpers.
 ///
 /// TextureSlot is a type-safe enum mapping to GPU texture unit indices.
 /// Slot values must match the sampler uniform indices in the GLSL shaders.
@@ -20,6 +21,7 @@
 #include <glm/glm.hpp>
 
 #include "core/Base.h"
+#include "graphics/ShaderUniformLayout.h"
 #include "Texture.h"
 
 class IShader;
@@ -48,6 +50,8 @@ public:
     // Texture bindings
     void SetTexture(TextureSlot slot, const Ref<ITexture2D> &texture);
     Ref<ITexture2D> GetTexture(TextureSlot slot) const;
+    void SetAlbedoTexture(const Ref<ITexture2D> &texture);
+    Ref<ITexture2D> GetAlbedoTexture() const;
 
     // Property setters
     void SetFloat(const std::string &name, float value);
@@ -64,6 +68,10 @@ public:
     /// Upload all stored properties as uniforms and bind textures to the given shader.
     /// The shader must already be bound (or use DSA uniform calls internally).
     void UploadToShader(const Ref<IShader> &shader) const;
+
+    /// Reflection-driven upload path used by maintained render passes.
+    void WriteMaterialUniformBlock(PackedUniformBlock &block) const;
+    void BindMaterialTextures(const Ref<IShader> &shader) const;
 
 private:
     std::unordered_map<uint32_t, Ref<ITexture2D>> m_Textures;

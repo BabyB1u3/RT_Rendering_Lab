@@ -4,10 +4,9 @@
 /// @brief Main forward-shading pass: Blinn-Phong lighting + PCF shadow sampling.
 ///
 /// For each RenderItem in the scene:
-///   1. Upload model matrix + normal matrix
-///   2. Upload material properties (albedo, specular, ambient) via Material::UploadToShader()
-///   3. Sample the shadow map from ShadowPass to compute shadow factor
-///   4. Shade with Blinn-Phong (ambient + diffuse + specular)
+///   1. Bind per-pass, per-material, and per-draw resource sets
+///   2. Sample the shadow map from ShadowPass to compute shadow factor
+///   3. Shade with Blinn-Phong (ambient + diffuse + specular)
 ///
 /// The pass can render to either an off-screen Framebuffer (for later compositing
 /// by TexturePreviewPass) or directly to the back buffer.
@@ -51,7 +50,11 @@ private:
     glm::vec4 m_ClearColor = {0.1f, 0.1f, 0.12f, 1.0f};
 
     Ref<IShader> m_Shader;
-    const ShaderUniformBlockLayout *m_UniformBlockLayout = nullptr;
-    Ref<IUniformBuffer> m_UniformBuffer;
+    const ShaderUniformBlockLayout *m_PerPassLayout = nullptr;
+    const ShaderUniformBlockLayout *m_PerMaterialLayout = nullptr;
+    const ShaderUniformBlockLayout *m_PerDrawLayout = nullptr;
+    Ref<IUniformBuffer> m_PerPassBuffer;
+    Ref<IUniformBuffer> m_PerMaterialBuffer;
+    Ref<IUniformBuffer> m_PerDrawBuffer;
     Ref<ITexture2D> m_FallbackShadowMap;
 };

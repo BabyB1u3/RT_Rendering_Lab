@@ -22,8 +22,11 @@ namespace
 {
     constexpr ShaderBindingPoint kPreviewParamsBinding{0, 0};
     constexpr ShaderBindingPoint kPreviewTextureBinding{0, 1};
-    constexpr ShaderBindingPoint kForwardParamsBinding{0, 0};
-    constexpr ShaderBindingPoint kForwardShadowTextureBinding{0, 1};
+    constexpr ShaderBindingPoint kForwardPerPassBinding = ShaderBindingPoints::PerFrame;
+    constexpr ShaderBindingPoint kForwardShadowTextureBinding = ShaderBindingPoints::ShadowMap;
+    constexpr ShaderBindingPoint kForwardPerMaterialBinding = ShaderBindingPoints::PerMaterial;
+    constexpr ShaderBindingPoint kForwardAlbedoTextureBinding = ShaderBindingPoints::MaterialAlbedoMap;
+    constexpr ShaderBindingPoint kForwardPerDrawBinding = ShaderBindingPoints::PerDraw;
     constexpr ShaderBindingPoint kShadowParamsBinding{0, 0};
 
     struct alignas(16) ShadowParamsCapture
@@ -32,11 +35,9 @@ namespace
         glm::mat4 Model;
     };
 
-    struct alignas(16) ForwardParamsCapture
+    struct alignas(16) ForwardPerPassCapture
     {
         glm::mat4 ViewProjection;
-        glm::mat4 Model;
-        glm::mat4 NormalMatrix;
         glm::mat4 LightViewProjection;
         glm::vec3 CameraPosition;
         float Pad0{};
@@ -44,11 +45,23 @@ namespace
         float Pad1{};
         glm::vec3 LightColor;
         float LightIntensity{};
+        glm::vec2 ShadowMapTexelSize;
+        glm::vec2 Pad2{};
+    };
+
+    struct alignas(16) ForwardPerMaterialCapture
+    {
         glm::vec3 Albedo;
         float SpecularPower{};
         float AmbientStrength{};
         int32_t UseAlbedoMap{};
-        glm::vec2 ShadowMapTexelSize;
+        glm::vec2 Pad0{};
+    };
+
+    struct alignas(16) ForwardPerDrawCapture
+    {
+        glm::mat4 Model;
+        glm::mat4 NormalMatrix;
     };
 
     template <typename T>
@@ -220,9 +233,16 @@ TEST_F(SharedRenderPassContractTests, ForwardPassSkipsInvalidItemsAndUploadsOneU
 
     const auto shader = FindShader(m_Device, "ForwardLit");
     ASSERT_NE(shader, nullptr);
-    ASSERT_EQ(shader->UniformBufferBindEvents.size(), 1u);
-    EXPECT_EQ(shader->UniformBufferBindEvents[0].BindingPoint, kForwardParamsBinding);
-    ASSERT_NE(GetBoundUniformBuffer(shader, kForwardParamsBinding), nullptr);
+    ASSERT_EQ(shader->UniformBufferBindEvents.size(), 3u);
+    EXPECT_EQ(shader->UniformBufferBindEvents[0].BindingPoint, kForwardPerPassBinding);
+    EXPECT_EQ(shader->UniformBufferBindEvents[1].BindingPoint, kForwardPerMaterialBinding);
+    EXPECT_EQ(shader->UniformBufferBindEvents[2].BindingPoint, kForwardPerDrawBinding);
+    ASSERT_NE(GetBoundUniformBuffer(shader, kForwardPerPassBinding), nullptr);
+    ASSERT_NE(GetBoundUniformBuffer(shader, kForwardPerMaterialBinding), nullptr);
+    ASSERT_NE(GetBoundUniformBuffer(shader, kForwardPerDrawBinding), nullptr);
+    ASSERT_EQ(shader->TextureBindEvents.size(), 2u);
+    EXPECT_EQ(shader->TextureBindEvents[0].BindingPoint, kForwardShadowTextureBinding);
+    EXPECT_EQ(shader->TextureBindEvents[1].BindingPoint, kForwardAlbedoTextureBinding);
     EXPECT_EQ(m_Device->RenderCommand->DrawIndexedCalls.size(), 1u);
 }
 
@@ -364,26 +384,40 @@ TEST_F(SharedRenderPassContractTests, SceneRendererPreparesConsistentFrameResour
     ASSERT_NE(forwardShader, nullptr);
     ASSERT_NE(previewShader, nullptr);
     const auto shadowBuffer = GetBoundUniformBuffer(shadowShader, kShadowParamsBinding);
-    const auto forwardBuffer = GetBoundUniformBuffer(forwardShader, kForwardParamsBinding);
+    const auto forwardPerPassBuffer = GetBoundUniformBuffer(forwardShader, kForwardPerPassBinding);
+    const auto forwardPerMaterialBuffer = GetBoundUniformBuffer(forwardShader, kForwardPerMaterialBinding);
+    const auto forwardPerDrawBuffer = GetBoundUniformBuffer(forwardShader, kForwardPerDrawBinding);
     const auto previewBuffer = GetBoundUniformBuffer(previewShader, kPreviewParamsBinding);
     ASSERT_NE(shadowBuffer, nullptr);
-    ASSERT_NE(forwardBuffer, nullptr);
+    ASSERT_NE(forwardPerPassBuffer, nullptr);
+    ASSERT_NE(forwardPerMaterialBuffer, nullptr);
+    ASSERT_NE(forwardPerDrawBuffer, nullptr);
     ASSERT_NE(previewBuffer, nullptr);
     ASSERT_EQ(shadowBuffer->LastSetSize, sizeof(ShadowParamsCapture));
-    ASSERT_EQ(forwardBuffer->LastSetSize, sizeof(ForwardParamsCapture));
+    ASSERT_EQ(forwardPerPassBuffer->LastSetSize, sizeof(ForwardPerPassCapture));
+    ASSERT_EQ(forwardPerMaterialBuffer->LastSetSize, sizeof(ForwardPerMaterialCapture));
+    ASSERT_EQ(forwardPerDrawBuffer->LastSetSize, sizeof(ForwardPerDrawCapture));
 
     const auto shadowParams = ReadUniformBytes<ShadowParamsCapture>(shadowBuffer->Bytes);
-    const auto forwardParams = ReadUniformBytes<ForwardParamsCapture>(forwardBuffer->Bytes);
+    const auto forwardPerPass = ReadUniformBytes<ForwardPerPassCapture>(forwardPerPassBuffer->Bytes);
+    const auto forwardPerMaterial = ReadUniformBytes<ForwardPerMaterialCapture>(forwardPerMaterialBuffer->Bytes);
+    const auto forwardPerDraw = ReadUniformBytes<ForwardPerDrawCapture>(forwardPerDrawBuffer->Bytes);
 
-    ExpectMat4Near(forwardParams.LightViewProjection, shadowParams.LightViewProjection);
-    ExpectVec3Near(forwardParams.CameraPosition, camera.GetPosition());
-    ExpectVec3Near(forwardParams.LightDirection, scene.MainDirectionalLight.Direction);
-    ExpectVec3Near(forwardParams.LightColor, scene.MainDirectionalLight.Color);
-    EXPECT_NEAR(forwardParams.LightIntensity, scene.MainDirectionalLight.Intensity, 1e-6f);
+    ExpectMat4Near(forwardPerPass.LightViewProjection, shadowParams.LightViewProjection);
+    ExpectVec3Near(forwardPerPass.CameraPosition, camera.GetPosition());
+    ExpectVec3Near(forwardPerPass.LightDirection, scene.MainDirectionalLight.Direction);
+    ExpectVec3Near(forwardPerPass.LightColor, scene.MainDirectionalLight.Color);
+    EXPECT_NEAR(forwardPerPass.LightIntensity, scene.MainDirectionalLight.Intensity, 1e-6f);
     ExpectVec2Near(
-        forwardParams.ShadowMapTexelSize,
+        forwardPerPass.ShadowMapTexelSize,
         {1.0f / static_cast<float>(spec.ShadowMapWidth),
          1.0f / static_cast<float>(spec.ShadowMapHeight)});
+    ExpectVec3Near(forwardPerMaterial.Albedo, {0.25f, 0.5f, 0.75f});
+    EXPECT_NEAR(forwardPerMaterial.SpecularPower, 16.0f, 1e-6f);
+    EXPECT_NEAR(forwardPerMaterial.AmbientStrength, 0.2f, 1e-6f);
+    EXPECT_EQ(forwardPerMaterial.UseAlbedoMap, 0);
+    ExpectMat4Near(forwardPerDraw.Model, glm::mat4(1.0f));
+    ExpectMat4Near(forwardPerDraw.NormalMatrix, glm::mat4(1.0f));
 
     EXPECT_EQ(GetBoundTexture(forwardShader, kForwardShadowTextureBinding), renderer.GetShadowPass()->GetDepthTexture());
     EXPECT_EQ(GetBoundTexture(previewShader, kPreviewTextureBinding),

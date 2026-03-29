@@ -4,6 +4,7 @@
 /// @brief OpenGL shader program implementation of IShader with uniform caching.
 
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -78,6 +79,7 @@ private:
 
 	static uint32_t CompileStage(uint32_t stage, const std::string &source, const std::string &debugName);
 	static uint32_t LinkProgram(const std::string &name, const std::vector<uint32_t> &shaderIDs);
+	bool LoadSlangReflectionMetadata(const std::vector<std::filesystem::path> &reflectionPaths);
 	void ReflectUniformBlocks();
 	void ReflectResourceBindingsFromSource(std::string_view source);
 

@@ -57,5 +57,16 @@ namespace ShaderBindingPoints
     inline constexpr ShaderBindingPoint PerFrame{ShaderBindingSets::FramePass, 0};
     inline constexpr ShaderBindingPoint PerPass{ShaderBindingSets::FramePass, 1};
     inline constexpr ShaderBindingPoint PerMaterial{ShaderBindingSets::Material, 0};
+    inline constexpr ShaderBindingPoint MaterialAlbedoMap{ShaderBindingSets::Material, 1};
     inline constexpr ShaderBindingPoint PerDraw{ShaderBindingSets::Draw, 0};
+    inline constexpr ShaderBindingPoint ShadowMap{ShaderBindingSets::FramePass, 1};
+}
+
+// OpenGL has no native descriptor-set concept, so logical {set, binding} pairs are
+// flattened into one GL binding index when shaders are compiled for that backend.
+inline constexpr uint32_t kOpenGLBindingSetStride = 16;
+
+constexpr uint32_t FlattenShaderBindingPointForOpenGL(ShaderBindingPoint binding)
+{
+    return binding.Set * kOpenGLBindingSetStride + binding.Binding;
 }

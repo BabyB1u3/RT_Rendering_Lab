@@ -23,6 +23,13 @@ TEST(ShaderUniformLayoutTests, ShaderBindingPointSupportsEqualityAndHashLookup)
     EXPECT_EQ(lookup.find({1, 3}), lookup.end());
 }
 
+TEST(ShaderUniformLayoutTests, OpenGLBindingFlatteningUsesStableSetStride)
+{
+    EXPECT_EQ(FlattenShaderBindingPointForOpenGL({0, 1}), 1u);
+    EXPECT_EQ(FlattenShaderBindingPointForOpenGL({1, 0}), 16u);
+    EXPECT_EQ(FlattenShaderBindingPointForOpenGL({2, 0}), 32u);
+}
+
 TEST(ShaderUniformLayoutTests, BlockLayoutStoresLogicalBindingPointAndFlatCompatibilityBinding)
 {
     ShaderUniformBlockLayout layout("TestBlock", ShaderBindingPoint{1, 3}, 16);

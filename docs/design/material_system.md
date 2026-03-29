@@ -68,9 +68,13 @@ Current repository note:
   - `Material::UploadToShader()` still exists and uses name-based setters
   - `ForwardPass`, `ShadowPass`, and `TexturePreviewPass` already use reflected
     layouts plus `PackedUniformBlock`
-  - `ForwardPass` still reads material values directly and binds the albedo
-    texture itself, which means the material side has not yet reached the same
-    steady-state upload model as the pass side
+  - `Material` now exposes minimal reflection-driven helpers for writing the
+    per-material block and binding material textures through logical binding
+    points
+  - `ForwardPass` now uses those helpers and no longer manually extracts
+    material values or hardcodes the albedo texture binding path
+  - the repository still keeps `TextureSlot` and `UploadToShader()` for bridge
+    compatibility, so the material side is improved but not yet final
 
 Material-specific work that still remains:
 

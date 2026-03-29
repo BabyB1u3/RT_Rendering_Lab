@@ -20,6 +20,8 @@ function(glab_compile_shaders)
         return()
     endif()
 
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
     if(NOT DEFINED SLANGC OR NOT EXISTS "${SLANGC}")
         message(FATAL_ERROR
             "SLANGC not set or not found at '${SLANGC}'.\n"
@@ -83,10 +85,13 @@ function(glab_compile_shaders)
         #
         if(GLAB_SHADER_TARGET_GLSL)
             set(GLSL_DIR "${SHADER_BASE_DIR}/glsl")
+            set(GLSL_FLATTEN_SCRIPT "${CMAKE_SOURCE_DIR}/tools/flatten_glsl_bindings.py")
 
+            set(VERT_RAW_OUTPUT "${GLSL_DIR}/${SHADER_NAME}.vert.raw.glsl")
+            set(VERT_REFLECT_OUTPUT "${GLSL_DIR}/${SHADER_NAME}.vert.reflect.json")
             set(VERT_OUTPUT "${GLSL_DIR}/${SHADER_NAME}.vert.glsl")
             add_custom_command(
-                OUTPUT "${VERT_OUTPUT}"
+                OUTPUT "${VERT_RAW_OUTPUT}" "${VERT_REFLECT_OUTPUT}"
                 COMMAND "${CMAKE_COMMAND}" -E make_directory "${GLSL_DIR}"
                 COMMAND "${SLANGC}" "${INPUT}"
                     -target glsl
@@ -94,15 +99,28 @@ function(glab_compile_shaders)
                     -matrix-layout-column-major
                     -stage vertex -entry vertexMain
                     -I "${SLANG_MODULE_DIR}"
-                    -o "${VERT_OUTPUT}"
+                    -reflection-json "${VERT_REFLECT_OUTPUT}"
+                    -o "${VERT_RAW_OUTPUT}"
                 DEPENDS "${INPUT}" ${MODULE_DEPS}
                 COMMENT "Slang -> GLSL vertex: ${SHADER_NAME}"
                 VERBATIM
             )
 
+            add_custom_command(
+                OUTPUT "${VERT_OUTPUT}"
+                COMMAND "${Python3_EXECUTABLE}" "${GLSL_FLATTEN_SCRIPT}"
+                    --input "${VERT_RAW_OUTPUT}"
+                    --output "${VERT_OUTPUT}"
+                DEPENDS "${VERT_RAW_OUTPUT}" "${VERT_REFLECT_OUTPUT}" "${GLSL_FLATTEN_SCRIPT}"
+                COMMENT "Flatten GLSL bindings for OpenGL vertex stage: ${SHADER_NAME}"
+                VERBATIM
+            )
+
+            set(FRAG_RAW_OUTPUT "${GLSL_DIR}/${SHADER_NAME}.frag.raw.glsl")
+            set(FRAG_REFLECT_OUTPUT "${GLSL_DIR}/${SHADER_NAME}.frag.reflect.json")
             set(FRAG_OUTPUT "${GLSL_DIR}/${SHADER_NAME}.frag.glsl")
             add_custom_command(
-                OUTPUT "${FRAG_OUTPUT}"
+                OUTPUT "${FRAG_RAW_OUTPUT}" "${FRAG_REFLECT_OUTPUT}"
                 COMMAND "${CMAKE_COMMAND}" -E make_directory "${GLSL_DIR}"
                 COMMAND "${SLANGC}" "${INPUT}"
                     -target glsl
@@ -110,13 +128,29 @@ function(glab_compile_shaders)
                     -matrix-layout-column-major
                     -stage fragment -entry fragmentMain
                     -I "${SLANG_MODULE_DIR}"
-                    -o "${FRAG_OUTPUT}"
+                    -reflection-json "${FRAG_REFLECT_OUTPUT}"
+                    -o "${FRAG_RAW_OUTPUT}"
                 DEPENDS "${INPUT}" ${MODULE_DEPS}
                 COMMENT "Slang -> GLSL fragment: ${SHADER_NAME}"
                 VERBATIM
             )
 
-            list(APPEND ALL_OUTPUTS "${VERT_OUTPUT}" "${FRAG_OUTPUT}")
+            add_custom_command(
+                OUTPUT "${FRAG_OUTPUT}"
+                COMMAND "${Python3_EXECUTABLE}" "${GLSL_FLATTEN_SCRIPT}"
+                    --input "${FRAG_RAW_OUTPUT}"
+                    --output "${FRAG_OUTPUT}"
+                DEPENDS "${FRAG_RAW_OUTPUT}" "${FRAG_REFLECT_OUTPUT}" "${GLSL_FLATTEN_SCRIPT}"
+                COMMENT "Flatten GLSL bindings for OpenGL fragment stage: ${SHADER_NAME}"
+                VERBATIM
+            )
+
+            list(APPEND ALL_OUTPUTS
+                "${VERT_OUTPUT}"
+                "${VERT_REFLECT_OUTPUT}"
+                "${FRAG_OUTPUT}"
+                "${FRAG_REFLECT_OUTPUT}"
+            )
         endif()
 
         # ── SPIR-V target ──
@@ -162,6 +196,8 @@ function(glab_compile_shaders)
         if(GLAB_SHADER_TARGET_METAL)
             set(METAL_DIR "${SHADER_BASE_DIR}/metal")
 
+            set(METAL_REFLECT_ENRICH_SCRIPT "${CMAKE_SOURCE_DIR}/tools/enrich_metal_reflection.py")
+
             # Metal emits both stages into a single file
             set(MTL_OUTPUT "${METAL_DIR}/${SHADER_NAME}.metal")
             set(REFLECT_OUTPUT "${METAL_DIR}/${SHADER_NAME}.reflect.json")
@@ -174,7 +210,10 @@ function(glab_compile_shaders)
                     -I "${SLANG_MODULE_DIR}"
                     -reflection-json "${REFLECT_OUTPUT}"
                     -o "${MTL_OUTPUT}"
-                DEPENDS "${INPUT}" ${MODULE_DEPS}
+                COMMAND "${Python3_EXECUTABLE}" "${METAL_REFLECT_ENRICH_SCRIPT}"
+                    --source "${INPUT}"
+                    --reflection "${REFLECT_OUTPUT}"
+                DEPENDS "${INPUT}" ${MODULE_DEPS} "${METAL_REFLECT_ENRICH_SCRIPT}"
                 COMMENT "Slang -> Metal: ${SHADER_NAME}"
                 VERBATIM
             )

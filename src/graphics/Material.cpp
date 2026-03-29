@@ -3,6 +3,19 @@
 #include "graphics/interfaces/IShader.h"
 #include "graphics/interfaces/ITexture2D.h"
 
+namespace
+{
+    template<typename T>
+    void WriteIfReflected(const ShaderUniformBlockLayout &layout,
+                          PackedUniformBlock &block,
+                          const std::string &fieldName,
+                          const T &value)
+    {
+        if (layout.FindField(fieldName))
+            block.WriteRequired(fieldName, value);
+    }
+}
+
 void Material::SetTexture(TextureSlot slot, const Ref<ITexture2D> &texture)
 {
     auto key = static_cast<uint32_t>(slot);
@@ -18,6 +31,16 @@ Ref<ITexture2D> Material::GetTexture(TextureSlot slot) const
     if (it == m_Textures.end())
         return nullptr;
     return it->second;
+}
+
+void Material::SetAlbedoTexture(const Ref<ITexture2D> &texture)
+{
+    SetTexture(TextureSlot::Albedo, texture);
+}
+
+Ref<ITexture2D> Material::GetAlbedoTexture() const
+{
+    return GetTexture(TextureSlot::Albedo);
 }
 
 // --- Property setters ---
@@ -68,7 +91,7 @@ void Material::UploadToShader(const Ref<IShader> &shader) const
         shader->SetFloat4(name, val);
 
     // Bind textures and set sampler uniforms
-    auto albedo = GetTexture(TextureSlot::Albedo);
+    auto albedo = GetAlbedoTexture();
     if (albedo)
     {
         albedo->Bind(static_cast<uint32_t>(TextureSlot::Albedo));
@@ -79,4 +102,25 @@ void Material::UploadToShader(const Ref<IShader> &shader) const
     {
         shader->SetBool("u_UseAlbedoMap", false);
     }
+}
+
+void Material::WriteMaterialUniformBlock(PackedUniformBlock &block) const
+{
+    const auto &layout = block.GetLayout();
+
+    for (const auto &[name, value] : m_Floats)
+        WriteIfReflected(layout, block, name, value);
+    for (const auto &[name, value] : m_Ints)
+        WriteIfReflected(layout, block, name, value);
+    for (const auto &[name, value] : m_Vec3s)
+        WriteIfReflected(layout, block, name, value);
+    for (const auto &[name, value] : m_Vec4s)
+        WriteIfReflected(layout, block, name, value);
+
+    WriteIfReflected(layout, block, "u_UseAlbedoMap", GetAlbedoTexture() != nullptr);
+}
+
+void Material::BindMaterialTextures(const Ref<IShader> &shader) const
+{
+    shader->BindTexture(ShaderBindingPoints::MaterialAlbedoMap, GetAlbedoTexture());
 }

@@ -1,12 +1,15 @@
 #include "GLShader.h"
 
+#include <algorithm>
 #include <array>
+#include <optional>
 #include <regex>
 #include <string>
 #include <vector>
 
 #include <glad/glad.h>
 #include <glm/gtc/type_ptr.hpp>
+#include <json.hpp>
 
 #include "core/FileSystem.h"
 #include "core/diagnostics/LogCategories.h"
@@ -43,6 +46,144 @@ std::string TrimTrailingNull(std::string value)
 	if (!value.empty() && value.back() == '\0')
 		value.pop_back();
 	return value;
+}
+
+std::optional<ShaderBindingPoint> ParseLogicalBindingPoint(const nlohmann::json &bindingJson)
+{
+	if (!bindingJson.is_object() || !bindingJson.contains("index"))
+		return std::nullopt;
+
+	return ShaderBindingPoint{
+		bindingJson.value("space", 0u),
+		bindingJson.value("index", 0u)
+	};
+}
+
+ShaderUniformValueType ParseReflectionValueType(const nlohmann::json &typeJson)
+{
+	if (!typeJson.is_object())
+		return ShaderUniformValueType::Unknown;
+
+	const std::string kind = typeJson.value("kind", std::string{});
+	if (kind == "scalar")
+	{
+		const std::string scalarType = typeJson.value("scalarType", std::string{});
+		if (scalarType == "bool")
+			return ShaderUniformValueType::Bool;
+		if (scalarType == "float32")
+			return ShaderUniformValueType::Float;
+		if (scalarType == "int32" || scalarType == "uint32")
+			return ShaderUniformValueType::Int;
+		return ShaderUniformValueType::Unknown;
+	}
+
+	if (kind == "vector")
+	{
+		const uint32_t elementCount = typeJson.value("elementCount", 0u);
+		const ShaderUniformValueType elementType =
+			ParseReflectionValueType(typeJson.value("elementType", nlohmann::json::object()));
+
+		if (elementType == ShaderUniformValueType::Float)
+		{
+			switch (elementCount)
+			{
+			case 2: return ShaderUniformValueType::Float2;
+			case 3: return ShaderUniformValueType::Float3;
+			case 4: return ShaderUniformValueType::Float4;
+			default: return ShaderUniformValueType::Unknown;
+			}
+		}
+
+		if (elementType == ShaderUniformValueType::Int)
+		{
+			switch (elementCount)
+			{
+			case 2: return ShaderUniformValueType::Int2;
+			case 3: return ShaderUniformValueType::Int3;
+			case 4: return ShaderUniformValueType::Int4;
+			default: return ShaderUniformValueType::Unknown;
+			}
+		}
+
+		return ShaderUniformValueType::Unknown;
+	}
+
+	if (kind == "matrix")
+	{
+		const uint32_t rowCount = typeJson.value("rowCount", 0u);
+		const uint32_t columnCount = typeJson.value("columnCount", 0u);
+		const ShaderUniformValueType elementType =
+			ParseReflectionValueType(typeJson.value("elementType", nlohmann::json::object()));
+		if (elementType != ShaderUniformValueType::Float)
+			return ShaderUniformValueType::Unknown;
+
+		if (rowCount == 3 && columnCount == 3)
+			return ShaderUniformValueType::Mat3;
+		if (rowCount == 4 && columnCount == 4)
+			return ShaderUniformValueType::Mat4;
+	}
+
+	return ShaderUniformValueType::Unknown;
+}
+
+uint32_t ComputeReflectedLayoutSize(const ShaderUniformBlockLayout &layout)
+{
+	uint32_t size = 0;
+	for (const auto &field : layout.GetFields())
+		size = std::max(size, field.Offset + field.Size);
+
+	return size;
+}
+
+void AppendReflectedStructFields(const nlohmann::json &typeJson,
+                                 ShaderUniformBlockLayout &layout,
+                                 uint32_t baseOffset = 0)
+{
+	if (!typeJson.is_object())
+		return;
+
+	const std::string kind = typeJson.value("kind", std::string{});
+	if (kind == "constantBuffer" ||
+	    kind == "parameterBlock" ||
+	    kind == "textureBuffer" ||
+	    kind == "shaderStorageBuffer")
+	{
+		AppendReflectedStructFields(typeJson.value("elementType", nlohmann::json::object()),
+		                            layout,
+		                            baseOffset);
+		return;
+	}
+
+	if (kind != "struct" || !typeJson.contains("fields") || !typeJson["fields"].is_array())
+		return;
+
+	for (const auto &fieldJson : typeJson["fields"])
+	{
+		const auto fieldType = fieldJson.value("type", nlohmann::json::object());
+		const auto fieldBinding = fieldJson.value("binding", nlohmann::json::object());
+		const uint32_t fieldOffset = baseOffset + fieldBinding.value("offset", 0u);
+		const uint32_t fieldSize = fieldBinding.value("size", 0u);
+
+		const std::string fieldKind = fieldType.value("kind", std::string{});
+		if (fieldKind == "struct" ||
+		    fieldKind == "constantBuffer" ||
+		    fieldKind == "parameterBlock")
+		{
+			AppendReflectedStructFields(fieldType, layout, fieldOffset);
+			continue;
+		}
+
+		const std::string fieldName = fieldJson.value("name", std::string{});
+		if (fieldName.empty() || fieldSize == 0)
+			continue;
+
+		layout.AddField({
+			fieldName,
+			fieldOffset,
+			fieldSize,
+			ParseReflectionValueType(fieldType)
+		});
+	}
 }
 
 uint32_t ResolveGLBufferBindingIndex(const ShaderBackendBindingMap &backendBindings,
@@ -322,7 +463,20 @@ Ref<GLShader> GLShader::CreateFromCompiledGlsl(const std::string &name)
 		geomSrc = *geometrySource;
 	}
 
-	return CreateFromSource(name, *vertSrc, *fragSrc, geomSrc);
+	auto shader = CreateFromSource(name, *vertSrc, *fragSrc, geomSrc);
+	if (!shader)
+		return nullptr;
+
+	std::vector<std::filesystem::path> reflectionPaths = {
+		baseDir / (name + ".vert.reflect.json"),
+		baseDir / (name + ".frag.reflect.json")
+	};
+	const auto geomReflectPath = baseDir / (name + ".geom.reflect.json");
+	if (FileSystem::Exists(geomReflectPath))
+		reflectionPaths.push_back(geomReflectPath);
+
+	shader->LoadSlangReflectionMetadata(reflectionPaths);
+	return shader;
 }
 
 void GLShader::Bind() const
@@ -577,4 +731,107 @@ void GLShader::ReflectResourceBindingsFromSource(std::string_view source)
 			bindingIndex
 		};
 	}
+}
+
+bool GLShader::LoadSlangReflectionMetadata(const std::vector<std::filesystem::path> &reflectionPaths)
+{
+	std::unordered_map<ShaderBindingPoint, ShaderUniformBlockLayout, ShaderBindingPointHash> blockLayouts;
+	ShaderResourceLayoutMap resourceLayouts;
+	ShaderBackendBindingMap backendBindings;
+	bool loadedAny = false;
+
+	for (const auto &path : reflectionPaths)
+	{
+		if (!FileSystem::Exists(path))
+			continue;
+
+		const auto reflectionText = FileSystem::ReadTextFile(path);
+		if (!reflectionText)
+		{
+			LOG_WARN_CAT(LogCategory::Shader, "GLShader '{}': failed to read reflection sidecar '{}'",
+			             m_Name, path.string());
+			continue;
+		}
+
+		try
+		{
+			const auto json = nlohmann::json::parse(*reflectionText);
+			if (!json.contains("parameters") || !json["parameters"].is_array())
+				continue;
+
+			loadedAny = true;
+			for (const auto &parameter : json["parameters"])
+			{
+				if (!parameter.contains("name") || !parameter.contains("binding"))
+					continue;
+
+				const auto logicalBinding = ParseLogicalBindingPoint(parameter["binding"]);
+				if (!logicalBinding.has_value())
+					continue;
+
+				const auto &type = parameter.value("type", nlohmann::json::object());
+				const std::string typeKind = type.value("kind", std::string{});
+				const uint32_t flatBinding = FlattenShaderBindingPointForOpenGL(*logicalBinding);
+				const std::string resourceName = parameter.value("name", std::string{});
+
+				if (typeKind == "constantBuffer")
+				{
+					ShaderUniformBlockLayout layout(resourceName, *logicalBinding, 0u);
+					AppendReflectedStructFields(type, layout);
+					layout.SetSize(std::max(parameter["binding"].value("size", 0u),
+					                        ComputeReflectedLayoutSize(layout)));
+
+					resourceLayouts[*logicalBinding] = {
+						resourceName,
+						ShaderResourceKind::UniformBuffer,
+						*logicalBinding
+					};
+					backendBindings[*logicalBinding] = {
+						ShaderResourceKind::UniformBuffer,
+						*logicalBinding,
+						flatBinding,
+						std::nullopt,
+						std::nullopt
+					};
+					blockLayouts[*logicalBinding] = std::move(layout);
+					continue;
+				}
+
+				if (typeKind == "resource")
+				{
+					resourceLayouts[*logicalBinding] = {
+						resourceName,
+						ShaderResourceKind::CombinedTextureSampler,
+						*logicalBinding
+					};
+					backendBindings[*logicalBinding] = {
+						ShaderResourceKind::CombinedTextureSampler,
+						*logicalBinding,
+						std::nullopt,
+						flatBinding,
+						flatBinding
+					};
+				}
+			}
+		}
+		catch (const std::exception &e)
+		{
+			LOG_WARN_CAT(LogCategory::Shader, "GLShader '{}': failed to parse reflection sidecar '{}': {}",
+			             m_Name, path.string(), e.what());
+		}
+	}
+
+	if (!loadedAny)
+		return false;
+
+	if (!blockLayouts.empty())
+		m_BlockLayouts = std::move(blockLayouts);
+	if (!resourceLayouts.empty())
+		m_ResourceLayouts = std::move(resourceLayouts);
+	if (!backendBindings.empty())
+		m_BackendBindings = std::move(backendBindings);
+
+	LOG_TRACE_CAT(LogCategory::Shader, "GLShader '{}': loaded Slang reflection metadata from {} sidecar(s)",
+	              m_Name, reflectionPaths.size());
+	return true;
 }

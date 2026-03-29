@@ -90,6 +90,51 @@ static std::optional<ShaderBindingPoint> ParseLogicalBindingPoint(const nlohmann
 	};
 }
 
+static std::optional<ShaderBindingPoint> ParseParameterLogicalBinding(const nlohmann::json &parameterJson)
+{
+	if (!parameterJson.is_object())
+		return std::nullopt;
+
+	if (parameterJson.contains("logicalBinding"))
+	{
+		if (auto logicalBinding = ParseLogicalBindingPoint(parameterJson["logicalBinding"]); logicalBinding.has_value())
+			return logicalBinding;
+	}
+
+	if (parameterJson.contains("binding"))
+		return ParseLogicalBindingPoint(parameterJson["binding"]);
+
+	return std::nullopt;
+}
+
+static std::optional<uint32_t> FindBindingIndex(const nlohmann::json &parameterJson, const char *kind)
+{
+	if (!parameterJson.is_object())
+		return std::nullopt;
+
+	if (parameterJson.contains("bindings") && parameterJson["bindings"].is_array())
+	{
+		for (const auto &bindingJson : parameterJson["bindings"])
+		{
+			if (!bindingJson.is_object())
+				continue;
+			if (bindingJson.value("kind", std::string{}) != kind || !bindingJson.contains("index"))
+				continue;
+
+			return bindingJson.value("index", 0u);
+		}
+	}
+
+	if (parameterJson.contains("binding") && parameterJson["binding"].is_object())
+	{
+		const auto &bindingJson = parameterJson["binding"];
+		if (bindingJson.value("kind", std::string{}) == kind && bindingJson.contains("index"))
+			return bindingJson.value("index", 0u);
+	}
+
+	return std::nullopt;
+}
+
 uint32_t ResolveMetalBufferBindingIndex(const ShaderBackendBindingMap &backendBindings,
                                         ShaderBindingPoint logicalBinding)
 {
@@ -374,72 +419,89 @@ static void LoadReflectionSidecar(const std::string &name,
 			bool hasGlobalUniforms = false;
 
 			for (const auto &parameter : json["parameters"])
-			{
-				if (!parameter.contains("name") || !parameter.contains("binding"))
-					continue;
-
-				const auto &binding = parameter["binding"];
-				const std::string kind = binding.value("kind", std::string{});
-				if (kind == "uniform")
 				{
-					const uint32_t offset = binding.value("offset", 0u);
-					const uint32_t size = binding.value("size", 0u);
-					globalLayout.AddField({
-						parameter.value("name", std::string{}),
-						offset,
-						size,
-						ParseReflectionValueType(parameter.value("type", nlohmann::json::object()))
-					});
-					computedBlockSize = std::max(computedBlockSize, offset + size);
-					hasGlobalUniforms = true;
-				}
-				else if (kind == "descriptorTableSlot")
-				{
-					const uint32_t index = binding.value("index", 0u);
-					minTextureBindingBase = std::min(minTextureBindingBase, index);
+					if (!parameter.contains("name"))
+						continue;
 
-					const ShaderBindingPoint logicalBinding =
-						ParseLogicalBindingPoint(binding).value_or(MakeFlatShaderBindingPoint(index));
-					resourceLayouts[logicalBinding] = {
-						parameter.value("name", std::string{}),
-						ShaderResourceKind::CombinedTextureSampler,
-						logicalBinding
-					};
-					backendBindings[logicalBinding] = {
-						ShaderResourceKind::CombinedTextureSampler,
-						logicalBinding,
-						std::nullopt,
-						index,
-						index
-					};
-				}
-				else if (kind == "constantBuffer")
-				{
-					const ShaderBindingPoint logicalBinding =
-						ParseLogicalBindingPoint(binding).value_or(MakeFlatShaderBindingPoint(binding.value("index", 0u)));
-					ShaderUniformBlockLayout layout(
-						parameter.value("name", std::string{"GlobalParams"}),
-						logicalBinding,
-						0u);
-					AppendReflectedStructFields(parameter.value("type", nlohmann::json::object()), layout);
-					layout.SetSize(std::max(binding.value("size", 0u), ComputeReflectedLayoutSize(layout)));
+					const auto type = parameter.value("type", nlohmann::json::object());
+					const std::string typeKind = type.value("kind", std::string{});
 
-					resourceLayouts[logicalBinding] = {
-						layout.GetName(),
-						ShaderResourceKind::UniformBuffer,
-						logicalBinding
-					};
-					backendBindings[logicalBinding] = {
-						ShaderResourceKind::UniformBuffer,
-						logicalBinding,
-						binding.value("index", logicalBinding.Binding),
-						std::nullopt,
-						std::nullopt
-					};
-					if (!layout.GetFields().empty() || layout.GetSize() > 0)
-						blockLayouts[logicalBinding] = std::move(layout);
+					const nlohmann::json *bindingJson = nullptr;
+					if (parameter.contains("binding") && parameter["binding"].is_object())
+						bindingJson = &parameter["binding"];
+
+					const std::string bindingKind =
+						bindingJson ? bindingJson->value("kind", std::string{}) : std::string{};
+					if (bindingJson != nullptr && bindingKind == "uniform")
+					{
+						const uint32_t offset = bindingJson->value("offset", 0u);
+						const uint32_t size = bindingJson->value("size", 0u);
+						globalLayout.AddField({
+							parameter.value("name", std::string{}),
+							offset,
+							size,
+							ParseReflectionValueType(type)
+						});
+						computedBlockSize = std::max(computedBlockSize, offset + size);
+						hasGlobalUniforms = true;
+					}
+					else if (typeKind == "resource" || bindingKind == "descriptorTableSlot")
+					{
+						auto textureIndex = FindBindingIndex(parameter, "shaderResource");
+						auto samplerIndex = FindBindingIndex(parameter, "samplerState");
+						if (!textureIndex.has_value() && bindingJson != nullptr && bindingKind == "descriptorTableSlot")
+						{
+							textureIndex = bindingJson->value("index", 0u);
+							samplerIndex = textureIndex;
+						}
+						if (!textureIndex.has_value())
+							continue;
+
+						minTextureBindingBase = std::min(minTextureBindingBase, *textureIndex);
+
+						const ShaderBindingPoint logicalBinding =
+							ParseParameterLogicalBinding(parameter).value_or(MakeFlatShaderBindingPoint(*textureIndex));
+						resourceLayouts[logicalBinding] = {
+							parameter.value("name", std::string{}),
+							ShaderResourceKind::CombinedTextureSampler,
+							logicalBinding
+						};
+						backendBindings[logicalBinding] = {
+							ShaderResourceKind::CombinedTextureSampler,
+							logicalBinding,
+							std::nullopt,
+							textureIndex,
+							samplerIndex.value_or(*textureIndex)
+						};
+					}
+					else if (bindingJson != nullptr && bindingKind == "constantBuffer")
+					{
+						const ShaderBindingPoint logicalBinding =
+							ParseParameterLogicalBinding(parameter).value_or(
+								MakeFlatShaderBindingPoint(bindingJson->value("index", 0u)));
+						ShaderUniformBlockLayout layout(
+							parameter.value("name", std::string{"GlobalParams"}),
+							logicalBinding,
+							0u);
+						AppendReflectedStructFields(type, layout);
+						layout.SetSize(std::max(bindingJson->value("size", 0u), ComputeReflectedLayoutSize(layout)));
+
+						resourceLayouts[logicalBinding] = {
+							layout.GetName(),
+							ShaderResourceKind::UniformBuffer,
+							logicalBinding
+						};
+						backendBindings[logicalBinding] = {
+							ShaderResourceKind::UniformBuffer,
+							logicalBinding,
+							bindingJson->value("index", logicalBinding.Binding),
+							std::nullopt,
+							std::nullopt
+						};
+						if (!layout.GetFields().empty() || layout.GetSize() > 0)
+							blockLayouts[logicalBinding] = std::move(layout);
+					}
 				}
-			}
 
 			if (hasGlobalUniforms)
 			{

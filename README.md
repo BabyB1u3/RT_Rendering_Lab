@@ -17,7 +17,7 @@ It provides a lightweight framework where different rendering techniques can be 
 - **Forward Rendering Pipeline** — multi-pass renderer with shadow mapping support
 - **Blinn-Phong Shading** — ambient + diffuse + specular lighting with directional light
 - **Shadow Mapping** — directional light depth pass with front face culling, slope-scaled bias, and 3x3 PCF soft shadows
-- **Material System** — shader + type-safe `enum class TextureSlot` binding with per-object materials
+- **Material System** — pass-centric materials with reflection-driven uniform packing and logical resource binding
 - **Procedural Meshes** — built-in cube, plane, fullscreen quad, and UV sphere generators
 - **ImGui Integration** — debug panels for framerate, memory, and demo selection
 - **First-Person Camera** — WASD + mouse look with scroll-wheel FOV control
