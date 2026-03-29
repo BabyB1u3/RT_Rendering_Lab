@@ -10,14 +10,7 @@
 #include "core/diagnostics/LogMacros.h"
 #include "DemoBase.h"
 #include "DemoRegistry.h"
-#include "demos/showcase/MaterialPlayground/MaterialPlayground.h"
-#include "demos/showcase/ShadowMapping/ShadowMapping.h"
-#include "demos/tutorial/01_ClearScreen/ClearScreen.h"
-#include "demos/tutorial/02_Triangle/Triangle.h"
-#include "demos/tutorial/03_TexturedQuad/TexturedQuad.h"
-#include "demos/tutorial/04_TransformedCube/TransformedCube.h"
-#include "demos/tutorial/05_Camera/CameraDemo.h"
-#include "demos/tutorial/06_BasicLighting/BasicLighting.h"
+#include "demos/01_HelloWindow/HelloWindow.h"
 
 LabLayer::LabLayer()
     : Layer("LabLayer")
@@ -35,10 +28,10 @@ void LabLayer::OnAttach()
     if (!m_ActiveDemo)
     {
         // Default demo
-        LOG_INFO_CAT(LogCategory::Demo, "Loading default demo: Clear Screen");
-        auto defaultDemo = DemoRegistry::Create("01 - Clear Screen");
-        RTRLAB_ASSERT_MSG(defaultDemo, "Failed to create default demo: 01 - Clear Screen");
-        SetActiveDemo(std::move(defaultDemo), "01 - Clear Screen");
+        LOG_INFO_CAT(LogCategory::Demo, "Loading default demo: 01 - Hello Window");
+        auto defaultDemo = DemoRegistry::Create("01 - Hello Window");
+        RTRLAB_ASSERT_MSG(defaultDemo, "Failed to create default demo: 01 - Hello Window");
+        SetActiveDemo(std::move(defaultDemo), "01 - Hellow Window");
     }
 
     if (m_ActiveDemo)
@@ -100,47 +93,11 @@ void LabLayer::RegisterBuiltInDemos()
 {
     if (m_DemosRegistered)
         return;
-    // --- Tutorial demos ---
-    DemoRegistry::Register("01 - Clear Screen", []()
-                           {
-            const auto& window = Application::Get().GetWindow();
-            return CreateScope<ClearScreen>(window.GetWidth(), window.GetHeight()); });
-
-    DemoRegistry::Register("02 - Triangle", []()
-                           {
-            const auto& window = Application::Get().GetWindow();
-            return CreateScope<Triangle>(window.GetWidth(), window.GetHeight()); });
-
-    DemoRegistry::Register("03 - Textured Quad", []()
-                           {
-            const auto& window = Application::Get().GetWindow();
-            return CreateScope<TexturedQuad>(window.GetWidth(), window.GetHeight()); });
-
-    DemoRegistry::Register("04 - Transformed Cube", []()
-                           {
-            const auto& window = Application::Get().GetWindow();
-            return CreateScope<TransformedCube>(window.GetWidth(), window.GetHeight()); });
-
-    DemoRegistry::Register("05 - Camera", []()
-                           {
-            const auto& window = Application::Get().GetWindow();
-            return CreateScope<CameraDemo>(window.GetWidth(), window.GetHeight()); });
-
-    DemoRegistry::Register("06 - Basic Lighting", []()
-                           {
-            const auto& window = Application::Get().GetWindow();
-            return CreateScope<BasicLighting>(window.GetWidth(), window.GetHeight()); });
-
-    // --- Showcase demos ---
-    DemoRegistry::Register("Shadow Mapping", []()
-                           {
-        const auto& window = Application::Get().GetWindow();
-        return CreateScope<ShadowMapping>(window.GetWidth(), window.GetHeight()); });
-
-    DemoRegistry::Register("Material Playground", []()
-                           {
-        const auto& window = Application::Get().GetWindow();
-        return CreateScope<MaterialPlayground>(window.GetWidth(), window.GetHeight()); });
+    // --- Demos ---
+    // DemoRegistry::Register("01 - Hello Window", []()
+    //                        {
+    //         const auto& window = Application::Get().GetWindow();
+    //         return CreateScope<HellowWindow>(window.GetWidth(), window.GetHeight()); });
 
     m_DemosRegistered = true;
 }

@@ -1,4 +1,4 @@
-#include "ClearScreen.h"
+#include "HelloWindow.h"
 
 #include <imgui.h>
 
@@ -8,25 +8,25 @@
 #include "graphics/RenderCommand.h"
 #include "graphics/interfaces/IRenderTarget.h"
 
-ClearScreen::ClearScreen(uint32_t width, uint32_t height)
+HelloWindow::HelloWindow(uint32_t width, uint32_t height)
     : m_ViewportWidth(width),
       m_ViewportHeight(height)
 {
 }
 
-void ClearScreen::OnAttach()
+void HelloWindow::OnAttach()
 {
-    LOG_INFO_CAT(LogCategory::Demo, "ClearScreen demo attached");
+    LOG_INFO_CAT(LogCategory::Demo, "HelloWindow demo attached");
     m_BackBuffer = GetDevice()->CreateRenderTargetBackBuffer(m_ViewportWidth, m_ViewportHeight);
 }
 
-void ClearScreen::OnDetach()
+void HelloWindow::OnDetach()
 {
     m_BackBuffer.reset();
-    LOG_INFO_CAT(LogCategory::Demo, "ClearScreen demo detached");
+    LOG_INFO_CAT(LogCategory::Demo, "HelloWindow demo detached");
 }
 
-void ClearScreen::OnRender()
+void HelloWindow::OnRender()
 {
     RenderPassDescriptor desc;
     desc.ColorLoadAction = LoadAction::Clear;
@@ -37,14 +37,14 @@ void ClearScreen::OnRender()
     RenderCommand::EndRenderPass();
 }
 
-void ClearScreen::OnImGuiRender()
+void HelloWindow::OnImGuiRender()
 {
-    ImGui::Begin("01 - Clear Screen");
+    ImGui::Begin("01 - Hello Window");
     ImGui::ColorEdit3("Clear Color", &m_ClearColor.r);
     ImGui::End();
 }
 
-void ClearScreen::OnResize(uint32_t width, uint32_t height)
+void HelloWindow::OnResize(uint32_t width, uint32_t height)
 {
     if (width == 0 || height == 0)
         return;

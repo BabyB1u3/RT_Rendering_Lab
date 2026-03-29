@@ -1,11 +1,5 @@
 {
   "actions": {
-    "ShowFinalColor": [
-      { "type": "Key", "code": "D1" }
-    ],
-    "ShowShadowMap": [
-      { "type": "Key", "code": "D2" }
-    ],
     "ToggleLookMode": [
       { "type": "MouseButton", "code": "Right" }
     ]

@@ -38,14 +38,7 @@ set(GLAB_CORE_SOURCES
 
     demos/LabLayer.cpp
     demos/DemoRegistry.cpp
-    demos/showcase/MaterialPlayground/MaterialPlayground.cpp
-    demos/showcase/ShadowMapping/ShadowMapping.cpp
-    demos/tutorial/01_ClearScreen/ClearScreen.cpp
-    demos/tutorial/02_Triangle/Triangle.cpp
-    demos/tutorial/03_TexturedQuad/TexturedQuad.cpp
-    demos/tutorial/04_TransformedCube/TransformedCube.cpp
-    demos/tutorial/05_Camera/CameraDemo.cpp
-    demos/tutorial/06_BasicLighting/BasicLighting.cpp
+    demos/01_HelloWindow/HelloWindow.cpp
 
     gui/ImGuiLayer.cpp
     gui/panels/ConsolePanel.cpp
@@ -133,14 +126,7 @@ set(GLAB_CORE_HEADERS
     demos/DemoBase.h
     demos/DemoRegistry.h
     demos/LabLayer.h
-    demos/showcase/MaterialPlayground/MaterialPlayground.h
-    demos/showcase/ShadowMapping/ShadowMapping.h
-    demos/tutorial/01_ClearScreen/ClearScreen.h
-    demos/tutorial/02_Triangle/Triangle.h
-    demos/tutorial/03_TexturedQuad/TexturedQuad.h
-    demos/tutorial/04_TransformedCube/TransformedCube.h
-    demos/tutorial/05_Camera/CameraDemo.h
-    demos/tutorial/06_BasicLighting/BasicLighting.h
+    demos/01_HelloWindow/HelloWindow.h
 
     gui/ImGuiLayer.h
     gui/panels/ConsolePanel.h
