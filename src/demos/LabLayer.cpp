@@ -60,24 +60,24 @@ void LabLayer::OnImGuiRender()
 {
     // When DemoSelectorPanel returns true, the user picked a different demo.
     // SetActiveDemo detaches the old demo; we then attach the new one.
-    const auto &names = DemoRegistry::GetNames();
-    if (m_DemoSelectorPanel.OnImGuiRender(names, m_SelectedDemoIndex))
-    {
-        const auto &name = names[m_SelectedDemoIndex];
-        auto demo = DemoRegistry::Create(name);
-        if (!demo)
-        {
-            LOG_ERROR_CAT(LogCategory::Demo, "Failed to create demo: {}", name);
-            return;
-        }
+    // const auto &names = DemoRegistry::GetNames();
+    // if (m_DemoSelectorPanel.OnImGuiRender(names, m_SelectedDemoIndex))
+    // {
+    //     const auto &name = names[m_SelectedDemoIndex];
+    //     auto demo = DemoRegistry::Create(name);
+    //     if (!demo)
+    //     {
+    //         LOG_ERROR_CAT(LogCategory::Demo, "Failed to create demo: {}", name);
+    //         return;
+    //     }
 
-        SetActiveDemo(std::move(demo), name);
-        if (m_ActiveDemo)
-            m_ActiveDemo->OnAttach();
-    }
+    //     SetActiveDemo(std::move(demo), name);
+    //     if (m_ActiveDemo)
+    //         m_ActiveDemo->OnAttach();
+    // }
 
-    m_DebugPanel.OnImGuiRender();
-    m_ConsolePanel.OnImGuiRender();
+    // m_DebugPanel.OnImGuiRender();
+    // m_ConsolePanel.OnImGuiRender();
 
     if (m_ActiveDemo)
         m_ActiveDemo->OnImGuiRender();
@@ -94,10 +94,10 @@ void LabLayer::RegisterBuiltInDemos()
     if (m_DemosRegistered)
         return;
     // --- Demos ---
-    // DemoRegistry::Register("01 - Hello Window", []()
-    //                        {
-    //         const auto& window = Application::Get().GetWindow();
-    //         return CreateScope<HellowWindow>(window.GetWidth(), window.GetHeight()); });
+    DemoRegistry::Register("01 - Hello Window", []()
+                           {
+            const auto& window = Application::Get().GetWindow();
+            return CreateScope<HelloWindow>(window.GetWidth(), window.GetHeight()); });
 
     m_DemosRegistered = true;
 }

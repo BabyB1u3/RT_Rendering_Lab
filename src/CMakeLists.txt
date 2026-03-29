@@ -1,12 +1,17 @@
 set(GLAB_CORE_SOURCES
-    core/app/Application.cpp
     core/FileSystem.cpp
+    core/Time.cpp
+
+    core/app/Application.cpp
+    core/app/Window.cpp
+    core/app/Layer.cpp
+    core/app/LayerStack.cpp
+
     core/input/Input.cpp
     core/input/InputAction.cpp
     core/input/InputContextStack.cpp
     core/input/InputNames.cpp
-    core/app/Layer.cpp
-    core/app/LayerStack.cpp
+
     core/diagnostics/Assert.cpp
     core/diagnostics/CrashHandler.cpp
     core/diagnostics/Debugger.cpp
@@ -14,25 +19,10 @@ set(GLAB_CORE_SOURCES
     core/diagnostics/ImGuiConsoleSink.cpp
     core/diagnostics/JsonLineSink.cpp
     core/diagnostics/Logger.cpp
+
     core/serialization/PropertyTree.cpp
     core/serialization/JsonBackend.cpp
-    core/Time.cpp
-    core/app/Window.cpp
-
-    graphics/Material.cpp
-    graphics/Mesh.cpp
-    graphics/MeshFactory.cpp
-    graphics/RenderCommand.cpp
-    graphics/ShaderUniformLayout.cpp
-
-    graphics/GraphicsDevice.cpp
-
-    renderer/SceneRenderer.cpp
-
-    renderer/passes/ForwardPass.cpp
-    renderer/passes/ShadowPass.cpp
-    renderer/passes/TexturePreviewPass.cpp
-
+    
     scene/Camera.cpp
     scene/DebugCameraController.cpp
 
@@ -48,21 +38,28 @@ set(GLAB_CORE_SOURCES
 )
 
 set(GLAB_CORE_HEADERS
-    core/app/Application.h
     core/Base.h
+    core/Time.h
     core/FileSystem.h
+    
+    core/app/Application.h
+    core/app/Window.h
+    core/app/Layer.h
+    core/app/LayerStack.h
+    
     core/event/EventBus.h
     core/event/Events.h
+    core/event/ScopedConnection.h
+    
     core/input/Input.h
     core/input/InputAction.h
     core/input/InputContextStack.h
     core/input/InputModifier.h
     core/input/InputTrigger.h
     core/input/KeyCode.h
-    core/event/ScopedConnection.h
-    core/app/Layer.h
-    core/app/LayerStack.h
     core/input/MouseCode.h
+    core/input/InputActionSerialization.h
+
     core/diagnostics/Assert.h
     core/diagnostics/Callstack.h
     core/diagnostics/CrashHandler.h
@@ -74,48 +71,13 @@ set(GLAB_CORE_HEADERS
     core/diagnostics/JsonLineSink.h
     core/diagnostics/Logger.h
     core/diagnostics/LogMacros.h
+    
     core/serialization/PropertyTree.h
     core/serialization/SerializationTraits.h
     core/serialization/BuiltinTraits.h
     core/serialization/IFormatBackend.h
     core/serialization/JsonBackend.h
     core/serialization/Serialization.h
-    core/input/InputActionSerialization.h
-    core/Time.h
-    core/app/Window.h
-
-    graphics/Buffers.h
-    graphics/Framebuffer.h
-    graphics/Material.h
-    graphics/Mesh.h
-    graphics/MeshFactory.h
-    graphics/RenderCommand.h
-    graphics/ShaderUniformLayout.h
-    graphics/Texture.h
-
-    graphics/GraphicsDevice.h
-
-    graphics/interfaces/ITexture2D.h
-    graphics/interfaces/IVertexBuffer.h
-    graphics/interfaces/IIndexBuffer.h
-    graphics/interfaces/IUniformBuffer.h
-    graphics/interfaces/IVertexArray.h
-    graphics/interfaces/IShader.h
-    graphics/interfaces/IFramebuffer.h
-    graphics/interfaces/IRenderTarget.h
-    graphics/interfaces/IRenderCommand.h
-    graphics/interfaces/IGraphicsDevice.h
-    graphics/interfaces/GraphicsInterfaces.h
-
-    renderer/RenderContext.h
-    renderer/RenderItem.h
-    renderer/SceneRenderer.h
-    renderer/SceneRendererTypes.h
-
-    renderer/passes/ForwardPass.h
-    renderer/passes/RenderPass.h
-    renderer/passes/ShadowPass.h
-    renderer/passes/TexturePreviewPass.h
 
     scene/Camera.h
     scene/DebugCameraController.h
@@ -136,30 +98,11 @@ set(GLAB_CORE_HEADERS
 
 if(GLAB_BACKEND_OPENGL)
     list(APPEND GLAB_CORE_SOURCES
-        graphics/backends/opengl/GLTexture2D.cpp
-        graphics/backends/opengl/GLVertexBuffer.cpp
-        graphics/backends/opengl/GLIndexBuffer.cpp
-        graphics/backends/opengl/GLUniformBuffer.cpp
-        graphics/backends/opengl/GLVertexArray.cpp
-        graphics/backends/opengl/GLShader.cpp
-        graphics/backends/opengl/GLFramebuffer.cpp
-        graphics/backends/opengl/GLRenderTarget.cpp
-        graphics/backends/opengl/GLRenderCommand.cpp
-        graphics/backends/opengl/GLGraphicsDevice.cpp
+
     )
 
     list(APPEND GLAB_CORE_HEADERS
-        graphics/backends/opengl/GLCast.h
-        graphics/backends/opengl/GLTexture2D.h
-        graphics/backends/opengl/GLVertexBuffer.h
-        graphics/backends/opengl/GLIndexBuffer.h
-        graphics/backends/opengl/GLUniformBuffer.h
-        graphics/backends/opengl/GLVertexArray.h
-        graphics/backends/opengl/GLShader.h
-        graphics/backends/opengl/GLFramebuffer.h
-        graphics/backends/opengl/GLRenderTarget.h
-        graphics/backends/opengl/GLRenderCommand.h
-        graphics/backends/opengl/GLGraphicsDevice.h
+
     )
 endif()
 
@@ -177,33 +120,11 @@ endif()
 
 if(GLAB_BACKEND_METAL)
     set(GLAB_METAL_SOURCES
-        graphics/backends/metal/MetalGraphicsDevice.mm
-        graphics/backends/metal/MetalRenderCommand.mm
-        graphics/backends/metal/MetalShader.mm
-        graphics/backends/metal/MetalVertexBuffer.mm
-        graphics/backends/metal/MetalIndexBuffer.mm
-        graphics/backends/metal/MetalUniformBuffer.mm
-        graphics/backends/metal/MetalVertexArray.mm
-        graphics/backends/metal/MetalTexture2D.mm
-        graphics/backends/metal/MetalFramebuffer.mm
-        graphics/backends/metal/MetalRenderTarget.mm
-        gui/backends/metal/MetalImGuiBridge.mm
+
     )
 
     set(GLAB_METAL_HEADERS
-        graphics/backends/metal/MetalCast.h
-        graphics/backends/metal/MetalTypes.h
-        graphics/backends/metal/MetalGraphicsDevice.h
-        graphics/backends/metal/MetalRenderCommand.h
-        graphics/backends/metal/MetalShader.h
-        graphics/backends/metal/MetalVertexBuffer.h
-        graphics/backends/metal/MetalIndexBuffer.h
-        graphics/backends/metal/MetalUniformBuffer.h
-        graphics/backends/metal/MetalVertexArray.h
-        graphics/backends/metal/MetalTexture2D.h
-        graphics/backends/metal/MetalFramebuffer.h
-        graphics/backends/metal/MetalRenderTarget.h
-        gui/backends/metal/MetalImGuiBridge.h
+
     )
 
     set_source_files_properties(${GLAB_METAL_SOURCES}
@@ -221,15 +142,15 @@ if(GLAB_BACKEND_OPENGL)
         ${CMAKE_CURRENT_SOURCE_DIR}/core/app/Application.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/core/input/Input.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/core/app/Window.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLFramebuffer.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLGraphicsDevice.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLIndexBuffer.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLRenderCommand.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLRenderTarget.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLShader.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLTexture2D.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLVertexArray.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLVertexBuffer.cpp
+        # ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLFramebuffer.cpp
+        # ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLGraphicsDevice.cpp
+        # ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLIndexBuffer.cpp
+        # ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLRenderCommand.cpp
+        # ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLRenderTarget.cpp
+        # ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLShader.cpp
+        # ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLTexture2D.cpp
+        # ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLVertexArray.cpp
+        # ${CMAKE_CURRENT_SOURCE_DIR}/graphics/backends/opengl/GLVertexBuffer.cpp
         PROPERTIES
             SKIP_UNITY_BUILD_INCLUSION ON
     )
