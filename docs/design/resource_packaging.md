@@ -1,4 +1,4 @@
-# Resource Packaging & Virtual File System - Design Document
+# Resource Packaging & Virtual File System
 
 This document describes how RTRLab discovers, organizes, and packages runtime
 resources (assets, compiled shaders, configuration) and manages user-writable
