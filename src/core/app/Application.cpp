@@ -53,9 +53,9 @@ Application::Application(const ApplicationSpecification &spec)
 
     s_Instance = this;
 
-    auto imguiLayer = CreateScope<ImGuiLayer>();
-    m_ImGuiLayer = imguiLayer.get();
-    PushOverlay(std::move(imguiLayer));
+    // auto imguiLayer = CreateScope<ImGuiLayer>();
+    // m_ImGuiLayer = imguiLayer.get();
+    // PushOverlay(std::move(imguiLayer));
 
     LOG_INFO_CAT(LogCategory::Core, "Application initialized");
 }
@@ -65,7 +65,7 @@ Application::~Application()
     LOG_INFO_CAT(LogCategory::Core, "Application shutting down");
 
     m_LayerStack.Clear();
-    m_ImGuiLayer = nullptr;
+    // m_ImGuiLayer = nullptr;
     m_Window.reset();
 
     Diagnostics::Logger::Shutdown();
@@ -88,10 +88,10 @@ void Application::RenderFrame()
 
     // Phase 3: ImGui pass - Begin/End bracket all OnImGuiRender() calls
     // so that ImGui's NewFrame/Render are issued exactly once per frame.
-    m_ImGuiLayer->Begin();
-    for (auto &layer : m_LayerStack)
-        layer->OnImGuiRender();
-    m_ImGuiLayer->End();
+    // m_ImGuiLayer->Begin();
+    // for (auto &layer : m_LayerStack)
+    //     layer->OnImGuiRender();
+    // m_ImGuiLayer->End();
 
     // P1: End frame - Metal/Vulkan commit command buffer and present here.
 

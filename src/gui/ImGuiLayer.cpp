@@ -5,10 +5,7 @@
 #ifndef GLAB_BACKEND_METAL
 #include <imgui_impl_opengl3.h>
 #else
-#include "gui/backends/metal/MetalImGuiBridge.h"
-#include "graphics/GraphicsDevice.h"
-#include "graphics/backends/metal/MetalGraphicsDevice.h"
-#include "graphics/backends/metal/MetalRenderCommand.h"
+// #include "gui/backends/metal/MetalImGuiBridge.h"
 #endif
 
 #include "core/app/Application.h"
@@ -40,8 +37,8 @@ void ImGuiLayer::OnAttach()
     GLFWwindow *window = Application::Get().GetWindow().GetNativeHandle();
 #ifdef GLAB_BACKEND_METAL
     ImGui_ImplGlfw_InitForOther(window, true);
-    auto *metalDevice = static_cast<MetalGraphicsDevice *>(GetDevice().get());
-    MetalImGuiBridge::Init(metalDevice->GetMTLDevice());
+    // auto *metalDevice = static_cast<MetalGraphicsDevice *>(GetDevice().get());
+    // MetalImGuiBridge::Init(metalDevice->GetMTLDevice());
 #else
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     // GLSL 460 matches the OpenGL 4.6 core context created in Window.
@@ -54,7 +51,7 @@ void ImGuiLayer::OnDetach()
 #ifndef GLAB_BACKEND_METAL
     ImGui_ImplOpenGL3_Shutdown();
 #else
-    MetalImGuiBridge::Shutdown();
+    // MetalImGuiBridge::Shutdown();
 #endif
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
@@ -65,8 +62,8 @@ void ImGuiLayer::Begin()
 #ifndef GLAB_BACKEND_METAL
     ImGui_ImplOpenGL3_NewFrame();
 #else
-    auto *metalDevice = static_cast<MetalGraphicsDevice *>(GetDevice().get());
-    metalDevice->GetMetalRenderCommand()->BeginImGuiFrame();
+    // auto *metalDevice = static_cast<MetalGraphicsDevice *>(GetDevice().get());
+    // metalDevice->GetMetalRenderCommand()->BeginImGuiFrame();
 #endif
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
@@ -84,7 +81,7 @@ void ImGuiLayer::End()
 #ifndef GLAB_BACKEND_METAL
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 #else
-    auto *metalDevice = static_cast<MetalGraphicsDevice *>(GetDevice().get());
-    metalDevice->GetMetalRenderCommand()->RenderImGui(ImGui::GetDrawData());
+    // auto *metalDevice = static_cast<MetalGraphicsDevice *>(GetDevice().get());
+    // metalDevice->GetMetalRenderCommand()->RenderImGui(ImGui::GetDrawData());
 #endif
 }
