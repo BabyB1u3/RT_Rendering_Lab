@@ -54,6 +54,7 @@ add_executable(rtrlab_contract_tests
     contract/core/TestEventBus.cpp
     contract/core/TestFileSystem.cpp
     contract/core/TestLayerStackLifecycle.cpp
+    contract/core/TestSerializationFileIO.cpp
 )
 
 glab_configure_test_target(rtrlab_contract_tests)
