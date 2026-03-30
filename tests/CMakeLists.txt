@@ -53,7 +53,10 @@ add_executable(rtrlab_unit_tests
 glab_configure_test_target(rtrlab_unit_tests)
 
 add_executable(rtrlab_contract_tests
-    contract/core/TestDiagnostics.cpp
+    contract/core/TestDiagnosticsCore.cpp
+    contract/core/TestImGuiConsoleSink.cpp
+    contract/core/TestLogger.cpp
+    contract/core/TestLogCategories.cpp
     contract/core/TestEventBus.cpp
     contract/core/TestFileSystem.cpp
     contract/core/TestLayerStackLifecycle.cpp
@@ -61,6 +64,12 @@ add_executable(rtrlab_contract_tests
 )
 
 glab_configure_test_target(rtrlab_contract_tests)
+
+add_executable(rtrlab_contract_tests_log_min_level
+    contract/core/TestDiagnosticsMinLevel.cpp
+)
+
+glab_configure_test_target(rtrlab_contract_tests_log_min_level)
 
 if(GLAB_BACKEND_OPENGL)
     # set_source_files_properties(
