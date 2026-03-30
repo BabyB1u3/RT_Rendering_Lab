@@ -59,6 +59,26 @@ TEST(InputContextStackTests, PopRemovesContextByName)
     EXPECT_TRUE(stack.HasContext("B"));
 }
 
+TEST(InputContextStackTests, PopResetsRuntimeStateBeforeRemovingContext)
+{
+    InputContextStack stack;
+    InputActionMap map;
+    int resetCount = 0;
+
+    BindConstantTrigger(map, "Confirm", TriggerState::Triggered, &resetCount);
+    stack.Push("Menu", &map, 100);
+    stack.Update(0.016f);
+
+    ASSERT_TRUE(map.WasActionTriggeredThisFrame("Confirm"));
+
+    stack.Pop("Menu");
+
+    EXPECT_EQ(resetCount, 1);
+    EXPECT_FALSE(map.WasActionTriggeredThisFrame("Confirm"));
+    EXPECT_EQ(map.GetActionTriggerState("Confirm"), TriggerState::None);
+    EXPECT_FALSE(stack.HasContext("Menu"));
+}
+
 TEST(InputContextStackTests, PopNonexistentNameIsNoOp)
 {
     InputContextStack stack;

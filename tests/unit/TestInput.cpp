@@ -39,6 +39,36 @@ TEST_F(InputPollingTests, InitializeResetsPollingState)
     EXPECT_FALSE(Input::IsMouseCaptured());
 }
 
+TEST_F(InputPollingTests, InitializeWithSameNonNullWindowDoesNotResetState)
+{
+    auto *window = reinterpret_cast<GLFWwindow *>(0x1);
+    Input::Initialize(window);
+
+    auto frame = InputTestAccess::MakeFrame();
+    InputTestAccess::SetKey(frame, Key::W, true);
+    InputTestAccess::SetMouseButton(frame, Mouse::Left, true);
+    InputTestAccess::SetMousePosition(frame, 48.0f, 96.0f);
+    Input::AccumulateScroll(2.5f);
+    InputTestAccess::ApplyFrame(frame);
+    Input::SetKeyboardCaptured(true);
+    Input::SetMouseCaptured(true);
+
+    Input::Initialize(window);
+
+    EXPECT_FALSE(Input::IsKeyDown(Key::W));
+    EXPECT_FALSE(Input::IsMouseButtonDown(Mouse::Left));
+    EXPECT_EQ(Input::GetMousePosition(), std::make_pair(48.0f, 96.0f));
+    EXPECT_FLOAT_EQ(Input::GetScrollDelta(), 0.0f);
+    EXPECT_TRUE(Input::IsKeyboardCaptured());
+    EXPECT_TRUE(Input::IsMouseCaptured());
+
+    Input::SetKeyboardCaptured(false);
+    Input::SetMouseCaptured(false);
+    EXPECT_TRUE(Input::IsKeyDown(Key::W));
+    EXPECT_TRUE(Input::IsMouseButtonDown(Mouse::Left));
+    EXPECT_FLOAT_EQ(Input::GetScrollDelta(), 2.5f);
+}
+
 TEST_F(InputPollingTests, KeyboardPollingTracksPressHoldAndReleaseAcrossFrames)
 {
     auto pressedFrame = InputTestAccess::MakeFrame();
