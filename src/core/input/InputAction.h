@@ -13,12 +13,13 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include "core/input/GamepadCode.h"
 #include "core/input/KeyCode.h"
 #include "core/input/MouseCode.h"
 #include "core/input/InputModifier.h"
 #include "core/input/InputTrigger.h"
 
-/// An InputSource can be a key, mouse button, or (future) gamepad button.
+/// An InputSource can be a key, mouse button, gamepad button, or gamepad axis.
 struct InputSource
 {
     enum class Type : uint8_t
@@ -41,6 +42,16 @@ struct InputSource
     static InputSource FromMouseButton(Mouse::Code button)
     {
         return {Type::MouseButton, button, 0};
+    }
+
+    static InputSource FromGamepadButton(GamepadButton::Code button, uint8_t deviceIndex = 0)
+    {
+        return {Type::GamepadButton, button, deviceIndex};
+    }
+
+    static InputSource FromGamepadAxis(GamepadAxis::Code axis, uint8_t deviceIndex = 0)
+    {
+        return {Type::GamepadAxis, axis, deviceIndex};
     }
 };
 
@@ -75,6 +86,9 @@ public:
         ScrollY
     };
     void BindAxis(const std::string &name, MouseAxis mouseAxis);
+
+    /// Bind a 1D axis directly to a gamepad axis.
+    void BindAxis(const std::string &name, GamepadAxis::Code gamepadAxis, uint8_t deviceIndex = 0);
 
     /// Remove all bindings for a given action or axis name.
     void Unbind(const std::string &name);
@@ -135,11 +149,14 @@ public:
         enum class Kind
         {
             KeyPair,
-            MouseAxis
+            MouseAxis,
+            GamepadAxis
         };
         Kind kind;
         AxisBinding keyPair; // used when kind == KeyPair
         MouseAxis mouseAxis; // used when kind == MouseAxis
+        GamepadAxis::Code gamepadAxis = GamepadAxis::LeftX;
+        uint8_t deviceIndex = 0;
     };
 
     // --- Read access for serialization ---

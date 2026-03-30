@@ -61,6 +61,16 @@ struct MouseScrolledEvent
     float YOffset;
 };
 
+struct GamepadConnectedEvent
+{
+    uint8_t DeviceIndex;
+};
+
+struct GamepadDisconnectedEvent
+{
+    uint8_t DeviceIndex;
+};
+
 // ---- Application-level events ----
 
 struct DemoSwitchedEvent

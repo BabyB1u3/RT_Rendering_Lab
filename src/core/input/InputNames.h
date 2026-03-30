@@ -5,6 +5,7 @@
 ///        Used by InputActionMap serialization.
 
 #include <string>
+#include "core/input/GamepadCode.h"
 #include "core/input/KeyCode.h"
 #include "core/input/MouseCode.h"
 
@@ -31,4 +32,16 @@ namespace Mouse
     Code FromName(const std::string &name);
 
     constexpr Code InvalidCode = 0xFFFF;
+}
+
+namespace GamepadButton
+{
+    const std::string &ToName(Code code);
+    Code FromName(const std::string &name);
+}
+
+namespace GamepadAxis
+{
+    const std::string &ToName(Code code);
+    Code FromName(const std::string &name);
 }

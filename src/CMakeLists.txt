@@ -10,6 +10,10 @@ set(GLAB_CORE_SOURCES
     core/input/Input.cpp
     core/input/InputAction.cpp
     core/input/InputContextStack.cpp
+    core/input/InputDeviceManager.cpp
+    core/input/KeyboardDevice.cpp
+    core/input/MouseDevice.cpp
+    core/input/GamepadDevice.cpp
     core/input/InputNames.cpp
 
     core/diagnostics/Assert.cpp
@@ -54,6 +58,12 @@ set(GLAB_CORE_HEADERS
     core/input/Input.h
     core/input/InputAction.h
     core/input/InputContextStack.h
+    core/input/InputDevice.h
+    core/input/InputDeviceManager.h
+    core/input/KeyboardDevice.h
+    core/input/MouseDevice.h
+    core/input/GamepadCode.h
+    core/input/GamepadDevice.h
     core/input/InputModifier.h
     core/input/InputTrigger.h
     core/input/KeyCode.h
