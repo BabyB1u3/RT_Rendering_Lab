@@ -43,6 +43,7 @@ add_executable(rtrlab_unit_tests
     unit/TestInputTriggers.cpp
     unit/TestInputContextStack.cpp
     unit/TestInput.cpp
+    unit/TestInputAction.cpp
     unit/TestPropertyTree.cpp
 )
 
