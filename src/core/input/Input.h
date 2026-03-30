@@ -20,11 +20,16 @@
 ///
 /// See also: KeyCode.h / MouseCode.h for typed enum constants.
 
+#include <array>
 #include <utility>
 #include "core/input/KeyCode.h"
 #include "core/input/MouseCode.h"
 
 struct GLFWwindow;
+namespace test_support
+{
+    struct InputTestAccess;
+}
 
 class Input
 {
@@ -60,6 +65,9 @@ public:
     // --- Mouse position & delta ---
 
     /// Current cursor position in window-space pixels.
+    /// Not blocked by SetMouseCaptured() — absolute cursor position is always
+    /// readable regardless of capture state. For input-action queries that
+    /// respect capture, use GetMouseDelta(), IsMouseButtonDown(), etc.
     static std::pair<float, float> GetMousePosition();
     /// Cursor movement since the previous frame.
     static std::pair<float, float> GetMouseDelta();
@@ -89,15 +97,29 @@ public:
     static bool IsMouseButtonPressed(Mouse::Code button) { return IsMouseButtonDown(button); }
 
 private:
-    static GLFWwindow *s_Window;
+    friend struct test_support::InputTestAccess;
 
     // Double-buffered keyboard state. GLFW_KEY_LAST = 348, 512 is safe.
     static constexpr int KEY_STATE_SIZE = 512;
-    static bool s_CurrentKeys[KEY_STATE_SIZE];
-    static bool s_PreviousKeys[KEY_STATE_SIZE];
 
     // Double-buffered mouse button state.
     static constexpr int MOUSE_BUTTON_COUNT = 8;
+
+    struct PolledState
+    {
+        std::array<bool, KEY_STATE_SIZE> Keys{};
+        std::array<bool, MOUSE_BUTTON_COUNT> MouseButtons{};
+        float MouseX = 0.0f;
+        float MouseY = 0.0f;
+    };
+
+    static PolledState PollWindowState(GLFWwindow *window);
+    static void ApplyPolledState(const PolledState &state);
+
+    static GLFWwindow *s_Window;
+    static bool s_CurrentKeys[KEY_STATE_SIZE];
+    static bool s_PreviousKeys[KEY_STATE_SIZE];
+
     static bool s_CurrentMouseButtons[MOUSE_BUTTON_COUNT];
     static bool s_PreviousMouseButtons[MOUSE_BUTTON_COUNT];
 
