@@ -101,7 +101,7 @@ glab_compile_shaders()
 add_subdirectory(src)
 
 if(GLAB_BUILD_TESTS)
-    enable_testing()
+    include(CTest)
 
     include(FetchContent)
 
