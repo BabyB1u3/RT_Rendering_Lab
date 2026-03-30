@@ -30,6 +30,9 @@ bool Input::s_MouseCaptured = false;
 
 void Input::Initialize(GLFWwindow *window)
 {
+    if (window != nullptr && s_Window == window)
+        return;
+
     s_Window = window;
     s_MouseX = 0.0f;
     s_MouseY = 0.0f;

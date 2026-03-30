@@ -37,6 +37,7 @@ public:
     // --- Lifecycle (called by Application, not by user code) ---
 
     /// Bind to a GLFW window. Must be called once before any query method.
+    /// Repeating Initialize() with the same non-null window is a no-op.
     static void Initialize(GLFWwindow *window);
 
     /// Must be called ONCE per frame, BEFORE any layer's OnUpdate().
