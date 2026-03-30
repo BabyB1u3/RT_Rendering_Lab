@@ -13,6 +13,14 @@ TEST(InputTriggerTests, PressedTriggerFiresOnPress)
     EXPECT_EQ(trigger.Evaluate(true, false, false, 0.016f), TriggerState::None);
 }
 
+TEST(InputTriggerTests, PressedTriggerResetIsNoOp)
+{
+    PressedTrigger trigger;
+
+    trigger.Reset();
+    EXPECT_EQ(trigger.Evaluate(true, true, false, 0.016f), TriggerState::Triggered);
+}
+
 // --- ReleasedTrigger ---
 
 TEST(InputTriggerTests, ReleasedTriggerFiresOnRelease)
@@ -21,6 +29,14 @@ TEST(InputTriggerTests, ReleasedTriggerFiresOnRelease)
 
     EXPECT_EQ(trigger.Evaluate(true, true, false, 0.016f), TriggerState::None);
     EXPECT_EQ(trigger.Evaluate(true, false, false, 0.016f), TriggerState::None);
+    EXPECT_EQ(trigger.Evaluate(false, false, true, 0.016f), TriggerState::Triggered);
+}
+
+TEST(InputTriggerTests, ReleasedTriggerResetIsNoOp)
+{
+    ReleasedTrigger trigger;
+
+    trigger.Reset();
     EXPECT_EQ(trigger.Evaluate(false, false, true, 0.016f), TriggerState::Triggered);
 }
 
@@ -41,6 +57,21 @@ TEST(InputTriggerTests, HoldTriggerFiresAfterDuration)
     EXPECT_EQ(trigger.Evaluate(true, false, false, 0.1f), TriggerState::None);
 }
 
+TEST(InputTriggerTests, HoldTriggerFiresExactlyAtDurationBoundary)
+{
+    HoldTrigger trigger(0.5f);
+
+    EXPECT_EQ(trigger.Evaluate(true, true, false, 0.2f), TriggerState::Ongoing);
+    EXPECT_EQ(trigger.Evaluate(true, false, false, 0.3f), TriggerState::Triggered);
+}
+
+TEST(InputTriggerTests, HoldTriggerZeroDurationTriggersImmediatelyWhenHeld)
+{
+    HoldTrigger trigger(0.0f);
+
+    EXPECT_EQ(trigger.Evaluate(true, true, false, 0.0f), TriggerState::Triggered);
+}
+
 TEST(InputTriggerTests, HoldTriggerResetsOnRelease)
 {
     HoldTrigger trigger(0.5f);
@@ -56,6 +87,18 @@ TEST(InputTriggerTests, HoldTriggerResetsOnRelease)
     EXPECT_EQ(trigger.Evaluate(true, false, false, 0.3f), TriggerState::Triggered);
 }
 
+TEST(InputTriggerTests, HoldTriggerCanTriggerAgainAfterReleaseAndRepress)
+{
+    HoldTrigger trigger(0.2f);
+
+    EXPECT_EQ(trigger.Evaluate(true, true, false, 0.1f), TriggerState::Ongoing);
+    EXPECT_EQ(trigger.Evaluate(true, false, false, 0.1f), TriggerState::Triggered);
+    EXPECT_EQ(trigger.Evaluate(false, false, true, 0.016f), TriggerState::None);
+
+    EXPECT_EQ(trigger.Evaluate(true, true, false, 0.1f), TriggerState::Ongoing);
+    EXPECT_EQ(trigger.Evaluate(true, false, false, 0.1f), TriggerState::Triggered);
+}
+
 // --- TapTrigger ---
 
 TEST(InputTriggerTests, TapTriggerFiresOnQuickRelease)
@@ -67,6 +110,17 @@ TEST(InputTriggerTests, TapTriggerFiresOnQuickRelease)
 
     // Release quickly (0.016 + 0.05 = 0.066 < 0.2)
     EXPECT_EQ(trigger.Evaluate(false, false, true, 0.05f), TriggerState::Triggered);
+}
+
+TEST(InputTriggerTests, TapTriggerFiresWhenReleasedExactlyAtMaxDuration)
+{
+    TapTrigger trigger(0.2f);
+
+    // dt on the press frame is not accumulated (TapTrigger returns early on pressed).
+    // Total elapsed = 0.1 + 0.1 = 0.2 == maxDuration.
+    EXPECT_EQ(trigger.Evaluate(true, true, false, 0.016f), TriggerState::Ongoing);
+    EXPECT_EQ(trigger.Evaluate(true, false, false, 0.1f), TriggerState::Ongoing);
+    EXPECT_EQ(trigger.Evaluate(false, false, true, 0.1f), TriggerState::Triggered);
 }
 
 TEST(InputTriggerTests, TapTriggerFailsOnSlowRelease)
@@ -93,6 +147,26 @@ TEST(InputTriggerTests, TapTriggerTimesOutWhileHeld)
 
     // Exceed max duration while still held — window expires
     EXPECT_EQ(trigger.Evaluate(true, false, false, 0.25f), TriggerState::None);
+}
+
+TEST(InputTriggerTests, TapTriggerRemainsOngoingWhileHeldWithinWindow)
+{
+    TapTrigger trigger(0.2f);
+
+    EXPECT_EQ(trigger.Evaluate(true, true, false, 0.016f), TriggerState::Ongoing);
+    EXPECT_EQ(trigger.Evaluate(true, false, false, 0.05f), TriggerState::Ongoing);
+    EXPECT_EQ(trigger.Evaluate(true, false, false, 0.05f), TriggerState::Ongoing);
+}
+
+TEST(InputTriggerTests, TapTriggerCanTriggerAgainOnSecondQuickTap)
+{
+    TapTrigger trigger(0.2f);
+
+    EXPECT_EQ(trigger.Evaluate(true, true, false, 0.016f), TriggerState::Ongoing);
+    EXPECT_EQ(trigger.Evaluate(false, false, true, 0.05f), TriggerState::Triggered);
+
+    EXPECT_EQ(trigger.Evaluate(true, true, false, 0.016f), TriggerState::Ongoing);
+    EXPECT_EQ(trigger.Evaluate(false, false, true, 0.05f), TriggerState::Triggered);
 }
 
 // --- Reset ---
