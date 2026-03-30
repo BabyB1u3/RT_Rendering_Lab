@@ -168,11 +168,11 @@ already been used are also accepted - this is checked via `Logger::HasLogger()`.
 ### 3.3 Log Macros
 
 All macros are defined in `LogMacros.h`. The `_CAT` variants take a category as the
-first argument. Legacy macros (no category) route to `LogCategory::Core`.
+first argument. The diagnostics system no longer exposes legacy non-category aliases;
+call sites pass an explicit category at each logging site.
 
 ```
 LOG_TRACE_CAT / LOG_DEBUG_CAT / LOG_INFO_CAT / LOG_WARN_CAT / LOG_ERROR_CAT / LOG_CRITICAL_CAT
-LOG_TRACE      / LOG_DEBUG      / LOG_INFO      / LOG_WARN      / LOG_ERROR      / LOG_CRITICAL
 ```
 
 Each macro expands to a `do { ... } while (0)` block that calls `Logger::GetLogger(category)`
@@ -329,10 +329,11 @@ The `JsonLineSink` writes one JSON object per log message for machine-readable o
 
 **Always-registered, enable-on-demand design**: The sink is created at `Logger::Init()`
 in a disabled state (no file open) and included in the shared sink vector from the start.
-`EnableJsonSink(path)` opens the file; `DisableJsonSink()` requests closure after a
-flush barrier. This avoids the thread-safety hazard of mutating a live logger's sink
-list at runtime - the async worker thread iterates the sink vector without external
-locking, so adding/removing sinks while it runs would be a data race.
+`EnableJsonSink(path)` opens the file and leaves the sink disabled if the file cannot be
+opened; the failure is recorded through the normal diagnostics log. `DisableJsonSink()`
+requests closure after a flush barrier. This avoids the thread-safety hazard of mutating
+a live logger's sink vector at runtime - the async worker thread iterates the sink vector
+without external locking, so adding/removing sinks while it runs would be a data race.
 
 The `Enable` / `Disable` / `RequestDisable` / `RequestReopen` methods all lock the
 `base_sink<std::mutex>::mutex_`, which is the same mutex the async worker acquires
@@ -388,7 +389,8 @@ ERR_FAIL_COND_MSG_CAT(category, condition, message)   // log with message + retu
 ERR_FAIL_COND_V_MSG_CAT(category, condition, retval, message)  // log with message + return value
 ```
 
-Non-`_CAT` convenience aliases route to `LogCategory::Error`.
+The diagnostics system no longer exposes non-`_CAT` convenience aliases - recoverable
+error paths pass an explicit category via the `ERR_FAIL_COND_*_CAT` macros.
 
 **Error classification**:
 
