@@ -7,11 +7,67 @@ namespace
 {
     using test_support::InputTestAccess;
 
+    class FakeKeyboardDevice final : public InputDevice
+    {
+    public:
+        explicit FakeKeyboardDevice(Key::Code activeKey)
+            : m_ActiveKey(activeKey) {}
+
+        Type GetType() const override { return Type::Keyboard; }
+        void Poll() override {}
+
+        InputValue GetInput(uint16_t code) const override
+        {
+            return {code == m_ActiveKey ? 1.0f : 0.0f, 0.0f};
+        }
+
+        InputValue GetPreviousInput(uint16_t code) const override
+        {
+            return {code == m_PreviousKey ? 1.0f : 0.0f, 0.0f};
+        }
+
+        void Reset() override
+        {
+            m_PreviousKey = 0;
+        }
+
+    private:
+        Key::Code m_ActiveKey = 0;
+        Key::Code m_PreviousKey = 0;
+    };
+
+    class FakeGamepadDevice final : public InputDevice
+    {
+    public:
+        explicit FakeGamepadDevice(uint8_t deviceIndex)
+            : m_DeviceIndex(deviceIndex) {}
+
+        Type GetType() const override { return Type::Gamepad; }
+        void Poll() override {}
+
+        InputValue GetInput(uint16_t code) const override
+        {
+            return {code == GamepadButton::A ? 1.0f : 0.0f, 0.0f};
+        }
+
+        InputValue GetAxis(uint16_t axisId) const override
+        {
+            return {axisId == GamepadAxis::LeftX ? -0.5f : 0.0f, 0.0f};
+        }
+
+        bool IsConnected() const override { return true; }
+        uint8_t GetDeviceIndex() const override { return m_DeviceIndex; }
+
+    private:
+        uint8_t m_DeviceIndex = 0;
+    };
+
     class InputPollingTests : public ::testing::Test
     {
     protected:
         void SetUp() override
         {
+            InputTestAccess::RestoreDefaultDevices();
             Input::Initialize(nullptr);
         }
     };
@@ -207,4 +263,71 @@ TEST_F(InputPollingTests, ScrollDeltaConsumesAccumulatorPerFrame)
 
     InputTestAccess::ApplyFrame(InputTestAccess::MakeFrame());
     EXPECT_FLOAT_EQ(Input::GetScrollDelta(), 0.0f);
+}
+
+TEST_F(InputPollingTests, GamepadButtonPollingTracksPressHoldAndReleaseAcrossFrames)
+{
+    auto pressedFrame = InputTestAccess::MakeGamepadFrame(true);
+    InputTestAccess::SetGamepadButton(pressedFrame, GamepadButton::A, true);
+
+    InputTestAccess::ApplyGamepadFrame(0, pressedFrame);
+    EXPECT_TRUE(Input::IsGamepadConnected());
+    EXPECT_TRUE(Input::IsGamepadButtonDown(GamepadButton::A));
+    EXPECT_TRUE(Input::WasGamepadButtonPressedThisFrame(GamepadButton::A));
+    EXPECT_FALSE(Input::WasGamepadButtonReleasedThisFrame(GamepadButton::A));
+
+    InputTestAccess::ApplyGamepadFrame(0, pressedFrame);
+    EXPECT_TRUE(Input::IsGamepadButtonDown(GamepadButton::A));
+    EXPECT_FALSE(Input::WasGamepadButtonPressedThisFrame(GamepadButton::A));
+    EXPECT_FALSE(Input::WasGamepadButtonReleasedThisFrame(GamepadButton::A));
+
+    InputTestAccess::ApplyGamepadFrame(0, InputTestAccess::MakeGamepadFrame(true));
+    EXPECT_FALSE(Input::IsGamepadButtonDown(GamepadButton::A));
+    EXPECT_FALSE(Input::WasGamepadButtonPressedThisFrame(GamepadButton::A));
+    EXPECT_TRUE(Input::WasGamepadButtonReleasedThisFrame(GamepadButton::A));
+}
+
+TEST_F(InputPollingTests, GamepadAxisReturnsCurrentValue)
+{
+    auto frame = InputTestAccess::MakeGamepadFrame(true);
+    InputTestAccess::SetGamepadAxis(frame, GamepadAxis::LeftX, 0.75f);
+    InputTestAccess::SetGamepadAxis(frame, GamepadAxis::RightTrigger, 1.0f);
+
+    InputTestAccess::ApplyGamepadFrame(0, frame);
+
+    EXPECT_FLOAT_EQ(Input::GetGamepadAxis(GamepadAxis::LeftX), 0.75f);
+    EXPECT_FLOAT_EQ(Input::GetGamepadAxis(GamepadAxis::RightTrigger), 1.0f);
+}
+
+TEST_F(InputPollingTests, RegisterDeviceReplacesKeyboardSlotForFacadeQueries)
+{
+    Input::RegisterDevice(std::make_unique<FakeKeyboardDevice>(Key::Q));
+
+    EXPECT_TRUE(Input::IsKeyDown(Key::Q));
+    EXPECT_FALSE(Input::IsKeyDown(Key::W));
+}
+
+TEST_F(InputPollingTests, RegisterDeviceUsesLogicalGamepadSlotIndex)
+{
+    Input::RegisterDevice(std::make_unique<FakeGamepadDevice>(2));
+
+    EXPECT_TRUE(Input::IsGamepadConnected(2));
+    EXPECT_TRUE(Input::IsGamepadButtonDown(GamepadButton::A, 2));
+    EXPECT_FLOAT_EQ(Input::GetGamepadAxis(GamepadAxis::LeftX, 2), -0.5f);
+    EXPECT_FALSE(Input::IsGamepadConnected(1));
+}
+
+TEST_F(InputPollingTests, RestoreDefaultDevicesReinstallsBuiltInPollingDevices)
+{
+    Input::RegisterDevice(std::make_unique<FakeKeyboardDevice>(Key::Q));
+    ASSERT_TRUE(Input::IsKeyDown(Key::Q));
+
+    Input::RestoreDefaultDevices();
+
+    auto frame = InputTestAccess::MakeFrame();
+    InputTestAccess::SetKey(frame, Key::W, true);
+    InputTestAccess::ApplyFrame(frame);
+
+    EXPECT_TRUE(Input::IsKeyDown(Key::W));
+    EXPECT_FALSE(Input::IsKeyDown(Key::Q));
 }

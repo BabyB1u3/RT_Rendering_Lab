@@ -16,6 +16,18 @@ struct MouseNameCase
     const char *name;
 };
 
+struct GamepadButtonNameCase
+{
+    GamepadButton::Code code;
+    const char *name;
+};
+
+struct GamepadAxisNameCase
+{
+    GamepadAxis::Code code;
+    const char *name;
+};
+
 constexpr KeyNameCase kKeyCases[] = {
     {Key::Space, "Space"},
     {Key::Apostrophe, "Apostrophe"},
@@ -157,6 +169,33 @@ constexpr MouseNameCase kMouseCases[] = {
     {Mouse::Button6, "Button6"},
     {Mouse::Button7, "Button7"},
 };
+
+constexpr GamepadButtonNameCase kGamepadButtonCases[] = {
+    {GamepadButton::A, "A"},
+    {GamepadButton::B, "B"},
+    {GamepadButton::X, "X"},
+    {GamepadButton::Y, "Y"},
+    {GamepadButton::LeftBumper, "LeftBumper"},
+    {GamepadButton::RightBumper, "RightBumper"},
+    {GamepadButton::Back, "Back"},
+    {GamepadButton::Start, "Start"},
+    {GamepadButton::Guide, "Guide"},
+    {GamepadButton::LeftThumb, "LeftThumb"},
+    {GamepadButton::RightThumb, "RightThumb"},
+    {GamepadButton::DPadUp, "DPadUp"},
+    {GamepadButton::DPadRight, "DPadRight"},
+    {GamepadButton::DPadDown, "DPadDown"},
+    {GamepadButton::DPadLeft, "DPadLeft"},
+};
+
+constexpr GamepadAxisNameCase kGamepadAxisCases[] = {
+    {GamepadAxis::LeftX, "LeftX"},
+    {GamepadAxis::LeftY, "LeftY"},
+    {GamepadAxis::RightX, "RightX"},
+    {GamepadAxis::RightY, "RightY"},
+    {GamepadAxis::LeftTrigger, "LeftTrigger"},
+    {GamepadAxis::RightTrigger, "RightTrigger"},
+};
 } // namespace
 
 TEST(InputNamesTests, KeyToNameReturnsEmptyForUnknownCodes)
@@ -213,5 +252,47 @@ TEST(InputNamesTests, MouseCanonicalEntriesRoundTrip)
     {
         EXPECT_EQ(Mouse::ToName(entry.code), entry.name);
         EXPECT_EQ(Mouse::FromName(entry.name), entry.code);
+    }
+}
+
+TEST(InputNamesTests, GamepadButtonToNameReturnsEmptyForUnknownCodes)
+{
+    EXPECT_TRUE(GamepadButton::ToName(static_cast<GamepadButton::Code>(999)).empty());
+    EXPECT_TRUE(GamepadButton::ToName(GamepadButton::InvalidCode).empty());
+}
+
+TEST(InputNamesTests, GamepadButtonFromNameReturnsInvalidForUnknownInputs)
+{
+    EXPECT_EQ(GamepadButton::FromName("NotARealButton"), GamepadButton::InvalidCode);
+    EXPECT_EQ(GamepadButton::FromName(""), GamepadButton::InvalidCode);
+}
+
+TEST(InputNamesTests, GamepadButtonCanonicalEntriesRoundTrip)
+{
+    for (const auto &entry : kGamepadButtonCases)
+    {
+        EXPECT_EQ(GamepadButton::ToName(entry.code), entry.name);
+        EXPECT_EQ(GamepadButton::FromName(entry.name), entry.code);
+    }
+}
+
+TEST(InputNamesTests, GamepadAxisToNameReturnsEmptyForUnknownCodes)
+{
+    EXPECT_TRUE(GamepadAxis::ToName(static_cast<GamepadAxis::Code>(999)).empty());
+    EXPECT_TRUE(GamepadAxis::ToName(GamepadAxis::InvalidCode).empty());
+}
+
+TEST(InputNamesTests, GamepadAxisFromNameReturnsInvalidForUnknownInputs)
+{
+    EXPECT_EQ(GamepadAxis::FromName("NotARealAxis"), GamepadAxis::InvalidCode);
+    EXPECT_EQ(GamepadAxis::FromName(""), GamepadAxis::InvalidCode);
+}
+
+TEST(InputNamesTests, GamepadAxisCanonicalEntriesRoundTrip)
+{
+    for (const auto &entry : kGamepadAxisCases)
+    {
+        EXPECT_EQ(GamepadAxis::ToName(entry.code), entry.name);
+        EXPECT_EQ(GamepadAxis::FromName(entry.name), entry.code);
     }
 }

@@ -16,6 +16,7 @@ namespace
     protected:
         void SetUp() override
         {
+            InputTestAccess::RestoreDefaultDevices();
             Input::Initialize(nullptr);
         }
 
@@ -421,4 +422,51 @@ TEST_F(InputActionMapTest, TapTriggerTriggersOnQuickRelease)
     UpdateWithFrame(MakeFrame(), 0.03f);
     EXPECT_TRUE(map.WasActionTriggeredThisFrame("Dash"));
     EXPECT_EQ(map.GetActionTriggerState("Dash"), TriggerState::Triggered);
+}
+
+TEST_F(InputActionMapTest, GamepadButtonActionTracksDownPressAndReleaseAcrossFrames)
+{
+    map.BindAction("Jump", InputSource::FromGamepadButton(GamepadButton::A));
+
+    auto pressedFrame = InputTestAccess::MakeGamepadFrame(true);
+    InputTestAccess::SetGamepadButton(pressedFrame, GamepadButton::A, true);
+    InputTestAccess::ApplyGamepadFrame(0, pressedFrame);
+    EXPECT_TRUE(map.IsActionDown("Jump"));
+    EXPECT_TRUE(map.WasActionPressedThisFrame("Jump"));
+    EXPECT_FALSE(map.WasActionReleasedThisFrame("Jump"));
+
+    InputTestAccess::ApplyGamepadFrame(0, pressedFrame);
+    EXPECT_TRUE(map.IsActionDown("Jump"));
+    EXPECT_FALSE(map.WasActionPressedThisFrame("Jump"));
+
+    InputTestAccess::ApplyGamepadFrame(0, InputTestAccess::MakeGamepadFrame(true));
+    EXPECT_FALSE(map.IsActionDown("Jump"));
+    EXPECT_TRUE(map.WasActionReleasedThisFrame("Jump"));
+}
+
+TEST_F(InputActionMapTest, GamepadAxisBindingReturnsCurrentAxisValue)
+{
+    map.BindAxis("MoveX", GamepadAxis::LeftX);
+
+    auto frame = InputTestAccess::MakeGamepadFrame(true);
+    InputTestAccess::SetGamepadAxis(frame, GamepadAxis::LeftX, -0.8f);
+    InputTestAccess::ApplyGamepadFrame(0, frame);
+
+    EXPECT_FLOAT_EQ(map.GetAxis("MoveX"), -0.8f);
+}
+
+TEST_F(InputActionMapTest, GamepadAxisSourceUsesThresholdForActionEdges)
+{
+    map.BindAction("Dash", InputSource::FromGamepadAxis(GamepadAxis::RightTrigger));
+
+    auto activeFrame = InputTestAccess::MakeGamepadFrame(true);
+    InputTestAccess::SetGamepadAxis(activeFrame, GamepadAxis::RightTrigger, 0.9f);
+    InputTestAccess::ApplyGamepadFrame(0, activeFrame);
+    EXPECT_TRUE(map.IsActionDown("Dash"));
+    EXPECT_TRUE(map.WasActionPressedThisFrame("Dash"));
+
+    auto inactiveFrame = InputTestAccess::MakeGamepadFrame(true);
+    InputTestAccess::ApplyGamepadFrame(0, inactiveFrame);
+    EXPECT_FALSE(map.IsActionDown("Dash"));
+    EXPECT_TRUE(map.WasActionReleasedThisFrame("Dash"));
 }
