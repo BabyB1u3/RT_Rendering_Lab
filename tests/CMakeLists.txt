@@ -44,6 +44,7 @@ add_executable(rtrlab_unit_tests
     unit/TestInputContextStack.cpp
     unit/TestPropertyTree.cpp
     unit/TestBuiltinTraits.cpp
+    unit/TestJsonBackend.cpp
 )
 
 glab_configure_test_target(rtrlab_unit_tests)

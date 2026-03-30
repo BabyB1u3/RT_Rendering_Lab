@@ -3,6 +3,8 @@
 #include "core/diagnostics/LogMacros.h"
 
 #include <json.hpp>
+#include <limits>
+#include <stdexcept>
 
 namespace Serialization
 {
@@ -56,8 +58,15 @@ namespace Serialization
                 return PropertyTree(j.get<bool>());
 
             case nlohmann::json::value_t::number_integer:
-            case nlohmann::json::value_t::number_unsigned:
                 return PropertyTree(j.get<int64_t>());
+
+            case nlohmann::json::value_t::number_unsigned:
+            {
+                const auto value = j.get<uint64_t>();
+                if (value > static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))
+                    throw std::overflow_error("JsonBackend: unsigned integer exceeds PropertyTree int64 range");
+                return PropertyTree(static_cast<int64_t>(value));
+            }
 
             case nlohmann::json::value_t::number_float:
                 return PropertyTree(j.get<double>());
@@ -106,6 +115,16 @@ namespace Serialization
         catch (const nlohmann::json::parse_error &e)
         {
             LOG_ERROR_CAT(LogCategory::Serialization, "JsonBackend: parse error: {}", e.what());
+            return false;
+        }
+        catch (const nlohmann::json::exception &e)
+        {
+            LOG_ERROR_CAT(LogCategory::Serialization, "JsonBackend: JSON error: {}", e.what());
+            return false;
+        }
+        catch (const std::exception &e)
+        {
+            LOG_ERROR_CAT(LogCategory::Serialization, "JsonBackend: read error: {}", e.what());
             return false;
         }
     }
