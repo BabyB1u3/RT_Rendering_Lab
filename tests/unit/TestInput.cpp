@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "core/input/Input.h"
+#include "core/input/device/InputDeviceManager.h"
 #include "InputTestAccess.h"
 
 namespace
@@ -223,6 +224,31 @@ TEST_F(InputPollingTests, MousePositionAndDeltaFollowFrameProgression)
     EXPECT_FLOAT_EQ(Input::GetMouseX(), 112.0f);
     EXPECT_FLOAT_EQ(Input::GetMouseY(), 44.0f);
     EXPECT_EQ(Input::GetMouseDelta(), std::make_pair(0.0f, 0.0f));
+}
+
+TEST_F(InputPollingTests, MouseDevicePreviousDeltaTracksPriorFrameMotion)
+{
+    auto firstFrame = InputTestAccess::MakeFrame();
+    InputTestAccess::SetMousePosition(firstFrame, 10.0f, 20.0f);
+    InputTestAccess::ApplyFrame(firstFrame);
+
+    auto secondFrame = InputTestAccess::MakeFrame();
+    InputTestAccess::SetMousePosition(secondFrame, 24.0f, 18.0f);
+    InputTestAccess::ApplyFrame(secondFrame);
+
+    auto thirdFrame = InputTestAccess::MakeFrame();
+    InputTestAccess::SetMousePosition(thirdFrame, 30.0f, 30.0f);
+    InputTestAccess::ApplyFrame(thirdFrame);
+
+    const auto *manager = Input::TryGetDeviceManager();
+    ASSERT_NE(manager, nullptr);
+
+    const auto *mouse = manager->GetDevice(InputDevice::Type::Mouse);
+    ASSERT_NE(mouse, nullptr);
+    EXPECT_FLOAT_EQ(mouse->GetPreviousAxis(MouseAxisId::DeltaX).X, 14.0f);
+    EXPECT_FLOAT_EQ(mouse->GetPreviousAxis(MouseAxisId::DeltaY).X, -2.0f);
+    EXPECT_FLOAT_EQ(mouse->GetAxis(MouseAxisId::DeltaX).X, 6.0f);
+    EXPECT_FLOAT_EQ(mouse->GetAxis(MouseAxisId::DeltaY).X, 12.0f);
 }
 
 TEST_F(InputPollingTests, MouseCaptureBlocksButtonDeltaAndScrollQueries)

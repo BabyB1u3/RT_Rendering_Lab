@@ -50,6 +50,8 @@ private:
     float m_MouseY = 0.0f;
     float m_LastMouseX = 0.0f;
     float m_LastMouseY = 0.0f;
+    float m_PreviousDeltaX = 0.0f;
+    float m_PreviousDeltaY = 0.0f;
     bool m_FirstMouseSample = true;
 
     float m_ScrollAccumulator = 0.0f;

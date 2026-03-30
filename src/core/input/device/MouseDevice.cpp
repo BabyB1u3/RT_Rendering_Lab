@@ -10,6 +10,8 @@ MouseDevice::MouseDevice(GLFWwindow *window)
 void MouseDevice::Poll()
 {
     m_PreviousButtons = m_CurrentButtons;
+    m_PreviousDeltaX = m_MouseX - m_LastMouseX;
+    m_PreviousDeltaY = m_MouseY - m_LastMouseY;
 
     if (!m_Window)
     {
@@ -87,6 +89,10 @@ InputValue MouseDevice::GetPreviousAxis(uint16_t axisId) const
         return {m_LastMouseX, 0.0f};
     case MouseAxisId::PositionY:
         return {m_LastMouseY, 0.0f};
+    case MouseAxisId::DeltaX:
+        return {m_PreviousDeltaX, 0.0f};
+    case MouseAxisId::DeltaY:
+        return {m_PreviousDeltaY, 0.0f};
     case MouseAxisId::ScrollY:
         return {m_PreviousScrollThisFrame, 0.0f};
     default:
@@ -102,6 +108,8 @@ void MouseDevice::Reset()
     m_MouseY = 0.0f;
     m_LastMouseX = 0.0f;
     m_LastMouseY = 0.0f;
+    m_PreviousDeltaX = 0.0f;
+    m_PreviousDeltaY = 0.0f;
     m_FirstMouseSample = true;
     m_ScrollAccumulator = 0.0f;
     m_ScrollThisFrame = 0.0f;
@@ -116,6 +124,8 @@ void MouseDevice::AccumulateScroll(float yOffset)
 void MouseDevice::ApplyState(const std::array<bool, BUTTON_COUNT> &buttons, float x, float y)
 {
     m_PreviousButtons = m_CurrentButtons;
+    m_PreviousDeltaX = m_MouseX - m_LastMouseX;
+    m_PreviousDeltaY = m_MouseY - m_LastMouseY;
     m_CurrentButtons = buttons;
 
     m_LastMouseX = m_MouseX;

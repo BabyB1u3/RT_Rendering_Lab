@@ -81,6 +81,17 @@ TEST(InputDeviceManagerTests, AddDeviceReplacesExistingDeviceInSameSlot)
     EXPECT_EQ(manager.GetDevice(InputDevice::Type::Gamepad, 3), replacement);
 }
 
+TEST(InputDeviceManagerTests, AddDeviceIgnoresNullDevices)
+{
+    InputDeviceManager manager;
+
+    manager.AddDevice(nullptr);
+
+    EXPECT_EQ(manager.GetDeviceCount(InputDevice::Type::Keyboard), 0u);
+    EXPECT_EQ(manager.GetDeviceCount(InputDevice::Type::Mouse), 0u);
+    EXPECT_EQ(manager.GetDeviceCount(InputDevice::Type::Gamepad), 0u);
+}
+
 TEST(InputDeviceManagerTests, PollAllPollsEveryRegisteredDevice)
 {
     InputDeviceManager manager;
@@ -115,6 +126,55 @@ TEST(InputDeviceManagerTests, ResetAllResetsEveryRegisteredDevice)
     EXPECT_EQ(keyboard->ResetCount, 1);
     EXPECT_EQ(mouse->ResetCount, 1);
     EXPECT_EQ(gamepad->ResetCount, 1);
+}
+
+TEST(InputDeviceManagerTests, GetDeviceCountCountsDevicesPerTypeAcrossSlots)
+{
+    InputDeviceManager manager;
+    manager.AddDevice(Scope<InputDevice>(new FakeDevice(InputDevice::Type::Keyboard)));
+    manager.AddDevice(Scope<InputDevice>(new FakeDevice(InputDevice::Type::Mouse)));
+    manager.AddDevice(Scope<InputDevice>(new FakeDevice(InputDevice::Type::Gamepad, 0)));
+    manager.AddDevice(Scope<InputDevice>(new FakeDevice(InputDevice::Type::Gamepad, 2)));
+
+    EXPECT_EQ(manager.GetDeviceCount(InputDevice::Type::Keyboard), 1u);
+    EXPECT_EQ(manager.GetDeviceCount(InputDevice::Type::Mouse), 1u);
+    EXPECT_EQ(manager.GetDeviceCount(InputDevice::Type::Gamepad), 2u);
+}
+
+TEST(InputDeviceManagerTests, RemoveDeviceReturnsOwnedSlotAndClearsLookup)
+{
+    InputDeviceManager manager;
+    auto *keyboard = new FakeDevice(InputDevice::Type::Keyboard);
+    auto *gamepad = new FakeDevice(InputDevice::Type::Gamepad, 1);
+
+    manager.AddDevice(Scope<InputDevice>(keyboard));
+    manager.AddDevice(Scope<InputDevice>(gamepad));
+
+    auto removed = manager.RemoveDevice(InputDevice::Type::Gamepad, 1);
+
+    ASSERT_NE(removed, nullptr);
+    EXPECT_EQ(removed.get(), gamepad);
+    EXPECT_EQ(manager.GetDevice(InputDevice::Type::Gamepad, 1), nullptr);
+    EXPECT_EQ(manager.GetDevice(InputDevice::Type::Keyboard, 0), keyboard);
+    EXPECT_EQ(manager.GetDeviceCount(InputDevice::Type::Gamepad), 0u);
+    EXPECT_EQ(manager.GetDeviceCount(InputDevice::Type::Keyboard), 1u);
+}
+
+TEST(InputDeviceManagerTests, ClearRemovesAllDevices)
+{
+    InputDeviceManager manager;
+    manager.AddDevice(Scope<InputDevice>(new FakeDevice(InputDevice::Type::Keyboard)));
+    manager.AddDevice(Scope<InputDevice>(new FakeDevice(InputDevice::Type::Mouse)));
+    manager.AddDevice(Scope<InputDevice>(new FakeDevice(InputDevice::Type::Gamepad, 0)));
+
+    manager.Clear();
+
+    EXPECT_EQ(manager.GetDevice(InputDevice::Type::Keyboard, 0), nullptr);
+    EXPECT_EQ(manager.GetDevice(InputDevice::Type::Mouse, 0), nullptr);
+    EXPECT_EQ(manager.GetDevice(InputDevice::Type::Gamepad, 0), nullptr);
+    EXPECT_EQ(manager.GetDeviceCount(InputDevice::Type::Keyboard), 0u);
+    EXPECT_EQ(manager.GetDeviceCount(InputDevice::Type::Mouse), 0u);
+    EXPECT_EQ(manager.GetDeviceCount(InputDevice::Type::Gamepad), 0u);
 }
 
 TEST(InputDeviceManagerTests, PollAllPublishesGamepadConnectionTransitions)
