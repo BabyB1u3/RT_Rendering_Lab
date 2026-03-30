@@ -175,7 +175,4 @@ private:
 
     // Cached modified axis values, updated by Update()
     std::unordered_map<std::string, float> m_CachedAxisValues;
-
-    // Delta time from last Update() call, used by GetAxis() for modifier application
-    float m_LastDt = 0.0f;
 };
