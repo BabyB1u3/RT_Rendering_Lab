@@ -46,6 +46,7 @@ add_executable(rtrlab_unit_tests
     unit/TestInputAction.cpp
     unit/TestInputNames.cpp
     unit/TestPropertyTree.cpp
+    unit/TestBuiltinTraits.cpp
 )
 
 glab_configure_test_target(rtrlab_unit_tests)

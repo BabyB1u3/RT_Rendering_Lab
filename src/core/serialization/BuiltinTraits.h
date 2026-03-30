@@ -12,6 +12,7 @@
 #include <magic_enum.hpp>
 
 #include <optional>
+#include <limits>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -85,7 +86,10 @@ namespace Serialization
     {
         if (!tree.IsInt())
             return false;
-        v = static_cast<uint8_t>(tree.AsInt());
+        const auto raw = tree.AsInt();
+        if (raw < 0 || raw > static_cast<int64_t>(std::numeric_limits<uint8_t>::max()))
+            return false;
+        v = static_cast<uint8_t>(raw);
         return true;
     }
 
@@ -93,7 +97,10 @@ namespace Serialization
     {
         if (!tree.IsInt())
             return false;
-        v = static_cast<uint16_t>(tree.AsInt());
+        const auto raw = tree.AsInt();
+        if (raw < 0 || raw > static_cast<int64_t>(std::numeric_limits<uint16_t>::max()))
+            return false;
+        v = static_cast<uint16_t>(raw);
         return true;
     }
 
@@ -140,7 +147,7 @@ namespace Serialization
 
     inline bool Deserialize(const PropertyTree &tree, glm::vec2 &v)
     {
-        if (!tree.IsArray() || tree.Size() < 2)
+        if (!tree.IsArray() || tree.Size() != 2)
             return false;
         v.x = static_cast<float>(tree[size_t(0)].AsFloat());
         v.y = static_cast<float>(tree[size_t(1)].AsFloat());
@@ -155,7 +162,7 @@ namespace Serialization
 
     inline bool Deserialize(const PropertyTree &tree, glm::vec3 &v)
     {
-        if (!tree.IsArray() || tree.Size() < 3)
+        if (!tree.IsArray() || tree.Size() != 3)
             return false;
         v.x = static_cast<float>(tree[size_t(0)].AsFloat());
         v.y = static_cast<float>(tree[size_t(1)].AsFloat());
@@ -173,7 +180,7 @@ namespace Serialization
 
     inline bool Deserialize(const PropertyTree &tree, glm::vec4 &v)
     {
-        if (!tree.IsArray() || tree.Size() < 4)
+        if (!tree.IsArray() || tree.Size() != 4)
             return false;
         v.x = static_cast<float>(tree[size_t(0)].AsFloat());
         v.y = static_cast<float>(tree[size_t(1)].AsFloat());
@@ -195,7 +202,7 @@ namespace Serialization
 
     inline bool Deserialize(const PropertyTree &tree, glm::mat4 &m)
     {
-        if (!tree.IsArray() || tree.Size() < 16)
+        if (!tree.IsArray() || tree.Size() != 16)
             return false;
         float *p = &m[0][0];
         for (int i = 0; i < 16; ++i)
