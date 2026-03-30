@@ -15,27 +15,42 @@ production-grade diagnostics infrastructure aligned with modern game engine prac
 
 ## Table of Contents
 
-- [1. Motivation](#1-motivation)
-- [2. Architecture Overview](#2-architecture-overview)
-- [3. Logging](#3-logging)
-  - [3.1 Logger Initialization and Lifecycle](#31-logger-initialization-and-lifecycle)
-  - [3.2 Category System](#32-category-system)
-  - [3.3 Log Macros](#33-log-macros)
-  - [3.4 Flood Prevention (Once / Throttle / Cond)](#34-flood-prevention-once--throttle--cond)
-  - [3.5 Sinks](#35-sinks)
-  - [3.6 Asynchronous Logging](#36-asynchronous-logging)
-  - [3.7 Frame Number and Thread ID](#37-frame-number-and-thread-id)
-  - [3.8 Runtime Level Control](#38-runtime-level-control)
-  - [3.9 Compile-Time Level Stripping](#39-compile-time-level-stripping)
-  - [3.10 JSON Lines Sink](#310-json-lines-sink)
-- [4. Assertions](#4-assertions)
-- [5. Error Handling](#5-error-handling)
-- [6. Crash Handler](#6-crash-handler)
-- [7. Debug Console](#7-debug-console)
-- [8. File Layout](#8-file-layout)
-- [9. Key Design Decisions](#9-key-design-decisions)
-- [Appendix A: Industry Survey](#appendix-a-industry-survey)
-- [Appendix B: Alternatives Considered](#appendix-b-alternatives-considered)
+- [Diagnostics System](#diagnostics-system)
+  - [Table of Contents](#table-of-contents)
+  - [1. Motivation](#1-motivation)
+  - [2. Architecture Overview](#2-architecture-overview)
+  - [3. Logging](#3-logging)
+    - [3.1 Logger Initialization and Lifecycle](#31-logger-initialization-and-lifecycle)
+    - [3.2 Category System](#32-category-system)
+    - [3.3 Log Macros](#33-log-macros)
+    - [3.4 Flood Prevention (Once / Throttle / Cond)](#34-flood-prevention-once--throttle--cond)
+    - [3.5 Sinks](#35-sinks)
+    - [3.6 Asynchronous Logging](#36-asynchronous-logging)
+    - [3.7 Frame Number and Thread ID](#37-frame-number-and-thread-id)
+    - [3.8 Runtime Level Control](#38-runtime-level-control)
+    - [3.9 Compile-Time Level Stripping](#39-compile-time-level-stripping)
+    - [3.10 JSON Lines Sink](#310-json-lines-sink)
+  - [4. Assertions](#4-assertions)
+  - [5. Error Handling](#5-error-handling)
+  - [6. Crash Handler](#6-crash-handler)
+  - [7. Debug Console](#7-debug-console)
+  - [8. File Layout](#8-file-layout)
+  - [9. Key Design Decisions](#9-key-design-decisions)
+    - [Why `constexpr const char*` categories instead of an enum](#why-constexpr-const-char-categories-instead-of-an-enum)
+    - [Why `overrun_oldest` instead of blocking](#why-overrun_oldest-instead-of-blocking)
+    - [Why the JSON sink is always registered but disabled](#why-the-json-sink-is-always-registered-but-disabled)
+    - [Why ONCE/THROTTLE use CAS instead of load+store](#why-oncethrottle-use-cas-instead-of-loadstore)
+    - [Why `spdlog::shutdown()` instead of `drop_all()`](#why-spdlogshutdown-instead-of-drop_all)
+    - [Why assertions are never stripped](#why-assertions-are-never-stripped)
+    - [Why no C++ exceptions in engine code](#why-no-c-exceptions-in-engine-code)
+  - [Appendix A: Industry Survey](#appendix-a-industry-survey)
+    - [Unreal Engine 5](#unreal-engine-5)
+    - [Godot Engine](#godot-engine)
+    - [CryEngine / O3DE](#cryengine--o3de)
+  - [Appendix B: Alternatives Considered](#appendix-b-alternatives-considered)
+    - [Keep `std::runtime_error` everywhere](#keep-stdruntime_error-everywhere)
+    - [Full `Result<T, E>` monadic error type](#full-resultt-e-monadic-error-type)
+    - [Third-party crash reporter (Breakpad / Crashpad)](#third-party-crash-reporter-breakpad--crashpad)
 
 ---
 
@@ -73,14 +88,14 @@ system follows that pattern.
 ```
    Diagnostic Sources                 Diagnostics Core                       Outputs
  ┌─────────────────┐               ┌─────────────────────┐            ┌──────────────────┐
- │ LOG_*_CAT(...)   │──────────────▸│                     │──────────▸ │ Console Sink     │
- │ LOG_*_ONCE(...)  │──────────────▸│  Async Logger Pool  │──────────▸ │ File Sink        │
- │ LOG_*_THROTTLE() │──────────────▸│  (spdlog async +    │──────────▸ │ ImGui Ring Sink  │
- │ LOG_*_COND(...)  │──────────────▸│   categories +      │──────────▸ │ JSON Lines Sink  │
- │ RTRLAB_ASSERT    │──────────────▸│   frame formatter)  │            └──────────────────┘
- │ RTRLAB_VERIFY    │──────────────▸│                     │
- │ RTRLAB_ENSURE    │──────────────▸│  ┌───────────────┐  │
- │ ERR_FAIL_COND_*  │──────────────▸│  │ Thread Pool   │  │
+ │ LOG_*_CAT(...)  │──────────────▸│                     │──────────▸ │ Console Sink     │
+ │ LOG_*_ONCE(...) │──────────────▸│  Async Logger Pool  │──────────▸ │ File Sink        │
+ │ LOG_*_THROTTLE()│──────────────▸│  (spdlog async +    │──────────▸ │ ImGui Ring Sink  │
+ │ LOG_*_COND(...) │──────────────▸│   categories +      │──────────▸ │ JSON Lines Sink  │
+ │ RTRLAB_ASSERT   │──────────────▸│   frame formatter)  │            └──────────────────┘
+ │ RTRLAB_VERIFY   │──────────────▸│                     │
+ │ RTRLAB_ENSURE   │──────────────▸│  ┌───────────────┐  │
+ │ ERR_FAIL_COND_* │──────────────▸│  │ Thread Pool   │  │
  └─────────────────┘               │  │ (MPSC queue)  │  │
                                    │  └───────────────┘  │
         Context injection:         └────────┬────────────┘
