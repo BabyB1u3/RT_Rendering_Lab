@@ -81,12 +81,12 @@ bool InputActionMap::HasAxis(const std::string &name) const
     return m_Axes.find(name) != m_Axes.end();
 }
 
-void InputActionMap::AddModifier(const std::string &axisName, std::unique_ptr<InputModifier> modifier)
+void InputActionMap::AddModifier(const std::string &axisName, Scope<InputModifier> modifier)
 {
     m_Modifiers[axisName].push_back(std::move(modifier));
 }
 
-void InputActionMap::SetTrigger(const std::string &actionName, std::unique_ptr<InputTrigger> trigger)
+void InputActionMap::SetTrigger(const std::string &actionName, Scope<InputTrigger> trigger)
 {
     if (trigger)
     {

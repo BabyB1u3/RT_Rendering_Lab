@@ -56,10 +56,10 @@ TEST(InputDeviceManagerTests, GetDeviceReturnsLogicalSlotRegardlessOfInsertionOr
     auto *gamepad2 = new FakeDevice(InputDevice::Type::Gamepad, 2);
     auto *gamepad0 = new FakeDevice(InputDevice::Type::Gamepad, 0);
 
-    manager.AddDevice(std::unique_ptr<InputDevice>(keyboard));
-    manager.AddDevice(std::unique_ptr<InputDevice>(mouse));
-    manager.AddDevice(std::unique_ptr<InputDevice>(gamepad2));
-    manager.AddDevice(std::unique_ptr<InputDevice>(gamepad0));
+    manager.AddDevice(Scope<InputDevice>(keyboard));
+    manager.AddDevice(Scope<InputDevice>(mouse));
+    manager.AddDevice(Scope<InputDevice>(gamepad2));
+    manager.AddDevice(Scope<InputDevice>(gamepad0));
 
     EXPECT_EQ(manager.GetDevice(InputDevice::Type::Keyboard, 0), keyboard);
     EXPECT_EQ(manager.GetDevice(InputDevice::Type::Mouse, 0), mouse);
@@ -74,8 +74,8 @@ TEST(InputDeviceManagerTests, AddDeviceReplacesExistingDeviceInSameSlot)
     auto *original = new FakeDevice(InputDevice::Type::Gamepad, 3);
     auto *replacement = new FakeDevice(InputDevice::Type::Gamepad, 3);
 
-    manager.AddDevice(std::unique_ptr<InputDevice>(original));
-    manager.AddDevice(std::unique_ptr<InputDevice>(replacement));
+    manager.AddDevice(Scope<InputDevice>(original));
+    manager.AddDevice(Scope<InputDevice>(replacement));
 
     EXPECT_EQ(manager.GetDeviceCount(InputDevice::Type::Gamepad), 1u);
     EXPECT_EQ(manager.GetDevice(InputDevice::Type::Gamepad, 3), replacement);
@@ -88,9 +88,9 @@ TEST(InputDeviceManagerTests, PollAllPollsEveryRegisteredDevice)
     auto *mouse = new FakeDevice(InputDevice::Type::Mouse);
     auto *gamepad = new FakeDevice(InputDevice::Type::Gamepad, 0);
 
-    manager.AddDevice(std::unique_ptr<InputDevice>(keyboard));
-    manager.AddDevice(std::unique_ptr<InputDevice>(mouse));
-    manager.AddDevice(std::unique_ptr<InputDevice>(gamepad));
+    manager.AddDevice(Scope<InputDevice>(keyboard));
+    manager.AddDevice(Scope<InputDevice>(mouse));
+    manager.AddDevice(Scope<InputDevice>(gamepad));
 
     manager.PollAll();
 
@@ -106,9 +106,9 @@ TEST(InputDeviceManagerTests, ResetAllResetsEveryRegisteredDevice)
     auto *mouse = new FakeDevice(InputDevice::Type::Mouse);
     auto *gamepad = new FakeDevice(InputDevice::Type::Gamepad, 0);
 
-    manager.AddDevice(std::unique_ptr<InputDevice>(keyboard));
-    manager.AddDevice(std::unique_ptr<InputDevice>(mouse));
-    manager.AddDevice(std::unique_ptr<InputDevice>(gamepad));
+    manager.AddDevice(Scope<InputDevice>(keyboard));
+    manager.AddDevice(Scope<InputDevice>(mouse));
+    manager.AddDevice(Scope<InputDevice>(gamepad));
 
     manager.ResetAll();
 
@@ -130,7 +130,7 @@ TEST(InputDeviceManagerTests, PollAllPublishesGamepadConnectionTransitions)
         [&](const GamepadDisconnectedEvent &event) { disconnected.push_back(event.DeviceIndex); });
 
     auto *gamepad = new FakeDevice(InputDevice::Type::Gamepad, 2);
-    manager.AddDevice(std::unique_ptr<InputDevice>(gamepad));
+    manager.AddDevice(Scope<InputDevice>(gamepad));
     manager.SetEventBus(&bus);
 
     manager.PollAll();

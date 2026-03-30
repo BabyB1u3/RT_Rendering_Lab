@@ -1,7 +1,5 @@
 #include "core/input/Input.h"
 
-#include <memory>
-
 #include "core/event/EventBus.h"
 #include "core/input/GamepadDevice.h"
 #include "core/input/InputDeviceManager.h"
@@ -10,7 +8,7 @@
 
 GLFWwindow *Input::s_Window = nullptr;
 EventBus *Input::s_EventBus = nullptr;
-std::unique_ptr<InputDeviceManager> Input::s_DeviceManager;
+Scope<InputDeviceManager> Input::s_DeviceManager;
 bool Input::s_KeyboardCaptured = false;
 bool Input::s_MouseCaptured = false;
 
@@ -54,7 +52,7 @@ void Input::BeginFrame()
     s_DeviceManager->PollAll();
 }
 
-void Input::RegisterDevice(std::unique_ptr<InputDevice> device)
+void Input::RegisterDevice(Scope<InputDevice> device)
 {
     EnsureDevices(s_Window);
     s_DeviceManager->AddDevice(std::move(device));
@@ -64,11 +62,11 @@ void Input::RestoreDefaultDevices()
 {
     EnsureDevices(s_Window);
 
-    s_DeviceManager->AddDevice(std::make_unique<KeyboardDevice>(s_Window));
-    s_DeviceManager->AddDevice(std::make_unique<MouseDevice>(s_Window));
+    s_DeviceManager->AddDevice(CreateScope<KeyboardDevice>(s_Window));
+    s_DeviceManager->AddDevice(CreateScope<MouseDevice>(s_Window));
 
     for (uint8_t i = 0; i < MAX_GAMEPAD_COUNT; ++i)
-        s_DeviceManager->AddDevice(std::make_unique<GamepadDevice>(i));
+        s_DeviceManager->AddDevice(CreateScope<GamepadDevice>(i));
 
     ResetDevices();
 }
@@ -243,20 +241,20 @@ void Input::EnsureDevices(GLFWwindow *window)
 {
     if (!s_DeviceManager)
     {
-        s_DeviceManager = std::make_unique<InputDeviceManager>();
+        s_DeviceManager = CreateScope<InputDeviceManager>();
         s_DeviceManager->SetEventBus(s_EventBus);
     }
 
     if (!s_DeviceManager->GetDevice(InputDevice::Type::Keyboard))
-        s_DeviceManager->AddDevice(std::make_unique<KeyboardDevice>(window));
+        s_DeviceManager->AddDevice(CreateScope<KeyboardDevice>(window));
 
     if (!s_DeviceManager->GetDevice(InputDevice::Type::Mouse))
-        s_DeviceManager->AddDevice(std::make_unique<MouseDevice>(window));
+        s_DeviceManager->AddDevice(CreateScope<MouseDevice>(window));
 
     for (uint8_t i = 0; i < MAX_GAMEPAD_COUNT; ++i)
     {
         if (!s_DeviceManager->GetDevice(InputDevice::Type::Gamepad, i))
-            s_DeviceManager->AddDevice(std::make_unique<GamepadDevice>(i));
+            s_DeviceManager->AddDevice(CreateScope<GamepadDevice>(i));
     }
 }
 

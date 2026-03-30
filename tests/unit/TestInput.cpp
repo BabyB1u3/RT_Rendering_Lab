@@ -301,7 +301,7 @@ TEST_F(InputPollingTests, GamepadAxisReturnsCurrentValue)
 
 TEST_F(InputPollingTests, RegisterDeviceReplacesKeyboardSlotForFacadeQueries)
 {
-    Input::RegisterDevice(std::make_unique<FakeKeyboardDevice>(Key::Q));
+    Input::RegisterDevice(CreateScope<FakeKeyboardDevice>(Key::Q));
 
     EXPECT_TRUE(Input::IsKeyDown(Key::Q));
     EXPECT_FALSE(Input::IsKeyDown(Key::W));
@@ -309,7 +309,7 @@ TEST_F(InputPollingTests, RegisterDeviceReplacesKeyboardSlotForFacadeQueries)
 
 TEST_F(InputPollingTests, RegisterDeviceUsesLogicalGamepadSlotIndex)
 {
-    Input::RegisterDevice(std::make_unique<FakeGamepadDevice>(2));
+    Input::RegisterDevice(CreateScope<FakeGamepadDevice>(2));
 
     EXPECT_TRUE(Input::IsGamepadConnected(2));
     EXPECT_TRUE(Input::IsGamepadButtonDown(GamepadButton::A, 2));
@@ -319,7 +319,7 @@ TEST_F(InputPollingTests, RegisterDeviceUsesLogicalGamepadSlotIndex)
 
 TEST_F(InputPollingTests, RestoreDefaultDevicesReinstallsBuiltInPollingDevices)
 {
-    Input::RegisterDevice(std::make_unique<FakeKeyboardDevice>(Key::Q));
+    Input::RegisterDevice(CreateScope<FakeKeyboardDevice>(Key::Q));
     ASSERT_TRUE(Input::IsKeyDown(Key::Q));
 
     Input::RestoreDefaultDevices();

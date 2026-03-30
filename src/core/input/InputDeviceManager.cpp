@@ -18,7 +18,7 @@ namespace
     }
 }
 
-void InputDeviceManager::AddDevice(std::unique_ptr<InputDevice> device)
+void InputDeviceManager::AddDevice(Scope<InputDevice> device)
 {
     if (!device)
         return;
@@ -82,7 +82,7 @@ std::size_t InputDeviceManager::GetDeviceCount(InputDevice::Type type) const
     return count;
 }
 
-std::unique_ptr<InputDevice> InputDeviceManager::RemoveDevice(InputDevice::Type type, uint8_t index)
+Scope<InputDevice> InputDeviceManager::RemoveDevice(InputDevice::Type type, uint8_t index)
 {
     const auto it = FindDeviceBySlot(m_Devices.begin(), m_Devices.end(), type, index);
     if (it == m_Devices.end())

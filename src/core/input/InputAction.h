@@ -9,10 +9,10 @@
 ///
 /// Each demo/layer owns its own InputActionMap instance with its own bindings.
 
-#include <memory>
 #include <string>
-#include <vector>
 #include <unordered_map>
+#include <vector>
+#include "core/Base.h"
 #include "core/input/GamepadCode.h"
 #include "core/input/KeyCode.h"
 #include "core/input/MouseCode.h"
@@ -105,11 +105,11 @@ public:
     // --- Modifiers & Triggers ---
 
     /// Add a modifier to an axis. Modifiers are applied in insertion order.
-    void AddModifier(const std::string &axisName, std::unique_ptr<InputModifier> modifier);
+    void AddModifier(const std::string &axisName, Scope<InputModifier> modifier);
 
     /// Set the trigger for an action. Replaces any existing trigger.
     /// Pass nullptr to revert to default (pressed) behavior.
-    void SetTrigger(const std::string &actionName, std::unique_ptr<InputTrigger> trigger);
+    void SetTrigger(const std::string &actionName, Scope<InputTrigger> trigger);
 
     /// Per-frame update: applies axis modifiers and advances trigger state machines.
     /// Must be called once per frame if modifiers or triggers are in use.
@@ -182,10 +182,10 @@ private:
     std::unordered_map<std::string, AxisEntry> m_Axes;
 
     // Axis name -> ordered modifier chain
-    std::unordered_map<std::string, std::vector<std::unique_ptr<InputModifier>>> m_Modifiers;
+    std::unordered_map<std::string, std::vector<Scope<InputModifier>>> m_Modifiers;
 
     // Action name -> trigger (nullptr = default pressed behavior)
-    std::unordered_map<std::string, std::unique_ptr<InputTrigger>> m_Triggers;
+    std::unordered_map<std::string, Scope<InputTrigger>> m_Triggers;
 
     // Cached trigger states, updated by Update()
     std::unordered_map<std::string, TriggerState> m_TriggerStates;

@@ -21,9 +21,9 @@
 /// See also: KeyCode.h / MouseCode.h / GamepadCode.h for typed constants.
 
 #include <array>
-#include <memory>
 #include <utility>
 
+#include "core/Base.h"
 #include "core/input/InputDevice.h"
 #include "core/input/GamepadCode.h"
 #include "core/input/KeyboardDevice.h"
@@ -76,11 +76,12 @@ public:
     /// Polls all registered devices and advances their current/previous state.
     static void BeginFrame();
     /// Register or replace a device in its logical type/index slot.
-    static void RegisterDevice(std::unique_ptr<InputDevice> device);
+    static void RegisterDevice(Scope<InputDevice> device);
     /// Restore the default live device layout (keyboard, mouse, four gamepads).
     static void RestoreDefaultDevices();
 
     static InputDeviceManager &GetDeviceManager();
+    /// Non-owning pointer. Returns null until the device manager has been created.
     static const InputDeviceManager *TryGetDeviceManager();
 
     // --- Keyboard ---
@@ -146,14 +147,20 @@ private:
     static void ApplyPolledState(const PolledState &state);
     static void ApplyGamepadState(uint8_t deviceIndex, const GamepadPolledState &state);
 
+    /// Non-owning pointer. Returns null when the current keyboard slot is not backed
+    /// by a concrete KeyboardDevice instance (for example, after swapping in a custom device).
     static KeyboardDevice *GetKeyboardDevice();
+    /// Non-owning pointer. Returns null when the current mouse slot is not backed
+    /// by a concrete MouseDevice instance.
     static MouseDevice *GetMouseDevice();
+    /// Non-owning pointer. Returns null when the requested gamepad slot is absent or
+    /// is not backed by a concrete GamepadDevice instance.
     static GamepadDevice *GetGamepadDevice(uint8_t deviceIndex);
 
 private:
-    static GLFWwindow *s_Window;
-    static EventBus *s_EventBus;
-    static std::unique_ptr<InputDeviceManager> s_DeviceManager;
+    static GLFWwindow *s_Window; // Non-owning. Lifetime is managed by Window/Application.
+    static EventBus *s_EventBus; // Non-owning. Lifetime is managed by Application.
+    static Scope<InputDeviceManager> s_DeviceManager;
 
     static bool s_KeyboardCaptured;
     static bool s_MouseCaptured;

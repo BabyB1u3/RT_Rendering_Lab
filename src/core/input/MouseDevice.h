@@ -41,7 +41,7 @@ public:
     void ApplyState(const std::array<bool, BUTTON_COUNT> &buttons, float x, float y);
 
 private:
-    GLFWwindow *m_Window = nullptr;
+    GLFWwindow *m_Window = nullptr; // Non-owning. Lifetime is managed by Window/Application.
 
     std::array<bool, BUTTON_COUNT> m_CurrentButtons{};
     std::array<bool, BUTTON_COUNT> m_PreviousButtons{};

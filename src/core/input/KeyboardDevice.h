@@ -24,7 +24,7 @@ public:
     void ApplyState(const std::array<bool, KEY_STATE_SIZE> &keys);
 
 private:
-    GLFWwindow *m_Window = nullptr;
+    GLFWwindow *m_Window = nullptr; // Non-owning. Lifetime is managed by Window/Application.
     std::array<bool, KEY_STATE_SIZE> m_CurrentKeys{};
     std::array<bool, KEY_STATE_SIZE> m_PreviousKeys{};
 };
