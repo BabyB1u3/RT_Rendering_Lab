@@ -2,57 +2,12 @@
 
 #include "core/input/InputContextStack.h"
 #include "core/input/InputAction.h"
+#include "InputActionTestSupport.h"
 
 namespace
 {
-    class FixedValueModifier final : public InputModifier
-    {
-    public:
-        explicit FixedValueModifier(float value) : m_Value(value) {}
-
-        float Apply(float /*value*/, float /*deltaTime*/) const override
-        {
-            return m_Value;
-        }
-
-    private:
-        float m_Value;
-    };
-
-    class ConstantTrigger final : public InputTrigger
-    {
-    public:
-        explicit ConstantTrigger(TriggerState state, int *resetCount = nullptr)
-            : m_State(state), m_ResetCount(resetCount) {}
-
-        TriggerState Evaluate(bool /*down*/, bool /*pressed*/, bool /*released*/, float /*dt*/) override
-        {
-            return m_State;
-        }
-
-        void Reset() override
-        {
-            if (m_ResetCount != nullptr)
-                ++(*m_ResetCount);
-        }
-
-    private:
-        TriggerState m_State;
-        int *m_ResetCount;
-    };
-
-    void BindConstantAxis(InputActionMap &map, const std::string &name, float value)
-    {
-        map.BindAxis(name, Key::D, Key::A);
-        map.AddModifier(name, std::make_unique<FixedValueModifier>(value));
-    }
-
-    void BindConstantTrigger(InputActionMap &map, const std::string &name, TriggerState state,
-                             int *resetCount = nullptr)
-    {
-        map.BindAction(name, Key::Space);
-        map.SetTrigger(name, std::make_unique<ConstantTrigger>(state, resetCount));
-    }
+    using test_support::BindConstantAxis;
+    using test_support::BindConstantTrigger;
 }
 
 // These tests verify the contract behavior of InputContextStack:

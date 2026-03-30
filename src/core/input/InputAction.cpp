@@ -81,8 +81,6 @@ void InputActionMap::SetTrigger(const std::string &actionName, std::unique_ptr<I
 
 void InputActionMap::Update(float dt)
 {
-    m_LastDt = dt;
-
     // Evaluate axis modifiers and cache results.
     m_CachedAxisValues.clear();
     for (const auto &[name, entry] : m_Axes)
@@ -215,7 +213,6 @@ void InputActionMap::ResetRuntimeState()
 {
     m_CachedAxisValues.clear();
     m_TriggerStates.clear();
-    m_LastDt = 0.0f;
 
     for (auto &[name, trigger] : m_Triggers)
     {
