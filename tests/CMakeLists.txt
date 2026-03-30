@@ -47,6 +47,7 @@ add_executable(rtrlab_unit_tests
     unit/TestInputNames.cpp
     unit/TestPropertyTree.cpp
     unit/TestBuiltinTraits.cpp
+    unit/TestJsonBackend.cpp
 )
 
 glab_configure_test_target(rtrlab_unit_tests)
@@ -56,6 +57,7 @@ add_executable(rtrlab_contract_tests
     contract/core/TestEventBus.cpp
     contract/core/TestFileSystem.cpp
     contract/core/TestLayerStackLifecycle.cpp
+    contract/core/TestSerializationFileIO.cpp
 )
 
 glab_configure_test_target(rtrlab_contract_tests)
