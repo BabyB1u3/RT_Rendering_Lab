@@ -46,14 +46,14 @@ TEST(InputTriggerTests, HoldTriggerFiresAfterDuration)
 {
     HoldTrigger trigger(0.5f);
 
-    // Hold for less than duration â€?Ongoing
+    // Hold for less than duration Ongoing
     EXPECT_EQ(trigger.Evaluate(true, true, false, 0.016f), TriggerState::Ongoing);
     EXPECT_EQ(trigger.Evaluate(true, false, false, 0.2f), TriggerState::Ongoing);
 
     // Accumulate past threshold: 0.016 + 0.2 + 0.3 = 0.516 >= 0.5
     EXPECT_EQ(trigger.Evaluate(true, false, false, 0.3f), TriggerState::Triggered);
 
-    // Already fired â€?should not fire again while held
+    // Already fired should not fire again while held
     EXPECT_EQ(trigger.Evaluate(true, false, false, 0.1f), TriggerState::None);
 }
 
@@ -79,10 +79,10 @@ TEST(InputTriggerTests, HoldTriggerResetsOnRelease)
     // Hold partway
     trigger.Evaluate(true, true, false, 0.3f);
 
-    // Release â€?resets
+    // Release resets
     EXPECT_EQ(trigger.Evaluate(false, false, true, 0.016f), TriggerState::None);
 
-    // Hold again â€?should need full duration again
+    // Hold again should need full duration again
     EXPECT_EQ(trigger.Evaluate(true, true, false, 0.3f), TriggerState::Ongoing);
     EXPECT_EQ(trigger.Evaluate(true, false, false, 0.3f), TriggerState::Triggered);
 }
@@ -134,7 +134,7 @@ TEST(InputTriggerTests, TapTriggerFailsOnSlowRelease)
     trigger.Evaluate(true, false, false, 0.1f);
     trigger.Evaluate(true, false, false, 0.1f);
 
-    // Release after > 0.2s â€?should NOT trigger
+    // Release after > 0.2s should NOT trigger
     EXPECT_EQ(trigger.Evaluate(false, false, true, 0.016f), TriggerState::None);
 }
 
@@ -145,7 +145,7 @@ TEST(InputTriggerTests, TapTriggerTimesOutWhileHeld)
     // Press
     trigger.Evaluate(true, true, false, 0.016f);
 
-    // Exceed max duration while still held â€?window expires
+    // Exceed max duration while still held window expires
     EXPECT_EQ(trigger.Evaluate(true, false, false, 0.25f), TriggerState::None);
 }
 

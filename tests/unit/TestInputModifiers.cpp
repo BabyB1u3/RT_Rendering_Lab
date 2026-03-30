@@ -80,12 +80,12 @@ TEST(InputModifierTests, SmoothConvergesTowardsTarget)
 {
     Smooth smooth(0.1f);
 
-    // Start from 0, target 1.0 â€?should move toward 1.0 but not reach it instantly
+    // Start from 0, target 1.0 should move toward 1.0 but not reach it instantly
     float result = smooth.Apply(1.0f, 0.016f);
     EXPECT_GT(result, 0.0f);
     EXPECT_LT(result, 1.0f);
 
-    // Apply many times â€?should converge close to 1.0
+    // Apply many times should converge close to 1.0
     for (int i = 0; i < 100; ++i)
         result = smooth.Apply(1.0f, 0.016f);
     EXPECT_NEAR(result, 1.0f, 0.01f);
@@ -151,7 +151,7 @@ TEST(InputModifierTests, SmoothWithZeroDtPassesThroughUnchanged)
 
 TEST(InputModifierTests, ModifierChainAppliesInOrder)
 {
-    // DeadZone(0.05) â†?Sensitivity(3.0) â†?Clamp(-1, 1)
+    // DeadZone(0.05) Sensitivity(3.0) Clamp(-1, 1)
     std::vector<std::unique_ptr<InputModifier>> chain;
     chain.push_back(std::make_unique<DeadZone>(0.05f));
     chain.push_back(std::make_unique<Sensitivity>(3.0f));
