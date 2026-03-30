@@ -24,12 +24,12 @@
 #include <utility>
 
 #include "core/Base.h"
-#include "core/input/InputDevice.h"
-#include "core/input/GamepadCode.h"
-#include "core/input/KeyboardDevice.h"
-#include "core/input/KeyCode.h"
-#include "core/input/MouseCode.h"
-#include "core/input/MouseDevice.h"
+#include "core/input/device/InputDevice.h"
+#include "core/input/code/GamepadCode.h"
+#include "core/input/device/KeyboardDevice.h"
+#include "core/input/code/KeyCode.h"
+#include "core/input/code/MouseCode.h"
+#include "core/input/device/MouseDevice.h"
 
 class EventBus;
 class GamepadDevice;
@@ -132,12 +132,6 @@ public:
     static void SetMouseCaptured(bool captured);
     static bool IsKeyboardCaptured();
     static bool IsMouseCaptured();
-
-    // --- Backwards-compatible aliases ---
-    /// @deprecated Use IsKeyDown() instead.
-    static bool IsKeyPressed(Key::Code key) { return IsKeyDown(key); }
-    /// @deprecated Use IsMouseButtonDown() instead.
-    static bool IsMouseButtonPressed(Mouse::Code button) { return IsMouseButtonDown(button); }
 
 private:
     friend struct test_support::InputTestAccess;

@@ -1,4 +1,4 @@
-#include "core/input/KeyboardDevice.h"
+#include "core/input/device/KeyboardDevice.h"
 
 #include <GLFW/glfw3.h>
 

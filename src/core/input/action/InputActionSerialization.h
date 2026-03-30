@@ -16,15 +16,15 @@
 #include "core/serialization/BuiltinTraits.h"
 #include "core/diagnostics/LogCategories.h"
 #include "core/diagnostics/LogMacros.h"
-#include "core/input/InputAction.h"
-#include "core/input/InputNames.h"
+#include "core/input/action/InputAction.h"
+#include "core/input/code/InputNames.h"
 
 namespace Serialization
 {
 
-    // ═════════════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════════�?
     // InputSource
-    // ═════════════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════════�?
 
     inline void Serialize(PropertyTree &tree, const InputSource &src)
     {
@@ -95,9 +95,9 @@ namespace Serialization
         return true;
     }
 
-    // ═════════════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════════�?
     // InputActionMap
-    // ═════════════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════════�?
 
     inline void Serialize(PropertyTree &tree, const InputActionMap &map)
     {

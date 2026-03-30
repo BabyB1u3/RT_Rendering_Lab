@@ -13,11 +13,11 @@
 #include <unordered_map>
 #include <vector>
 #include "core/Base.h"
-#include "core/input/GamepadCode.h"
-#include "core/input/KeyCode.h"
-#include "core/input/MouseCode.h"
-#include "core/input/InputModifier.h"
-#include "core/input/InputTrigger.h"
+#include "core/input/code/GamepadCode.h"
+#include "core/input/code/KeyCode.h"
+#include "core/input/code/MouseCode.h"
+#include "core/input/action/InputModifier.h"
+#include "core/input/action/InputTrigger.h"
 
 /// An InputSource can be a key, mouse button, gamepad button, or gamepad axis.
 struct InputSource

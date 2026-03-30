@@ -3,7 +3,7 @@
 #include <memory>
 #include <string>
 
-#include "core/input/InputAction.h"
+#include "core/input/action/InputAction.h"
 
 namespace test_support
 {

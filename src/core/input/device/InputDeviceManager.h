@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "core/Base.h"
-#include "core/input/InputDevice.h"
+#include "core/input/device/InputDevice.h"
 
 class EventBus;
 

@@ -1,4 +1,4 @@
-#include "core/input/GamepadDevice.h"
+#include "core/input/device/GamepadDevice.h"
 
 #include <GLFW/glfw3.h>
 

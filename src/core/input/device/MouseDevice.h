@@ -2,7 +2,7 @@
 
 #include <array>
 
-#include "core/input/InputDevice.h"
+#include "core/input/device/InputDevice.h"
 
 struct GLFWwindow;
 

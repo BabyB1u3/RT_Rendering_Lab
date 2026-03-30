@@ -1,7 +1,7 @@
-#include "core/input/InputAction.h"
+#include "core/input/action/InputAction.h"
 #include "core/input/Input.h"
-#include "core/input/InputDeviceManager.h"
-#include "core/input/MouseDevice.h"
+#include "core/input/device/InputDeviceManager.h"
+#include "core/input/device/MouseDevice.h"
 
 namespace
 {

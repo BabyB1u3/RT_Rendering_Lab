@@ -5,9 +5,9 @@
 ///        Used by InputActionMap serialization.
 
 #include <string>
-#include "core/input/GamepadCode.h"
-#include "core/input/KeyCode.h"
-#include "core/input/MouseCode.h"
+#include "core/input/code/GamepadCode.h"
+#include "core/input/code/KeyCode.h"
+#include "core/input/code/MouseCode.h"
 
 namespace Key
 {
