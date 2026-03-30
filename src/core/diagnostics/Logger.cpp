@@ -111,6 +111,7 @@ namespace Diagnostics
         s_JsonFilePath.clear();
         s_ConsoleSink.reset();
         s_Sinks.clear();
+        s_GlobalLevel = spdlog::level::trace;
         g_LogFilePath.clear();
         g_Initialized = false;
     }
@@ -197,42 +198,85 @@ namespace Diagnostics
 
     void Logger::EnableJsonSink(const std::filesystem::path &filePath)
     {
-        std::lock_guard<std::mutex> lock(g_LoggerMutex);
-        if (!g_Initialized || !s_JsonSink)
-            return;
+        Ref<JsonLineSink> jsonSink;
+        std::filesystem::path resolvedPath;
+        uint64_t controlGeneration = 0;
+        bool shouldLogFailure = false;
 
-        const auto resolvedPath = filePath.empty() ? DeriveJsonLogPath(g_LogFilePath) : filePath;
-        if (resolvedPath.empty())
-            return;
-
-        if (s_JsonSinkEnabled)
         {
-            if (s_JsonFilePath == resolvedPath)
+            std::lock_guard<std::mutex> lock(g_LoggerMutex);
+            if (!g_Initialized || !s_JsonSink)
                 return;
 
-            s_JsonSink->RequestReopen(resolvedPath);
-            spdlog::apply_all([](const std::shared_ptr<spdlog::logger> &logger)
-                              { logger->flush(); });
-            s_JsonFilePath = resolvedPath;
-            return;
+            resolvedPath = filePath.empty() ? DeriveJsonLogPath(g_LogFilePath) : filePath;
+            if (resolvedPath.empty())
+                return;
+
+            jsonSink = s_JsonSink;
+
+            if (s_JsonSinkEnabled)
+            {
+                if (s_JsonFilePath == resolvedPath)
+                    return;
+
+                controlGeneration = s_JsonSink->RequestReopen(resolvedPath);
+                spdlog::apply_all([](const std::shared_ptr<spdlog::logger> &logger)
+                                  { logger->flush(); });
+            }
+            else
+            {
+                s_JsonSinkEnabled = s_JsonSink->Enable(resolvedPath);
+                s_JsonFilePath = s_JsonSinkEnabled ? resolvedPath : std::filesystem::path{};
+                shouldLogFailure = !s_JsonSinkEnabled;
+            }
         }
 
-        s_JsonSink->Enable(resolvedPath);
-        s_JsonSinkEnabled = true;
-        s_JsonFilePath = resolvedPath;
+        if (controlGeneration != 0 && jsonSink)
+        {
+            jsonSink->WaitForControl(controlGeneration);
+
+            std::lock_guard<std::mutex> lock(g_LoggerMutex);
+            if (s_JsonSink == jsonSink)
+            {
+                s_JsonSinkEnabled = s_JsonSink->IsEnabled();
+                s_JsonFilePath = s_JsonSinkEnabled ? resolvedPath : std::filesystem::path{};
+                shouldLogFailure = !s_JsonSinkEnabled;
+            }
+        }
+
+        if (shouldLogFailure)
+        {
+            if (auto logger = Logger::GetLogger(LogCategory::Error))
+                logger->error("Failed to enable JSON log sink at '{}'", resolvedPath.string());
+        }
     }
 
     void Logger::DisableJsonSink()
     {
-        std::lock_guard<std::mutex> lock(g_LoggerMutex);
-        if (!s_JsonSink || !s_JsonSinkEnabled)
-            return;
+        Ref<JsonLineSink> jsonSink;
+        uint64_t controlGeneration = 0;
 
-        s_JsonSink->RequestDisable();
-        spdlog::apply_all([](const std::shared_ptr<spdlog::logger> &logger)
-                          { logger->flush(); });
-        s_JsonSinkEnabled = false;
-        s_JsonFilePath.clear();
+        {
+            std::lock_guard<std::mutex> lock(g_LoggerMutex);
+            if (!s_JsonSink || !s_JsonSinkEnabled)
+                return;
+
+            jsonSink = s_JsonSink;
+            controlGeneration = s_JsonSink->RequestDisable();
+            spdlog::apply_all([](const std::shared_ptr<spdlog::logger> &logger)
+                              { logger->flush(); });
+        }
+
+        if (controlGeneration != 0 && jsonSink)
+            jsonSink->WaitForControl(controlGeneration);
+
+        std::lock_guard<std::mutex> lock(g_LoggerMutex);
+        if (s_JsonSink == jsonSink)
+        {
+            s_JsonSinkEnabled = s_JsonSink->IsEnabled();
+            if (!s_JsonSinkEnabled)
+                s_JsonFilePath.clear();
+        }
     }
 
     double GetMonotonicSeconds()

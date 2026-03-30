@@ -12,46 +12,68 @@ namespace Diagnostics
 
     namespace
     {
-        void OpenJsonFile(std::ofstream &file, const std::filesystem::path &filePath)
+        bool OpenJsonFile(std::ofstream &file, const std::filesystem::path &filePath)
         {
-            std::filesystem::create_directories(filePath.parent_path());
+            if (filePath.has_parent_path())
+            {
+                std::error_code ec;
+                std::filesystem::create_directories(filePath.parent_path(), ec);
+                if (ec)
+                    return false;
+            }
+
             file.open(filePath, std::ios::out | std::ios::app);
+            return file.is_open();
         }
     }
 
-    void JsonLineSink::Enable(const std::filesystem::path &filePath)
+    bool JsonLineSink::Enable(const std::filesystem::path &filePath)
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (m_File.is_open())
-            return;
-        OpenJsonFile(m_File, filePath);
+            return true;
+
+        if (!OpenJsonFile(m_File, filePath))
+            return false;
+
         m_DisableWhenFlushed = false;
         m_PendingReopenPath.reset();
+        m_PendingControlGeneration = 0;
+        return true;
     }
 
-    void JsonLineSink::RequestDisable()
+    uint64_t JsonLineSink::RequestDisable()
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (m_File.is_open())
         {
             m_DisableWhenFlushed = true;
             m_PendingReopenPath.reset();
+            m_PendingControlGeneration = m_NextControlGeneration++;
+            return m_PendingControlGeneration;
         }
+
+        return 0;
     }
 
-    void JsonLineSink::RequestReopen(const std::filesystem::path &filePath)
+    uint64_t JsonLineSink::RequestReopen(const std::filesystem::path &filePath)
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (!m_File.is_open())
         {
-            OpenJsonFile(m_File, filePath);
+            if (!OpenJsonFile(m_File, filePath))
+                return 0;
+
             m_DisableWhenFlushed = false;
             m_PendingReopenPath.reset();
-            return;
+            m_PendingControlGeneration = 0;
+            return 0;
         }
 
         m_DisableWhenFlushed = true;
         m_PendingReopenPath = filePath;
+        m_PendingControlGeneration = m_NextControlGeneration++;
+        return m_PendingControlGeneration;
     }
 
     void JsonLineSink::Disable()
@@ -64,11 +86,28 @@ namespace Diagnostics
         }
         m_DisableWhenFlushed = false;
         m_PendingReopenPath.reset();
+        if (m_PendingControlGeneration != 0)
+        {
+            m_CompletedControlGeneration = m_PendingControlGeneration;
+            m_PendingControlGeneration = 0;
+            m_ControlCv.notify_all();
+        }
     }
 
-    bool JsonLineSink::IsEnabled() const
+    bool JsonLineSink::IsEnabled()
     {
+        std::lock_guard<std::mutex> lock(mutex_);
         return m_File.is_open();
+    }
+
+    bool JsonLineSink::WaitForControl(uint64_t generation, std::chrono::milliseconds timeout)
+    {
+        if (generation == 0)
+            return true;
+
+        std::unique_lock<std::mutex> lock(mutex_);
+        return m_ControlCv.wait_for(lock, timeout, [this, generation]()
+                                    { return m_CompletedControlGeneration >= generation; });
     }
 
     /// Escapes a string for safe embedding in a JSON value.
@@ -165,6 +204,13 @@ namespace Diagnostics
                     m_PendingReopenPath.reset();
                 }
             }
+        }
+
+        if (m_PendingControlGeneration != 0)
+        {
+            m_CompletedControlGeneration = m_PendingControlGeneration;
+            m_PendingControlGeneration = 0;
+            m_ControlCv.notify_all();
         }
     }
 
