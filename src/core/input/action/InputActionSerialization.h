@@ -11,20 +11,20 @@
 ///   }
 ///
 /// InputSource::Type and MouseAxis use magic_enum for token conversion.
-/// Key::Code and Mouse::Code continue to use InputNames.h for stable canonical names.
+/// Key/Mouse/Gamepad codes continue to use InputNames.h for stable canonical names.
 
 #include "core/serialization/BuiltinTraits.h"
 #include "core/diagnostics/LogCategories.h"
 #include "core/diagnostics/LogMacros.h"
-#include "core/input/InputAction.h"
-#include "core/input/InputNames.h"
+#include "core/input/action/InputAction.h"
+#include "core/input/code/InputNames.h"
 
 namespace Serialization
 {
 
-    // ═════════════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════════�?
     // InputSource
-    // ═════════════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════════�?
 
     inline void Serialize(PropertyTree &tree, const InputSource &src)
     {
@@ -37,6 +37,10 @@ namespace Serialization
         // Code uses InputNames.h for stable names
         if (src.SourceType == InputSource::Type::MouseButton)
             tree["code"] = PropertyTree(Mouse::ToName(static_cast<Mouse::Code>(src.Code)));
+        else if (src.SourceType == InputSource::Type::GamepadButton)
+            tree["code"] = PropertyTree(GamepadButton::ToName(static_cast<GamepadButton::Code>(src.Code)));
+        else if (src.SourceType == InputSource::Type::GamepadAxis)
+            tree["code"] = PropertyTree(GamepadAxis::ToName(static_cast<GamepadAxis::Code>(src.Code)));
         else
             tree["code"] = PropertyTree(Key::ToName(static_cast<Key::Code>(src.Code)));
 
@@ -66,6 +70,18 @@ namespace Serialization
             if (code == Mouse::InvalidCode)
                 return false;
         }
+        else if (type == InputSource::Type::GamepadButton)
+        {
+            code = GamepadButton::FromName(codeName);
+            if (code == GamepadButton::InvalidCode)
+                return false;
+        }
+        else if (type == InputSource::Type::GamepadAxis)
+        {
+            code = GamepadAxis::FromName(codeName);
+            if (code == GamepadAxis::InvalidCode)
+                return false;
+        }
         else
         {
             code = Key::FromName(codeName);
@@ -79,9 +95,9 @@ namespace Serialization
         return true;
     }
 
-    // ═════════════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════════�?
     // InputActionMap
-    // ═════════════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════════�?
 
     inline void Serialize(PropertyTree &tree, const InputActionMap &map)
     {
@@ -110,12 +126,19 @@ namespace Serialization
                 axisObj["negative"] = PropertyTree(
                     Key::ToName(static_cast<Key::Code>(entry.keyPair.Negative.Code)));
             }
-            else
+            else if (entry.kind == InputActionMap::AxisEntry::Kind::MouseAxis)
             {
                 axisObj["kind"] = PropertyTree("MouseAxis");
                 PropertyTree mouseAxisTree;
                 Serialize(mouseAxisTree, entry.mouseAxis);
                 axisObj["mouseAxis"] = std::move(mouseAxisTree);
+            }
+            else
+            {
+                axisObj["kind"] = PropertyTree("GamepadAxis");
+                axisObj["gamepadAxis"] = PropertyTree(GamepadAxis::ToName(entry.gamepadAxis));
+                if (entry.deviceIndex != 0)
+                    axisObj["device"] = PropertyTree(static_cast<int>(entry.deviceIndex));
             }
             axesTree[name] = std::move(axisObj);
         }
@@ -200,6 +223,22 @@ namespace Serialization
                     if (axisObj.Contains("mouseAxis"))
                         Deserialize(axisObj["mouseAxis"], mouseAxis);
                     temp.BindAxis(name, mouseAxis);
+                }
+                else if (kindStr == "GamepadAxis")
+                {
+                    std::string axisName;
+                    if (axisObj.Contains("gamepadAxis"))
+                        Deserialize(axisObj["gamepadAxis"], axisName);
+
+                    const auto axisCode = GamepadAxis::FromName(axisName);
+                    if (axisCode == GamepadAxis::InvalidCode)
+                    {
+                        LOG_WARN_CAT(LogCategory::Input, "InputActionMap: invalid GamepadAxis '{}' for '{}'",
+                                     axisName, name);
+                        continue;
+                    }
+
+                    temp.BindAxis(name, axisCode, static_cast<uint8_t>(axisObj.GetOr<int>("device", 0)));
                 }
                 else
                 {

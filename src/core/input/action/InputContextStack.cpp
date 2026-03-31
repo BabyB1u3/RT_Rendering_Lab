@@ -1,5 +1,5 @@
-#include "core/input/InputContextStack.h"
-#include "core/input/InputAction.h"
+#include "core/input/action/InputContextStack.h"
+#include "core/input/action/InputAction.h"
 
 #include <algorithm>
 
@@ -50,7 +50,12 @@ void InputContextStack::Pop(const std::string &name)
                            [&](const InputContext &c)
                            { return c.Name == name; });
     if (it != m_Contexts.end())
+    {
+        if (it->ActionMap != nullptr)
+            it->ActionMap->ResetRuntimeState();
+
         m_Contexts.erase(it);
+    }
 }
 
 void InputContextStack::SetActive(const std::string &name, bool active)

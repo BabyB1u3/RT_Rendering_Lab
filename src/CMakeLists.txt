@@ -8,9 +8,13 @@ set(GLAB_CORE_SOURCES
     core/app/LayerStack.cpp
 
     core/input/Input.cpp
-    core/input/InputAction.cpp
-    core/input/InputContextStack.cpp
-    core/input/InputNames.cpp
+    core/input/action/InputAction.cpp
+    core/input/action/InputContextStack.cpp
+    core/input/device/InputDeviceManager.cpp
+    core/input/device/KeyboardDevice.cpp
+    core/input/device/MouseDevice.cpp
+    core/input/device/GamepadDevice.cpp
+    core/input/code/InputNames.cpp
 
     core/diagnostics/Assert.cpp
     core/diagnostics/CrashHandler.cpp
@@ -52,13 +56,20 @@ set(GLAB_CORE_HEADERS
     core/event/ScopedConnection.h
     
     core/input/Input.h
-    core/input/InputAction.h
-    core/input/InputContextStack.h
-    core/input/InputModifier.h
-    core/input/InputTrigger.h
-    core/input/KeyCode.h
-    core/input/MouseCode.h
-    core/input/InputActionSerialization.h
+    core/input/action/InputAction.h
+    core/input/action/InputContextStack.h
+    core/input/device/InputDevice.h
+    core/input/device/InputDeviceManager.h
+    core/input/device/KeyboardDevice.h
+    core/input/device/MouseDevice.h
+    core/input/code/GamepadCode.h
+    core/input/device/GamepadDevice.h
+    core/input/action/InputModifier.h
+    core/input/action/InputTrigger.h
+    core/input/code/KeyCode.h
+    core/input/code/MouseCode.h
+    core/input/action/InputActionSerialization.h
+    core/input/code/InputNames.h
 
     core/diagnostics/Assert.h
     core/diagnostics/Callstack.h

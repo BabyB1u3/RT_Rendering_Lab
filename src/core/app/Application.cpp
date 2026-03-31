@@ -49,6 +49,7 @@ Application::Application(const ApplicationSpecification &spec)
     m_Window->SetEventBus(&m_EventBus);
 
     Input::Initialize(m_Window->GetNativeHandle());
+    Input::SetEventBus(&m_EventBus);
     Time::Reset();
 
     s_Instance = this;

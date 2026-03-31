@@ -9,16 +9,17 @@
 ///
 /// Each demo/layer owns its own InputActionMap instance with its own bindings.
 
-#include <memory>
 #include <string>
-#include <vector>
 #include <unordered_map>
-#include "core/input/KeyCode.h"
-#include "core/input/MouseCode.h"
-#include "core/input/InputModifier.h"
-#include "core/input/InputTrigger.h"
+#include <vector>
+#include "core/Base.h"
+#include "core/input/code/GamepadCode.h"
+#include "core/input/code/KeyCode.h"
+#include "core/input/code/MouseCode.h"
+#include "core/input/action/InputModifier.h"
+#include "core/input/action/InputTrigger.h"
 
-/// An InputSource can be a key, mouse button, or (future) gamepad button.
+/// An InputSource can be a key, mouse button, gamepad button, or gamepad axis.
 struct InputSource
 {
     enum class Type : uint8_t
@@ -41,6 +42,16 @@ struct InputSource
     static InputSource FromMouseButton(Mouse::Code button)
     {
         return {Type::MouseButton, button, 0};
+    }
+
+    static InputSource FromGamepadButton(GamepadButton::Code button, uint8_t deviceIndex = 0)
+    {
+        return {Type::GamepadButton, button, deviceIndex};
+    }
+
+    static InputSource FromGamepadAxis(GamepadAxis::Code axis, uint8_t deviceIndex = 0)
+    {
+        return {Type::GamepadAxis, axis, deviceIndex};
     }
 };
 
@@ -76,6 +87,9 @@ public:
     };
     void BindAxis(const std::string &name, MouseAxis mouseAxis);
 
+    /// Bind a 1D axis directly to a gamepad axis.
+    void BindAxis(const std::string &name, GamepadAxis::Code gamepadAxis, uint8_t deviceIndex = 0);
+
     /// Remove all bindings for a given action or axis name.
     void Unbind(const std::string &name);
 
@@ -91,11 +105,11 @@ public:
     // --- Modifiers & Triggers ---
 
     /// Add a modifier to an axis. Modifiers are applied in insertion order.
-    void AddModifier(const std::string &axisName, std::unique_ptr<InputModifier> modifier);
+    void AddModifier(const std::string &axisName, Scope<InputModifier> modifier);
 
     /// Set the trigger for an action. Replaces any existing trigger.
     /// Pass nullptr to revert to default (pressed) behavior.
-    void SetTrigger(const std::string &actionName, std::unique_ptr<InputTrigger> trigger);
+    void SetTrigger(const std::string &actionName, Scope<InputTrigger> trigger);
 
     /// Per-frame update: applies axis modifiers and advances trigger state machines.
     /// Must be called once per frame if modifiers or triggers are in use.
@@ -135,11 +149,14 @@ public:
         enum class Kind
         {
             KeyPair,
-            MouseAxis
+            MouseAxis,
+            GamepadAxis
         };
         Kind kind;
         AxisBinding keyPair; // used when kind == KeyPair
         MouseAxis mouseAxis; // used when kind == MouseAxis
+        GamepadAxis::Code gamepadAxis = GamepadAxis::LeftX;
+        uint8_t deviceIndex = 0;
     };
 
     // --- Read access for serialization ---
@@ -165,10 +182,10 @@ private:
     std::unordered_map<std::string, AxisEntry> m_Axes;
 
     // Axis name -> ordered modifier chain
-    std::unordered_map<std::string, std::vector<std::unique_ptr<InputModifier>>> m_Modifiers;
+    std::unordered_map<std::string, std::vector<Scope<InputModifier>>> m_Modifiers;
 
     // Action name -> trigger (nullptr = default pressed behavior)
-    std::unordered_map<std::string, std::unique_ptr<InputTrigger>> m_Triggers;
+    std::unordered_map<std::string, Scope<InputTrigger>> m_Triggers;
 
     // Cached trigger states, updated by Update()
     std::unordered_map<std::string, TriggerState> m_TriggerStates;

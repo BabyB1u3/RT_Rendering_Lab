@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include "core/input/InputContextStack.h"
-#include "core/input/InputAction.h"
+#include "core/input/action/InputContextStack.h"
+#include "core/input/action/InputAction.h"
 #include "InputActionTestSupport.h"
 
 namespace
@@ -57,6 +57,26 @@ TEST(InputContextStackTests, PopRemovesContextByName)
     EXPECT_EQ(stack.Size(), 1u);
     EXPECT_FALSE(stack.HasContext("A"));
     EXPECT_TRUE(stack.HasContext("B"));
+}
+
+TEST(InputContextStackTests, PopResetsRuntimeStateBeforeRemovingContext)
+{
+    InputContextStack stack;
+    InputActionMap map;
+    int resetCount = 0;
+
+    BindConstantTrigger(map, "Confirm", TriggerState::Triggered, &resetCount);
+    stack.Push("Menu", &map, 100);
+    stack.Update(0.016f);
+
+    ASSERT_TRUE(map.WasActionTriggeredThisFrame("Confirm"));
+
+    stack.Pop("Menu");
+
+    EXPECT_EQ(resetCount, 1);
+    EXPECT_FALSE(map.WasActionTriggeredThisFrame("Confirm"));
+    EXPECT_EQ(map.GetActionTriggerState("Confirm"), TriggerState::None);
+    EXPECT_FALSE(stack.HasContext("Menu"));
 }
 
 TEST(InputContextStackTests, PopNonexistentNameIsNoOp)

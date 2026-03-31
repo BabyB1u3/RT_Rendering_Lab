@@ -1,5 +1,17 @@
-#include "core/input/InputAction.h"
+#include "core/input/action/InputAction.h"
 #include "core/input/Input.h"
+#include "core/input/device/InputDeviceManager.h"
+#include "core/input/device/MouseDevice.h"
+
+namespace
+{
+    constexpr float kAxisPressThreshold = 0.5f;
+
+    bool IsActive(float value)
+    {
+        return value > kAxisPressThreshold || value < -kAxisPressThreshold;
+    }
+}
 
 // --- Registration ---
 
@@ -27,6 +39,15 @@ void InputActionMap::BindAxis(const std::string &name, MouseAxis mouseAxis)
     AxisEntry entry{};
     entry.kind = AxisEntry::Kind::MouseAxis;
     entry.mouseAxis = mouseAxis;
+    m_Axes[name] = entry;
+}
+
+void InputActionMap::BindAxis(const std::string &name, GamepadAxis::Code gamepadAxis, uint8_t deviceIndex)
+{
+    AxisEntry entry{};
+    entry.kind = AxisEntry::Kind::GamepadAxis;
+    entry.gamepadAxis = gamepadAxis;
+    entry.deviceIndex = deviceIndex;
     m_Axes[name] = entry;
 }
 
@@ -60,12 +81,12 @@ bool InputActionMap::HasAxis(const std::string &name) const
     return m_Axes.find(name) != m_Axes.end();
 }
 
-void InputActionMap::AddModifier(const std::string &axisName, std::unique_ptr<InputModifier> modifier)
+void InputActionMap::AddModifier(const std::string &axisName, Scope<InputModifier> modifier)
 {
     m_Modifiers[axisName].push_back(std::move(modifier));
 }
 
-void InputActionMap::SetTrigger(const std::string &actionName, std::unique_ptr<InputTrigger> trigger)
+void InputActionMap::SetTrigger(const std::string &actionName, Scope<InputTrigger> trigger)
 {
     if (trigger)
     {
@@ -233,36 +254,61 @@ float InputActionMap::ComputeRawAxis(const AxisEntry &entry) const
         return value;
     }
 
-    // MouseAxis
-    switch (entry.mouseAxis)
+    if (entry.kind == AxisEntry::Kind::MouseAxis)
     {
-    case MouseAxis::X:
-    {
-        auto [dx, dy] = Input::GetMouseDelta();
-        return dx;
-    }
-    case MouseAxis::Y:
-    {
-        auto [dx, dy] = Input::GetMouseDelta();
-        return dy;
-    }
-    case MouseAxis::ScrollY:
-        return Input::GetScrollDelta();
+        switch (entry.mouseAxis)
+        {
+        case MouseAxis::X:
+            return Input::GetMouseDelta().first;
+        case MouseAxis::Y:
+            return Input::GetMouseDelta().second;
+        case MouseAxis::ScrollY:
+            return Input::GetScrollDelta();
+        }
     }
 
-    return 0.0f;
+    const auto *manager = Input::TryGetDeviceManager();
+    if (!manager)
+        return 0.0f;
+
+    const auto *device = manager->GetDevice(InputDevice::Type::Gamepad, entry.deviceIndex);
+    return device ? device->GetAxis(entry.gamepadAxis).X : 0.0f;
 }
 
 // --- Source helpers ---
 
 bool InputActionMap::IsSourceDown(const InputSource &source)
 {
+    const auto *manager = Input::TryGetDeviceManager();
+    if (!manager)
+        return false;
+
     switch (source.SourceType)
     {
     case InputSource::Type::Key:
-        return Input::IsKeyDown(static_cast<Key::Code>(source.Code));
+    {
+        if (Input::IsKeyboardCaptured())
+            return false;
+        const auto *device = manager->GetDevice(InputDevice::Type::Keyboard);
+        return device && device->GetInput(source.Code).X > 0.5f;
+    }
     case InputSource::Type::MouseButton:
-        return Input::IsMouseButtonDown(static_cast<Mouse::Code>(source.Code));
+    {
+        if (Input::IsMouseCaptured())
+            return false;
+        const auto *device = manager->GetDevice(InputDevice::Type::Mouse);
+        return device && device->GetInput(source.Code).X > 0.5f;
+    }
+    case InputSource::Type::GamepadButton:
+    {
+        const auto *device = manager->GetDevice(InputDevice::Type::Gamepad, source.DeviceIndex);
+        return device && device->GetInput(source.Code).X > 0.5f;
+    }
+    case InputSource::Type::GamepadAxis:
+    {
+        const auto *device = manager->GetDevice(InputDevice::Type::Gamepad, source.DeviceIndex);
+        return device && IsActive(device->GetAxis(source.Code).X);
+    }
     default:
         return false;
     }
@@ -270,12 +316,39 @@ bool InputActionMap::IsSourceDown(const InputSource &source)
 
 bool InputActionMap::WasSourcePressedThisFrame(const InputSource &source)
 {
+    const auto *manager = Input::TryGetDeviceManager();
+    if (!manager)
+        return false;
+
     switch (source.SourceType)
     {
     case InputSource::Type::Key:
-        return Input::WasKeyPressedThisFrame(static_cast<Key::Code>(source.Code));
+    {
+        if (Input::IsKeyboardCaptured())
+            return false;
+        const auto *device = manager->GetDevice(InputDevice::Type::Keyboard);
+        return device && device->GetInput(source.Code).X > 0.5f && device->GetPreviousInput(source.Code).X <= 0.5f;
+    }
     case InputSource::Type::MouseButton:
-        return Input::WasMouseButtonPressedThisFrame(static_cast<Mouse::Code>(source.Code));
+    {
+        if (Input::IsMouseCaptured())
+            return false;
+        const auto *device = manager->GetDevice(InputDevice::Type::Mouse);
+        return device && device->GetInput(source.Code).X > 0.5f && device->GetPreviousInput(source.Code).X <= 0.5f;
+    }
+    case InputSource::Type::GamepadButton:
+    {
+        const auto *device = manager->GetDevice(InputDevice::Type::Gamepad, source.DeviceIndex);
+        return device && device->GetInput(source.Code).X > 0.5f && device->GetPreviousInput(source.Code).X <= 0.5f;
+    }
+    case InputSource::Type::GamepadAxis:
+    {
+        const auto *device = manager->GetDevice(InputDevice::Type::Gamepad, source.DeviceIndex);
+        if (!device)
+            return false;
+
+        return IsActive(device->GetAxis(source.Code).X) && !IsActive(device->GetPreviousAxis(source.Code).X);
+    }
     default:
         return false;
     }
@@ -283,12 +356,39 @@ bool InputActionMap::WasSourcePressedThisFrame(const InputSource &source)
 
 bool InputActionMap::WasSourceReleasedThisFrame(const InputSource &source)
 {
+    const auto *manager = Input::TryGetDeviceManager();
+    if (!manager)
+        return false;
+
     switch (source.SourceType)
     {
     case InputSource::Type::Key:
-        return Input::WasKeyReleasedThisFrame(static_cast<Key::Code>(source.Code));
+    {
+        if (Input::IsKeyboardCaptured())
+            return false;
+        const auto *device = manager->GetDevice(InputDevice::Type::Keyboard);
+        return device && device->GetInput(source.Code).X <= 0.5f && device->GetPreviousInput(source.Code).X > 0.5f;
+    }
     case InputSource::Type::MouseButton:
-        return Input::WasMouseButtonReleasedThisFrame(static_cast<Mouse::Code>(source.Code));
+    {
+        if (Input::IsMouseCaptured())
+            return false;
+        const auto *device = manager->GetDevice(InputDevice::Type::Mouse);
+        return device && device->GetInput(source.Code).X <= 0.5f && device->GetPreviousInput(source.Code).X > 0.5f;
+    }
+    case InputSource::Type::GamepadButton:
+    {
+        const auto *device = manager->GetDevice(InputDevice::Type::Gamepad, source.DeviceIndex);
+        return device && device->GetInput(source.Code).X <= 0.5f && device->GetPreviousInput(source.Code).X > 0.5f;
+    }
+    case InputSource::Type::GamepadAxis:
+    {
+        const auto *device = manager->GetDevice(InputDevice::Type::Gamepad, source.DeviceIndex);
+        if (!device)
+            return false;
+
+        return !IsActive(device->GetAxis(source.Code).X) && IsActive(device->GetPreviousAxis(source.Code).X);
+    }
     default:
         return false;
     }

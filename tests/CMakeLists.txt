@@ -41,6 +41,7 @@ add_executable(rtrlab_unit_tests
     unit/TestSpecifications.cpp
     unit/TestInputModifiers.cpp
     unit/TestInputTriggers.cpp
+    unit/TestInputDeviceManager.cpp
     unit/TestInputContextStack.cpp
     unit/TestInput.cpp
     unit/TestInputAction.cpp

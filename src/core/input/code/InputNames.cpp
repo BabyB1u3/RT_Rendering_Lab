@@ -1,4 +1,4 @@
-#include "core/input/InputNames.h"
+#include "core/input/code/InputNames.h"
 
 #include <unordered_map>
 
@@ -196,6 +196,131 @@ const std::string &Mouse::ToName(Code code)
 Mouse::Code Mouse::FromName(const std::string &name)
 {
     const auto &map = GetMouseNameToCode();
+    auto it = map.find(name);
+    return it != map.end() ? it->second : InvalidCode;
+}
+
+// ---------------------------------------------------------------------------
+// Gamepad button name tables
+// ---------------------------------------------------------------------------
+
+namespace
+{
+    struct GamepadButtonNameEntry
+    {
+        GamepadButton::Code code;
+        const char *name;
+    };
+
+    constexpr GamepadButtonNameEntry g_GamepadButtonTable[] = {
+        {GamepadButton::A, "A"},
+        {GamepadButton::B, "B"},
+        {GamepadButton::X, "X"},
+        {GamepadButton::Y, "Y"},
+        {GamepadButton::LeftBumper, "LeftBumper"},
+        {GamepadButton::RightBumper, "RightBumper"},
+        {GamepadButton::Back, "Back"},
+        {GamepadButton::Start, "Start"},
+        {GamepadButton::Guide, "Guide"},
+        {GamepadButton::LeftThumb, "LeftThumb"},
+        {GamepadButton::RightThumb, "RightThumb"},
+        {GamepadButton::DPadUp, "DPadUp"},
+        {GamepadButton::DPadRight, "DPadRight"},
+        {GamepadButton::DPadDown, "DPadDown"},
+        {GamepadButton::DPadLeft, "DPadLeft"},
+    };
+
+    const std::unordered_map<GamepadButton::Code, std::string> &GetCodeToGamepadButtonName()
+    {
+        static std::unordered_map<GamepadButton::Code, std::string> map;
+        if (map.empty())
+        {
+            for (const auto &entry : g_GamepadButtonTable)
+                map[entry.code] = entry.name;
+        }
+        return map;
+    }
+
+    const std::unordered_map<std::string, GamepadButton::Code> &GetGamepadButtonNameToCode()
+    {
+        static std::unordered_map<std::string, GamepadButton::Code> map;
+        if (map.empty())
+        {
+            for (const auto &entry : g_GamepadButtonTable)
+                map[entry.name] = entry.code;
+        }
+        return map;
+    }
+}
+
+const std::string &GamepadButton::ToName(Code code)
+{
+    const auto &map = GetCodeToGamepadButtonName();
+    auto it = map.find(code);
+    return it != map.end() ? it->second : g_EmptyString;
+}
+
+GamepadButton::Code GamepadButton::FromName(const std::string &name)
+{
+    const auto &map = GetGamepadButtonNameToCode();
+    auto it = map.find(name);
+    return it != map.end() ? it->second : InvalidCode;
+}
+
+// ---------------------------------------------------------------------------
+// Gamepad axis name tables
+// ---------------------------------------------------------------------------
+
+namespace
+{
+    struct GamepadAxisNameEntry
+    {
+        GamepadAxis::Code code;
+        const char *name;
+    };
+
+    constexpr GamepadAxisNameEntry g_GamepadAxisTable[] = {
+        {GamepadAxis::LeftX, "LeftX"},
+        {GamepadAxis::LeftY, "LeftY"},
+        {GamepadAxis::RightX, "RightX"},
+        {GamepadAxis::RightY, "RightY"},
+        {GamepadAxis::LeftTrigger, "LeftTrigger"},
+        {GamepadAxis::RightTrigger, "RightTrigger"},
+    };
+
+    const std::unordered_map<GamepadAxis::Code, std::string> &GetCodeToGamepadAxisName()
+    {
+        static std::unordered_map<GamepadAxis::Code, std::string> map;
+        if (map.empty())
+        {
+            for (const auto &entry : g_GamepadAxisTable)
+                map[entry.code] = entry.name;
+        }
+        return map;
+    }
+
+    const std::unordered_map<std::string, GamepadAxis::Code> &GetGamepadAxisNameToCode()
+    {
+        static std::unordered_map<std::string, GamepadAxis::Code> map;
+        if (map.empty())
+        {
+            for (const auto &entry : g_GamepadAxisTable)
+                map[entry.name] = entry.code;
+        }
+        return map;
+    }
+}
+
+const std::string &GamepadAxis::ToName(Code code)
+{
+    const auto &map = GetCodeToGamepadAxisName();
+    auto it = map.find(code);
+    return it != map.end() ? it->second : g_EmptyString;
+}
+
+GamepadAxis::Code GamepadAxis::FromName(const std::string &name)
+{
+    const auto &map = GetGamepadAxisNameToCode();
     auto it = map.find(name);
     return it != map.end() ? it->second : InvalidCode;
 }
