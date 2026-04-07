@@ -604,11 +604,156 @@ Add cooked-output mounts and archive mounts without changing public paths.
 
 ---
 
-## 14. Testing Requirements
+## 14. End-to-End Work Checklist
+
+This section turns the design into an implementation checklist.
+
+The intent is that the team can work top-to-bottom and finish the whole module
+without repeatedly redefining scope.
+
+### 14.1 Phase 0 - Design freeze and naming decisions
+
+- [ ] Approve the public logical roots:
+      `/Project/`, `/Engine/`, `/Plugins/<Name>/`, `/Saved/`, `/Cache/`
+- [ ] Decide whether the long-term physical rename is accepted:
+      `assets/ -> Content/`, `saved/ -> Saved/`
+- [ ] Decide whether config defaults move out of content immediately or in a later pass
+- [ ] Freeze the logical path syntax rules:
+      leading `/`, forward slashes only, no `.` / `..`, no raw OS paths in serialized references
+- [ ] Identify all current systems that read or write paths directly:
+      `FileSystem`, diagnostics, ImGui ini, serialization callsites, future asset references
+
+### 14.2 Phase 1 - Core path primitives
+
+- [ ] Add a logical path parser to `FileSystem`
+- [ ] Add mount/domain representation in code
+- [ ] Implement virtual path validation
+- [ ] Implement normalization rules
+- [ ] Reject invalid mount roots and traversal segments
+- [ ] Add unit tests for path parsing and normalization
+
+### 14.3 Phase 2 - Read/write resolution layer
+
+- [ ] Implement `/Project/` read resolution
+- [ ] Implement `/Saved/` write resolution
+- [ ] Implement `/Cache/` write resolution
+- [ ] Add platform-specific shipping mappings for `/Saved/` and `/Cache/`
+- [ ] Add a clear policy for `/Engine/` even if it is initially backed by an empty directory
+- [ ] Add directory creation for writable domains
+- [ ] Add contract tests for read/write domain behavior
+
+### 14.4 Phase 3 - Public FileSystem API migration
+
+- [ ] Add `IsVirtualPath()`
+- [ ] Add `ParseVirtualPath()`
+- [ ] Add `ResolveReadPath()`
+- [ ] Add `ResolveWritePath()`
+- [ ] Add logical-path-based `Exists()`
+- [ ] Add logical-path-based `ReadText()`
+- [ ] Add logical-path-based `ReadBinary()`
+- [ ] Add logical-path-based write helpers
+- [ ] Keep legacy wrappers for `GetAssetPath()` / `GetSavedPath()` temporarily
+- [ ] Mark legacy physical-path helpers as migration-only in comments/docs
+
+### 14.5 Phase 4 - Compatibility bridge for current repository layout
+
+- [ ] Mount current `assets/` as `/Project/`
+- [ ] Mount current `saved/` as `/Saved/`
+- [ ] Keep current startup root discovery working during migration
+- [ ] Rewrite `ResolveConfigPath()` on top of the new logical config model
+- [ ] Confirm that existing tests still pass through compatibility wrappers
+
+### 14.6 Phase 5 - Caller migration in runtime systems
+
+- [ ] Migrate ImGui ini handling to logical write-path resolution
+- [ ] Migrate diagnostics/log output to logical write-path resolution
+- [ ] Migrate crash dump/log-tail paths to logical write-path resolution
+- [ ] Migrate config loading to the new config namespace rules
+- [ ] Stop introducing new direct `std::filesystem::path` dependencies in gameplay-facing code
+- [ ] Audit current and future serialization callsites for physical-path leakage
+
+### 14.7 Phase 6 - Config system cleanup
+
+- [ ] Create `Config/Defaults/` physical layout
+- [ ] Decide whether engine defaults also need a separate engine config root
+- [ ] Move shipped config defaults out of generic content if approved
+- [ ] Preserve existing auto-seed behavior for first-run user config creation
+- [ ] Add tests for saved override precedence and default seeding
+
+### 14.8 Phase 7 - Serialization and asset-reference rules
+
+- [ ] Define which data types are allowed to serialize logical resource paths
+- [ ] Update serialization guidance to prefer `/Project/...` or `/Engine/...`
+- [ ] Ban absolute filesystem paths in serialized asset references
+- [ ] Add validation/logging for malformed logical resource strings
+- [ ] Add at least one contract test that loads a serialized logical asset reference
+
+### 14.9 Phase 8 - Optional physical directory rename
+
+- [ ] Rename `assets/` to `Content/` if the team accepts the change
+- [ ] Rename `saved/` to `Saved/` if the team accepts the change
+- [ ] Update CMake copy/install logic
+- [ ] Update `.gitignore`, docs, tests, and helper scripts
+- [ ] Keep a short-lived migration shim only if necessary
+
+### 14.10 Phase 9 - Engine and plugin mounts
+
+- [ ] Add `/Engine/` loose-directory mount
+- [ ] Define the physical location for engine-shipped content
+- [ ] Add `/Plugins/<Name>/` mount registration model
+- [ ] Decide plugin mount naming rules
+- [ ] Add tests for plugin mount discovery and precedence
+
+### 14.11 Phase 10 - Mount backend abstraction
+
+- [ ] Introduce backend-agnostic mount interfaces if the simple resolver becomes too rigid
+- [ ] Add loose directory mount implementation
+- [ ] Add writable user-directory mount implementation
+- [ ] Add overlay ordering policy
+- [ ] Add directory enumeration only where truly needed
+
+### 14.12 Phase 11 - Cooking integration
+
+- [ ] Define how cooked outputs map back into `/Project/` and `/Engine/`
+- [ ] Decide whether cooking writes under `build/`, `Cache/`, or both
+- [ ] Ensure cooked assets do not change public logical paths
+- [ ] Add tests that verify the same logical path can resolve from loose vs cooked backends
+
+### 14.13 Phase 12 - Archive packaging
+
+- [ ] Choose archive format: ZIP first or custom `.pak`
+- [ ] Implement archive mount
+- [ ] Mount packaged content into `/Project/` and `/Engine/`
+- [ ] Define patch/mod overlay precedence over packaged data
+- [ ] Add contract tests for packaged-path parity with loose files
+
+### 14.14 Phase 13 - Final cleanup
+
+- [ ] Remove legacy callsites that rely on raw `GetAssetPath()` / `GetSavedPath()`
+- [ ] Remove temporary compatibility-only assumptions from docs
+- [ ] Update onboarding/build documentation to describe logical paths first
+- [ ] Confirm every asset-facing subsystem now speaks logical paths
+- [ ] Freeze the resource path format as a long-term serialized contract
+
+### 14.15 Definition of done
+
+This module is done when all of the following are true:
+
+- [ ] Runtime systems load shipped resources by logical path, not by ad hoc physical path joins
+- [ ] Runtime systems write user data only through writable logical domains
+- [ ] Config defaults and user overrides follow the documented resolution chain
+- [ ] Loose-file development and packaged/cooked builds expose the same public logical paths
+- [ ] Serialized asset references no longer depend on repository-relative or absolute filesystem paths
+- [ ] `/Engine/` and `/Plugins/...` are no longer just future ideas in the design doc
+- [ ] The remaining compatibility wrappers are either removed or intentionally retained with documented scope
+
+---
+
+## 15. Testing Requirements
 
 This system needs contract tests, not just unit tests.
 
-### 14.1 Required contracts
+### 15.1 Required contracts
 
 1. `/Project/...` resolves in development from loose project content.
 2. `/Saved/...` resolves to a writable directory.
@@ -619,7 +764,7 @@ This system needs contract tests, not just unit tests.
 7. the same logical path resolves correctly from loose and packaged mounts.
 8. plugin mount precedence works as expected.
 
-### 14.2 Compatibility tests
+### 15.2 Compatibility tests
 
 While legacy wrappers still exist:
 
@@ -628,7 +773,7 @@ While legacy wrappers still exist:
 
 ---
 
-## 15. Recommended Decision
+## 16. Recommended Decision
 
 RTRLab should **not** preserve `assets/` and `saved/` as the architectural center of the
 resource system.
