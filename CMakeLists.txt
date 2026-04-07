@@ -93,11 +93,11 @@ if(GLAB_BACKEND_OPENGL)
     find_package(OpenGL REQUIRED)
 endif()
 
-include(cmake/SetupSlang.cmake)
-include(cmake/CompileShaders.cmake)
+# include(cmake/SetupSlang.cmake)
+# include(cmake/CompileShaders.cmake)
 
 add_subdirectory(vendor)
-glab_compile_shaders()
+# glab_compile_shaders()
 add_subdirectory(src)
 
 if(GLAB_BUILD_TESTS)
