@@ -1,384 +1,646 @@
-# Resource Packaging & Virtual File System
+# Resource System Design
 
-This document describes how RTRLab discovers, organizes, and packages runtime
-resources (assets, compiled shaders, configuration) and manages user-writable
-data (settings, saves, caches) across the full lifecycle: development, testing,
-installation, and future distribution.
+This document defines the long-term resource architecture for RTRLab.
+
+The target is an Unreal-style system:
+
+- application code refers to resources through **logical engine paths**
+- runtime code does **not** depend on OS-specific physical paths
+- project content, engine content, plugin content, user-writable data, and caches are
+  separate concerns
+- loose files, cooked output, and packaged archives are interchangeable **mount
+  backends**, not different public APIs
+
+This document intentionally does **not** treat the current shader pipeline as an
+architectural dependency. Shader compilation, cooking, and archive packaging must fit
+into the resource model defined here, not define it.
 
 ---
 
-## 1. Current State (Post-Slang Migration)
+## 1. Design Goals
 
-### 1.1 Build-time Flow
+### 1.1 Primary goals
 
+1. Make resource references stable, readable, and independent of disk layout.
+2. Support Unreal-style logical roots such as `/Project/...` and `/Engine/...`.
+3. Separate read-only shipped content from user-writable data.
+4. Allow the same logical path to resolve from loose files in development and from
+   cooked packages in shipping builds.
+5. Make future plugin, mod, DLC, and patch support possible without changing gameplay
+   code or serialization formats.
+
+### 1.2 Non-goals
+
+- Reproducing Unreal's entire asset registry, `.uasset` format, or editor pipeline.
+- Locking the engine to a specific shader, model, or texture pipeline.
+- Making archive packaging mandatory in the first implementation.
+
+---
+
+## 2. Core Decision
+
+RTRLab adopts **logical mount-point paths** as its public resource identity.
+
+Examples:
+
+```text
+/Project/Textures/Grassy_Square.jpg
+/Project/Shaders/ForwardLit.slang
+/Engine/Editor/Icons/Play.png
+/Plugins/ExamplePlugin/Materials/Checker.json
 ```
-assets/shaders/*.slang          ─── slangc ───▶  build/shaders/glsl/*.glsl
-assets/textures/*                                 (build artifact)
-assets/models/*
+
+These are **resource paths**, not OS filesystem paths.
+
+Application code, serialized scene data, material definitions, config defaults, and
+ future asset references should use these logical paths wherever the reference means
+"load a resource from the engine's resource space."
+
+Physical filesystem paths remain an implementation detail inside the resource system.
+
+---
+
+## 3. Path Taxonomy
+
+RTRLab distinguishes three categories of paths:
+
+### 3.1 Resource paths
+
+Logical read-oriented paths that identify shipped or mountable content.
+
+Examples:
+
+```text
+/Project/Textures/Grassy_Square.jpg
+/Engine/Shaders/Common/Fullscreen.slang
+/Plugins/Foo/Content/Materials/DebugGrid.json
 ```
 
-### 1.2 POST_BUILD Copy
+Properties:
 
-After linking `RTRLab`, CMake copies resources next to the executable:
+- stable across development, install, and packaging
+- valid in serialized data
+- resolved through the resource mount table
+- never directly concatenated with OS paths by gameplay code
 
+### 3.2 User-data paths
+
+Logical write-oriented paths for runtime-generated or user-edited data.
+
+Examples:
+
+```text
+/Saved/Config/Input/DebugCameraControl.json
+/Saved/Logs/RTRLab.log
+/Saved/Saves/Slot01/save.json
+/Cache/Shaders/ForwardLit.metallib
 ```
-bin/Debug/
+
+Properties:
+
+- not part of shipped read-only content
+- writable by the application
+- mapped to platform-specific writable locations in non-development builds
+- generally should **not** appear as long-lived asset references inside scene/material
+  data
+
+### 3.3 Native filesystem paths
+
+Concrete `std::filesystem::path` values used internally by low-level file I/O.
+
+Examples:
+
+```text
+/Users/name/Projects/RTRLab/Content/Textures/Grassy_Square.jpg
+C:\Users\name\AppData\Local\RTRLab\Saved\Logs\RTRLab.log
+```
+
+Properties:
+
+- valid only inside the platform/filesystem layer
+- not used as stable identifiers
+- not serialized as asset references
+
+---
+
+## 4. Public Mount Points
+
+RTRLab defines the following logical roots.
+
+| Mount | Purpose | Writable | Serialized as asset reference | Notes |
+|------|---------|----------|-------------------------------|-------|
+| `/Project/` | Project-authored runtime content | No | Yes | Main game/demo content root |
+| `/Engine/` | Engine-shipped built-in content | No | Yes | Shared default assets, editor icons, fallback materials |
+| `/Plugins/<Name>/` | Plugin-provided content | No | Yes | Optional; mounted only when plugin is enabled |
+| `/Saved/` | User/runtime-generated data | Yes | Rarely | Logs, per-user config overrides, save files |
+| `/Cache/` | Disposable derived data | Yes | No | Shader caches, cooked intermediates, thumbnails |
+
+### 4.1 Rules
+
+- `/Project/`, `/Engine/`, and `/Plugins/...` are **read domains**.
+- `/Saved/` and `/Cache/` are **write domains**.
+- Read APIs may accept any mount.
+- Write APIs must reject writes to read domains.
+- Asset references stored in user-facing/runtime content should normally point only to
+  `/Project/`, `/Engine/`, or `/Plugins/...`.
+
+### 4.2 Why this model
+
+This gives RTRLab the most important Unreal-like property:
+
+the public identity of a resource is its **mounted logical path**, not where that data
+physically lives today.
+
+That means `/Project/Textures/Grassy_Square.jpg` can come from:
+
+- a loose development directory
+- a cooked output directory
+- a packaged archive
+- a hotfix overlay
+
+without changing any serialized references or gameplay code.
+
+---
+
+## 5. Proposed Physical Layout
+
+This document recommends a deliberate directory rename away from the current
+`assets/`-centric naming.
+
+### 5.1 Recommended development layout
+
+```text
+RTRLab/
+  Content/                    ← mounted as /Project/
+    Textures/
+    Shaders/
+    Materials/
+    Scenes/
+  EngineContent/              ← mounted as /Engine/ (optional at first)
+    Editor/
+    Defaults/
+  Config/
+    Defaults/                 ← shipped text defaults, not generic runtime content
+      Input/
+      App/
+  Plugins/
+    ExamplePlugin/
+      Content/                ← mounted as /Plugins/ExamplePlugin/
+      Config/
+  Saved/                      ← mounted as /Saved/ in development
+    Config/
+    Logs/
+    Saves/
+  Cache/                      ← mounted as /Cache/ in development
+    Shaders/
+    Cooked/
+  build/
+```
+
+### 5.2 Installed layout
+
+```text
+RTRLab/
   RTRLab.exe
-  assets/
-    shaders/
-      *.slang                   ← source (copied from source tree)
-      compiled/
-        glsl/                   ← build artifacts (copied from build/)
-          ForwardLit.vert.glsl
-          ForwardLit.frag.glsl
-          ...
-    textures/
-    models/
+  Content/                    ← /Project/
+  EngineContent/              ← /Engine/
+  Config/
+    Defaults/
+  Plugins/
+  Saved/                      ← optional fallback only; normally user dir in shipping
+  Cache/                      ← optional fallback only; normally user dir in shipping
 ```
 
-### 1.3 Runtime Resource Discovery (`FileSystem`)
+### 5.3 Platform user-data layout
 
-`FileSystem::Init()` discovers the project root via a priority chain:
+In shipping builds:
 
-| Priority | Strategy                    | When it matches                                |
-|----------|-----------------------------|------------------------------------------------|
-| 1        | `RTRL_ROOT` env var         | CI, automated testing, custom setups           |
-| 2        | Walk up from exe path       | Deployment / POST_BUILD output                 |
-| 3        | `GLAB_ROOT_DIR` (compile)   | VS debugger (CWD = source root)                |
-| 4        | Current working directory   | Last resort                                    |
+- `/Saved/` maps to the platform user data directory
+- `/Cache/` maps to a platform cache directory when available, otherwise under `/Saved/`
 
-Once the root is found, all paths are resolved relative to it:
+Typical mappings:
 
-- `GetAssetPath("textures/wood.png")` → `{root}/assets/textures/wood.png`
-- `GetCompiledShaderDir()` → `{root}/assets/shaders/compiled/` (primary), falls back to
-  `GLAB_SHADER_BUILD_DIR` during development before the first POST_BUILD copy runs.
+| Platform | `/Saved/` | `/Cache/` |
+|----------|-----------|-----------|
+| Windows | `%LOCALAPPDATA%/RTRLab/Saved/` | `%LOCALAPPDATA%/RTRLab/Cache/` |
+| macOS | `~/Library/Application Support/RTRLab/Saved/` | `~/Library/Caches/RTRLab/` |
+| Linux | `$XDG_DATA_HOME/RTRLab/Saved/` or `~/.local/share/RTRLab/Saved/` | `$XDG_CACHE_HOME/RTRLab/` or `~/.cache/RTRLab/` |
 
-### 1.4 `cmake --install`
+### 5.4 Compatibility note
 
-```bash
-cmake --install . --prefix dist/RTRLab
-```
+The current repository still uses `assets/` and `saved/`.
 
-Produces a clean, self-contained directory:
+That layout may be preserved temporarily during migration by mounting:
 
-```
-dist/RTRLab/
-  RTRLab.exe
-  assets/
-    shaders/
-      compiled/glsl/            ← compiled shaders only, no .slang source
-    textures/
-    models/
-```
+- `assets/` as `/Project/`
+- `saved/` as `/Saved/`
 
-No compile-time absolute paths are needed - `FindRootFromExecutable()` locates
-`assets/` next to the exe.
+However, the long-term recommendation is to rename them to `Content/` and `Saved/`
+because those names communicate intent better and reduce future confusion between
+"source assets", "runtime content", "cooked assets", and "editor resources".
 
 ---
 
-## 2. Problems Remaining
+## 6. Path Syntax Contract
 
-| # | Problem | Impact |
-|---|---------|--------|
-| ~~P1~~ | ~~`GLAB_ROOT_DIR` leaks the build machine's absolute path into the binary~~ | By design: Debug-only, enables `saved/` in source tree. Release builds have no compile-time paths. |
-| P2 | POST_BUILD copies the entire `assets/` directory every build, including `.slang` source | Slow on large asset sets; ships source files unnecessarily |
-| P3 | No asset cooking / compression | Textures are raw PNG/JPG at runtime; no mip-chain precompute |
-| P4 | No archive packaging | Cannot distribute as a single file; directory structure is exposed |
-| P5 | No virtual file system | Every path is a physical filesystem path; can't overlay or hot-patch |
+### 6.1 Grammar
+
+All logical paths use forward slashes:
+
+```text
+/MountName/Relative/Path.ext
+```
+
+Examples:
+
+```text
+/Project/Textures/Grassy_Square.jpg
+/Project/Shaders/ForwardLit.slang
+/Engine/Defaults/Materials/ErrorMaterial.json
+/Plugins/Foo/Content/Textures/Icon.png
+/Saved/Config/imgui.ini
+```
+
+### 6.2 Normalization rules
+
+The parser must:
+
+- require a leading `/`
+- require a valid mount root
+- collapse repeated `/`
+- reject `.` and `..` segments
+- reject backslashes in public logical paths
+- preserve case in stored strings, but comparison policy may be platform-dependent
+  internally if needed
+
+### 6.3 No raw OS path leakage
+
+Public resource-facing APIs must not require callers to know:
+
+- project root absolute path
+- executable directory
+- install prefix
+- archive location
+- platform user-data directory
+
+Those remain internal resolution details.
 
 ---
 
-## 3. Phased Evolution Plan
+## 7. Resource System Responsibilities
 
-### Phase A - Incremental Copy & Build Optimization
+RTRLab's resource/path layer is responsible for:
 
-**Goal**: Make POST_BUILD efficient; clean up shipped artifacts.
+1. parsing logical paths
+2. validating mount roots
+3. resolving read paths through mounted backends
+4. resolving write paths for writable domains
+5. performing file I/O by logical path
+6. enforcing read/write domain rules
+7. exposing limited directory enumeration where needed
 
-**Note**: `GLAB_ROOT_DIR` and `GLAB_SHADER_BUILD_DIR` are intentionally kept as
-Debug-only compile defines. They enable `saved/` to live in the source tree during
-development (persists across clean builds) and provide a shader fallback path.
-Since Debug binaries are never distributed, the embedded absolute paths are harmless.
+It is **not** responsible for:
 
-**Changes**:
+- decoding textures, models, or shader binaries
+- understanding scene/material semantics
+- being the editor asset database
 
-1. **Incremental POST_BUILD copy**. Replace `copy_directory` (which is unconditional)
-   with a CMake script that uses `file(COPY ... PATTERN)` or a custom stamp-file approach
-   to skip unchanged files. Alternatively, use `cmake -E copy_if_different` per file.
+---
 
-2. **Exclude `.slang` from POST_BUILD copy** (and install). Source shaders are
-   development-only artifacts; only compiled output is needed at runtime.
+## 8. API Direction
 
-### Phase B - Asset Cooking Pipeline
+The current `FileSystem` class is a useful bootstrap, but its public surface is too
+physical-path-oriented for the long-term model.
 
-**Goal**: Pre-process assets at build time for optimal runtime loading.
+### 8.1 Current limitation
 
-```
-assets/textures/wood.png  ─── cook ───▶  build/cooked/textures/wood.ktx2
-assets/shaders/*.slang    ─── slangc ──▶  build/cooked/shaders/glsl/*.glsl
-                                          build/cooked/shaders/spirv/*.spv
-                                          build/cooked/shaders/metal/*.metal
-```
+Today the API is built around:
 
-**Key decisions**:
+- `GetAssetPath(relative)`
+- `GetSavedPath(relative)`
+- `ReadTextFile(std::filesystem::path)`
+- `ReadBinaryFile(std::filesystem::path)`
 
-- **Texture format**: KTX2 (Khronos container) with basis/ASTC compression.
-  GPU-ready; no runtime decompression needed on hardware that supports ASTC or BC.
-- **Shader format**: per-backend directories under `cooked/shaders/`. The GLSL
-  backend may keep plain text; SPIR-V and Metal store bytecode.
-- **Cook manifest**: A JSON/binary manifest (`cooked/manifest.json`) listing every
-  cooked asset, its source hash, and output paths. Enables incremental re-cooking.
-- **CMake integration**: A `glab_cook_assets()` function that drives the pipeline,
-  similar to `glab_compile_shaders()`.
+That makes the caller choose the physical storage class too early.
 
-**Runtime change**: `FileSystem::GetAssetPath()` resolves from the cooked directory
-first, falling back to raw assets in development (so you can iterate without cooking).
+### 8.2 Target public API shape
 
-### Phase C - Virtual File System (VFS)
-
-**Goal**: Decouple resource access from physical filesystem layout.
-
-```
- Application Code
-       │
-       ▼
-┌─────────────┐      resolve("shaders/glsl/ForwardLit.vert.glsl")
-│     VFS     │──────────────────────────────────────────────────────▶ data
-│  (IFileSystem) │
-└──────┬──────┘
-       │ mounts (priority order)
-       ├── OverlayMount("/mods/custom.zip")    ← hot-patch / modding
-       ├── ArchiveMount("/data.pak")           ← shipped archive
-       └── DirectoryMount("/assets/")          ← development loose files
-```
-
-**Interface**:
+The exact names may change, but the resource system should evolve toward an API like:
 
 ```cpp
-class IFileSystem
+enum class PathDomain
 {
-public:
-    virtual ~IFileSystem() = default;
-
-    /// Read an entire file. Returns empty optional on not-found.
-    virtual std::optional<std::vector<uint8_t>> ReadFile(std::string_view virtualPath) = 0;
-
-    /// Check existence without reading.
-    virtual bool Exists(std::string_view virtualPath) = 0;
-
-    /// List entries in a virtual directory.
-    virtual std::vector<std::string> List(std::string_view virtualDir) = 0;
+    Project,
+    Engine,
+    Plugin,
+    Saved,
+    Cache,
 };
-```
 
-**Mount types**:
+struct VirtualPath
+{
+    PathDomain domain;
+    std::string mountName;   // plugin name when applicable
+    std::string relativePath;
+};
 
-| Mount | Description | Use case |
-|-------|-------------|----------|
-| `DirectoryMount` | Reads from a physical directory | Development (loose files) |
-| `ArchiveMount` | Reads from a zip / custom .pak archive | Shipping (single-file distribution) |
-| `OverlayMount` | Layered on top; first-match wins | Modding, hot-patching, DLC |
-
-**Migration path**:
-
-1. Wrap current `FileSystem` into `DirectoryMount`.
-2. Change all callsites from `FileSystem::ReadTextFile(path)` → `VFS::ReadFile(virtualPath)`.
-3. Add `ArchiveMount` when packaging support is needed.
-
-### Phase D - Archive Packaging (`.pak`)
-
-**Goal**: Ship all runtime resources as a single archive.
-
-**Format options**:
-
-| Format | Pros | Cons |
-|--------|------|------|
-| ZIP | Standard, tooling everywhere, can memory-map individual entries | No custom indexing; slightly slower random access |
-| Custom `.pak` | Table-of-contents at file start, O(1) entry lookup, can be memory-mapped as a whole | Must build/maintain format + tooling |
-| SQLite | Battle-tested, supports queries, transactions | Overkill; not optimized for streaming |
-
-**Recommendation**: Start with **ZIP** via a lightweight library (miniz or libzip).
-If profiling shows file-lookup overhead matters, migrate to a custom `.pak` with a
-hash-indexed TOC.
-
-**Build integration**:
-
-```cmake
-# After install, pack into a .pak
-add_custom_command(TARGET package POST_BUILD
-    COMMAND pak_tool --create
-            --input  ${CMAKE_INSTALL_PREFIX}/assets
-            --output ${CMAKE_INSTALL_PREFIX}/data.pak
-)
-```
-
-**Install layout with `.pak`**:
-
-```
-dist/RTRLab/
-  RTRLab.exe
-  data.pak            ← all assets + compiled shaders
-```
-
----
-
-## 4. Saved Directory & Config Resolution
-
-All runtime-writable files (user settings, saves, logs, caches) live under a
-single **saved** directory, separate from the read-only install/assets directory.
-This follows the standard AAA game architecture:
-
-```
-Install directory (read-only):  assets + executable + shipped defaults
-User directory (writable):      user settings + saves + logs + caches
-```
-
-### 4.1 Saved Directory Location
-
-| Context | Location | Rationale |
-|---------|----------|-----------|
-| Development (`GLAB_ROOT_DIR` defined) | `{source_root}/saved/` | Persists across clean builds |
-| Release (Windows) | `%LOCALAPPDATA%/RTRLab/` | Standard per-user writable location |
-| Release (macOS) | `~/Library/Application Support/RTRLab/` | Platform convention |
-| Release (Linux) | `$XDG_DATA_HOME/RTRLab/` or `~/.local/share/RTRLab/` | XDG spec |
-
-### 4.2 Saved Directory Structure
-
-```
-saved/
-  configs/           ← user-editable settings (input bindings, imgui.ini, etc.)
-  saves/             ← save data (future)
-  logs/              ← runtime logs (future)
-  cache/             ← caches (future)
-```
-
-### 4.3 Config Resolution Chain
-
-Shipped default configs live in `assets/configs/` (read-only, will be packed
-into `.pak` in Phase D). User-editable copies live in `saved/configs/`.
-
-`FileSystem::ResolveConfigPath(relativePath)` resolves as follows:
-
-1. **`saved/configs/{relativePath}`** exists → return it (user override)
-2. **`assets/configs/{relativePath}`** exists → auto-copy to `saved/configs/`,
-   return the copy (first-run initialization)
-3. Neither exists → return empty path (caller falls back to hardcoded defaults)
-
-**Write path**: All config writes go to `saved/configs/` via
-`FileSystem::GetSavedConfigPath()`. The assets directory is never written to.
-
-**Reset to defaults**: Delete the file (or entire directory) under
-`saved/configs/`. Next launch auto-copies fresh defaults from assets.
-
-### 4.4 FileSystem API
-
-```cpp
 class FileSystem
 {
 public:
     static void Init();
 
-    // Read-only assets (install directory)
-    static const std::filesystem::path &GetRootPath();
-    static std::filesystem::path GetAssetPath(std::string_view relativePath);
-    static std::filesystem::path GetCompiledShaderDir();
+    static bool IsVirtualPath(std::string_view path);
+    static std::optional<VirtualPath> ParseVirtualPath(std::string_view path);
 
-    // Saved (writable, per-user)
-    static const std::filesystem::path &GetSavedDir();
-    static std::filesystem::path GetSavedPath(std::string_view relativePath);
-    static std::filesystem::path GetSavedConfigPath(std::string_view relativePath);
+    static std::optional<std::filesystem::path> ResolveReadPath(std::string_view virtualPath);
+    static std::optional<std::filesystem::path> ResolveWritePath(std::string_view virtualPath);
 
-    // Config resolution (saved → assets, auto-copy on first access)
-    static std::filesystem::path ResolveConfigPath(std::string_view relativePath);
+    static bool Exists(std::string_view virtualPath);
+    static std::optional<std::string> ReadText(std::string_view virtualPath);
+    static std::optional<std::vector<uint8_t>> ReadBinary(std::string_view virtualPath);
 
-    // File I/O
-    static std::string ReadTextFile(const std::filesystem::path &path);
-    static std::vector<uint8_t> ReadBinaryFile(const std::filesystem::path &path);
-    static bool Exists(const std::filesystem::path &path);
+    static bool WriteText(std::string_view virtualPath, std::string_view data);
+    static bool WriteBinary(std::string_view virtualPath, std::span<const uint8_t> data);
 };
 ```
 
----
+### 8.3 Compatibility layer
 
-## 5. Directory Layout Summary
+During migration, keep compatibility helpers such as:
 
-### Development (source tree + build tree)
+- `GetAssetPath()` implemented as a legacy wrapper to `/Project/...`
+- `GetSavedPath()` implemented as a legacy wrapper to `/Saved/...`
+- `ResolveConfigPath()` rewritten on top of the new logical config rules
 
-```
-RT_Rendering_Lab/                     ← source root
-  assets/
-    configs/
-      input/ShadowMapping.json        ← shipped default configs
-      input/MaterialPlayground.json
-    shaders/
-      ForwardLit.slang                ← shader source (editable)
-      ShadowDepth.slang
-      TexturePreview.slang
-      modules/
-    textures/
-    models/
-  saved/                              ← runtime writable (gitignored)
-    configs/
-      input/ShadowMapping.json        ← user-editable copy (auto-created)
-      imgui.ini
-  build/                              ← CMake build tree
-    shaders/glsl/                     ← slangc output
-    bin/Debug/
-      RTRLab.exe
-      assets/                         ← POST_BUILD copy
-        configs/input/                ← shipped defaults
-        shaders/
-          *.slang                     ← copied source (Phase A will exclude)
-          compiled/glsl/              ← compiled shaders
-        textures/
-        models/
-```
-
-### Installed / Deployed
-
-```
-RTRLab/                               ← install prefix
-  RTRLab.exe
-  assets/
-    configs/input/                    ← shipped defaults (read-only)
-    shaders/
-      compiled/
-        glsl/                         ← Phase A
-        spirv/                        ← Phase B (Vulkan backend)
-        metal/                        ← Phase B (Metal backend)
-    textures/                         ← Phase B: cooked (KTX2)
-    models/
-```
-
-User configs at runtime: `%LOCALAPPDATA%/RTRLab/configs/`
-
-### Shipped (Phase D)
-
-```
-RTRLab/
-  RTRLab.exe
-  data.pak                            ← everything in one archive (incl. default configs)
-```
-
-User configs at runtime: `%LOCALAPPDATA%/RTRLab/configs/`
+That lets the codebase migrate incrementally without locking the new design to the old
+API forever.
 
 ---
 
-## 6. Timeline Alignment
+## 9. Mount Backends
 
-| Phase | Depends on | Aligns with roadmap |
-|-------|------------|---------------------|
-| A - Incremental copy, remove compile-time paths | Slang migration (done) | Current (R3+) |
-| B - Asset cooking | Vulkan/Metal backends landing | R4 (Metal), R5 (Vulkan) |
-| C - Virtual file system | Phase B (multiple asset formats) | R5–R6 |
-| D - Archive packaging | Phase C (VFS abstraction in place) | R7+ (Distribution) |
+The public path system must be independent from storage backend.
+
+### 9.1 Initial backends
+
+| Backend | Description | Typical use |
+|--------|-------------|-------------|
+| Directory mount | Reads from a physical folder tree | Development, tests, loose installs |
+| User directory mount | Writable OS directory | `/Saved/`, `/Cache/` |
+
+### 9.2 Future backends
+
+| Backend | Description | Typical use |
+|--------|-------------|-------------|
+| Archive mount | Reads from zip/pak/container files | Shipping builds |
+| Overlay mount | Higher-priority patch/mod layer | DLC, hotfix, local overrides |
+| Cooked-output mount | Reads preprocessed runtime-ready assets | Console/mobile/release pipelines |
+
+### 9.3 Mount precedence
+
+For read domains, the system resolves from highest priority to lowest priority.
+
+Example for `/Project/...`:
+
+1. hotfix overlay
+2. mod/plugin override
+3. packaged cooked content
+4. loose cooked output
+5. loose source content in development
+
+The caller still asks for the same path:
+
+```text
+/Project/Textures/Grassy_Square.jpg
+```
 
 ---
 
-## 7. Risk & Alternatives
+## 10. Config System Integration
 
-| Risk | Mitigation |
-|------|-----------|
-| VFS abstraction adds indirection overhead | Profile; DirectoryMount is a thin wrapper with near-zero cost. Archive mount uses memory-mapping. |
-| ZIP random-access too slow for many small shaders | Batch-read at startup into a cache; or migrate to custom `.pak` |
-| Cook pipeline complexity | Start minimal (shaders only - already done). Add texture cooking only when texture count or format diversity demands it. |
-| Breaking change for existing `FileSystem` callers | Phase C wraps `FileSystem` as a mount; existing callsites can migrate incrementally via a compatibility shim. |
+Config files are not generic content assets and should not remain buried under the
+project content tree forever.
+
+### 10.1 Recommended config model
+
+- shipped default config text lives under `Config/Defaults/`
+- user overrides live under `/Saved/Config/`
+- code reads config through a **resolved config namespace**
+
+Examples:
+
+```text
+Config/Defaults/Input/DebugCameraControl.json
+/Saved/Config/Input/DebugCameraControl.json
+```
+
+### 10.2 Resolution chain
+
+For logical config key `Input/DebugCameraControl.json`:
+
+1. `/Saved/Config/Input/DebugCameraControl.json`
+2. project default: `Config/Defaults/Input/DebugCameraControl.json`
+3. engine default: `EngineConfig/Defaults/Input/DebugCameraControl.json` or equivalent
+
+### 10.3 Behavior
+
+- reads prefer saved override
+- missing saved override may be auto-seeded from defaults
+- writes always go to `/Saved/Config/...`
+- shipped defaults are never modified in place
+
+This preserves the useful behavior the current `ResolveConfigPath()` already provides,
+while moving it into a cleaner long-term structure.
+
+---
+
+## 11. Serialization Rules
+
+Serialization must distinguish between:
+
+- **asset references**
+- **user-data file locations**
+
+### 11.1 Asset references
+
+When serialized data references a loadable engine resource, it should store a logical
+resource path:
+
+```json
+{
+  "albedo": "/Project/Textures/Grassy_Square.jpg"
+}
+```
+
+Not:
+
+```json
+{
+  "albedo": "assets/textures/Grassy_Square.jpg"
+}
+```
+
+And never:
+
+```json
+{
+  "albedo": "C:/Users/name/dev/RTRLab/assets/textures/Grassy_Square.jpg"
+}
+```
+
+### 11.2 User data
+
+Runtime-owned data such as logs or per-user config overrides should not be serialized as
+general asset references. Those locations are system-managed.
+
+### 11.3 Serialization API impact
+
+The existing `Serialization::SaveToFile` / `LoadFromFile` APIs may keep taking
+`std::filesystem::path` for low-level use, but higher-level systems should gain
+resource-aware wrappers so application code can operate on logical paths directly.
+
+---
+
+## 12. Cooking and Packaging
+
+Cooking and packaging are downstream of the resource model.
+
+### 12.1 Cooking
+
+Cooking transforms authoring-time content into runtime-ready data.
+
+Examples:
+
+- shader source → compiled backend output
+- PNG/JPG → GPU-ready texture container
+- material graph source → flattened runtime description
+
+Cooked outputs may live physically under `Cache/` or `build/` during development, but
+should still be mounted back into the same logical namespace:
+
+```text
+/Project/Shaders/ForwardLit.bin
+/Project/Textures/Grassy_Square.ktx2
+```
+
+### 12.2 Packaging
+
+Packaging should mount cooked archives into the same roots:
+
+- `/Project/`
+- `/Engine/`
+- `/Plugins/...`
+
+The packaging format is an implementation choice.
+
+Possible formats:
+
+- ZIP
+- custom `.pak`
+- multiple chunk archives
+
+The public path model must remain unchanged regardless of format choice.
+
+### 12.3 Recommendation
+
+Do **not** choose the final path API based on today's shader build scripts.
+
+Choose the path API first, then make cook/package tooling mount its outputs into that
+API.
+
+---
+
+## 13. Migration Plan
+
+### Phase 0 - Vocabulary freeze
+
+Adopt the logical roots in documentation and new code:
+
+- `/Project/`
+- `/Engine/`
+- `/Plugins/...`
+- `/Saved/`
+- `/Cache/`
+
+### Phase 1 - Virtual-path parser and resolver
+
+Implement:
+
+- logical path parsing
+- read/write domain validation
+- read resolution for `/Project/` and `/Saved/`
+- compatibility wrappers over current `assets/` and `saved/`
+
+### Phase 2 - Caller migration
+
+Migrate current systems away from physical layout assumptions:
+
+- ImGui ini location
+- diagnostics logs
+- config loading
+- future scene/material resource references
+
+### Phase 3 - Directory cleanup
+
+Rename physical roots if desired:
+
+- `assets/` → `Content/`
+- `saved/` → `Saved/`
+
+Move shipped config defaults out of content into `Config/Defaults/`.
+
+### Phase 4 - Engine and plugin mounts
+
+Add:
+
+- `/Engine/`
+- `/Plugins/<Name>/`
+
+even if initially backed only by loose directories.
+
+### Phase 5 - Cooking and archives
+
+Add cooked-output mounts and archive mounts without changing public paths.
+
+---
+
+## 14. Testing Requirements
+
+This system needs contract tests, not just unit tests.
+
+### 14.1 Required contracts
+
+1. `/Project/...` resolves in development from loose project content.
+2. `/Saved/...` resolves to a writable directory.
+3. write attempts to `/Project/...` fail.
+4. invalid mount roots are rejected.
+5. `..` segments are rejected.
+6. config resolution prefers `/Saved/Config/...` over shipped defaults.
+7. the same logical path resolves correctly from loose and packaged mounts.
+8. plugin mount precedence works as expected.
+
+### 14.2 Compatibility tests
+
+While legacy wrappers still exist:
+
+- `GetAssetPath("X")` must match `/Project/X`
+- `GetSavedPath("X")` must match `/Saved/X`
+
+---
+
+## 15. Recommended Decision
+
+RTRLab should **not** preserve `assets/` and `saved/` as the architectural center of the
+resource system.
+
+Instead:
+
+- adopt Unreal-style logical mount points as the public model
+- treat existing `assets/` / `saved/` directories as temporary migration-era physical
+  backends
+- strongly consider renaming them to `Content/` and `Saved/`
+- separate shipped config defaults from general content
+
+This is the version that best supports future plugins, cooked assets, packaged builds,
+and long-lived serialized asset references without dragging old path assumptions
+forward forever.
