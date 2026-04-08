@@ -6,12 +6,14 @@
 #include "Core/Resource/MountResolver.h"
 #include "Core/Resource/PathParser.h"
 #include "Core/Resource/PhysicalIO.h"
+#include "Core/Resource/ResourceCatalog.h"
 #include "Core/Resource/RootDiscovery.h"
 
 std::filesystem::path FileSystem::s_RootPath;
 std::filesystem::path FileSystem::s_EngineDir;
 std::filesystem::path FileSystem::s_SavedDir;
 std::filesystem::path FileSystem::s_CacheDir;
+Resource::CatalogRegistry FileSystem::s_CatalogRegistry;
 bool FileSystem::s_Initialized = false;
 bool FileSystem::s_WritableDirsResolved = false;
 
@@ -25,6 +27,7 @@ void FileSystem::Init()
 {
     s_RootPath = Resource::DiscoverRootPath(kProjectContentDirName);
     s_EngineDir = s_RootPath / "EngineContent";
+    s_CatalogRegistry.Reset();
     s_Initialized = true;
 }
 
@@ -53,6 +56,17 @@ std::optional<std::filesystem::path> FileSystem::ResolveReadPath(std::string_vie
     const auto virtualPath = Resource::ParseVirtualPath(virtualPathString);
     if (!virtualPath.has_value())
         return std::nullopt;
+
+    if (Resource::IsCatalogBackedPath(virtualPathString))
+    {
+        if (const auto resolved = s_CatalogRegistry.ResolvePath(
+                s_RootPath, s_EngineDir, *virtualPath, virtualPathString, kProjectContentDirName))
+        {
+            return resolved;
+        }
+
+        return std::nullopt;
+    }
 
     return Resource::ResolvePhysicalPath(
         s_RootPath, s_EngineDir, GetSavedDir(), GetCacheDir(), *virtualPath, kProjectContentDirName);

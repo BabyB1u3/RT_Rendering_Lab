@@ -23,6 +23,21 @@ namespace
         std::error_code ec;
         std::filesystem::remove(path, ec);
     }
+
+    void RemoveDirectoryTreeIfExists(const std::filesystem::path &path)
+    {
+        std::error_code ec;
+        std::filesystem::remove_all(path, ec);
+    }
+
+    void WriteTextFileOrFail(const std::filesystem::path &path, std::string_view contents)
+    {
+        std::filesystem::create_directories(path.parent_path());
+        std::ofstream out(path, std::ios::binary);
+        ASSERT_TRUE(out.is_open());
+        out << contents;
+        ASSERT_TRUE(out.good());
+    }
 }
 
 TEST(FileSystemContractTests, InitResolvesProjectRootAndCommonDirectories)
@@ -49,6 +64,56 @@ TEST(FileSystemContractTests, ResolveReadPathMapsProjectConfigLogicalPathToConte
     ASSERT_TRUE(resolved.has_value());
     EXPECT_EQ(*resolved, FileSystem::GetAssetPath("Config/input/DebugCameraControl.json"));
     EXPECT_TRUE(std::filesystem::exists(*resolved));
+}
+
+TEST(FileSystemContractTests, ResolveReadPathUsesCatalogForExtensionlessProjectAsset)
+{
+    FileSystem::Init();
+
+    const auto resolved = FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square");
+
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_EQ(*resolved, FileSystem::GetAssetPath("textures/Grassy_Square.jpg"));
+    EXPECT_TRUE(std::filesystem::exists(*resolved));
+}
+
+TEST(FileSystemContractTests, ResolveReadPathUsesCatalogForExtensionlessPluginAsset)
+{
+    FileSystem::Init();
+
+    const auto pluginRoot = FileSystem::GetRootPath() / "Plugins" / "CatalogTestPlugin" / "Content";
+    const auto artifactPath = pluginRoot / "Materials" / "Checker.json";
+    const auto catalogPath = pluginRoot / ".rtr" / "catalog.json";
+
+    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+
+    WriteTextFileOrFail(artifactPath, "{\n  \"name\": \"checker\"\n}\n");
+    WriteTextFileOrFail(
+        catalogPath,
+        "{\n"
+        "  \"version\": 1,\n"
+        "  \"entries\": [\n"
+        "    {\n"
+        "      \"logicalPath\": \"/Plugins/CatalogTestPlugin/Materials/Checker\",\n"
+        "      \"sourceRelativePath\": \"Materials/Checker.json\",\n"
+        "      \"artifacts\": [\n"
+        "        {\n"
+        "          \"relativePath\": \"Materials/Checker.json\",\n"
+        "          \"format\": \"json\",\n"
+        "          \"profileTag\": \"dev\"\n"
+        "        }\n"
+        "      ]\n"
+        "    }\n"
+        "  ]\n"
+        "}\n");
+
+    const auto resolved = FileSystem::ResolveReadPath("/Plugins/CatalogTestPlugin/Materials/Checker");
+
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_EQ(*resolved, artifactPath);
+    EXPECT_TRUE(std::filesystem::exists(*resolved));
+
+    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
 }
 
 TEST(FileSystemContractTests, ResolveWritePathMapsSavedConfigLogicalPathToSavedConfigDirectory)
@@ -90,11 +155,58 @@ TEST(FileSystemContractTests, ResolveReadPathRejectsInvalidMountsAndTraversal)
     EXPECT_FALSE(FileSystem::ResolveReadPath("/Project/Textures/../Grassy_Square").has_value());
 }
 
+TEST(FileSystemContractTests, ResolveReadPathRejectsCatalogWithDuplicateLogicalPaths)
+{
+    FileSystem::Init();
+
+    const auto pluginRoot = FileSystem::GetRootPath() / "Plugins" / "DuplicateCatalogPlugin" / "Content";
+    const auto artifactPath = pluginRoot / "Materials" / "Checker.json";
+    const auto catalogPath = pluginRoot / ".rtr" / "catalog.json";
+
+    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+
+    WriteTextFileOrFail(artifactPath, "{\n  \"name\": \"checker\"\n}\n");
+    WriteTextFileOrFail(
+        catalogPath,
+        "{\n"
+        "  \"version\": 1,\n"
+        "  \"entries\": [\n"
+        "    {\n"
+        "      \"logicalPath\": \"/Plugins/DuplicateCatalogPlugin/Materials/Checker\",\n"
+        "      \"sourceRelativePath\": \"Materials/Checker.json\",\n"
+        "      \"artifacts\": [\n"
+        "        {\n"
+        "          \"relativePath\": \"Materials/Checker.json\",\n"
+        "          \"format\": \"json\",\n"
+        "          \"profileTag\": \"dev\"\n"
+        "        }\n"
+        "      ]\n"
+        "    },\n"
+        "    {\n"
+        "      \"logicalPath\": \"/Plugins/DuplicateCatalogPlugin/Materials/Checker\",\n"
+        "      \"sourceRelativePath\": \"Materials/Checker.json\",\n"
+        "      \"artifacts\": [\n"
+        "        {\n"
+        "          \"relativePath\": \"Materials/Checker.json\",\n"
+        "          \"format\": \"json\",\n"
+        "          \"profileTag\": \"dev\"\n"
+        "        }\n"
+        "      ]\n"
+        "    }\n"
+        "  ]\n"
+        "}\n");
+
+    EXPECT_FALSE(FileSystem::ResolveReadPath("/Plugins/DuplicateCatalogPlugin/Materials/Checker").has_value());
+
+    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+}
+
 TEST(FileSystemContractTests, ExistsSupportsLogicalPaths)
 {
     FileSystem::Init();
 
     EXPECT_TRUE(FileSystem::Exists("/Project/Config/input/DebugCameraControl.json"));
+    EXPECT_TRUE(FileSystem::Exists("/Project/Textures/Grassy_Square"));
     EXPECT_FALSE(FileSystem::Exists("/Project/Config/input/DefinitelyMissing.json"));
 }
 
@@ -103,6 +215,16 @@ TEST(FileSystemContractTests, ReadTextSupportsLogicalProjectConfigPaths)
     FileSystem::Init();
 
     const auto contents = FileSystem::ReadText("/Project/Config/input/DebugCameraControl.json");
+
+    ASSERT_TRUE(contents.has_value());
+    EXPECT_FALSE(contents->empty());
+}
+
+TEST(FileSystemContractTests, ReadBinarySupportsCatalogBackedProjectAssetPaths)
+{
+    FileSystem::Init();
+
+    const auto contents = FileSystem::ReadBinary("/Project/Textures/Grassy_Square");
 
     ASSERT_TRUE(contents.has_value());
     EXPECT_FALSE(contents->empty());

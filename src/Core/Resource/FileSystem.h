@@ -4,6 +4,7 @@
 /// @brief Cross-platform logical resource paths, mount resolution, and file I/O.
 
 #include "Core/Resource/PathTypes.h"
+#include "Core/Resource/ResourceCatalog.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -52,6 +53,7 @@ private:
     static std::filesystem::path s_EngineDir;
     static std::filesystem::path s_SavedDir;
     static std::filesystem::path s_CacheDir;
+    static Resource::CatalogRegistry s_CatalogRegistry;
     static bool s_Initialized;
     static bool s_WritableDirsResolved;
 

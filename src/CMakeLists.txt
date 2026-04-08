@@ -27,6 +27,7 @@ set(GLAB_RESOURCE_SOURCES
     Core/Resource/MountResolver.cpp
     Core/Resource/PathParser.cpp
     Core/Resource/PhysicalIO.cpp
+    Core/Resource/ResourceCatalog.cpp
     Core/Resource/RootDiscovery.cpp
 )
 
@@ -38,6 +39,7 @@ set(GLAB_RESOURCE_HEADERS
     Core/Resource/PathParser.h
     Core/Resource/PathTypes.h
     Core/Resource/PhysicalIO.h
+    Core/Resource/ResourceCatalog.h
     Core/Resource/RootDiscovery.h
 )
 
