@@ -1,13 +1,12 @@
-# Serialization System - Design Document
+# Serialization System
 
-Updated 2026-03-26. Describes a format-agnostic serialization framework that decouples
-data types from their on-disk representation, enabling JSON today and YAML / binary tomorrow.
-
-> **Status**: Phase 1 complete - framework implemented, InputActionMap migrated.
+A format-agnostic serialization framework that decouples data types from their on-disk
+representation. Enables JSON today and YAML / binary tomorrow without modifying any
+domain type.
 
 > **Design Philosophy**: Types declare *what* to serialize via lightweight trait specialization.
 > Format backends (JSON, YAML, binary) handle *how*. No macros, no inheritance tax, no runtime
-> type registration. Serialize into an intermediate `PropertyTree` - backends read/write that tree.
+> type registration. Serialize into an intermediate `PropertyTree` — backends read/write that tree.
 > Named enum types may use `magic_enum` inside trait helpers for token conversion, but field-level
 > serialization remains explicit trait code rather than generalized structural reflection.
 
@@ -15,33 +14,36 @@ data types from their on-disk representation, enabling JSON today and YAML / bin
 
 ## Table of Contents
 
-- [Serialization System - Design Document](#serialization-system--design-document)
+- [Serialization System](#serialization-system)
   - [Table of Contents](#table-of-contents)
   - [1. Motivation](#1-motivation)
   - [2. Architecture Overview](#2-architecture-overview)
-  - [3. Layer 0 - PropertyTree (Intermediate Representation)](#3-layer-0--propertytree-intermediate-representation)
-  - [4. Layer 1 - Serialization Traits](#4-layer-1--serialization-traits)
+  - [3. Layer 0 - PropertyTree (Intermediate Representation)](#3-layer-0---propertytree-intermediate-representation)
+  - [4. Layer 1 - Serialization Traits](#4-layer-1---serialization-traits)
     - [4.1 Built-in Trait Specializations](#41-built-in-trait-specializations)
-    - [4.2 Domain Type Example - Transform](#42-domain-type-example--transform)
-    - [4.3 Domain Type Example - DirectionalLight](#43-domain-type-example--directionallight)
-  - [5. Layer 2 - Format Backends](#5-layer-2--format-backends)
-    - [5.1 JSON Backend (Phase 1 - immediate)](#51-json-backend-phase-1--immediate)
-    - [5.2 Future Backends (not implemented now)](#52-future-backends-not-implemented-now)
-  - [6. Layer 3 - Schema Validation](#6-layer-3--schema-validation)
-  - [7. Layer 4 - File I/O Integration](#7-layer-4--file-io-integration)
-    - [Usage in demo code (after migration):](#usage-in-demo-code-after-migration)
-  - [8. Migration Plan - InputActionMap](#8-migration-plan--inputactionmap)
-    - [Before (current)](#before-current)
-    - [After](#after)
-    - [Migration steps](#migration-steps)
+    - [4.2 Domain Type Example - Transform](#42-domain-type-example---transform)
+    - [4.3 Domain Type Example - DirectionalLight](#43-domain-type-example---directionallight)
+  - [5. Layer 2 - Format Backends](#5-layer-2---format-backends)
+    - [5.1 JSON Backend](#51-json-backend)
+    - [5.2 Future Backends](#52-future-backends)
+  - [6. Layer 3 - Schema Validation](#6-layer-3---schema-validation)
+  - [7. Layer 4 - File I/O Integration](#7-layer-4---file-io-integration)
+    - [Live usage (ShadowMapping.cpp, MaterialPlayground.cpp):](#live-usage-shadowmappingcpp-materialplaygroundcpp)
+  - [8. InputActionMap Integration](#8-inputactionmap-integration)
+    - [8.1 Enum Strategy](#81-enum-strategy)
+    - [8.2 magic\_enum Rollout Sequence](#82-magic_enum-rollout-sequence)
   - [9. Candidate Types for Future Serialization](#9-candidate-types-for-future-serialization)
+    - [9.1 Shader Reflection Sidecar - Deferred Integration Plan](#91-shader-reflection-sidecar---deferred-integration-plan)
+      - [Why This Path Is Still Special Today](#why-this-path-is-still-special-today)
+      - [Why It Still Belongs In The Serialization Story Eventually](#why-it-still-belongs-in-the-serialization-story-eventually)
+      - [Recommended Future Shape](#recommended-future-shape)
+      - [Best Time To Focus This](#best-time-to-focus-this)
   - [10. Error Handling Strategy](#10-error-handling-strategy)
   - [11. File Layout](#11-file-layout)
-  - [12. Phased Implementation Plan](#12-phased-implementation-plan)
-    - [Phase 1 - Foundation + InputActionMap migration](#phase-1--foundation--inputactionmap-migration)
-    - [Phase 2 - Scene types](#phase-2--scene-types)
-    - [Phase 3 - Schema validation](#phase-3--schema-validation)
-    - [Phase 4 - Additional backends (as needed)](#phase-4--additional-backends-as-needed)
+  - [12. Implementation Roadmap](#12-implementation-roadmap)
+    - [Phase 2 - Scene types](#phase-2---scene-types)
+    - [Phase 3 - Schema validation](#phase-3---schema-validation)
+    - [Phase 4 - Additional backends (as needed)](#phase-4---additional-backends-as-needed)
   - [13. Appendix A: Alternatives Considered](#13-appendix-a-alternatives-considered)
     - [A1. nlohmann/json `from_json` / `to_json` ADL directly](#a1-nlohmannjson-from_json--to_json-adl-directly)
     - [A2. Inheritance-based `ISerializable` interface](#a2-inheritance-based-iserializable-interface)
@@ -52,9 +54,10 @@ data types from their on-disk representation, enabling JSON today and YAML / bin
 
 ## 1. Motivation
 
-~~Today, `InputActionMap::SaveToFile()` / `LoadFromFile()` contain ~170 lines of inline JSON
-serialization using nlohmann/json directly.~~ *(Resolved in Phase 1 - see §8.)*
-The original inline approach could not scale:
+The original serialization approach embedded ~170 lines of inline `nlohmann/json` code
+directly inside `InputActionMap::SaveToFile()` / `LoadFromFile()`. Each field check was
+hand-written, error handling was ad-hoc, and the format was hard-coded to JSON with no
+path to YAML or binary.
 
 | Problem | Impact |
 |---------|--------|
@@ -63,11 +66,14 @@ The original inline approach could not scale:
 | Hard-coded to JSON | Adding YAML (human-authored configs) or binary (scene snapshots) requires rewriting every type |
 | No versioning | Changing a field name silently breaks old save files |
 
-**Goal**: A thin abstraction layer where:
-- Domain types declare serialization via a **trait** (free function pair).
-- An **intermediate tree** decouples types from format details.
-- **Format backends** are interchangeable - JSON today, binary/YAML when needed.
-- **Validation and versioning** live in one place, not scattered across LoadFromFile() calls.
+**What the framework provides**:
+
+- **Format independence** — domain types serialize into a `PropertyTree`; backends translate that tree to JSON, YAML, or binary. Swapping formats requires zero changes to domain code.
+- **ADL-based traits** — free function pairs `Serialize` / `Deserialize` discovered via argument-dependent lookup. No base class, no virtual functions, no registration macros.
+- **Built-in trait library** — out-of-the-box support for primitives, GLM types, `enum class` (via `magic_enum`), and standard containers.
+- **Single coupling point** — `#include <json.hpp>` appears only in `JsonBackend.cpp`. No other engine file imports nlohmann/json for serialization.
+- **Consistent error handling** — unknown keys warn rather than reject, type mismatches warn and skip, partial failures never commit.
+- **Atomic load** — `LoadFromFile` deserializes into a temporary, then moves on success; the caller's value is unchanged if deserialization fails.
 
 ---
 
@@ -78,12 +84,12 @@ The original inline approach could not scale:
  ┌──────────────┐               ┌──────────────┐         ┌───────────────┐
  │  Transform   │──Serialize──▸ │              │──JSON──▸│ JsonBackend   │──▸ .json file
  │  Material    │               │ PropertyTree │──YAML──▸│ YamlBackend   │──▸ .yaml file
- │  Camera      │◂─Deserialize─│              │──Bin───▸│ BinaryBackend │──▸ .bin  file
+ │  Camera      │◂─Deserialize─ │              │──Bin───▸│ BinaryBackend │──▸ .bin  file
  │  InputAction │               └──────────────┘         └───────────────┘
  └──────────────┘                      ▲
                                        │
                                ┌───────┴───────┐
-                               │ SchemaValidator│ (optional, Layer 3)
+                               │SchemaValidator│ (optional, Layer 3)
                                └───────────────┘
 ```
 
@@ -96,7 +102,7 @@ Data flows in two directions:
 ## 3. Layer 0 - PropertyTree (Intermediate Representation)
 
 A lightweight, format-neutral value tree. Analogous to `nlohmann::json` in shape but
-**owned by us** - no third-party types leak into domain headers.
+owned by the engine — no third-party types leak into domain headers.
 
 See `core/serialization/PropertyTree.h` for the full declaration. Key surface:
 
@@ -174,12 +180,13 @@ private:
 
 **Key decisions**:
 - `Object` uses `std::map` (not `unordered_map`) so JSON output has stable, deterministic key ordering.
-- `Float` is `double` internally - covers both `float` and `double` without loss.
-- `Int` is `int64_t` - covers all integer types the project uses.
-- `IsNumber()` returns true for either Int or Float - simplifies numeric deserialization.
+- `Float` is `double` internally — covers both `float` and `double` without loss.
+- `Int` is `int64_t` — covers all integer types the project uses.
+- `IsNumber()` returns true for either Int or Float, simplifying numeric deserialization.
 - `operator[](const std::string&)` on a Null tree auto-promotes to Object for ergonomic building.
-- No `glm::vec3` etc. in the tree - those are composed from arrays in the trait layer.
+- No `glm::vec3` etc. in the tree — those are composed from arrays in the trait layer.
 - Variant-based, no heap allocation for scalars.
+- `AsFloat()` accepts `Int` and promotes — simplifies numeric deserialization without requiring `IsNumber()` checks in every trait.
 
 ---
 
@@ -215,8 +222,8 @@ concept Serializable = requires(PropertyTree &tree, const PropertyTree &ctree, T
 
 ### 4.1 Built-in Trait Specializations
 
-Provided out of the box in `core/serialization/BuiltinTraits.h`. All are `inline`
-functions (header-only - no `.cpp` needed):
+Provided in `core/serialization/BuiltinTraits.h`. All are `inline` functions (header-only —
+no `.cpp` needed):
 
 | Category | Types | Notes |
 |----------|-------|-------|
@@ -243,6 +250,9 @@ Provide a custom overload instead of the default path when:
 - bitflag enums need list/bitmask encoding instead of a single token.
 
 ### 4.2 Domain Type Example - Transform
+
+> *This section shows the planned trait implementation for Phase 2 scene serialization.
+> `TransformSerialization.h` does not exist yet.*
 
 ```cpp
 // In Transform.h or a dedicated TransformSerialization.h
@@ -277,6 +287,9 @@ inline bool Deserialize(const PropertyTree &tree, Transform &t)
 ```
 
 ### 4.3 Domain Type Example - DirectionalLight
+
+> *This section shows the planned trait implementation for Phase 2 scene serialization.
+> Traits for `DirectionalLight` do not exist yet.*
 
 ```cpp
 namespace Serialization {
@@ -334,7 +347,7 @@ public:
 } // namespace Serialization
 ```
 
-### 5.1 JSON Backend ✅
+### 5.1 JSON Backend
 
 Wraps nlohmann/json. Currently the only backend.
 
@@ -361,12 +374,15 @@ private:
 Internal conversion helpers (`TreeToJson`, `JsonToTree`) are file-local functions
 in an anonymous namespace inside `JsonBackend.cpp`. They use `std::visit` on
 `PropertyTree::GetValue()` for the tree→json direction, and a `switch` on
-`nlohmann::json::value_t` for json→tree.
+`nlohmann::json::value_t` for the json→tree direction.
 
-`#include <json.hpp>` only appears in `JsonBackend.cpp` - nowhere else in the engine.
+`#include <json.hpp>` appears only in `JsonBackend.cpp` — nowhere else in the engine.
 This is the **sole point of coupling** to nlohmann/json.
 
-### 5.2 Future Backends (not implemented now)
+### 5.2 Future Backends
+
+> *None of the following backends are implemented. Add them only when there is a concrete
+> use case. Adding a backend requires zero changes to domain types or traits.*
 
 | Backend | Format | Use Case | Dependency |
 |---------|--------|----------|------------|
@@ -374,11 +390,11 @@ This is the **sole point of coupling** to nlohmann/json.
 | `BinaryBackend` | Custom binary | Scene snapshots, fast save/load, asset packaging | None (custom format) |
 | `MessagePackBackend` | MessagePack | Network serialization, compact on-disk | nlohmann/json (built-in support) |
 
-Adding a backend requires **zero changes** to domain types or traits.
-
 ---
 
 ## 6. Layer 3 - Schema Validation
+
+> *This layer is not yet implemented (Phase 3). The interface below is the planned design.*
 
 Optional layer that validates a `PropertyTree` before deserialization.
 Useful for user-editable config files where typos are likely.
@@ -411,20 +427,20 @@ SchemaResult Validate(const PropertyTree &tree,
 ```
 
 **Design choice**: Schema is **whitelist + warn**, not **strict reject**. Unknown keys produce
-warnings, not errors. This keeps config files forward-compatible - an older engine version can
+warnings, not errors. This keeps config files forward-compatible — an older engine version can
 load a newer config without crashing.
 
 ---
 
-## 7. Layer 4 - File I/O Integration ✅
+## 7. Layer 4 - File I/O Integration
 
-A convenience layer that ties together FileSystem, format backends, and traits.
-See `core/serialization/Serialization.h` - all template functions, header-only.
+A convenience layer that ties together the filesystem, format backends, and traits.
+See `core/serialization/Serialization.h` — all template functions, header-only.
 
 ```cpp
 namespace Serialization {
 
-/// Get the default backend for a file extension (Phase 1: always returns JsonBackend).
+/// Get the default backend for a file extension (currently always returns JsonBackend).
 const IFormatBackend &GetBackendForExtension(std::string_view ext);
 
 /// One-call save/load with auto-detected backend.
@@ -448,10 +464,10 @@ bool LoadFromFile(T &value, const std::filesystem::path &path,
 
 **Implementation details**:
 - `SaveToFile` creates parent directories via `std::filesystem::create_directories`.
-- `LoadFromFile` deserializes into a **temporary** `T`, then moves on success -
+- `LoadFromFile` deserializes into a **temporary** `T`, then moves on success —
   the caller's value is unchanged if deserialization fails.
 
-### Usage in demo code (live - ShadowMapping.cpp, MaterialPlayground.cpp):
+### Live usage (ShadowMapping.cpp, MaterialPlayground.cpp):
 
 ```cpp
 #include "core/input/InputActionSerialization.h"
@@ -474,60 +490,56 @@ else
 
 ---
 
-## 8. Migration Plan - InputActionMap ✅ Complete
+## 8. InputActionMap Integration
 
-The first consumer migrated. Validated the framework on a real, working type.
+`InputActionMap` is the first type migrated to the framework. The original
+`InputAction.cpp` contained ~170 lines of inline `nlohmann/json` parsing inside
+`SaveToFile()` and `LoadFromFile()` member functions. These have been replaced by
+a dedicated trait file.
 
-### Changes made
+**Changes made**:
 
 | File | Change |
 |------|--------|
 | `InputAction.h` | Removed `SaveToFile()` / `LoadFromFile()` declarations. Moved `AxisEntry` to public. Added `GetActions()` / `GetAxes()` const accessors for trait access. |
 | `InputAction.cpp` | Removed ~170 lines of inline JSON serialization, anonymous namespace helpers, `<json.hpp>` include. |
-| `InputActionSerialization.h` | New file - `Serialize` / `Deserialize` traits for `InputSource` and `InputActionMap`. |
+| `InputActionSerialization.h` | New file — `Serialize` / `Deserialize` traits for `InputSource` and `InputActionMap`. |
 | `ShadowMapping.cpp` | Calls `Serialization::LoadFromFile` / `SaveToFile` instead of member functions. |
 | `MaterialPlayground.cpp` | Same migration as ShadowMapping. |
 
-### Enum strategy (as implemented)
+The JSON format is **unchanged** — existing config files load without modification.
 
-- `InputSource::Type` and `InputActionMap::MouseAxis` use the default `magic_enum`-backed
-  enum traits - tokens match the C++ enumerator names exactly (`"Key"`, `"MouseButton"`,
+### 8.1 Enum Strategy
+
+`InputActionSerialization.h` contains two enum types with different token strategies:
+
+- **`InputSource::Type` and `InputActionMap::MouseAxis`** use the default `magic_enum`-backed
+  enum traits. Tokens match the C++ enumerator names exactly (`"Key"`, `"MouseButton"`,
   `"X"`, `"Y"`, `"ScrollY"`).
-- `Key::Code` and `Mouse::Code` are **not** `enum class` types (they are `uint16_t` enums
-  in a namespace) - they continue to use `InputNames.h` for stable canonical names and alias support.
 
-**JSON format is unchanged** - existing config files load without modification.
+- **`Key::Code` and `Mouse::Code`** are not `enum class` types — they are `uint16_t` enums
+  in a namespace and continue to use `InputNames.h` for stable canonical names and alias support.
 
-### `magic_enum` Rollout Sequence
+This distinction matters: magic_enum tokens are tied to C++ enumerator spellings and will
+silently change if an enumerator is renamed. Types where on-disk tokens must remain stable
+across C++ renames get an explicit custom overload instead.
 
-1. ✅ **Dependency + enum trait in BuiltinTraits.h**
-   - Added `magic_enum` v0.9.7 as a vendored single header (`vendor/magic_enum/magic_enum.hpp`).
-   - Enum support lives inside `BuiltinTraits.h` as a constrained template - the rest of the
-     codebase does **not** `#include <magic_enum.hpp>` directly.
+### 8.2 magic_enum Rollout Sequence
 
-2. ✅ **First production use: InputActionMap serialization traits**
-   - `InputSource::Type` and `MouseAxis` use the magic_enum-backed enum traits in
-     `InputActionSerialization.h`.
-   - `Key::Code` / `Mouse::Code` remain on `InputNames.h` - canonical names and aliases are stable.
+`magic_enum` v0.9.7 is vendored as a single header (`vendor/magic_enum/magic_enum.hpp`).
+The enum support lives inside `BuiltinTraits.h` as a constrained template — the rest of the
+codebase does **not** `#include <magic_enum.hpp>` directly.
 
-3. **Second wave: engine/editor-facing enums**
-   - Migrate enums such as `SceneRendererOutput`, renderer debug toggles, and future app/window
-     settings once they become config-facing or need repeated UI stringification.
-   - Typical uses: serialization tokens, log strings, ImGui combo/radio population.
+| Wave | Scope | Status |
+|------|-------|--------|
+| 1 | Dependency added + enum trait in `BuiltinTraits.h` | ✅ Complete |
+| 2 | First production use: `InputSource::Type`, `MouseAxis` in `InputActionSerialization.h` | ✅ Complete |
+| 3 | Engine/editor-facing enums: `SceneRendererOutput`, renderer debug toggles, app/window settings once they become config-facing or need repeated UI stringification | Planned |
+| 4 | Material and rendering enums: `ShadingModel`, `BlendMode`, and similar config-facing enums once material presets/editor tooling land. Flags-style enums like `MaterialFeatureFlag` need a dedicated serializer/UI helper rather than plain one-of treatment. | Planned |
 
-4. **Third wave: material and rendering configuration enums**
-   - Apply the same shared helper to future `ShadingModel`, `BlendMode`, and similar config-facing
-     enums once material presets/editor tooling land.
-   - For flags-style enums such as `MaterialFeatureFlag`, build a dedicated serializer/UI helper
-     on top of the enum metadata rather than treating them like a plain one-of enum.
-
-5. **Do not force adoption where it is a poor fit**
-   - Keep backend conversion switches (`TextureFormat -> GLenum`, `LoadAction -> MTLLoadAction`,
-     etc.) explicit.
-   - Keep non-enum code tables and alias-heavy input code mappings explicit.
-
-This ordering deliberately introduces the dependency **before** widespread usage, but delays
-meaningful behavioral changes until the `InputActionMap` serialization migration is underway.
+**Do not force adoption where it is a poor fit**: keep backend conversion switches
+(`TextureFormat → GLenum`, `LoadAction → MTLLoadAction`, etc.) explicit, and keep
+non-enum code tables and alias-heavy input code mappings explicit.
 
 ---
 
@@ -537,19 +549,19 @@ Types that will likely need serialization, in rough priority order:
 
 | Type | Use Case | Complexity | Status |
 |------|----------|------------|--------|
-| `InputActionMap` | Input config files | Medium - enum mapping, nested structure | ✅ Phase 1 |
-| `Transform` | Scene save/load | Low - 3 vec3 fields | Phase 2 |
-| `DirectionalLight` | Scene save/load | Low - vec3 + float | Phase 2 |
-| `Camera` | Camera presets, scene save | Low - position + angles + projection params | Phase 2 |
-| `SceneData` | Full scene snapshot | Medium - contains RenderItems with Ref<> pointers | Phase 2 |
-| `Material` (properties only) | Material presets | Medium - heterogeneous property maps | - |
-| Renderer settings | Quality presets, debug toggles | Low - flat key-value | - |
-| Window/app settings | Window size, VSync, fullscreen | Low - flat key-value | - |
-| Shader reflection sidecar | Loading Slang-emitted uniform/layout metadata | Medium - external schema, backend/tooling-owned | Deferred on purpose |
+| `InputActionMap` | Input config files | Medium — enum mapping, nested structure | ✅ Implemented |
+| `Transform` | Scene save/load | Low — 3 vec3 fields | Phase 2 |
+| `DirectionalLight` | Scene save/load | Low — vec3 + float | Phase 2 |
+| `Camera` | Camera presets, scene save | Low — position + angles + projection params | Phase 2 |
+| `SceneData` | Full scene snapshot | Medium — contains RenderItems with Ref<> pointers | Phase 2 |
+| `Material` (properties only) | Material presets | Medium — heterogeneous property maps | — |
+| Renderer settings | Quality presets, debug toggles | Low — flat key-value | — |
+| Window/app settings | Window size, VSync, fullscreen | Low — flat key-value | — |
+| Shader reflection sidecar | Loading Slang-emitted uniform/layout metadata | Medium — external schema, backend/tooling-owned | Deferred on purpose |
 
-**Note on `Ref<Mesh>` / `Ref<ITexture2D>`**: These are runtime GPU resources - they cannot be
+**Note on `Ref<Mesh>` / `Ref<ITexture2D>`**: These are runtime GPU resources — they cannot be
 serialized as data. Instead, serialize an **asset reference** (path string) and resolve it
-through the asset system on load. This is out of scope for Phase 1 but the PropertyTree
+through the asset system on load. This is out of scope for Phase 2 but the PropertyTree
 design accommodates it naturally (store `"mesh": "meshes/cube.obj"` as a string).
 
 **Note on enums**: For future config-facing enums, the default path is to use the shared
@@ -559,7 +571,7 @@ serializing raw enumerator spellings.
 
 ### 9.1 Shader Reflection Sidecar - Deferred Integration Plan
 
-The repository now has a serialization framework, but shader reflection sidecars are
+The repository has a serialization framework, but shader reflection sidecars are
 currently **not** routed through it. `MetalShader` still parses Slang's reflection JSON
 directly with `nlohmann::json`.
 
@@ -613,21 +625,7 @@ Important: this should still be **explicit decoding**, not generic "serialize ev
 object automatically" machinery. The reflection schema is external and semantics-heavy;
 it deserves a dedicated decode step.
 
-#### Why We Recommend Deferring It For Now
-
-Right now, moving reflection sidecars onto `PropertyTree` would not unlock any missing
-renderer capability. It would mostly be a consistency cleanup while the reflection schema
-and loader behavior are still changing.
-
-That has two downsides:
-
-- the reflection migration would gain extra churn in code that is already in flux
-- the serialization framework would absorb a fast-moving external schema before the team
-  has decided what the stable engine-facing reflection representation should be
-
 #### Best Time To Focus This
-
-Recommended timing:
 
 - not now, while reflected packing issues are still being shaken out
 - earliest reasonable time: after reflected packing works on both OpenGL and Metal
@@ -636,33 +634,21 @@ Recommended timing:
 - good practical trigger: when the team wants to remove the last direct `nlohmann::json`
   parsing sites from engine code as a cleanup pass
 
-In terms of the rendering roadmap, this likely means after the current
-reflection/binding cleanup has stabilized, not during the current push.
-
-#### Current Team Decision
-
-For the current migration effort, the recommendation is:
-
-- acknowledge that direct JSON parsing in `MetalShader` is technical debt
-- document it clearly
-- keep it local and explicit for now
-- do **not** make serialization integration a focus item until the reflection path settles
-
 ---
 
 ## 10. Error Handling Strategy
 
-Consistent across all types - enforced by the framework, not by individual implementations:
+Consistent across all types — enforced by the framework, not by individual implementations:
 
 | Situation | Behavior |
 |-----------|----------|
 | File not found | `LoadFromFile` returns `false`, no log (caller decides if this is expected) |
 | Parse error (malformed JSON/YAML) | `LOG_ERROR` with file path and parser message, return `false` |
-| Unknown key in config | `LOG_WARN` (forward-compatible - don't reject) |
+| Unknown key in config | `LOG_WARN` (forward-compatible — don't reject) |
 | Missing optional field | Use type's default value silently |
 | Missing required field | `LOG_WARN`, `Deserialize` returns `false` |
 | Type mismatch (e.g., string where int expected) | `LOG_WARN` with field name, skip field |
-| Partial failure | Deserialize into temporaries, only commit on full success (same as current InputActionMap pattern) |
+| Partial failure | Deserialize into temporaries, only commit on full success |
 | Write failure (disk full, permissions) | `LOG_ERROR`, `SaveToFile` returns `false` |
 
 ---
@@ -672,56 +658,33 @@ Consistent across all types - enforced by the framework, not by individual imple
 ```
 vendor/
   magic_enum/
-    magic_enum.hpp                 - v0.9.7, vendored single header
+    magic_enum.hpp                 ✅ v0.9.7, vendored single header
 
 src/
   core/
     serialization/
-      PropertyTree.h / .cpp        - Layer 0: intermediate representation    ✅
-      SerializationTraits.h        - Layer 1: Serializable concept           ✅
-      BuiltinTraits.h              - Layer 1: primitives, glm, enum, containers (header-only) ✅
-      IFormatBackend.h             - Layer 2: backend interface              ✅
-      JsonBackend.h / .cpp         - Layer 2: nlohmann/json backend          ✅
-      Serialization.h              - Layer 4: convenience SaveToFile/LoadFromFile (header-only) ✅
-      SchemaValidator.h / .cpp     - Layer 3: optional validation            (Phase 3)
+      PropertyTree.h / .cpp        ✅ Layer 0: intermediate representation
+      SerializationTraits.h        ✅ Layer 1: Serializable concept
+      BuiltinTraits.h              ✅ Layer 1: primitives, glm, enum, containers (header-only)
+      IFormatBackend.h             ✅ Layer 2: backend interface
+      JsonBackend.h / .cpp         ✅ Layer 2: nlohmann/json backend
+      Serialization.h              ✅ Layer 4: convenience SaveToFile/LoadFromFile (header-only)
+      SchemaValidator.h / .cpp        Layer 3: optional validation            (Phase 3)
     input/
-      InputActionSerialization.h   - Serialize/Deserialize for InputActionMap ✅
+      InputActionSerialization.h   ✅ Serialize/Deserialize for InputActionMap
   scene/
-    SceneSerialization.h           - Serialize/Deserialize for Transform, Light, Camera (Phase 2)
+    SceneSerialization.h              Serialize/Deserialize for Transform, Light, Camera (Phase 2)
 ```
 
 The `serialization/` module lives under `core/` because it is engine infrastructure,
 not tied to any specific domain (input, scene, graphics).
 
-Note: `BuiltinTraits.h` and `Serialization.h` are header-only (no `.cpp`) - all functions
-are `inline` or templates.
+`BuiltinTraits.h` and `Serialization.h` are fully header-only — all functions are
+`inline` or templates. No `.cpp` files are needed for them.
 
 ---
 
-## 12. Phased Implementation Plan
-
-### Phase 1 - Foundation + InputActionMap migration ✅ Complete (2026-03-26)
-
-**Goal**: Replace inline JSON code in InputActionMap with the new framework.
-Zero behavior change, zero config format change.
-
-| Step | Deliverable | Test | Status |
-|------|-------------|------|--------|
-| 0a | Add `magic_enum` v0.9.7 vendored + enum traits in `BuiltinTraits.h` | Build succeeds; no behavior changes | ✅ |
-| 0b | Enum usage rules: `enum class` → magic_enum default, `Key::Code`/`Mouse::Code` → InputNames.h | Design doc updated | ✅ |
-| 1a | `PropertyTree` with full variant API (`std::map` for ordered output) | Build succeeds | ✅ |
-| 1b | `JsonBackend` - bidirectional conversion via anonymous-namespace helpers | Build succeeds | ✅ |
-| 1c | Builtin traits: primitives, `uint8/16_t`, `glm::vec2/3/4`, `mat4`, containers, enums | Build succeeds | ✅ |
-| 1d | `InputActionMap` Serialize/Deserialize traits in `InputActionSerialization.h` | Build succeeds, 84 existing tests pass | ✅ |
-| 1e | `Serialization::SaveToFile` / `LoadFromFile` (header-only, temp-then-move pattern) | Build succeeds | ✅ |
-| 1f | Remove old code from InputAction.cpp, migrate ShadowMapping + MaterialPlayground | All demos compile, 84 tests pass | ✅ |
-
-**Implementation notes vs. original design**:
-- `PropertyTree::Object` uses `std::map` instead of `std::unordered_map` for deterministic key ordering in JSON output.
-- Added `IsNumber()`, mutable `AsArray()`/`AsObject()`, `GetValue()` accessor not in original spec.
-- Added `glm::vec2`, `uint8_t`, `uint16_t` to built-in traits beyond original spec.
-- `BuiltinTraits.h` and `Serialization.h` are fully header-only (no `.cpp` files needed).
-- `JsonBackend` conversion helpers are anonymous-namespace functions, not static members.
+## 12. Implementation Roadmap
 
 ### Phase 2 - Scene types
 
@@ -729,9 +692,9 @@ Zero behavior change, zero config format change.
 
 | Step | Deliverable |
 |------|-------------|
-| 2a | Traits for Transform, DirectionalLight, Camera |
+| 2a | Traits for Transform, DirectionalLight, Camera in `scene/SceneSerialization.h` |
 | 2b | Scene config files (e.g., `configs/scenes/ShadowMapping.json`) |
-| 2c | Demo code loads scene setup from config |
+| 2c | Demo code loads scene setup from config instead of hard-coded defaults |
 
 ### Phase 3 - Schema validation
 
@@ -739,7 +702,7 @@ Zero behavior change, zero config format change.
 
 | Step | Deliverable |
 |------|-------------|
-| 3a | `SchemaValidator` implementation |
+| 3a | `SchemaValidator` implementation (see §6 for interface design) |
 | 3b | Schema definitions for input configs and scene configs |
 | 3c | Validation integrated into `LoadFromFile` pipeline |
 
@@ -758,7 +721,7 @@ Only implement when there is a concrete use case:
 
 nlohmann/json natively supports ADL-based `from_json` / `to_json` free functions.
 
-**Pros**: Zero framework code needed - just write the functions.
+**Pros**: Zero framework code needed — just write the functions.
 **Cons**: Couples every serializable type to nlohmann/json. No path to YAML or binary without
 rewriting all traits. nlohmann types leak into domain headers.
 
@@ -793,7 +756,7 @@ Requires significant infrastructure (field name stringification, iteration).
 **Pros**: Zero-overhead, no macros, no boilerplate.
 **Cons**: Not available in any compiler yet (C++26 at earliest). Cannot depend on it.
 
-**Verdict**: The trait-based design is forward-compatible - when reflection lands, traits can
+**Verdict**: The trait-based design is forward-compatible — when reflection lands, traits can
 be auto-generated. No wasted work. In the meantime, `magic_enum` is adopted only as a
 small helper for named enum token conversion; it does not replace explicit trait code or
 change the overall architecture.

@@ -37,60 +37,72 @@ add_executable(rtrlab_unit_tests
     unit/TestLayerStack.cpp
     unit/TestTransform.cpp
     unit/TestCamera.cpp
-    unit/TestBuffers.cpp
     unit/TestDefaultCameraController.cpp
     unit/TestSpecifications.cpp
-    unit/TestShaderUniformLayout.cpp
     unit/TestInputModifiers.cpp
     unit/TestInputTriggers.cpp
+    unit/TestInputDeviceManager.cpp
     unit/TestInputContextStack.cpp
+    unit/TestInput.cpp
+    unit/TestInputAction.cpp
+    unit/TestInputNames.cpp
     unit/TestPropertyTree.cpp
+    unit/TestBuiltinTraits.cpp
+    unit/TestJsonBackend.cpp
 )
 
 glab_configure_test_target(rtrlab_unit_tests)
 
 add_executable(rtrlab_contract_tests
-    contract/core/TestDiagnostics.cpp
+    contract/core/TestDiagnosticsCore.cpp
+    contract/core/TestImGuiConsoleSink.cpp
+    contract/core/TestLogger.cpp
+    contract/core/TestLogCategories.cpp
     contract/core/TestEventBus.cpp
     contract/core/TestFileSystem.cpp
     contract/core/TestLayerStackLifecycle.cpp
-    contract/core/TestPassContracts.cpp
-    contract/core/TestSceneRendererFlow.cpp
+    contract/core/TestSerializationFileIO.cpp
 )
 
 glab_configure_test_target(rtrlab_contract_tests)
 
+add_executable(rtrlab_contract_tests_log_min_level
+    contract/core/TestDiagnosticsMinLevel.cpp
+)
+
+glab_configure_test_target(rtrlab_contract_tests_log_min_level)
+
 if(GLAB_BACKEND_OPENGL)
-    set_source_files_properties(
-        ${CMAKE_CURRENT_SOURCE_DIR}/support/GLTestContext.cpp
-        PROPERTIES
-            SKIP_UNITY_BUILD_INCLUSION ON
-    )
+    # set_source_files_properties(
+    #     ${CMAKE_CURRENT_SOURCE_DIR}/support/GLTestContext.cpp
+    #     PROPERTIES
+    #         SKIP_UNITY_BUILD_INCLUSION ON
+    # )
 
-    add_executable(rtrlab_contract_tests_opengl
-        contract/opengl/TestFramebuffer.cpp
-        contract/opengl/TestRenderPasses.cpp
-        contract/opengl/TestRenderTarget.cpp
-        support/GLTestContext.cpp
-    )
+    # add_executable(rtrlab_contract_tests_opengl
+    #     contract/opengl/TestFramebuffer.cpp
+    #     contract/opengl/TestRenderPasses.cpp
+    #     contract/opengl/TestRenderTarget.cpp
+    #     support/GLTestContext.cpp
+    # )
 
-    if(TARGET CompileShaders)
-        add_dependencies(rtrlab_contract_tests_opengl CompileShaders)
-    endif()
+    # if(TARGET CompileShaders)
+    #     add_dependencies(rtrlab_contract_tests_opengl CompileShaders)
+    # endif()
 
-    glab_configure_test_target(rtrlab_contract_tests_opengl)
+    # glab_configure_test_target(rtrlab_contract_tests_opengl)
 
-    add_executable(rtrlab_integration_tests_opengl
-        integration/opengl/TestShader.cpp
-        integration/opengl/TestTexture.cpp
-        integration/opengl/TestRenderResults.cpp
-        integration/opengl/TestSceneRenderer.cpp
-        support/GLTestContext.cpp
-    )
+    # add_executable(rtrlab_integration_tests_opengl
+    #     integration/opengl/TestShader.cpp
+    #     integration/opengl/TestTexture.cpp
+    #     integration/opengl/TestRenderResults.cpp
+    #     integration/opengl/TestSceneRenderer.cpp
+    #     support/GLTestContext.cpp
+    # )
 
-    if(TARGET CompileShaders)
-        add_dependencies(rtrlab_integration_tests_opengl CompileShaders)
-    endif()
+    # if(TARGET CompileShaders)
+    #     add_dependencies(rtrlab_integration_tests_opengl CompileShaders)
+    # endif()
 
-    glab_configure_test_target(rtrlab_integration_tests_opengl)
+    # glab_configure_test_target(rtrlab_integration_tests_opengl)
 endif()

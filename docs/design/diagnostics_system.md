@@ -15,27 +15,42 @@ production-grade diagnostics infrastructure aligned with modern game engine prac
 
 ## Table of Contents
 
-- [1. Motivation](#1-motivation)
-- [2. Architecture Overview](#2-architecture-overview)
-- [3. Logging](#3-logging)
-  - [3.1 Logger Initialization and Lifecycle](#31-logger-initialization-and-lifecycle)
-  - [3.2 Category System](#32-category-system)
-  - [3.3 Log Macros](#33-log-macros)
-  - [3.4 Flood Prevention (Once / Throttle / Cond)](#34-flood-prevention-once--throttle--cond)
-  - [3.5 Sinks](#35-sinks)
-  - [3.6 Asynchronous Logging](#36-asynchronous-logging)
-  - [3.7 Frame Number and Thread ID](#37-frame-number-and-thread-id)
-  - [3.8 Runtime Level Control](#38-runtime-level-control)
-  - [3.9 Compile-Time Level Stripping](#39-compile-time-level-stripping)
-  - [3.10 JSON Lines Sink](#310-json-lines-sink)
-- [4. Assertions](#4-assertions)
-- [5. Error Handling](#5-error-handling)
-- [6. Crash Handler](#6-crash-handler)
-- [7. Debug Console](#7-debug-console)
-- [8. File Layout](#8-file-layout)
-- [9. Key Design Decisions](#9-key-design-decisions)
-- [Appendix A: Industry Survey](#appendix-a-industry-survey)
-- [Appendix B: Alternatives Considered](#appendix-b-alternatives-considered)
+- [Diagnostics System](#diagnostics-system)
+  - [Table of Contents](#table-of-contents)
+  - [1. Motivation](#1-motivation)
+  - [2. Architecture Overview](#2-architecture-overview)
+  - [3. Logging](#3-logging)
+    - [3.1 Logger Initialization and Lifecycle](#31-logger-initialization-and-lifecycle)
+    - [3.2 Category System](#32-category-system)
+    - [3.3 Log Macros](#33-log-macros)
+    - [3.4 Flood Prevention (Once / Throttle / Cond)](#34-flood-prevention-once--throttle--cond)
+    - [3.5 Sinks](#35-sinks)
+    - [3.6 Asynchronous Logging](#36-asynchronous-logging)
+    - [3.7 Frame Number and Thread ID](#37-frame-number-and-thread-id)
+    - [3.8 Runtime Level Control](#38-runtime-level-control)
+    - [3.9 Compile-Time Level Stripping](#39-compile-time-level-stripping)
+    - [3.10 JSON Lines Sink](#310-json-lines-sink)
+  - [4. Assertions](#4-assertions)
+  - [5. Error Handling](#5-error-handling)
+  - [6. Crash Handler](#6-crash-handler)
+  - [7. Debug Console](#7-debug-console)
+  - [8. File Layout](#8-file-layout)
+  - [9. Key Design Decisions](#9-key-design-decisions)
+    - [Why `constexpr const char*` categories instead of an enum](#why-constexpr-const-char-categories-instead-of-an-enum)
+    - [Why `overrun_oldest` instead of blocking](#why-overrun_oldest-instead-of-blocking)
+    - [Why the JSON sink is always registered but disabled](#why-the-json-sink-is-always-registered-but-disabled)
+    - [Why ONCE/THROTTLE use CAS instead of load+store](#why-oncethrottle-use-cas-instead-of-loadstore)
+    - [Why `spdlog::shutdown()` instead of `drop_all()`](#why-spdlogshutdown-instead-of-drop_all)
+    - [Why assertions are never stripped](#why-assertions-are-never-stripped)
+    - [Why no C++ exceptions in engine code](#why-no-c-exceptions-in-engine-code)
+  - [Appendix A: Industry Survey](#appendix-a-industry-survey)
+    - [Unreal Engine 5](#unreal-engine-5)
+    - [Godot Engine](#godot-engine)
+    - [CryEngine / O3DE](#cryengine--o3de)
+  - [Appendix B: Alternatives Considered](#appendix-b-alternatives-considered)
+    - [Keep `std::runtime_error` everywhere](#keep-stdruntime_error-everywhere)
+    - [Full `Result<T, E>` monadic error type](#full-resultt-e-monadic-error-type)
+    - [Third-party crash reporter (Breakpad / Crashpad)](#third-party-crash-reporter-breakpad--crashpad)
 
 ---
 
@@ -73,14 +88,14 @@ system follows that pattern.
 ```
    Diagnostic Sources                 Diagnostics Core                       Outputs
  ┌─────────────────┐               ┌─────────────────────┐            ┌──────────────────┐
- │ LOG_*_CAT(...)   │──────────────▸│                     │──────────▸ │ Console Sink     │
- │ LOG_*_ONCE(...)  │──────────────▸│  Async Logger Pool  │──────────▸ │ File Sink        │
- │ LOG_*_THROTTLE() │──────────────▸│  (spdlog async +    │──────────▸ │ ImGui Ring Sink  │
- │ LOG_*_COND(...)  │──────────────▸│   categories +      │──────────▸ │ JSON Lines Sink  │
- │ RTRLAB_ASSERT    │──────────────▸│   frame formatter)  │            └──────────────────┘
- │ RTRLAB_VERIFY    │──────────────▸│                     │
- │ RTRLAB_ENSURE    │──────────────▸│  ┌───────────────┐  │
- │ ERR_FAIL_COND_*  │──────────────▸│  │ Thread Pool   │  │
+ │ LOG_*_CAT(...)  │──────────────▸│                     │──────────▸ │ Console Sink     │
+ │ LOG_*_ONCE(...) │──────────────▸│  Async Logger Pool  │──────────▸ │ File Sink        │
+ │ LOG_*_THROTTLE()│──────────────▸│  (spdlog async +    │──────────▸ │ ImGui Ring Sink  │
+ │ LOG_*_COND(...) │──────────────▸│   categories +      │──────────▸ │ JSON Lines Sink  │
+ │ RTRLAB_ASSERT   │──────────────▸│   frame formatter)  │            └──────────────────┘
+ │ RTRLAB_VERIFY   │──────────────▸│                     │
+ │ RTRLAB_ENSURE   │──────────────▸│  ┌───────────────┐  │
+ │ ERR_FAIL_COND_* │──────────────▸│  │ Thread Pool   │  │
  └─────────────────┘               │  │ (MPSC queue)  │  │
                                    │  └───────────────┘  │
         Context injection:         └────────┬────────────┘
@@ -153,11 +168,11 @@ already been used are also accepted - this is checked via `Logger::HasLogger()`.
 ### 3.3 Log Macros
 
 All macros are defined in `LogMacros.h`. The `_CAT` variants take a category as the
-first argument. Legacy macros (no category) route to `LogCategory::Core`.
+first argument. The diagnostics system no longer exposes legacy non-category aliases;
+call sites pass an explicit category at each logging site.
 
 ```
 LOG_TRACE_CAT / LOG_DEBUG_CAT / LOG_INFO_CAT / LOG_WARN_CAT / LOG_ERROR_CAT / LOG_CRITICAL_CAT
-LOG_TRACE      / LOG_DEBUG      / LOG_INFO      / LOG_WARN      / LOG_ERROR      / LOG_CRITICAL
 ```
 
 Each macro expands to a `do { ... } while (0)` block that calls `Logger::GetLogger(category)`
@@ -314,10 +329,11 @@ The `JsonLineSink` writes one JSON object per log message for machine-readable o
 
 **Always-registered, enable-on-demand design**: The sink is created at `Logger::Init()`
 in a disabled state (no file open) and included in the shared sink vector from the start.
-`EnableJsonSink(path)` opens the file; `DisableJsonSink()` requests closure after a
-flush barrier. This avoids the thread-safety hazard of mutating a live logger's sink
-list at runtime - the async worker thread iterates the sink vector without external
-locking, so adding/removing sinks while it runs would be a data race.
+`EnableJsonSink(path)` opens the file and leaves the sink disabled if the file cannot be
+opened; the failure is recorded through the normal diagnostics log. `DisableJsonSink()`
+requests closure after a flush barrier. This avoids the thread-safety hazard of mutating
+a live logger's sink vector at runtime - the async worker thread iterates the sink vector
+without external locking, so adding/removing sinks while it runs would be a data race.
 
 The `Enable` / `Disable` / `RequestDisable` / `RequestReopen` methods all lock the
 `base_sink<std::mutex>::mutex_`, which is the same mutex the async worker acquires
@@ -373,7 +389,8 @@ ERR_FAIL_COND_MSG_CAT(category, condition, message)   // log with message + retu
 ERR_FAIL_COND_V_MSG_CAT(category, condition, retval, message)  // log with message + return value
 ```
 
-Non-`_CAT` convenience aliases route to `LogCategory::Error`.
+The diagnostics system no longer exposes non-`_CAT` convenience aliases - recoverable
+error paths pass an explicit category via the `ERR_FAIL_COND_*_CAT` macros.
 
 **Error classification**:
 

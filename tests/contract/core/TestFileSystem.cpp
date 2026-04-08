@@ -8,8 +8,8 @@
 
 namespace
 {
-    constexpr const char *kExistingConfig = "input/ShadowMapping.json";
-    constexpr const char *kExistingAsset = "configs/input/ShadowMapping.json";
+    constexpr const char *kExistingConfig = "input/DebugCameraControl.json";
+    constexpr const char *kExistingAsset = "configs/input/DebugCameraControl.json";
     constexpr const char *kTempConfig = "test-contract/AutoCopyConfig.json";
 
     void RemovePathIfExists(const std::filesystem::path &path)
