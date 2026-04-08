@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 
+# -----------------------------------------------------------------------------
+# Project setup
+# -----------------------------------------------------------------------------
 set(GLAB_PROJECT_LANGUAGES C CXX)
 if(APPLE)
     list(APPEND GLAB_PROJECT_LANGUAGES OBJC OBJCXX)
@@ -14,9 +17,11 @@ project(RTRLab
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# -----------------------------------------------------------------------------
+# Global output layout
+# -----------------------------------------------------------------------------
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
 endif()
@@ -32,6 +37,9 @@ foreach(OUTPUTCONFIG Debug Release RelWithDebInfo MinSizeRel)
     set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${OUTPUTCONFIG_UPPER} ${CMAKE_BINARY_DIR}/lib/${OUTPUTCONFIG})
 endforeach()
 
+# -----------------------------------------------------------------------------
+# Build options
+# -----------------------------------------------------------------------------
 option(GLAB_BUILD_TESTS "Build tests" ON)
 option(GLAB_ENABLE_WARNINGS "Enable warnings" ON)
 option(GLAB_ENABLE_ASAN "Enable AddressSanitizer" OFF)
@@ -47,6 +55,9 @@ if(MSVC)
     string(APPEND CMAKE_SHARED_LINKER_FLAGS_RELEASE " /DEBUG")
 endif()
 
+# -----------------------------------------------------------------------------
+# Backend selection
+# -----------------------------------------------------------------------------
 if(APPLE)
     set(GLAB_BACKEND_METAL ON)
     set(GLAB_BACKEND_OPENGL OFF)
@@ -55,6 +66,9 @@ else()
     set(GLAB_BACKEND_OPENGL ON)
 endif()
 
+# -----------------------------------------------------------------------------
+# Shared helper functions
+# -----------------------------------------------------------------------------
 function(glab_set_warnings target_name)
     if(MSVC)
         target_compile_options(${target_name} PRIVATE /W4 /permissive-)
@@ -89,10 +103,23 @@ function(glab_enable_build_speedups target_name)
     endif()
 endfunction()
 
+function(glab_configure_local_target target_name)
+    glab_enable_build_speedups(${target_name})
+
+    if(GLAB_ENABLE_WARNINGS)
+        glab_set_warnings(${target_name})
+    endif()
+
+    if(GLAB_ENABLE_ASAN)
+        glab_enable_sanitizers(${target_name})
+    endif()
+endfunction()
+
 if(GLAB_BACKEND_OPENGL)
     find_package(OpenGL REQUIRED)
 endif()
 
+# Optional shader pipeline integration.
 # include(cmake/SetupSlang.cmake)
 # include(cmake/CompileShaders.cmake)
 
@@ -100,9 +127,11 @@ add_subdirectory(vendor)
 # glab_compile_shaders()
 add_subdirectory(src)
 
+# -----------------------------------------------------------------------------
+# Tests
+# -----------------------------------------------------------------------------
 if(GLAB_BUILD_TESTS)
     include(CTest)
-
     include(FetchContent)
 
     set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)

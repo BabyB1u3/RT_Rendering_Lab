@@ -1,20 +1,31 @@
-# ----------------------------
+# -----------------------------------------------------------------------------
+# Local helpers
+# -----------------------------------------------------------------------------
+function(glab_add_header_only_vendor target_name include_dir)
+    add_library(${target_name} INTERFACE)
+    target_include_directories(${target_name} INTERFACE
+        ${CMAKE_CURRENT_SOURCE_DIR}/${include_dir}
+    )
+endfunction()
+
+# -----------------------------------------------------------------------------
 # GLFW
-# ----------------------------
+# -----------------------------------------------------------------------------
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+
 add_subdirectory(glfw)
 
 target_compile_definitions(glfw INTERFACE
     GLFW_INCLUDE_NONE
 )
 
-# ----------------------------
+# -----------------------------------------------------------------------------
 # GLAD
-# ----------------------------
+# -----------------------------------------------------------------------------
 add_library(glad STATIC
     glad/src/glad.c
 )
@@ -25,17 +36,21 @@ target_include_directories(glad PUBLIC
 
 glab_enable_parallel_compilation(glad)
 
-# ----------------------------
-# GLM (header-only)
-# ----------------------------
-add_library(glm INTERFACE)
-target_include_directories(glm INTERFACE
-    ${CMAKE_CURRENT_SOURCE_DIR}/glm
+# -----------------------------------------------------------------------------
+# Header-only dependencies
+# -----------------------------------------------------------------------------
+glab_add_header_only_vendor(glm glm)
+glab_add_header_only_vendor(nlohmann_json nlohmann)
+glab_add_header_only_vendor(magic_enum magic_enum)
+glab_add_header_only_vendor(spdlog spdlog/include)
+
+target_compile_options(spdlog INTERFACE
+    $<$<CXX_COMPILER_ID:MSVC>:/utf-8>
 )
 
-# ----------------------------
+# -----------------------------------------------------------------------------
 # STB
-# ----------------------------
+# -----------------------------------------------------------------------------
 add_library(stb STATIC
     stb/stb_image.cpp
 )
@@ -46,36 +61,9 @@ target_include_directories(stb PUBLIC
 
 glab_enable_parallel_compilation(stb)
 
-# ----------------------------
-# spdlog (header-only)
-# ----------------------------
-add_library(spdlog INTERFACE)
-target_include_directories(spdlog INTERFACE
-    ${CMAKE_CURRENT_SOURCE_DIR}/spdlog/include
-)
-target_compile_options(spdlog INTERFACE
-    $<$<CXX_COMPILER_ID:MSVC>:/utf-8>
-)
-
-# ----------------------------
-# nlohmann/json (header-only, single-include)
-# ----------------------------
-add_library(nlohmann_json INTERFACE)
-target_include_directories(nlohmann_json INTERFACE
-    ${CMAKE_CURRENT_SOURCE_DIR}/nlohmann
-)
-
-# ----------------------------
-# magic_enum (header-only, single-include)
-# ----------------------------
-add_library(magic_enum INTERFACE)
-target_include_directories(magic_enum INTERFACE
-    ${CMAKE_CURRENT_SOURCE_DIR}/magic_enum
-)
-
-# ----------------------------
+# -----------------------------------------------------------------------------
 # Dear ImGui
-# ----------------------------
+# -----------------------------------------------------------------------------
 set(GLAB_IMGUI_SOURCES
     imgui/imgui.cpp
     imgui/imgui_draw.cpp
