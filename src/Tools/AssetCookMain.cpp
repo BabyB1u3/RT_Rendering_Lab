@@ -10,7 +10,7 @@ namespace
 
     void PrintUsage()
     {
-        std::cout << "Usage: rtr_asset_cook [--root <path>] [--out <path>]\n";
+        std::cout << "Usage: rtr_asset_cook [--root <path>] [--out <path>] [--layout <cache|build>]\n";
     }
 }
 
@@ -18,6 +18,8 @@ int main(int argc, char **argv)
 {
     std::filesystem::path rootPath = std::filesystem::current_path();
     std::filesystem::path cookedRootPath;
+    Resource::CookOutputLayout layout = Resource::CookOutputLayout::Cache;
+    bool layoutExplicitlySet = false;
 
     for (int i = 1; i < argc; ++i)
     {
@@ -54,13 +56,44 @@ int main(int argc, char **argv)
             continue;
         }
 
+        if (arg == "--layout")
+        {
+            if (i + 1 >= argc)
+            {
+                std::cerr << "Missing value for --layout\n";
+                PrintUsage();
+                return 1;
+            }
+
+            const std::string_view value = argv[++i];
+            if (value == "cache")
+                layout = Resource::CookOutputLayout::Cache;
+            else if (value == "build")
+                layout = Resource::CookOutputLayout::Build;
+            else
+            {
+                std::cerr << "Unknown cook layout: " << value << "\n";
+                PrintUsage();
+                return 1;
+            }
+
+            layoutExplicitlySet = true;
+            continue;
+        }
+
         std::cerr << "Unknown argument: " << arg << "\n";
         PrintUsage();
         return 1;
     }
 
     if (cookedRootPath.empty())
-        cookedRootPath = rootPath / "Saved" / "Cache" / "Cooked";
+        cookedRootPath = Resource::GetCookOutputRoot(rootPath, layout);
+    else if (layoutExplicitlySet)
+    {
+        std::cerr << "Use either --out or --layout, not both\n";
+        PrintUsage();
+        return 1;
+    }
 
     std::string errorMessage;
     if (!Resource::CookRepositoryCatalogs(rootPath, cookedRootPath, kProjectContentDirName, &errorMessage))

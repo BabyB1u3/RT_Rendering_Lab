@@ -192,6 +192,52 @@ TEST(FileSystemContractTests, ResolveReadPathCanSwitchBetweenSourceAndCookedProj
     test_support::RemoveTreeIfExists(FileSystem::GetCacheDir() / "Cooked");
 }
 
+TEST(FileSystemContractTests, ResolveReadPathCanUseBuildCookedProjectArtifacts)
+{
+    FileSystem::Init();
+
+    const auto buildCookedRoot = FileSystem::GetRootPath() / "build" / "Cooked" / "Project";
+    const auto cookedArtifactPath = buildCookedRoot / "Textures" / "Grassy_Square.rtrtex";
+    const auto cookedCatalogPath = buildCookedRoot / ".rtr" / "catalog.json";
+
+    test_support::RemoveTreeIfExists(FileSystem::GetCacheDir() / "Cooked");
+    test_support::RemoveTreeIfExists(FileSystem::GetRootPath() / "build" / "Cooked");
+
+    test_support::WriteTextFileOrFail(cookedArtifactPath, "build-cooked");
+    test_support::WriteTextFileOrFail(
+        cookedCatalogPath,
+        "{\n"
+        "  \"version\": 2,\n"
+        "  \"kind\": \"cooked\",\n"
+        "  \"entries\": [\n"
+        "    {\n"
+        "      \"logicalPath\": \"/Project/Textures/Grassy_Square\",\n"
+        "      \"artifacts\": [\n"
+        "        {\n"
+        "          \"relativePath\": \"Textures/Grassy_Square.rtrtex\",\n"
+        "          \"format\": \"rtrtex\",\n"
+        "          \"profileTag\": \"cooked\",\n"
+        "          \"backendTag\": \"any\",\n"
+        "          \"platformTag\": \"any\"\n"
+        "        }\n"
+        "      ]\n"
+        "    }\n"
+        "  ]\n"
+        "}\n");
+
+    {
+        ScopedEnvVar profileOverride("RTRLAB_RESOURCE_PROFILE", "cooked");
+        FileSystem::RefreshCatalogs();
+
+        const auto cookedResolved = FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square");
+        ASSERT_TRUE(cookedResolved.has_value());
+        EXPECT_EQ(*cookedResolved, cookedArtifactPath);
+    }
+
+    test_support::RemoveTreeIfExists(FileSystem::GetRootPath() / "build" / "Cooked");
+    FileSystem::RefreshCatalogs();
+}
+
 TEST(FileSystemContractTests, ResolveReadPathCanLoadCookedProjectTextureArtifacts)
 {
     FileSystem::Init();

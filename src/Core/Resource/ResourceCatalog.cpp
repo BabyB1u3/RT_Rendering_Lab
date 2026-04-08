@@ -321,12 +321,35 @@ namespace
     {
         std::vector<MountDescriptor> mounts;
         const bool preferCookedArtifacts = GetCurrentProfileTag() == "cooked";
+        std::vector<std::filesystem::path> cookedRootSearchOrder;
+
+        if (const char *overrideValue = std::getenv("RTRLAB_COOKED_ROOT"))
+        {
+            const std::filesystem::path overrideRoot = overrideValue;
+            if (!overrideRoot.empty())
+                cookedRootSearchOrder.push_back(overrideRoot);
+        }
+
+        cookedRootSearchOrder.push_back(cacheDir / "Cooked");
+        cookedRootSearchOrder.push_back(rootPath / "build" / "Cooked");
+
+        auto findCookedMountRoot = [&](const std::filesystem::path &mountRelativePath) -> std::filesystem::path {
+            for (const auto &cookedRoot : cookedRootSearchOrder)
+            {
+                const auto candidate = cookedRoot / mountRelativePath;
+                if (std::filesystem::exists(candidate / ".rtr" / "catalog.json"))
+                    return candidate;
+            }
+
+            return {};
+        };
 
         const auto addReadableMount = [&](const std::string &sourceKey,
                                           const Resource::VirtualPath &mountPath,
                                           const std::filesystem::path &sourceRoot,
-                                          const std::filesystem::path &cookedRoot) {
-            const bool hasCookedCatalog = std::filesystem::exists(cookedRoot / ".rtr" / "catalog.json");
+                                          const std::filesystem::path &cookedMountRelativePath) {
+            const auto cookedRoot = findCookedMountRoot(cookedMountRelativePath);
+            const bool hasCookedCatalog = !cookedRoot.empty();
             const bool hasSourceRoot = std::filesystem::exists(sourceRoot);
 
             if (preferCookedArtifacts && hasCookedCatalog)
@@ -366,16 +389,15 @@ namespace
             "Project",
             Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, {}},
             rootPath / projectContentDirName,
-            cacheDir / "Cooked" / "Project");
+            "Project");
 
         addReadableMount(
             "Engine",
             Resource::VirtualPath{Resource::PathDomain::Engine, std::nullopt, {}},
             engineDir,
-            cacheDir / "Cooked" / "Engine");
+            "Engine");
 
         const auto pluginsRoot = rootPath / "Plugins";
-        const auto cookedPluginsRoot = cacheDir / "Cooked" / "Plugins";
         std::unordered_set<std::string> pluginNames;
 
         if (std::filesystem::exists(pluginsRoot))
@@ -391,8 +413,12 @@ namespace
             }
         }
 
-        if (std::filesystem::exists(cookedPluginsRoot))
+        for (const auto &cookedRoot : cookedRootSearchOrder)
         {
+            const auto cookedPluginsRoot = cookedRoot / "Plugins";
+            if (!std::filesystem::exists(cookedPluginsRoot))
+                continue;
+
             for (const auto &entry : std::filesystem::directory_iterator(cookedPluginsRoot))
             {
                 if (!entry.is_directory())
@@ -413,7 +439,7 @@ namespace
                 "Plugin:" + pluginName,
                 Resource::VirtualPath{Resource::PathDomain::Plugin, pluginName, {}},
                 pluginsRoot / pluginName / "Content",
-                cookedPluginsRoot / pluginName);
+                std::filesystem::path("Plugins") / pluginName);
         }
 
         return mounts;

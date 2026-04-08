@@ -103,3 +103,13 @@ TEST_F(CookedCatalogTests, LoadCookedTextureRejectsInvalidMagic)
     EXPECT_FALSE(cookedTexture.has_value());
     EXPECT_NE(errorMessage.find("invalid magic"), std::string::npos);
 }
+
+TEST_F(CookedCatalogTests, GetCookOutputRootSupportsCacheAndBuildLayouts)
+{
+    const auto repoRoot = TestRoot() / "Repo";
+
+    EXPECT_EQ(Resource::GetCookOutputRoot(repoRoot, Resource::CookOutputLayout::Cache),
+              repoRoot / "Saved" / "Cache" / "Cooked");
+    EXPECT_EQ(Resource::GetCookOutputRoot(repoRoot, Resource::CookOutputLayout::Build),
+              repoRoot / "build" / "Cooked");
+}
