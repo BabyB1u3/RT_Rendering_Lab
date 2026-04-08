@@ -43,9 +43,9 @@ Current state as of 2026-04-08:
   the resource system
 - asset-reference serialization now has an explicit validated path type instead of
   relying on raw strings
-- the resource catalog design in Section 9 is **not** implemented yet, so
-  extensionless catalog-backed asset paths are currently classified but not resolved
-  through a catalog
+- a minimal source-catalog JSON loader is now implemented for readable mounts
+- extensionless project and plugin asset paths can now resolve through source
+  catalogs in development builds
 
 ---
 
@@ -437,18 +437,29 @@ The module is currently split across small helpers such as:
 - `PhysicalIO`
 - `RootDiscovery`
 
-### 8.2 Remaining limitation
+### 8.2 Remaining limitations
 
-The main gap is no longer basic logical-path I/O. The remaining architectural gap is
-catalog-backed asset resolution.
+The main gap is no longer basic logical-path I/O, and it is no longer the absence of
+any catalog support. The remaining architectural gap is the difference between the
+current minimal per-mount catalog implementation and the long-term merged-catalog
+design.
 
-Today the unresolved part is:
+Today the implemented/remaining split is:
 
 - extensionless read-domain asset paths such as `/Project/Textures/Grassy_Square`
-  are recognized as catalog-backed paths
-- but they do **not** yet resolve through a catalog loader / merged catalog table
-- read success today depends on document-style direct filesystem paths, especially
-  `/Project/Config/...`, `/Saved/...`, and `/Cache/...`
+  and `/Plugins/Foo/Materials/DebugGrid` now resolve through mount-local source
+  catalogs in development builds
+- duplicate logical paths within a single catalog are rejected
+- artifact selection is still minimal: prefer `profileTag = dev`, then `any`, then
+  the first artifact
+- the runtime still does **not** build a merged global catalog table across active
+  mounts
+- conflict handling across equal-precedence mounts/overlays is still not implemented
+- cooked catalog formats and packaged/archive-backed catalog loading are still not
+  implemented
+- document-style paths such as `/Project/Config/...`, `/Saved/...`, and `/Cache/...`
+  intentionally continue to bypass catalog lookup and resolve directly through mounted
+  filesystems
 
 ### 8.3 Public API shape
 
@@ -523,11 +534,13 @@ The resource catalog is a first-class subsystem of the path/resource layer.
 
 Implementation status:
 
-- the design in this section is still forward-looking
-- no catalog loader, merged catalog table, or artifact selection policy is implemented
-  yet
-- current runtime support only covers document-style direct file-backed paths; it does
-  not yet provide end-to-end resolution for extensionless catalog-backed asset paths
+- a minimal source-catalog JSON loader is implemented
+- the current runtime can resolve catalog-backed project and plugin assets from
+  mount-local `.rtr/catalog.json` files in development builds
+- duplicate logical paths within a single catalog are treated as invalid
+- catalog support is still incomplete: there is no cooked catalog format, no merged
+  multi-mount resolution table, and no platform/backend/profile-aware artifact
+  selection policy yet
 
 It is **not** an optional helper and it is **not** a temporary convenience for the
 current cooking discussion. It is the stable bridge between:
@@ -1007,7 +1020,8 @@ checklist below.
 
 ### Phase 3 - Resource catalog design and implementation
 
-- not started in code; design only
+- in progress; per-mount source catalog loading, duplicate-path rejection, and basic
+  project/plugin asset lookup are implemented
 
 ### Phase 4 - Public FileSystem API migration
 
@@ -1104,12 +1118,12 @@ without repeatedly redefining scope.
 - [ ] Finalize the canonical in-memory catalog schema
 - [ ] Finalize source catalog serialization format
 - [ ] Finalize cooked catalog serialization format
-- [ ] Implement catalog versioning and compatibility checks
-- [ ] Implement catalog loader for readable mounts
+- [x] Implement catalog versioning and compatibility checks
+- [x] Implement catalog loader for readable mounts
 - [ ] Implement merged global resolution table
 - [ ] Implement conflict detection rules
 - [ ] Implement artifact selection policy by platform/backend/profile
-- [ ] Add tests for catalog lookup and duplicate-path rejection
+- [x] Add tests for catalog lookup and duplicate-path rejection
 
 ### 15.5 Phase 4 - Public FileSystem API migration
 
