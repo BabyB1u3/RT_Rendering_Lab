@@ -169,9 +169,12 @@ Resource tooling:
 
 - `rtr_asset_index` generates `.rtr/catalog.json` for `Content/`,
   `EngineContent/`, and `Plugins/*/Content/`
+- `rtr_asset_cook` copies indexed source artifacts into `Saved/Cache/Cooked/`
+  and writes loose cooked `.rtr/catalog.json` files for development-time testing
 
 ```bash
 ./build/<config>/rtr_asset_index --root .
+./build/<config>/rtr_asset_cook --root .
 ```
 
 OpenGL contract and integration tests create a hidden OpenGL context — they require a GPU or software renderer.

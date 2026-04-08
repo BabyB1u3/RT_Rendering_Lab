@@ -51,6 +51,8 @@ Current state as of 2026-04-08:
   change after initial lookup
 - a source catalog indexing tool now exists and can generate `.rtr/catalog.json`
   for project, engine, and plugin loose content mounts
+- a minimal cooked catalog generation tool now exists for loose development-time
+  cooked mounts under `Saved/Cache/Cooked/`
 
 ---
 
@@ -544,6 +546,8 @@ Implementation status:
 - a minimal source-catalog JSON loader is implemented
 - a source catalog indexing tool (`rtr_asset_index`) is implemented for loose
   project, engine, and plugin content roots
+- a minimal cooked catalog generation tool (`rtr_asset_cook`) is implemented for
+  loose development-time cooked roots under `Saved/Cache/Cooked/`
 - the current runtime scans project, engine, and plugin loose mounts and merges their
   mount-local `.rtr/catalog.json` files into a global development-time resolution
   table
@@ -554,9 +558,11 @@ Implementation status:
   treated as invalid
 - artifact selection now applies a basic runtime policy across `profileTag`,
   `backendTag`, and `platformTag`, preferring exact matches over `any`
-- catalog support is still incomplete: there is no cooked catalog format, no merged
-  packaged/archive resolution table, and no platform/backend/profile-aware artifact
-  selection policy for packaged/overlay precedence yet
+- the current runtime can prefer loose cooked mounts for catalog-backed asset reads
+  when the active resource profile is `cooked`
+- catalog support is still incomplete: cooked catalogs still use the loose JSON
+  schema as a placeholder, there is no packaged/archive resolution table, and there
+  is no platform/backend/profile-aware packaged/overlay precedence policy yet
 
 It is **not** an optional helper and it is **not** a temporary convenience for the
 current cooking discussion. It is the stable bridge between:
@@ -680,6 +686,20 @@ Responsibilities:
 - transform source files into runtime-ready artifacts
 - record the produced artifact variants
 - emit cooked catalogs for loose cooked directories and packaged archives
+
+Current minimal implementation:
+
+- `rtr_asset_cook` reads source `.rtr/catalog.json` files from loose content mounts
+- it copies current source artifacts into `Saved/Cache/Cooked/Project`,
+  `Saved/Cache/Cooked/Engine`, and `Saved/Cache/Cooked/Plugins/<Name>`
+- it writes loose cooked `catalog.json` files that currently retain the same JSON
+  schema as source catalogs, but rewrite artifact `profileTag` to `cooked`
+- the current runtime can select those cooked loose mounts for catalog-backed reads
+  when the active resource profile is `cooked`
+
+This is intentionally a bootstrap implementation. It proves that the same logical
+path can resolve from loose source content in `dev` and from loose cooked artifacts
+in `cooked` without yet committing to the final binary cooked catalog format.
 
 ### 9.6 Physical storage and format strategy
 
@@ -1103,7 +1123,8 @@ checklist below.
 
 ### Phase 12 - Cooking integration
 
-- map source and cooked artifacts back to the same logical path
+- in progress; loose cooked catalog generation and runtime selection between source
+  and cooked project artifacts are now implemented for development-time mounts
 
 ### Phase 13 - Archive packaging
 
@@ -1162,7 +1183,8 @@ without repeatedly redefining scope.
 - [ ] Finalize the canonical in-memory catalog schema
 - [x] Finalize source catalog serialization format for current loose-mount
       development catalogs
-- [ ] Finalize cooked catalog serialization format
+- [ ] Finalize cooked catalog serialization format beyond the current temporary
+      loose JSON bootstrap
 - [x] Implement catalog versioning and compatibility checks
 - [x] Implement catalog loader for readable mounts
 - [x] Implement merged global resolution table
@@ -1245,11 +1267,12 @@ without repeatedly redefining scope.
 ### 15.13 Phase 12 - Cooking integration
 
 - [x] Implement source catalog generation tool
-- [ ] Implement cooked catalog generation tool
-- [ ] Define how cooked outputs map back into `/Project/` and `/Engine/`
+- [x] Implement cooked catalog generation tool
+- [x] Define how cooked outputs map back into `/Project/` and `/Engine/` for the
+      current loose development-time layout under `Saved/Cache/Cooked/`
 - [ ] Decide whether cooking writes under `build/`, `Cache/`, or both
 - [ ] Ensure cooked assets do not change public logical paths
-- [ ] Add tests that verify the same logical path can resolve from loose vs cooked backends
+- [x] Add tests that verify the same logical path can resolve from loose vs cooked backends
 
 ### 15.14 Phase 13 - Archive packaging
 
