@@ -19,6 +19,12 @@ namespace Resource
         Cooked,
     };
 
+    enum class MountBackendKind
+    {
+        Directory,
+        PakArchive,
+    };
+
     struct ArtifactRecord
     {
         std::string relativePath;
@@ -52,7 +58,9 @@ namespace Resource
             ResourceCatalogEntry entry;
             CatalogKind kind = CatalogKind::Source;
             int version = 0;
+            MountBackendKind backend = MountBackendKind::Directory;
             std::filesystem::path mountRoot;
+            std::filesystem::path materializedRoot;
             std::string sourceMountKey;
         };
 

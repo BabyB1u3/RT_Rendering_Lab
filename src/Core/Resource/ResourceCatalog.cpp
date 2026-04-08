@@ -2,9 +2,11 @@
 
 #include "Core/Diagnostics/LogCategories.h"
 #include "Core/Diagnostics/LogMacros.h"
+#include "Core/Resource/PakArchive.h"
 #include "Core/Resource/PathParser.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdlib>
 #include <fstream>
 #include <json.hpp>
@@ -19,7 +21,9 @@ namespace
         std::string cacheKey;
         std::string sourceKey;
         Resource::VirtualPath mountPath;
+        Resource::MountBackendKind backend = Resource::MountBackendKind::Directory;
         std::filesystem::path mountRoot;
+        std::filesystem::path materializedRoot;
     };
 
     struct ArtifactSelectionContext
@@ -48,6 +52,20 @@ namespace
         }
 
         return {};
+    }
+
+    std::string SanitizeMountKeyForPath(std::string_view key)
+    {
+        std::string sanitized;
+        sanitized.reserve(key.size());
+        for (const char c : key)
+        {
+            if (std::isalnum(static_cast<unsigned char>(c)) || c == '_' || c == '-')
+                sanitized.push_back(c);
+            else
+                sanitized.push_back('_');
+        }
+        return sanitized;
     }
 
     bool DomainMatchesMount(const Resource::VirtualPath &catalogPath, const Resource::VirtualPath &requestedPath)
@@ -87,6 +105,132 @@ namespace
         return artifact;
     }
 
+    bool ParseCatalogFromJson(const Json &rootJson,
+                             const std::string &catalogLabel,
+                             const Resource::VirtualPath &mountPath,
+                             Resource::CatalogKind &catalogKind,
+                             int &catalogVersion,
+                             std::unordered_map<std::string, Resource::ResourceCatalogEntry> &entries)
+    {
+        const auto versionIt = rootJson.find("version");
+        if (versionIt == rootJson.end() || !versionIt->is_number_integer())
+        {
+            LOG_ERROR_CAT(LogCategory::FileSystem, "Unsupported catalog version in '{}'", catalogLabel);
+            return false;
+        }
+
+        catalogVersion = versionIt->get<int>();
+        const bool isCookedCatalog = catalogVersion == 2;
+        if (catalogVersion != 1 && !isCookedCatalog)
+        {
+            LOG_ERROR_CAT(LogCategory::FileSystem, "Unsupported catalog version in '{}'", catalogLabel);
+            return false;
+        }
+
+        catalogKind = isCookedCatalog ? Resource::CatalogKind::Cooked : Resource::CatalogKind::Source;
+
+        if (isCookedCatalog)
+        {
+            const auto kindIt = rootJson.find("kind");
+            if (kindIt == rootJson.end() || !kindIt->is_string() || kindIt->get<std::string>() != "cooked")
+            {
+                LOG_ERROR_CAT(LogCategory::FileSystem,
+                              "Cooked catalog '{}' is missing kind='cooked'",
+                              catalogLabel);
+                return false;
+            }
+        }
+
+        const auto entriesIt = rootJson.find("entries");
+        if (entriesIt == rootJson.end() || !entriesIt->is_array())
+        {
+            LOG_ERROR_CAT(LogCategory::FileSystem, "Catalog '{}' is missing an entries array", catalogLabel);
+            return false;
+        }
+
+        for (const auto &entryJson : *entriesIt)
+        {
+            if (!entryJson.is_object())
+            {
+                LOG_ERROR_CAT(LogCategory::FileSystem, "Catalog '{}' contains a non-object entry", catalogLabel);
+                return false;
+            }
+
+            const auto logicalPathIt = entryJson.find("logicalPath");
+            if (logicalPathIt == entryJson.end() || !logicalPathIt->is_string())
+            {
+                LOG_ERROR_CAT(LogCategory::FileSystem, "Catalog '{}' contains an entry without logicalPath", catalogLabel);
+                return false;
+            }
+
+            const std::string logicalPath = logicalPathIt->get<std::string>();
+            const auto parsedLogicalPath = Resource::ParseVirtualPath(logicalPath);
+            if (!parsedLogicalPath.has_value() || !Resource::IsCatalogBackedPath(logicalPath) ||
+                !DomainMatchesMount(*parsedLogicalPath, mountPath))
+            {
+                LOG_ERROR_CAT(LogCategory::FileSystem,
+                              "Catalog '{}' contains invalid mount-scoped logical path '{}'",
+                              catalogLabel,
+                              logicalPath);
+                return false;
+            }
+
+            Resource::ResourceCatalogEntry entry;
+            entry.logicalPath = logicalPath;
+            if (!isCookedCatalog)
+            {
+                const auto sourceRelativePathIt = entryJson.find("sourceRelativePath");
+                if (sourceRelativePathIt == entryJson.end() || !sourceRelativePathIt->is_string())
+                {
+                    LOG_ERROR_CAT(LogCategory::FileSystem,
+                                  "Source catalog '{}' entry '{}' is missing sourceRelativePath",
+                                  catalogLabel,
+                                  logicalPath);
+                    return false;
+                }
+
+                entry.sourceRelativePath = sourceRelativePathIt->get<std::string>();
+            }
+
+            const auto artifactsIt = entryJson.find("artifacts");
+            if (artifactsIt == entryJson.end() || !artifactsIt->is_array() || artifactsIt->empty())
+            {
+                LOG_ERROR_CAT(LogCategory::FileSystem,
+                              "Catalog '{}' entry '{}' has no artifacts",
+                              catalogLabel,
+                              logicalPath);
+                return false;
+            }
+
+            for (const auto &artifactJson : *artifactsIt)
+            {
+                const auto artifact = ParseArtifactRecord(artifactJson);
+                if (!artifact.has_value())
+                {
+                    LOG_ERROR_CAT(LogCategory::FileSystem,
+                                  "Catalog '{}' entry '{}' contains an invalid artifact",
+                                  catalogLabel,
+                                  logicalPath);
+                    return false;
+                }
+
+                entry.artifacts.push_back(*artifact);
+            }
+
+            const auto [it, inserted] = entries.emplace(entry.logicalPath, std::move(entry));
+            if (!inserted)
+            {
+                LOG_ERROR_CAT(LogCategory::FileSystem,
+                              "Catalog '{}' contains duplicate logical path '{}'",
+                              catalogLabel,
+                              it->first);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     bool LoadCatalogFromJson(const std::filesystem::path &catalogPath,
                              const Resource::VirtualPath &mountPath,
                              Resource::CatalogKind &catalogKind,
@@ -108,123 +252,38 @@ namespace
             return false;
         }
 
-        const auto versionIt = rootJson.find("version");
-        if (versionIt == rootJson.end() || !versionIt->is_number_integer())
+        return ParseCatalogFromJson(rootJson, catalogPath.string(), mountPath, catalogKind, catalogVersion, entries);
+    }
+
+    bool LoadCatalogFromPak(const std::filesystem::path &pakPath,
+                            const Resource::VirtualPath &mountPath,
+                            Resource::CatalogKind &catalogKind,
+                            int &catalogVersion,
+                            std::unordered_map<std::string, Resource::ResourceCatalogEntry> &entries)
+    {
+        std::string errorMessage;
+        const auto bytes = Resource::ReadPakEntry(pakPath, ".rtr/catalog.json", &errorMessage);
+        if (!bytes.has_value())
         {
-            LOG_ERROR_CAT(LogCategory::FileSystem, "Unsupported catalog version in '{}'", catalogPath.string());
+            if (!errorMessage.empty())
+            {
+                LOG_ERROR_CAT(LogCategory::FileSystem, "Failed to read pak catalog '{}': {}", pakPath.string(), errorMessage);
+            }
             return false;
         }
 
-        catalogVersion = versionIt->get<int>();
-        const bool isCookedCatalog = catalogVersion == 2;
-        if (catalogVersion != 1 && !isCookedCatalog)
+        Json rootJson;
+        try
         {
-            LOG_ERROR_CAT(LogCategory::FileSystem, "Unsupported catalog version in '{}'", catalogPath.string());
+            rootJson = Json::parse(bytes->begin(), bytes->end());
+        }
+        catch (const std::exception &e)
+        {
+            LOG_ERROR_CAT(LogCategory::FileSystem, "Failed to parse pak catalog '{}': {}", pakPath.string(), e.what());
             return false;
         }
 
-        catalogKind = isCookedCatalog ? Resource::CatalogKind::Cooked : Resource::CatalogKind::Source;
-
-        if (isCookedCatalog)
-        {
-            const auto kindIt = rootJson.find("kind");
-            if (kindIt == rootJson.end() || !kindIt->is_string() || kindIt->get<std::string>() != "cooked")
-            {
-                LOG_ERROR_CAT(LogCategory::FileSystem,
-                              "Cooked catalog '{}' is missing kind='cooked'",
-                              catalogPath.string());
-                return false;
-            }
-        }
-
-        const auto entriesIt = rootJson.find("entries");
-        if (entriesIt == rootJson.end() || !entriesIt->is_array())
-        {
-            LOG_ERROR_CAT(LogCategory::FileSystem, "Catalog '{}' is missing an entries array", catalogPath.string());
-            return false;
-        }
-
-        for (const auto &entryJson : *entriesIt)
-        {
-            if (!entryJson.is_object())
-            {
-                LOG_ERROR_CAT(LogCategory::FileSystem, "Catalog '{}' contains a non-object entry", catalogPath.string());
-                return false;
-            }
-
-            const auto logicalPathIt = entryJson.find("logicalPath");
-            if (logicalPathIt == entryJson.end() || !logicalPathIt->is_string())
-            {
-                LOG_ERROR_CAT(LogCategory::FileSystem, "Catalog '{}' contains an entry without logicalPath", catalogPath.string());
-                return false;
-            }
-
-            const std::string logicalPath = logicalPathIt->get<std::string>();
-            const auto parsedLogicalPath = Resource::ParseVirtualPath(logicalPath);
-            if (!parsedLogicalPath.has_value() || !Resource::IsCatalogBackedPath(logicalPath) ||
-                !DomainMatchesMount(*parsedLogicalPath, mountPath))
-            {
-                LOG_ERROR_CAT(LogCategory::FileSystem,
-                              "Catalog '{}' contains invalid mount-scoped logical path '{}'",
-                              catalogPath.string(),
-                              logicalPath);
-                return false;
-            }
-
-            Resource::ResourceCatalogEntry entry;
-            entry.logicalPath = logicalPath;
-            if (!isCookedCatalog)
-            {
-                const auto sourceRelativePathIt = entryJson.find("sourceRelativePath");
-                if (sourceRelativePathIt == entryJson.end() || !sourceRelativePathIt->is_string())
-                {
-                    LOG_ERROR_CAT(LogCategory::FileSystem,
-                                  "Source catalog '{}' entry '{}' is missing sourceRelativePath",
-                                  catalogPath.string(),
-                                  logicalPath);
-                    return false;
-                }
-
-                entry.sourceRelativePath = sourceRelativePathIt->get<std::string>();
-            }
-
-            const auto artifactsIt = entryJson.find("artifacts");
-            if (artifactsIt == entryJson.end() || !artifactsIt->is_array() || artifactsIt->empty())
-            {
-                LOG_ERROR_CAT(LogCategory::FileSystem,
-                              "Catalog '{}' entry '{}' has no artifacts",
-                              catalogPath.string(),
-                              logicalPath);
-                return false;
-            }
-
-            for (const auto &artifactJson : *artifactsIt)
-            {
-                const auto artifact = ParseArtifactRecord(artifactJson);
-                if (!artifact.has_value())
-                {
-                    LOG_ERROR_CAT(LogCategory::FileSystem,
-                                  "Catalog '{}' entry '{}' contains an invalid artifact",
-                                  catalogPath.string(),
-                                  logicalPath);
-                    return false;
-                }
-
-                entry.artifacts.push_back(*artifact);
-            }
-
-            const auto [it, inserted] = entries.emplace(entry.logicalPath, std::move(entry));
-            if (!inserted)
-            {
-                LOG_ERROR_CAT(LogCategory::FileSystem,
-                              "Catalog '{}' contains duplicate logical path '{}'",
-                              catalogPath.string(),
-                              it->first);
-                return false;
-            }
-        }
-
-        return true;
+        return ParseCatalogFromJson(rootJson, pakPath.string() + "::/.rtr/catalog.json", mountPath, catalogKind, catalogVersion, entries);
     }
 
     std::string_view GetCurrentPlatformTag()
@@ -267,12 +326,20 @@ namespace
 #endif
     }
 
+    std::string_view GetCurrentArtifactProfileTag()
+    {
+        const auto profile = GetCurrentProfileTag();
+        if (profile == "packaged" || profile == "shipping")
+            return "cooked";
+        return profile;
+    }
+
     ArtifactSelectionContext GetCurrentArtifactSelectionContext()
     {
         return ArtifactSelectionContext{
             GetCurrentPlatformTag(),
             GetCurrentBackendTag(),
-            GetCurrentProfileTag(),
+            GetCurrentArtifactProfileTag(),
         };
     }
 
@@ -321,7 +388,9 @@ namespace
     {
         std::vector<MountDescriptor> mounts;
         const bool preferCookedArtifacts = GetCurrentProfileTag() == "cooked";
+        const bool preferPackagedArtifacts = GetCurrentProfileTag() == "packaged" || GetCurrentProfileTag() == "shipping";
         std::vector<std::filesystem::path> cookedRootSearchOrder;
+        std::vector<std::filesystem::path> packagedRootSearchOrder;
 
         if (const char *overrideValue = std::getenv("RTRLAB_COOKED_ROOT"))
         {
@@ -329,9 +398,17 @@ namespace
             if (!overrideRoot.empty())
                 cookedRootSearchOrder.push_back(overrideRoot);
         }
+        if (const char *overrideValue = std::getenv("RTRLAB_PACKAGE_ROOT"))
+        {
+            const std::filesystem::path overrideRoot = overrideValue;
+            if (!overrideRoot.empty())
+                packagedRootSearchOrder.push_back(overrideRoot);
+        }
 
         cookedRootSearchOrder.push_back(cacheDir / "Cooked");
         cookedRootSearchOrder.push_back(rootPath / "build" / "Cooked");
+        packagedRootSearchOrder.push_back(cacheDir / "Packaged");
+        packagedRootSearchOrder.push_back(rootPath / "build" / "Packaged");
 
         auto findCookedMountRoot = [&](const std::filesystem::path &mountRelativePath) -> std::filesystem::path {
             for (const auto &cookedRoot : cookedRootSearchOrder)
@@ -344,13 +421,42 @@ namespace
             return {};
         };
 
+        auto findPackagedMountArchive = [&](const std::filesystem::path &archiveRelativePath) -> std::filesystem::path {
+            for (const auto &packagedRoot : packagedRootSearchOrder)
+            {
+                const auto candidate = packagedRoot / archiveRelativePath;
+                std::string errorMessage;
+                if (std::filesystem::exists(candidate) && Resource::PakEntryExists(candidate, ".rtr/catalog.json", &errorMessage))
+                    return candidate;
+            }
+
+            return {};
+        };
+
         const auto addReadableMount = [&](const std::string &sourceKey,
                                           const Resource::VirtualPath &mountPath,
                                           const std::filesystem::path &sourceRoot,
-                                          const std::filesystem::path &cookedMountRelativePath) {
+                                          const std::filesystem::path &cookedMountRelativePath,
+                                          const std::filesystem::path &packagedArchiveRelativePath) {
             const auto cookedRoot = findCookedMountRoot(cookedMountRelativePath);
+            const auto packagedArchive = findPackagedMountArchive(packagedArchiveRelativePath);
             const bool hasCookedCatalog = !cookedRoot.empty();
+            const bool hasPackagedCatalog = !packagedArchive.empty();
             const bool hasSourceRoot = std::filesystem::exists(sourceRoot);
+            const auto materializedRoot = cacheDir / "PackagedExtracted" / SanitizeMountKeyForPath(sourceKey);
+
+            if (preferPackagedArtifacts && hasPackagedCatalog)
+            {
+                mounts.push_back(MountDescriptor{
+                    "Packaged:" + sourceKey,
+                    sourceKey,
+                    mountPath,
+                    Resource::MountBackendKind::PakArchive,
+                    packagedArchive,
+                    materializedRoot,
+                });
+                return;
+            }
 
             if (preferCookedArtifacts && hasCookedCatalog)
             {
@@ -358,7 +464,9 @@ namespace
                     "Cooked:" + sourceKey,
                     sourceKey,
                     mountPath,
+                    Resource::MountBackendKind::Directory,
                     cookedRoot,
+                    {},
                 });
                 return;
             }
@@ -369,7 +477,22 @@ namespace
                     sourceKey,
                     sourceKey,
                     mountPath,
+                    Resource::MountBackendKind::Directory,
                     sourceRoot,
+                    {},
+                });
+                return;
+            }
+
+            if (hasPackagedCatalog)
+            {
+                mounts.push_back(MountDescriptor{
+                    "Packaged:" + sourceKey,
+                    sourceKey,
+                    mountPath,
+                    Resource::MountBackendKind::PakArchive,
+                    packagedArchive,
+                    materializedRoot,
                 });
                 return;
             }
@@ -380,7 +503,9 @@ namespace
                     "Cooked:" + sourceKey,
                     sourceKey,
                     mountPath,
+                    Resource::MountBackendKind::Directory,
                     cookedRoot,
+                    {},
                 });
             }
         };
@@ -389,13 +514,15 @@ namespace
             "Project",
             Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, {}},
             rootPath / projectContentDirName,
-            "Project");
+            "Project",
+            std::filesystem::path(std::string("Project") + std::string(Resource::kPakArchiveExtension)));
 
         addReadableMount(
             "Engine",
             Resource::VirtualPath{Resource::PathDomain::Engine, std::nullopt, {}},
             engineDir,
-            "Engine");
+            "Engine",
+            std::filesystem::path(std::string("Engine") + std::string(Resource::kPakArchiveExtension)));
 
         const auto pluginsRoot = rootPath / "Plugins";
         std::unordered_set<std::string> pluginNames;
@@ -430,6 +557,27 @@ namespace
             }
         }
 
+        for (const auto &packagedRoot : packagedRootSearchOrder)
+        {
+            const auto packagedPluginsRoot = packagedRoot / "Plugins";
+            if (!std::filesystem::exists(packagedPluginsRoot))
+                continue;
+
+            for (const auto &entry : std::filesystem::directory_iterator(packagedPluginsRoot))
+            {
+                if (!entry.is_regular_file())
+                    continue;
+
+                const auto path = entry.path();
+                if (path.extension().string() != Resource::kPakArchiveExtension)
+                    continue;
+
+                const auto pluginName = path.stem().string();
+                if (Resource::IsValidPluginMountName(pluginName))
+                    pluginNames.insert(std::move(pluginName));
+            }
+        }
+
         std::vector<std::string> sortedPluginNames(pluginNames.begin(), pluginNames.end());
         std::sort(sortedPluginNames.begin(), sortedPluginNames.end());
 
@@ -439,7 +587,8 @@ namespace
                 "Plugin:" + pluginName,
                 Resource::VirtualPath{Resource::PathDomain::Plugin, pluginName, {}},
                 pluginsRoot / pluginName / "Content",
-                std::filesystem::path("Plugins") / pluginName);
+                std::filesystem::path("Plugins") / pluginName,
+                std::filesystem::path("Plugins") / (pluginName + std::string(Resource::kPakArchiveExtension)));
         }
 
         return mounts;
@@ -474,7 +623,9 @@ namespace
                                       entry,
                                       cache.kind,
                                       cache.version,
+                                      mount.backend,
                                       mount.mountRoot,
+                                      mount.materializedRoot,
                                       mount.sourceKey,
                                   });
         }
@@ -515,20 +666,25 @@ namespace Resource
                 {
                     cache.attemptedLoad = true;
                     const auto catalogPath = mount.mountRoot / ".rtr" / "catalog.json";
-                    if (std::filesystem::exists(catalogPath))
+                    const bool hasDirectoryCatalog = mount.backend == MountBackendKind::Directory && std::filesystem::exists(catalogPath);
+                    const bool hasPakCatalog = mount.backend == MountBackendKind::PakArchive;
+                    if (hasDirectoryCatalog || hasPakCatalog)
                     {
                         cache.kind = CatalogKind::Source;
                         cache.version = 0;
                         std::unordered_map<std::string, ResourceCatalogEntry> loadedEntries;
-                        if (!LoadCatalogFromJson(catalogPath, mount.mountPath, cache.kind, cache.version, loadedEntries))
+                        const bool loaded = mount.backend == MountBackendKind::Directory
+                                                ? LoadCatalogFromJson(catalogPath, mount.mountPath, cache.kind, cache.version, loadedEntries)
+                                                : LoadCatalogFromPak(mount.mountRoot, mount.mountPath, cache.kind, cache.version, loadedEntries);
+                        if (!loaded)
                         {
                             cache.entries.clear();
-                            LOG_ERROR_CAT(LogCategory::FileSystem, "Failed to load catalog '{}'", catalogPath.string());
+                            LOG_ERROR_CAT(LogCategory::FileSystem, "Failed to load catalog '{}'", mount.mountRoot.string());
                         }
                         else
                         {
                             cache.entries = std::move(loadedEntries);
-                            LOG_INFO_CAT(LogCategory::FileSystem, "Loaded catalog '{}'", catalogPath.string());
+                            LOG_INFO_CAT(LogCategory::FileSystem, "Loaded catalog '{}'", mount.mountRoot.string());
                         }
                     }
                 }
@@ -548,6 +704,29 @@ namespace Resource
         const auto artifact = ChooseArtifact(entryIt->second.entry);
         if (!artifact.has_value())
             return std::nullopt;
+
+        if (entryIt->second.backend == MountBackendKind::PakArchive)
+        {
+            std::string errorMessage;
+            const auto materialized = MaterializePakEntry(entryIt->second.mountRoot,
+                                                          artifact->relativePath,
+                                                          entryIt->second.materializedRoot,
+                                                          &errorMessage);
+            if (!materialized.has_value())
+            {
+                if (!errorMessage.empty())
+                {
+                    LOG_ERROR_CAT(LogCategory::FileSystem,
+                                  "Failed to materialize pak entry '{}' from '{}': {}",
+                                  artifact->relativePath,
+                                  entryIt->second.mountRoot.string(),
+                                  errorMessage);
+                }
+                return std::nullopt;
+            }
+
+            return materialized;
+        }
 
         return entryIt->second.mountRoot / artifact->relativePath;
     }

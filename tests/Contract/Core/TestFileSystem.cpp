@@ -7,6 +7,7 @@
 
 #include "Core/Resource/CookedCatalog.h"
 #include "Core/Resource/FileSystem.h"
+#include "Core/Resource/PakArchive.h"
 #include "Core/Resource/SourceCatalog.h"
 #include "TestPaths.h"
 
@@ -371,6 +372,124 @@ TEST(FileSystemContractTests, ResolveReadPathCanSwitchBetweenSourceAndCookedEngi
     test_support::RemoveDirectoryIfEmpty(engineCatalogPath.parent_path());
     test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
     test_support::RemoveTreeIfExists(cookedRoot);
+    FileSystem::RefreshCatalogs();
+}
+
+TEST(FileSystemContractTests, ResolveReadPathCanSwitchBetweenLooseAndPackagedArtifacts)
+{
+    FileSystem::Init();
+
+    const auto engineRoot = FileSystem::GetRootPath() / "EngineContent";
+    const auto engineArtifactPath = engineRoot / "Defaults" / "Materials" / "Phase13PackagedMaterial.json";
+    const auto engineCatalogPath = engineRoot / ".rtr" / "catalog.json";
+
+    const auto pluginRoot = FileSystem::GetRootPath() / "Plugins" / "Phase13PackagedPlugin" / "Content";
+    const auto pluginArtifactPath = pluginRoot / "Materials" / "Checker.json";
+    const auto pluginCatalogPath = pluginRoot / ".rtr" / "catalog.json";
+
+    const auto cookedRoot = test_support::CurrentTestRoot("filesystem-contract") / "phase13-cooked";
+    const auto packagedRoot = test_support::CurrentTestRoot("filesystem-contract") / "phase13-packaged";
+
+    test_support::RemovePathIfExists(engineArtifactPath);
+    test_support::RemovePathIfExists(engineCatalogPath);
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
+    test_support::RemoveTreeIfExists(cookedRoot);
+    test_support::RemoveTreeIfExists(packagedRoot);
+
+    test_support::WriteTextFileOrFail(engineArtifactPath, "{\n  \"name\": \"engine-packaged\"\n}\n");
+    test_support::WriteTextFileOrFail(
+        engineCatalogPath,
+        "{\n"
+        "  \"version\": 1,\n"
+        "  \"entries\": [\n"
+        "    {\n"
+        "      \"logicalPath\": \"/Engine/Defaults/Materials/Phase13PackagedMaterial\",\n"
+        "      \"sourceRelativePath\": \"Defaults/Materials/Phase13PackagedMaterial.json\",\n"
+        "      \"artifacts\": [\n"
+        "        {\n"
+        "          \"relativePath\": \"Defaults/Materials/Phase13PackagedMaterial.json\",\n"
+        "          \"format\": \"json\",\n"
+        "          \"profileTag\": \"dev\"\n"
+        "        }\n"
+        "      ]\n"
+        "    }\n"
+        "  ]\n"
+        "}\n");
+
+    test_support::WriteTextFileOrFail(pluginArtifactPath, "{\n  \"name\": \"plugin-packaged\"\n}\n");
+    test_support::WriteTextFileOrFail(
+        pluginCatalogPath,
+        "{\n"
+        "  \"version\": 1,\n"
+        "  \"entries\": [\n"
+        "    {\n"
+        "      \"logicalPath\": \"/Plugins/Phase13PackagedPlugin/Materials/Checker\",\n"
+        "      \"sourceRelativePath\": \"Materials/Checker.json\",\n"
+        "      \"artifacts\": [\n"
+        "        {\n"
+        "          \"relativePath\": \"Materials/Checker.json\",\n"
+        "          \"format\": \"json\",\n"
+        "          \"profileTag\": \"dev\"\n"
+        "        }\n"
+        "      ]\n"
+        "    }\n"
+        "  ]\n"
+        "}\n");
+
+    const auto sourceProjectResolved = FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square");
+    ASSERT_TRUE(sourceProjectResolved.has_value());
+    EXPECT_EQ(*sourceProjectResolved, FileSystem::GetAssetPath("textures/Grassy_Square.jpg"));
+
+    const auto sourceEngineResolved = FileSystem::ResolveReadPath("/Engine/Defaults/Materials/Phase13PackagedMaterial");
+    ASSERT_TRUE(sourceEngineResolved.has_value());
+    EXPECT_EQ(*sourceEngineResolved, engineArtifactPath);
+
+    const auto sourcePluginResolved = FileSystem::ResolveReadPath("/Plugins/Phase13PackagedPlugin/Materials/Checker");
+    ASSERT_TRUE(sourcePluginResolved.has_value());
+    EXPECT_EQ(*sourcePluginResolved, pluginArtifactPath);
+
+    std::string errorMessage;
+    ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(FileSystem::GetRootPath(), "Content", &errorMessage)) << errorMessage;
+    ASSERT_TRUE(Resource::CookRepositoryCatalogs(FileSystem::GetRootPath(), cookedRoot, "Content", &errorMessage)) << errorMessage;
+    ASSERT_TRUE(Resource::PackageCookedRepositoryCatalogs(cookedRoot, packagedRoot, &errorMessage)) << errorMessage;
+
+    {
+        ScopedEnvVar profileOverride("RTRLAB_RESOURCE_PROFILE", "packaged");
+        ScopedEnvVar packageRootOverride("RTRLAB_PACKAGE_ROOT", packagedRoot.string());
+        FileSystem::RefreshCatalogs();
+
+        const auto packagedProjectResolved = FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square");
+        ASSERT_TRUE(packagedProjectResolved.has_value());
+        EXPECT_NE(packagedProjectResolved->string().find("PackagedExtracted"), std::string::npos);
+        EXPECT_EQ(packagedProjectResolved->extension().string(), ".rtrtex");
+
+        const auto packagedProjectTexture = Resource::LoadCookedTexture(*packagedProjectResolved, &errorMessage);
+        ASSERT_TRUE(packagedProjectTexture.has_value()) << errorMessage;
+
+        const auto packagedEngineResolved = FileSystem::ResolveReadPath("/Engine/Defaults/Materials/Phase13PackagedMaterial");
+        ASSERT_TRUE(packagedEngineResolved.has_value());
+        EXPECT_NE(packagedEngineResolved->string().find("PackagedExtracted"), std::string::npos);
+        const auto packagedEngineContents = FileSystem::ReadTextFile(*packagedEngineResolved);
+        ASSERT_TRUE(packagedEngineContents.has_value());
+        EXPECT_NE(packagedEngineContents->find("engine-packaged"), std::string::npos);
+
+        const auto packagedPluginResolved = FileSystem::ResolveReadPath("/Plugins/Phase13PackagedPlugin/Materials/Checker");
+        ASSERT_TRUE(packagedPluginResolved.has_value());
+        EXPECT_NE(packagedPluginResolved->string().find("PackagedExtracted"), std::string::npos);
+        const auto packagedPluginContents = FileSystem::ReadTextFile(*packagedPluginResolved);
+        ASSERT_TRUE(packagedPluginContents.has_value());
+        EXPECT_NE(packagedPluginContents->find("plugin-packaged"), std::string::npos);
+    }
+
+    test_support::RemovePathIfExists(engineArtifactPath);
+    test_support::RemovePathIfExists(engineCatalogPath);
+    test_support::RemoveDirectoryIfEmpty(engineArtifactPath.parent_path());
+    test_support::RemoveDirectoryIfEmpty(engineArtifactPath.parent_path().parent_path());
+    test_support::RemoveDirectoryIfEmpty(engineCatalogPath.parent_path());
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
+    test_support::RemoveTreeIfExists(cookedRoot);
+    test_support::RemoveTreeIfExists(packagedRoot);
+    test_support::RemoveTreeIfExists(FileSystem::GetCacheDir() / "PackagedExtracted");
     FileSystem::RefreshCatalogs();
 }
 
