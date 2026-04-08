@@ -4,8 +4,8 @@
 #include <fstream>
 #include <string>
 
-#include "core/serialization/BuiltinTraits.h"
-#include "core/serialization/Serialization.h"
+#include "Core/Serialization/BuiltinTraits.h"
+#include "Core/Serialization/Serialization.h"
 
 using Serialization::JsonBackend;
 using Serialization::LoadFromFile;

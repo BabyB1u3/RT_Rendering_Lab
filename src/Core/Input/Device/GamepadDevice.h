@@ -2,8 +2,8 @@
 
 #include <array>
 
-#include "core/input/code/GamepadCode.h"
-#include "core/input/device/InputDevice.h"
+#include "Core/Input/Code/GamepadCode.h"
+#include "Core/Input/Device/InputDevice.h"
 
 class GamepadDevice final : public InputDevice
 {

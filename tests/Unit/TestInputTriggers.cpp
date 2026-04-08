@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "core/input/action/InputTrigger.h"
+#include "Core/Input/Action/InputTrigger.h"
 
 // --- PressedTrigger ---
 

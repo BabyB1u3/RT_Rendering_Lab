@@ -1,4 +1,4 @@
-#include "core/input/code/InputNames.h"
+#include "Core/Input/Code/InputNames.h"
 
 #include <unordered_map>
 

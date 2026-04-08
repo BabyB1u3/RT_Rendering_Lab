@@ -1,4 +1,4 @@
-#include "gui/backends/metal/MetalImGuiBridge.h"
+#include "GUI/Backends/Metal/MetalImGuiBridge.h"
 
 #include <imgui.h>
 #include <imgui_impl_metal.h>

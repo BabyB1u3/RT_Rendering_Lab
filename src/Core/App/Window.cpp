@@ -1,16 +1,16 @@
-#include "core/app/Window.h"
+#include "Core/App/Window.h"
 
 #ifndef GLAB_BACKEND_METAL
 #include <glad/glad.h>
 #endif
 #include <GLFW/glfw3.h>
 
-#include "core/diagnostics/Assert.h"
-#include "core/event/EventBus.h"
-#include "core/event/Events.h"
-#include "core/diagnostics/LogCategories.h"
-#include "core/diagnostics/LogMacros.h"
-#include "core/input/Input.h"
+#include "Core/Diagnostics/Assert.h"
+#include "Core/Event/EventBus.h"
+#include "Core/Event/Events.h"
+#include "Core/Diagnostics/LogCategories.h"
+#include "Core/Diagnostics/LogMacros.h"
+#include "Core/Input/Input.h"
 
 namespace
 {

@@ -1,4 +1,4 @@
-#include "core/diagnostics/FrameFormatter.h"
+#include "Core/Diagnostics/FrameFormatter.h"
 
 #include <spdlog/spdlog.h>
 

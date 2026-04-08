@@ -1,10 +1,10 @@
-#include "core/input/Input.h"
+#include "Core/Input/Input.h"
 
-#include "core/event/EventBus.h"
-#include "core/input/device/GamepadDevice.h"
-#include "core/input/device/InputDeviceManager.h"
-#include "core/input/device/KeyboardDevice.h"
-#include "core/input/device/MouseDevice.h"
+#include "Core/Event/EventBus.h"
+#include "Core/Input/Device/GamepadDevice.h"
+#include "Core/Input/Device/InputDeviceManager.h"
+#include "Core/Input/Device/KeyboardDevice.h"
+#include "Core/Input/Device/MouseDevice.h"
 
 GLFWwindow *Input::s_Window = nullptr;
 EventBus *Input::s_EventBus = nullptr;

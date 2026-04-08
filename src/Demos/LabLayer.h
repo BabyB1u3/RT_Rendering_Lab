@@ -14,11 +14,11 @@
 #include <memory>
 #include <string>
 
-#include "core/app/Layer.h"
-#include "core/Base.h"
-#include "gui/panels/ConsolePanel.h"
-#include "gui/panels/DebugPanel.h"
-#include "gui/panels/DemoSelectorPanel.h"
+#include "Core/App/Layer.h"
+#include "Core/Base.h"
+#include "GUI/Panels/ConsolePanel.h"
+#include "GUI/Panels/DebugPanel.h"
+#include "GUI/Panels/DemoSelectorPanel.h"
 
 class DemoBase;
 

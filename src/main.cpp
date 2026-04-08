@@ -5,9 +5,9 @@
 /// Layer, and enters the main loop. LabLayer handles demo registration,
 /// switching, and all per-frame callbacks.
 
-#include "core/app/Application.h"
-#include "core/Base.h"
-#include "demos/LabLayer.h"
+#include "Core/App/Application.h"
+#include "Core/Base.h"
+#include "Demos/LabLayer.h"
 
 int main()
 {

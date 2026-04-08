@@ -1,4 +1,4 @@
-#include "core/diagnostics/CrashHandler.h"
+#include "Core/Diagnostics/CrashHandler.h"
 
 #include <atomic>
 

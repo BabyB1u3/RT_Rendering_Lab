@@ -18,11 +18,11 @@
 #include <string>
 #include <cstdint>
 
-#include "core/Base.h"
-#include "core/event/EventBus.h"
-#include "core/event/ScopedConnection.h"
-#include "core/app/Window.h"
-#include "core/app/LayerStack.h"
+#include "Core/Base.h"
+#include "Core/Event/EventBus.h"
+#include "Core/Event/ScopedConnection.h"
+#include "Core/App/Window.h"
+#include "Core/App/LayerStack.h"
 
 class ImGuiLayer;
 

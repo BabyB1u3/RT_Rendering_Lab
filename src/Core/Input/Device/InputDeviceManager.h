@@ -3,8 +3,8 @@
 #include <cstddef>
 #include <vector>
 
-#include "core/Base.h"
-#include "core/input/device/InputDevice.h"
+#include "Core/Base.h"
+#include "Core/Input/Device/InputDevice.h"
 
 class EventBus;
 

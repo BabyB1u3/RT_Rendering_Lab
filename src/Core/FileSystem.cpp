@@ -4,8 +4,8 @@
 #include <optional>
 #include <sstream>
 
-#include "core/diagnostics/LogCategories.h"
-#include "core/diagnostics/LogMacros.h"
+#include "Core/Diagnostics/LogCategories.h"
+#include "Core/Diagnostics/LogMacros.h"
 
 #ifdef _WIN32
 #include <Windows.h>

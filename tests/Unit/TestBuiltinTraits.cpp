@@ -8,7 +8,7 @@
 
 #include <glm/glm.hpp>
 
-#include "core/serialization/BuiltinTraits.h"
+#include "Core/Serialization/BuiltinTraits.h"
 
 using namespace Serialization;
 

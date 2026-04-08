@@ -1,5 +1,5 @@
-#include "core/input/action/InputContextStack.h"
-#include "core/input/action/InputAction.h"
+#include "Core/Input/Action/InputContextStack.h"
+#include "Core/Input/Action/InputAction.h"
 
 #include <algorithm>
 

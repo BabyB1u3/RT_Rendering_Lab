@@ -13,18 +13,18 @@
 /// InputSource::Type and MouseAxis use magic_enum for token conversion.
 /// Key/Mouse/Gamepad codes continue to use InputNames.h for stable canonical names.
 
-#include "core/serialization/BuiltinTraits.h"
-#include "core/diagnostics/LogCategories.h"
-#include "core/diagnostics/LogMacros.h"
-#include "core/input/action/InputAction.h"
-#include "core/input/code/InputNames.h"
+#include "Core/Serialization/BuiltinTraits.h"
+#include "Core/Diagnostics/LogCategories.h"
+#include "Core/Diagnostics/LogMacros.h"
+#include "Core/Input/Action/InputAction.h"
+#include "Core/Input/Code/InputNames.h"
 
 namespace Serialization
 {
 
-    // ════════════════════════════════════════════════════════════════════�?
+    // ════════════════════════════════════════════════════════════════════�?
     // InputSource
-    // ════════════════════════════════════════════════════════════════════�?
+    // ════════════════════════════════════════════════════════════════════�?
 
     inline void Serialize(PropertyTree &tree, const InputSource &src)
     {
@@ -95,9 +95,9 @@ namespace Serialization
         return true;
     }
 
-    // ════════════════════════════════════════════════════════════════════�?
+    // ════════════════════════════════════════════════════════════════════�?
     // InputActionMap
-    // ════════════════════════════════════════════════════════════════════�?
+    // ════════════════════════════════════════════════════════════════════�?
 
     inline void Serialize(PropertyTree &tree, const InputActionMap &map)
     {

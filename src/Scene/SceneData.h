@@ -9,7 +9,7 @@
 
 #include <vector>
 
-#include "scene/Light.h"
+#include "Scene/Light.h"
 #include "renderer/RenderItem.h"
 
 struct SceneData

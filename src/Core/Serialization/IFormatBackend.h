@@ -3,7 +3,7 @@
 /// @file IFormatBackend.h
 /// @brief Interface for format backends that convert PropertyTree to/from wire format.
 
-#include "core/serialization/PropertyTree.h"
+#include "Core/Serialization/PropertyTree.h"
 #include <string>
 
 namespace Serialization

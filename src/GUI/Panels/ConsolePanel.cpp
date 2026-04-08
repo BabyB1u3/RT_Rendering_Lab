@@ -12,10 +12,10 @@
 #include <spdlog/common.h>
 #include <spdlog/spdlog.h>
 
-#include "core/diagnostics/ImGuiConsoleSink.h"
-#include "core/diagnostics/LogCategories.h"
-#include "core/diagnostics/Logger.h"
-#include "core/diagnostics/LogMacros.h"
+#include "Core/Diagnostics/ImGuiConsoleSink.h"
+#include "Core/Diagnostics/LogCategories.h"
+#include "Core/Diagnostics/Logger.h"
+#include "Core/Diagnostics/LogMacros.h"
 
 namespace
 {

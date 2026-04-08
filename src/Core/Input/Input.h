@@ -23,13 +23,13 @@
 #include <array>
 #include <utility>
 
-#include "core/Base.h"
-#include "core/input/device/InputDevice.h"
-#include "core/input/code/GamepadCode.h"
-#include "core/input/device/KeyboardDevice.h"
-#include "core/input/code/KeyCode.h"
-#include "core/input/code/MouseCode.h"
-#include "core/input/device/MouseDevice.h"
+#include "Core/Base.h"
+#include "Core/Input/Device/InputDevice.h"
+#include "Core/Input/Code/GamepadCode.h"
+#include "Core/Input/Device/KeyboardDevice.h"
+#include "Core/Input/Code/KeyCode.h"
+#include "Core/Input/Code/MouseCode.h"
+#include "Core/Input/Device/MouseDevice.h"
 
 class EventBus;
 class GamepadDevice;

@@ -4,7 +4,7 @@
 #include <fstream>
 #include <string>
 
-#include "core/FileSystem.h"
+#include "Core/FileSystem.h"
 
 namespace
 {

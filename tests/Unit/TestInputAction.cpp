@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include "core/input/Input.h"
-#include "core/input/action/InputAction.h"
+#include "Core/Input/Input.h"
+#include "Core/Input/Action/InputAction.h"
 #include "InputActionTestSupport.h"
 #include "InputTestAccess.h"
 

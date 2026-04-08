@@ -6,7 +6,7 @@
 /// This is the sole point of coupling to nlohmann/json in the engine.
 /// No other file should include <json.hpp> for serialization purposes.
 
-#include "core/serialization/IFormatBackend.h"
+#include "Core/Serialization/IFormatBackend.h"
 
 namespace Serialization
 {

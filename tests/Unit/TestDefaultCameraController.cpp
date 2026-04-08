@@ -3,8 +3,8 @@
 
 #include "MathTestUtils.h"
 
-#include "scene/Camera.h"
-#include "scene/DebugCameraController.h"
+#include "Scene/Camera.h"
+#include "Scene/DebugCameraController.h"
 
 TEST(DebugCameraControllerTests, DefaultConstructedControllerHasNoCamera)
 {

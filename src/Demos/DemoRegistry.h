@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-#include "core/Base.h"
+#include "Core/Base.h"
 
 class DemoBase;
 

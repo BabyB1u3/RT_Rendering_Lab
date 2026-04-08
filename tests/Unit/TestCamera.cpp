@@ -3,7 +3,7 @@
 #include <glm/gtx/norm.hpp>
 #include <cmath>
 
-#include "scene/Camera.h"
+#include "Scene/Camera.h"
 #include "MathTestUtils.h"
 
 TEST(CameraTests, DefaultBasisVectorsAreOrthogonalAndNormalized)

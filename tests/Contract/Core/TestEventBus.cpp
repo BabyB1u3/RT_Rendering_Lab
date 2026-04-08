@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-#include "core/event/EventBus.h"
+#include "Core/Event/EventBus.h"
 
 namespace
 {

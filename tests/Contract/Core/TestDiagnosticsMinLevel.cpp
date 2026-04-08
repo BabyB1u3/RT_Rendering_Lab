@@ -3,14 +3,14 @@
 #include <atomic>
 #include <filesystem>
 
-#include "core/FileSystem.h"
-#include "core/diagnostics/LogCategories.h"
+#include "Core/FileSystem.h"
+#include "Core/Diagnostics/LogCategories.h"
 #ifdef RTRLAB_LOG_MIN_LEVEL
 #undef RTRLAB_LOG_MIN_LEVEL
 #endif
 #define RTRLAB_LOG_MIN_LEVEL 3
-#include "core/diagnostics/LogMacros.h"
-#include "core/diagnostics/Logger.h"
+#include "Core/Diagnostics/LogMacros.h"
+#include "Core/Diagnostics/Logger.h"
 
 namespace
 {

@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include "core/app/Application.h"
-#include "core/app/Window.h"
+#include "Core/App/Application.h"
+#include "Core/App/Window.h"
 
 TEST(SpecificationTests, ApplicationSpecificationHasExpectedDefaults)
 {

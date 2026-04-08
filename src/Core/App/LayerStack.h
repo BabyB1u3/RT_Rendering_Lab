@@ -21,8 +21,8 @@
 #include <vector>
 #include <cstddef>
 
-#include "core/app/Layer.h"
-#include "core/Base.h"
+#include "Core/App/Layer.h"
+#include "Core/Base.h"
 
 class LayerStack
 {

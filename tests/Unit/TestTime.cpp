@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "core/Time.h"
+#include "Core/Time.h"
 
 TEST(TimeTests, ResetClearsState)
 {

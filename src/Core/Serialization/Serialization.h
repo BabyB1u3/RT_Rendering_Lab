@@ -6,10 +6,10 @@
 /// Ties together FileSystem, format backends, and serialization traits
 /// into simple template functions for common use cases.
 
-#include "core/serialization/SerializationTraits.h"
-#include "core/serialization/JsonBackend.h"
-#include "core/diagnostics/LogCategories.h"
-#include "core/diagnostics/LogMacros.h"
+#include "Core/Serialization/SerializationTraits.h"
+#include "Core/Serialization/JsonBackend.h"
+#include "Core/Diagnostics/LogCategories.h"
+#include "Core/Diagnostics/LogMacros.h"
 
 #include <filesystem>
 #include <fstream>

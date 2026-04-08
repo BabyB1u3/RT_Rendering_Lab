@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "core/input/code/InputNames.h"
+#include "Core/Input/Code/InputNames.h"
 
 namespace
 {

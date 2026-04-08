@@ -7,7 +7,7 @@
 ///   void Serialize(PropertyTree &tree, const T &value);
 ///   bool Deserialize(const PropertyTree &tree, T &value);
 
-#include "core/serialization/PropertyTree.h"
+#include "Core/Serialization/PropertyTree.h"
 #include <concepts>
 
 namespace Serialization

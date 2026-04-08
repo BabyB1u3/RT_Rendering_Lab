@@ -1,18 +1,18 @@
-#include "core/app/Application.h"
+#include "Core/App/Application.h"
 
 #include <GLFW/glfw3.h>
 
-#include "core/FileSystem.h"
-#include "core/diagnostics/Assert.h"
-#include "core/diagnostics/CrashHandler.h"
-#include "core/diagnostics/FrameFormatter.h"
-#include "core/diagnostics/LogCategories.h"
-#include "core/diagnostics/LogMacros.h"
-#include "core/diagnostics/Logger.h"
-#include "core/event/Events.h"
-#include "core/input/Input.h"
-#include "core/Time.h"
-#include "gui/ImGuiLayer.h"
+#include "Core/FileSystem.h"
+#include "Core/Diagnostics/Assert.h"
+#include "Core/Diagnostics/CrashHandler.h"
+#include "Core/Diagnostics/FrameFormatter.h"
+#include "Core/Diagnostics/LogCategories.h"
+#include "Core/Diagnostics/LogMacros.h"
+#include "Core/Diagnostics/Logger.h"
+#include "Core/Event/Events.h"
+#include "Core/Input/Input.h"
+#include "Core/Time.h"
+#include "GUI/ImGuiLayer.h"
 
 Application *Application::s_Instance = nullptr;
 

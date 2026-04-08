@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "scene/Transform.h"
+#include "Scene/Transform.h"
 #include "MathTestUtils.h"
 
 TEST(TransformTests, DefaultTransformReturnsIdentity)

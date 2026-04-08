@@ -13,7 +13,7 @@
 ///
 /// Non-owning: the controller holds a raw pointer to the Camera it drives.
 
-#include "scene/Camera.h"
+#include "Scene/Camera.h"
 
 class DebugCameraController
 {

@@ -1,4 +1,4 @@
-#include "core/diagnostics/CrashHandler.h"
+#include "Core/Diagnostics/CrashHandler.h"
 
 #include <atomic>
 #include <cstddef>
@@ -12,7 +12,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "core/diagnostics/Logger.h"
+#include "Core/Diagnostics/Logger.h"
 
 namespace
 {

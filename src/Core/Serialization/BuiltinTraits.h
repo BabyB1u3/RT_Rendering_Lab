@@ -4,9 +4,9 @@
 /// @brief Built-in Serialize/Deserialize overloads for primitives, GLM types,
 ///        enums (via magic_enum), and standard containers.
 
-#include "core/serialization/SerializationTraits.h"
-#include "core/diagnostics/LogCategories.h"
-#include "core/diagnostics/LogMacros.h"
+#include "Core/Serialization/SerializationTraits.h"
+#include "Core/Diagnostics/LogCategories.h"
+#include "Core/Diagnostics/LogMacros.h"
 
 #include <glm/glm.hpp>
 #include <magic_enum.hpp>

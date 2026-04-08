@@ -6,9 +6,9 @@
 #include <thread>
 #include <vector>
 
-#include "core/Base.h"
-#include "core/diagnostics/ImGuiConsoleSink.h"
-#include "core/diagnostics/Logger.h"
+#include "Core/Base.h"
+#include "Core/Diagnostics/ImGuiConsoleSink.h"
+#include "Core/Diagnostics/Logger.h"
 
 namespace DiagnosticsTestSupport
 {

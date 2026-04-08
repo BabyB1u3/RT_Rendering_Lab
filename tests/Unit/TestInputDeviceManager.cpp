@@ -3,9 +3,9 @@
 #include <memory>
 #include <vector>
 
-#include "core/event/EventBus.h"
-#include "core/event/Events.h"
-#include "core/input/device/InputDeviceManager.h"
+#include "Core/Event/EventBus.h"
+#include "Core/Event/Events.h"
+#include "Core/Input/Device/InputDeviceManager.h"
 
 namespace
 {

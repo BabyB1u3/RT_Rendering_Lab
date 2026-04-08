@@ -11,8 +11,8 @@
 
 #include <glm/glm.hpp>
 
-#include "core/Base.h"
-#include "demos/DemoBase.h"
+#include "Core/Base.h"
+#include "Demos/DemoBase.h"
 
 class IRenderTarget;
 

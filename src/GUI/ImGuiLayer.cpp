@@ -5,12 +5,12 @@
 #ifndef GLAB_BACKEND_METAL
 #include <imgui_impl_opengl3.h>
 #else
-// #include "gui/backends/metal/MetalImGuiBridge.h"
+// #include "GUI/Backends/Metal/MetalImGuiBridge.h"
 #endif
 
-#include "core/app/Application.h"
-#include "core/FileSystem.h"
-#include "core/input/Input.h"
+#include "Core/App/Application.h"
+#include "Core/FileSystem.h"
+#include "Core/Input/Input.h"
 
 ImGuiLayer::ImGuiLayer()
     : Layer("ImGuiLayer")

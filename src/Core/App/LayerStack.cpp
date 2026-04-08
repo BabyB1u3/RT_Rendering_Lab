@@ -1,9 +1,9 @@
-#include "core/app/LayerStack.h"
+#include "Core/App/LayerStack.h"
 
 #include <algorithm>
 
-#include "core/diagnostics/LogCategories.h"
-#include "core/diagnostics/LogMacros.h"
+#include "Core/Diagnostics/LogCategories.h"
+#include "Core/Diagnostics/LogMacros.h"
 
 LayerStack::~LayerStack()
 {

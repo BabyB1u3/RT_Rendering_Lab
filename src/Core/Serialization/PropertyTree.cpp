@@ -1,6 +1,6 @@
-#include "core/serialization/PropertyTree.h"
+#include "Core/Serialization/PropertyTree.h"
 
-#include "core/diagnostics/Assert.h"
+#include "Core/Diagnostics/Assert.h"
 
 namespace Serialization
 {

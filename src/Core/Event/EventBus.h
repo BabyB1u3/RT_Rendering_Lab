@@ -18,7 +18,7 @@
 #include <memory>
 #include <algorithm>
 
-#include "core/event/ScopedConnection.h"
+#include "Core/Event/ScopedConnection.h"
 
 class EventBus
 {

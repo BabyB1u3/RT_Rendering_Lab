@@ -1,7 +1,7 @@
 #pragma once
 
-#include "core/input/code/GamepadCode.h"
-#include "core/input/Input.h"
+#include "Core/Input/Code/GamepadCode.h"
+#include "Core/Input/Input.h"
 
 namespace test_support
 {

@@ -14,7 +14,7 @@
 ///   Begin() starts a new ImGui frame; End() calls ImGui::Render() and
 ///   dispatches the draw data to the active renderer backend.
 
-#include "core/app/Layer.h"
+#include "Core/App/Layer.h"
 
 class ImGuiLayer : public Layer
 {

@@ -2,8 +2,8 @@
 #include <vector>
 #include <string>
 
-#include "core/app/LayerStack.h"
-#include "core/Base.h"
+#include "Core/App/LayerStack.h"
+#include "Core/Base.h"
 #include "TestLayer.h"
 
 TEST(LayerStackTests, PushLayerKeepsNormalLayerOrder)

@@ -2,15 +2,15 @@
 
 #include <utility>
 
-#include "core/diagnostics/Assert.h"
-#include "core/diagnostics/LogCategories.h"
-#include "core/app/Application.h"
-#include "core/event/Events.h"
-#include "core/input/Input.h"
-#include "core/diagnostics/LogMacros.h"
+#include "Core/Diagnostics/Assert.h"
+#include "Core/Diagnostics/LogCategories.h"
+#include "Core/App/Application.h"
+#include "Core/Event/Events.h"
+#include "Core/Input/Input.h"
+#include "Core/Diagnostics/LogMacros.h"
 #include "DemoBase.h"
 #include "DemoRegistry.h"
-#include "demos/01_HelloWindow/HelloWindow.h"
+#include "Demos/01_HelloWindow/HelloWindow.h"
 
 LabLayer::LabLayer()
     : Layer("LabLayer")

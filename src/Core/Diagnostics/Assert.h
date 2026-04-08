@@ -7,9 +7,9 @@
 
 #include <spdlog/fmt/fmt.h>
 
-#include "core/diagnostics/Callstack.h"
-#include "core/diagnostics/LogMacros.h"
-#include "core/diagnostics/Logger.h"
+#include "Core/Diagnostics/Callstack.h"
+#include "Core/Diagnostics/LogMacros.h"
+#include "Core/Diagnostics/Logger.h"
 
 namespace Diagnostics::Detail
 {

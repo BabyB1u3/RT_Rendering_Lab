@@ -13,14 +13,14 @@
 #include <spdlog/async.h>
 #include <spdlog/sinks/base_sink.h>
 
-#include "core/FileSystem.h"
-#include "core/diagnostics/Assert.h"
-#include "core/diagnostics/Callstack.h"
-#include "core/diagnostics/CrashHandler.h"
-#include "core/diagnostics/ErrorMacros.h"
-#include "core/diagnostics/LogCategories.h"
-#include "core/diagnostics/LogMacros.h"
-#include "core/diagnostics/Logger.h"
+#include "Core/FileSystem.h"
+#include "Core/Diagnostics/Assert.h"
+#include "Core/Diagnostics/Callstack.h"
+#include "Core/Diagnostics/CrashHandler.h"
+#include "Core/Diagnostics/ErrorMacros.h"
+#include "Core/Diagnostics/LogCategories.h"
+#include "Core/Diagnostics/LogMacros.h"
+#include "Core/Diagnostics/Logger.h"
 
 #include "DiagnosticsTestSupport.h"
 

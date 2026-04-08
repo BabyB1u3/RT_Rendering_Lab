@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include "core/input/Input.h"
-#include "core/input/device/InputDeviceManager.h"
+#include "Core/Input/Input.h"
+#include "Core/Input/Device/InputDeviceManager.h"
 #include "InputTestAccess.h"
 
 namespace

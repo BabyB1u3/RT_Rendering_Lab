@@ -4,7 +4,7 @@
 #include <memory>
 #include <vector>
 
-#include "core/input/action/InputModifier.h"
+#include "Core/Input/Action/InputModifier.h"
 
 // --- DeadZone ---
 

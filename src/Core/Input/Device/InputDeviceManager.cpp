@@ -1,7 +1,7 @@
-#include "core/input/device/InputDeviceManager.h"
+#include "Core/Input/Device/InputDeviceManager.h"
 
-#include "core/event/EventBus.h"
-#include "core/event/Events.h"
+#include "Core/Event/EventBus.h"
+#include "Core/Event/Events.h"
 
 namespace
 {
