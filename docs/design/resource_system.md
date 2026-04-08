@@ -377,6 +377,15 @@ The parser must:
 - treat logical paths as **case-sensitive** on all platforms
 - require repository content naming to match serialized logical path casing exactly
 
+Plugin mount names under `/Plugins/<Name>/...` additionally follow identifier rules:
+
+- non-empty
+- ASCII letter as the first character
+- remaining characters limited to ASCII letters, digits, and `_`
+
+Physical plugin directories that do not satisfy those rules are not treated as
+mountable plugin content roots by discovery/tooling.
+
 This intentionally favors a stricter cross-platform contract over platform-local
 filesystem convenience. A path that differs only by case must be treated as a
 different logical path, and mismatched casing should be considered an authoring error.
@@ -1125,7 +1134,9 @@ checklist below.
 
 ### Phase 10 - Engine and plugin mounts
 
-- add `/Engine/` and `/Plugins/<Name>/`
+- largely implemented; `EngineContent/` backs `/Engine/`, plugin mounts are discovered
+  from `Plugins/<Name>/Content/`, and plugin mount names now follow the documented
+  identifier rules
 
 ### Phase 11 - Mount backend abstraction
 
@@ -1261,10 +1272,10 @@ without repeatedly redefining scope.
 ### 15.11 Phase 10 - Engine and plugin mounts
 
 - [x] Add `/Engine/` loose-directory mount
-- [ ] Define the physical location for engine-shipped content
+- [x] Define the physical location for engine-shipped content
 - [x] Add `/Plugins/<Name>/` mount registration model
-- [ ] Decide plugin mount naming rules
-- [ ] Add tests for plugin mount discovery and precedence
+- [x] Decide plugin mount naming rules
+- [x] Add tests for plugin mount discovery and precedence
 
 ### 15.12 Phase 11 - Mount backend abstraction
 
