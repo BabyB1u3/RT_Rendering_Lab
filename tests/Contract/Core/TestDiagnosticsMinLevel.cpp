@@ -3,7 +3,7 @@
 #include <atomic>
 #include <filesystem>
 
-#include "Core/FileSystem.h"
+#include "Core/Resource/FileSystem.h"
 #include "Core/Diagnostics/LogCategories.h"
 #ifdef RTRLAB_LOG_MIN_LEVEL
 #undef RTRLAB_LOG_MIN_LEVEL

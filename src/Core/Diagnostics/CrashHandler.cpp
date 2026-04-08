@@ -9,7 +9,7 @@
 #include <sstream>
 #include <string>
 
-#include "Core/FileSystem.h"
+#include "Core/Resource/FileSystem.h"
 #include "Core/Diagnostics/Callstack.h"
 #include "Core/Diagnostics/LogCategories.h"
 #include "Core/Diagnostics/LogMacros.h"

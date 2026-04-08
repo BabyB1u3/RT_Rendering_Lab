@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "Core/FileSystem.h"
+#include "Core/Resource/FileSystem.h"
 
 TEST(FileSystemVirtualPathTests, ParseProjectPathNormalizesRepeatedSlashes)
 {
