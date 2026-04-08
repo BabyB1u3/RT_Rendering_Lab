@@ -38,6 +38,7 @@ glab_add_test_executable(rtrlab_unit_tests
     Unit/TestBuiltinTraits.cpp
     Unit/TestCamera.cpp
     Unit/TestDefaultCameraController.cpp
+    Unit/TestFileSystemVirtualPaths.cpp
     Unit/TestInput.cpp
     Unit/TestInputAction.cpp
     Unit/TestInputContextStack.cpp

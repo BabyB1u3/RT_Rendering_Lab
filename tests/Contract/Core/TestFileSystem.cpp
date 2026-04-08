@@ -31,11 +31,63 @@ TEST(FileSystemContractTests, InitResolvesProjectRootAndCommonDirectories)
 
     const auto &root = FileSystem::GetRootPath();
     const auto &savedDir = FileSystem::GetSavedDir();
+    const auto &cacheDir = FileSystem::GetCacheDir();
 
     EXPECT_TRUE(std::filesystem::exists(root / "assets"));
     EXPECT_TRUE(std::filesystem::exists(savedDir));
+    EXPECT_TRUE(std::filesystem::exists(cacheDir));
     EXPECT_TRUE(std::filesystem::exists(savedDir / "configs"));
     EXPECT_TRUE(std::filesystem::exists(FileSystem::GetAssetPath(kExistingAsset)));
+}
+
+TEST(FileSystemContractTests, ResolveReadPathMapsProjectConfigLogicalPathToLegacyConfigsDirectory)
+{
+    FileSystem::Init();
+
+    const auto resolved = FileSystem::ResolveReadPath("/Project/Config/input/DebugCameraControl.json");
+
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_EQ(*resolved, FileSystem::GetAssetPath("configs/input/DebugCameraControl.json"));
+    EXPECT_TRUE(std::filesystem::exists(*resolved));
+}
+
+TEST(FileSystemContractTests, ResolveWritePathMapsSavedConfigLogicalPathToLegacyConfigsDirectory)
+{
+    FileSystem::Init();
+
+    const auto resolved = FileSystem::ResolveWritePath("/Saved/Config/test-contract/Phase12Config.json");
+
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_EQ(*resolved, FileSystem::GetSavedConfigPath("test-contract/Phase12Config.json"));
+    EXPECT_TRUE(std::filesystem::exists(resolved->parent_path()));
+}
+
+TEST(FileSystemContractTests, ResolveWritePathRejectsReadOnlyDomains)
+{
+    FileSystem::Init();
+
+    EXPECT_FALSE(FileSystem::ResolveWritePath("/Project/Config/input/DebugCameraControl.json").has_value());
+    EXPECT_FALSE(FileSystem::ResolveWritePath("/Engine/Config/input/DebugCameraControl.json").has_value());
+    EXPECT_FALSE(FileSystem::ResolveWritePath("/Plugins/Foo/Config/Test.json").has_value());
+}
+
+TEST(FileSystemContractTests, ResolveWritePathCreatesCacheDirectoryParents)
+{
+    FileSystem::Init();
+
+    const auto resolved = FileSystem::ResolveWritePath("/Cache/Shaders/opengl/ForwardLit.cache");
+
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_EQ(*resolved, FileSystem::GetCacheDir() / "Shaders" / "opengl" / "ForwardLit.cache");
+    EXPECT_TRUE(std::filesystem::exists(resolved->parent_path()));
+}
+
+TEST(FileSystemContractTests, ResolveReadPathRejectsInvalidMountsAndTraversal)
+{
+    FileSystem::Init();
+
+    EXPECT_FALSE(FileSystem::ResolveReadPath("/Unknown/Textures/Grassy_Square").has_value());
+    EXPECT_FALSE(FileSystem::ResolveReadPath("/Project/Textures/../Grassy_Square").has_value());
 }
 
 TEST(FileSystemContractTests, ResolveConfigPathPrefersSavedConfigWhenPresent)
