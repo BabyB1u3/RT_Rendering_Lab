@@ -4,7 +4,10 @@
 #include "Core/Resource/ResourceCatalog.h"
 #include "Core/Resource/SourceCatalog.h"
 
+#include <stb_image.h>
+
 #include <algorithm>
+#include <cstdint>
 #include <fstream>
 #include <json.hpp>
 
@@ -18,6 +21,19 @@ namespace
         std::filesystem::path sourceRoot;
         std::filesystem::path cookedRoot;
     };
+
+    struct BootstrapTextureHeader
+    {
+        char magic[8] = {'R', 'T', 'R', 'T', 'E', 'X', '0', '1'};
+        uint32_t version = 1;
+        uint32_t width = 0;
+        uint32_t height = 0;
+        uint32_t channelCount = 4;
+        uint32_t pixelFormat = 1; // RGBA8_UNORM bootstrap payload
+        uint32_t dataSize = 0;
+    };
+
+    static_assert(sizeof(BootstrapTextureHeader) == 32);
 
     std::vector<SourceMountDescriptor> DiscoverReadableSourceMounts(const std::filesystem::path &rootPath,
                                                                     const std::filesystem::path &cookedRootPath,
@@ -228,12 +244,59 @@ namespace
             return false;
         }
 
-        std::filesystem::copy_file(sourcePath, cookedPath, std::filesystem::copy_options::overwrite_existing, ec);
-        if (ec)
+        if (isTextureArtifact)
         {
-            if (errorMessage != nullptr)
-                *errorMessage = "failed to copy source artifact '" + sourcePath.string() + "': " + ec.message();
-            return false;
+            int width = 0;
+            int height = 0;
+            int sourceChannels = 0;
+            stbi_uc *pixels = stbi_load(sourcePath.string().c_str(), &width, &height, &sourceChannels, 4);
+            if (pixels == nullptr)
+            {
+                if (errorMessage != nullptr)
+                    *errorMessage = "failed to decode texture source '" + sourcePath.string() + "'";
+                return false;
+            }
+            (void)sourceChannels;
+
+            const uint32_t dataSize = static_cast<uint32_t>(width * height * 4);
+            const BootstrapTextureHeader header{
+                .version = 1,
+                .width = static_cast<uint32_t>(width),
+                .height = static_cast<uint32_t>(height),
+                .channelCount = 4,
+                .pixelFormat = 1,
+                .dataSize = dataSize,
+            };
+
+            std::ofstream out(cookedPath, std::ios::binary | std::ios::trunc);
+            if (!out.is_open())
+            {
+                stbi_image_free(pixels);
+                if (errorMessage != nullptr)
+                    *errorMessage = "failed to open cooked texture artifact for writing: " + cookedPath.string();
+                return false;
+            }
+
+            out.write(reinterpret_cast<const char *>(&header), sizeof(header));
+            out.write(reinterpret_cast<const char *>(pixels), dataSize);
+            stbi_image_free(pixels);
+
+            if (!out.good())
+            {
+                if (errorMessage != nullptr)
+                    *errorMessage = "failed to write cooked texture artifact: " + cookedPath.string();
+                return false;
+            }
+        }
+        else
+        {
+            std::filesystem::copy_file(sourcePath, cookedPath, std::filesystem::copy_options::overwrite_existing, ec);
+            if (ec)
+            {
+                if (errorMessage != nullptr)
+                    *errorMessage = "failed to copy source artifact '" + sourcePath.string() + "': " + ec.message();
+                return false;
+            }
         }
 
         cookedArtifact = sourceArtifact;
