@@ -376,8 +376,8 @@ continues execution. Returns `false` when the condition fails, so callers can ha
 the failure gracefully. Use for "this shouldn't happen but the engine can survive."
 
 **Callstack capture**: Platform-specific implementations in
-`backends/win32/Callstack.cpp` (`CaptureStackBackTrace` + `SymFromAddr`) and
-`backends/posix/Callstack.cpp` (`backtrace()` + `dladdr()` + `abi::__cxa_demangle()`).
+`Crash/Backends/Win32/Callstack.cpp` (`CaptureStackBackTrace` + `SymFromAddr`) and
+`Crash/Backends/Posix/Callstack.cpp` (`backtrace()` + `dladdr()` + `abi::__cxa_demangle()`).
 
 **Debugger integration**: `Debugger.h` provides cross-platform debugger detection
 (`IsDebuggerPresent` on Windows, `sysctl` / `ptrace` on POSIX) and a `DebugBreak()`
@@ -469,25 +469,28 @@ supporting dynamic categories that were registered by subsystem code.
 ## 8. File Layout
 
 ```
-src/core/diagnostics/
-    Logger.h / .cpp              - Async spdlog wrapper, sink management, lifecycle
-    LogCategories.h              - Predefined category names + KnownCategories array
-    LogMacros.h                  - LOG_*_CAT, _ONCE, _THROTTLE, _COND, compile-time stripping
-    FrameFormatter.h / .cpp      - Custom %@ spdlog flag for frame number
-    JsonLineSink.h / .cpp        - Structured JSON Lines sink (enable-on-demand)
-    ImGuiConsoleSink.h / .cpp    - Ring buffer sink for ImGui console
-    Assert.h / .cpp              - RTRLAB_ASSERT / VERIFY / ENSURE
-    ErrorMacros.h                - ERR_FAIL_COND_* family
-    CrashHandler.h               - Platform-independent crash handler interface
-    Callstack.h                  - Platform-independent callstack capture interface
-    Debugger.h / .cpp            - Cross-platform debugger detection and trap
-    backends/
-      win32/
-        CrashHandler.cpp         - SEH + MiniDumpWriteDump
-        Callstack.cpp            - CaptureStackBackTrace + DbgHelp symbolization
-      posix/
-        CrashHandler.cpp         - Signal handler + crash summary writer
-        Callstack.cpp            - backtrace() + dladdr() + demangling
+src/Core/Diagnostics/
+    Logging/
+        Logger.h / .cpp          - Async spdlog wrapper, sink management, lifecycle
+        LogCategories.h          - Predefined category names + KnownCategories array
+        LogMacros.h              - LOG_*_CAT, _ONCE, _THROTTLE, _COND, compile-time stripping
+        FrameFormatter.h / .cpp  - Custom %@ spdlog flag for frame number
+        JsonLineSink.h / .cpp    - Structured JSON Lines sink (enable-on-demand)
+        ImGuiConsoleSink.h / .cpp - Ring buffer sink for ImGui console
+    Assert/
+        Assert.h / .cpp          - RTRLAB_ASSERT / VERIFY / ENSURE
+        ErrorMacros.h            - ERR_FAIL_COND_* family
+    Crash/
+        CrashHandler.h / .cpp    - Platform-independent crash handler interface
+        Callstack.h              - Platform-independent callstack capture interface
+        Debugger.h / .cpp        - Cross-platform debugger detection and trap
+        Backends/
+          Win32/
+            CrashHandler.cpp     - SEH + MiniDumpWriteDump
+            Callstack.cpp        - CaptureStackBackTrace + DbgHelp symbolization
+          Posix/
+            CrashHandler.cpp     - Signal handler + crash summary writer
+            Callstack.cpp        - backtrace() + dladdr() + demangling
 
 src/gui/panels/
     ConsolePanel.h / .cpp        - ImGui debug console panel
