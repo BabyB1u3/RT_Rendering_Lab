@@ -8,7 +8,7 @@ key and mouse code constants but serve fundamentally different consumers.
 > **Design Philosophy**: Polling-first for continuous input, event-driven for discrete
 > notifications. Input Action Mapping decouples game logic from physical keys.
 > Signal/Slot (publish-subscribe) replaces inheritance-based event dispatch.
-> Modular layers — each layer is independently testable and depends only on layers below it.
+> Modular layers - each layer is independently testable and depends only on layers below it.
 
 ---
 
@@ -26,7 +26,7 @@ key and mouse code constants but serve fundamentally different consumers.
     - [Triggers](#triggers)
   - [6. Layer 4 - Input Context Stack](#6-layer-4---input-context-stack)
   - [7. Layer 5 - Input Device Abstraction](#7-layer-5---input-device-abstraction)
-    - [Planned interfaces](#planned-interfaces)
+    - [Current interfaces](#current-interfaces)
   - [8. Layer 6 - Event Bus (Signal/Slot)](#8-layer-6---event-bus-signalslot)
     - [Event types](#event-types)
   - [9. Layer 7 - Window Event Production](#9-layer-7---window-event-production)
@@ -84,31 +84,31 @@ a window resizes (happens), a key is held down (is).
 
 ### Full Architecture Stack
 
-```
-Layer 10  Input Recording & Replay         (injectable input source)           ⬜ planned
-Layer 9   Chord / Combo / Gesture          (state machines on top of actions)   ⬜ planned
-Layer 8   ImGui Input Routing              (capture flags block polling)         ✅ partial
-Layer 7   Window Event Production          (GLFW callbacks → EventBus)           ✅
-Layer 6   Event Bus (Signal/Slot)          (type-safe pub/sub, RAII connections)  ✅
-Layer 5   Input Device Abstraction         (keyboard, mouse, gamepad as devices)  ⬜ planned
-Layer 4   Input Context Stack              (priority-based action map activation)  ✅
-Layer 3   Input Modifiers & Triggers       (dead zone, sensitivity, hold/tap)    ✅
-Layer 2   Input Action Map                 (logical actions ↔ physical bindings)  ✅
-Layer 1   Input Device State (Polling)     (double-buffered per-frame state)     ✅
-Layer 0   Key & Mouse Codes                (typed constants, no GLFW dependency)  ✅
+```text
+Layer 10  Input Recording & Replay         (injectable input source)             planned
+Layer 9   Chord / Combo / Gesture          (state machines on top of actions)    planned
+Layer 8   ImGui Input Routing              (capture flags block polling)         partial
+Layer 7   Window Event Production          (GLFW callbacks -> EventBus)          implemented
+Layer 6   Event Bus (Signal/Slot)          (type-safe pub/sub, RAII connections) implemented
+Layer 5   Input Device Abstraction         (keyboard, mouse, gamepad as devices) implemented
+Layer 4   Input Context Stack              (priority-based action map activation) implemented
+Layer 3   Input Modifiers & Triggers       (dead zone, sensitivity, hold/tap)    implemented
+Layer 2   Input Action Map                 (logical actions -> physical bindings) implemented
+Layer 1   Input Device State (Polling)     (double-buffered per-frame state)     implemented
+Layer 0   Key & Mouse Codes                (typed constants, no GLFW dependency) implemented
 ```
 
-Layers 0–4 and Layer 6 form the implemented core. Layer 7 and the capture-flag portion
-of Layer 8 bridge the platform. Layers 5, 9, and 10 are planned extensions. Each layer
-depends only on layers below it.
+Layers 0-7 form the current implemented core, with the capture-flag portion of Layer 8
+bridging ImGui focus into the polling path. Layers 9 and 10 remain planned extensions.
+Each layer depends only on layers below it.
 
 **Serialization**: `InputActionMap` bindings persist through the shared serialization
 framework (`Serialization::SaveToFile` / `LoadFromFile` + `InputActionSerialization.h`).
 Config files live in `assets/configs/` (shipped defaults) and are auto-copied to
 `saved/configs/` on first access via `FileSystem::ResolveConfigPath()`.
 
-**`InputSource::Type`** already includes gamepad-related enum values, but runtime
-querying only supports keyboard and mouse until Layer 5 is built.
+**`InputSource::Type`** includes keyboard, mouse, gamepad button, and gamepad axis
+sources, and runtime querying now resolves all of them through Layer 5's device manager.
 
 ---
 
@@ -125,7 +125,7 @@ is needed at the GLFW boundary. Namespace scope (`Key::`, `Mouse::`) keeps call 
 short (`Key::W` vs `KeyCode::Key::W`).
 
 Because these are not generic named enum types, `InputNames.h` provides bidirectional
-`Key::Code` ↔ string mapping for serialization and debug display, rather than the
+`Key::Code` to string mapping for serialization and debug display, rather than the
 `magic_enum`-backed path used by newer internal `enum class` types.
 
 ---
@@ -141,9 +141,9 @@ a "current" buffer; the previous frame's buffer is retained. This enables three 
 modes per key:
 
 ```
-IsKeyDown(key)               — held right now (current buffer)
-WasKeyPressedThisFrame(key)  — current=true, previous=false
-WasKeyReleasedThisFrame(key) — current=false, previous=true
+IsKeyDown(key)               - held right now (current buffer)
+WasKeyPressedThisFrame(key)  - current=true, previous=false
+WasKeyReleasedThisFrame(key) - current=false, previous=true
 ```
 
 The same triple is provided for mouse buttons. **Mouse position and delta** are tracked
@@ -168,27 +168,27 @@ with the same non-null window is a no-op.
 abstractions:
 
 - **Actions** (discrete, boolean): named events like "ShowShadowMap" or "ToggleLookMode".
-  Any number of sources can be bound to one action (OR logic — any one triggers it).
+  Any number of sources can be bound to one action (OR logic - any one triggers it).
 - **Axes** (continuous, float): named values like "MoveForward" or "LookX". Bound to
   either a positive/negative key pair (returns `[-1, +1]`) or a mouse delta/scroll axis
   (raw pixel or scroll units).
 
 Each demo/layer owns its own `InputActionMap` instance. The `ShadowMapping` and
 `MaterialPlayground` demos each load bindings from `assets/configs/input/*.json` and
-fall back to hardcoded defaults saved to `saved/configs/`. Gamepad source types are
-present in `InputSource::Type` but `IsSourceDown()` only handles keyboard and mouse
-until Layer 5 is built.
+fall back to hardcoded defaults saved to `saved/configs/`. `InputSource::Type` includes
+gamepad button and gamepad axis values, and `IsSourceDown()` / edge queries now resolve
+them through `InputDeviceManager`.
 
 **Typical usage**:
 
 ```cpp
-// OnAttach — register bindings
+// OnAttach - register bindings
 m_InputMap.BindAxis("MoveForward", Key::W, Key::S);
 m_InputMap.BindAxis("LookX",       InputActionMap::MouseAxis::X);
 m_InputMap.BindAction("ShowShadowMap",  Key::D2);
 m_InputMap.BindAction("ToggleLookMode", Mouse::Right);
 
-// OnUpdate — query results
+// OnUpdate - query results
 float forward = m_InputMap.GetAxis("MoveForward");
 if (m_InputMap.WasActionPressedThisFrame("ShowShadowMap"))
     m_OutputMode = SceneRendererOutput::ShadowMap;
@@ -201,7 +201,7 @@ if (m_InputMap.IsActionDown("ToggleLookMode"))
 - String-keyed for readability. `unordered_map` lookup overhead is negligible compared
   to draw calls.
 - `GetAxis()` returns `float` in `[-1, +1]` for key pairs, or raw delta for mouse. The
-  consumer decides how to scale it — unless Layer 3 modifiers are applied.
+  consumer decides how to scale it - unless Layer 3 modifiers are applied.
 - Bindings can be registered in code or loaded from JSON. Key name serialization flows
   through `InputNames.h`; internal named enums use `magic_enum`-backed helpers.
 
@@ -231,7 +231,7 @@ m_InputMap.AddModifier("LookX", std::make_unique<Clamp>(-10.0f, 10.0f));
 // GetAxis("LookX") now returns the fully processed value.
 ```
 
-Modifiers are applied in insertion order (Raw → Modifier1 → Modifier2 → … → Final).
+Modifiers are applied in insertion order (Raw -> Modifier1 -> Modifier2 -> ... -> Final).
 Five built-in modifiers: `DeadZone`, `Sensitivity`, `Clamp`, `Negate`, `Smooth`.
 Custom modifiers subclass `InputModifier` and implement `Apply(float value, float dt)`.
 
@@ -268,7 +268,7 @@ unchanged without calling `Update(dt)`.
 
 `InputContextStack` coordinates multiple `InputActionMap` instances through a
 priority-sorted vector with consumption logic. Without it, two layers that both bind
-`Escape` — a pause menu and gameplay — fire on the same frame with no way to resolve
+`Escape` - a pause menu and gameplay - fire on the same frame with no way to resolve
 priority. The context stack solves this:
 
 ```cpp
@@ -285,7 +285,7 @@ contextStack.Pop("PauseMenu");
 
 **Update behavior**: `Update(dt)` iterates contexts from highest to lowest priority,
 calling `Update(dt)` on each active ActionMap. A context with `ConsumesInput=true`
-stops iteration — lower-priority contexts receive neither updates nor query responses.
+stops iteration - lower-priority contexts receive neither updates nor query responses.
 An inactive consuming context does not block.
 
 **Cross-context queries** (`IsActionDown`, `WasActionTriggeredThisFrame`, `GetAxis`)
@@ -295,7 +295,7 @@ reachability for lower-priority contexts.
 
 **Runtime state reset**: `SetActive(name, false)` and `Pop(name)` both call
 `ActionMap::ResetRuntimeState()` before deactivating or removing the context. This
-prevents stale trigger state — a `HoldTrigger` mid-progress will not fire spuriously
+prevents stale trigger state - a `HoldTrigger` mid-progress will not fire spuriously
 when the context is re-enabled later.
 
 **Design decisions**:
@@ -303,7 +303,7 @@ when the context is re-enabled later.
 - Non-owning pointers to ActionMaps. The stack is a coordinator, not an owner.
 - `ConsumesInput` is a simple boolean, not per-action. A modal UI either blocks all
   game input or it doesn't. Per-action exclusion lists can be added later.
-- Stable sort by priority — equal-priority contexts maintain insertion order.
+- Stable sort by priority - equal-priority contexts maintain insertion order.
 - Duplicate names replace the existing entry after resetting its runtime state.
 
 **Real engine parallels**:
@@ -323,14 +323,17 @@ flag mechanism.
 
 ## 7. Layer 5 - Input Device Abstraction
 
-**Planned extension.** Layer 5 will abstract away the source of input so the system can
-support keyboard, mouse, gamepad, and future devices without changing the action map or
-game logic. Currently, `InputActionMap::IsSourceDown()` calls `Input::IsKeyDown()`
-directly. The device abstraction fixes this — and is also the prerequisite for Layer 10
-(Recording/Replay), where a `ReplayDevice` injects recorded state through the same
-interface.
+Layer 5 is now the runtime boundary between physical or synthetic input sources and the
+rest of the gameplay-facing polling stack. `Input` remains as a convenience facade, but
+its queries are backed by an `InputDeviceManager` that owns logical device slots for the
+keyboard, mouse, and gamepads. `InputActionMap` also resolves sources through the device
+manager rather than calling keyboard/mouse-only `Input::` helpers.
 
-### Planned interfaces
+This abstraction is the prerequisite for Layer 10 (Recording/Replay), where a future
+`ReplayDevice` can inject recorded state through the same `InputDevice` contract used by
+live devices.
+
+### Current interfaces
 
 ```cpp
 struct InputValue { float X = 0.0f; float Y = 0.0f; };   // buttons: X = 1.0 or 0.0
@@ -342,33 +345,49 @@ public:
     virtual Type       GetType()  const = 0;
     virtual void       Poll()           = 0;   // called once per frame
     virtual InputValue GetInput(uint16_t code)  const = 0;
+    virtual InputValue GetPreviousInput(uint16_t code) const { return {}; }
     virtual InputValue GetAxis(uint16_t axisId) const { return {}; }
+    virtual InputValue GetPreviousAxis(uint16_t axisId) const { return {}; }
     virtual bool       IsConnected()    const { return true; }
+    virtual bool       WasConnected()   const { return IsConnected(); }
+    virtual bool       HasConnectionStateChanged() const { return false; }
+    virtual uint8_t    GetDeviceIndex() const { return 0; }
+    virtual void       Reset() {}
 };
 
 class InputDeviceManager
 {
 public:
     void         AddDevice(std::unique_ptr<InputDevice> device);
+    void         Clear();
     void         PollAll();    // called once per frame by Application
+    void         ResetAll();
     InputDevice* GetDevice(InputDevice::Type type, uint8_t index = 0) const;
-    void         CheckConnections();   // hot-plug detection for gamepads
+    std::unique_ptr<InputDevice> RemoveDevice(InputDevice::Type type, uint8_t index = 0);
+    void         SetEventBus(EventBus* bus);
 };
 ```
 
-Concrete planned implementations: `KeyboardDevice`, `MouseDevice` (extracted from the
-current static `Input` state), `GamepadDevice` (wrapping `glfwGetGamepadState()`).
+Current concrete implementations:
 
-With the abstraction in place, `InputActionMap::IsSourceDown()` will query through the
-device manager instead of calling `Input::` statics directly, and `InputSource::Type`
-gamepad values will become functional.
+- `KeyboardDevice` - polls GLFW key state and preserves previous-frame edges.
+- `MouseDevice` - polls buttons and cursor position, exposes delta and scroll axes.
+- `GamepadDevice` - wraps `glfwJoystickIsGamepad()` / `glfwGetGamepadState()` and
+  tracks connected state plus previous-frame button/axis data.
+
+With the abstraction in place, `InputActionMap::IsSourceDown()` / pressed / released
+queries all resolve through `InputDeviceManager`, and gamepad source types are fully
+functional at runtime.
 
 **Design decisions**:
 
-- `InputValue` is a small struct (two floats), not a variant — avoids branching on type.
+- `InputValue` is a small struct (two floats), not a variant - avoids branching on type.
 - Devices are polled, not callback-driven, matching the polling-first philosophy.
-- The decision of whether to keep `Input` as a static convenience facade or deprecate it
-  in favor of direct device queries is deferred to implementation time.
+- `Input` is intentionally kept as a convenience facade for common gameplay queries, but
+  it no longer owns the authoritative state directly.
+- `RestoreDefaultDevices()` now means a true restore of the default live layout
+  (keyboard, mouse, gamepad slots 0-3). Extra custom devices or non-default slots are
+  removed instead of silently retained.
 
 ---
 
@@ -398,7 +417,7 @@ m_OnResize = m_EventBus->Subscribe<WindowResizeEvent>(
     {
         m_Camera.SetViewportSize(e.Width, e.Height);
     });
-// m_OnResize is a ScopedConnection member — unsubscribes automatically on destruction.
+// m_OnResize is a ScopedConnection member - unsubscribes automatically on destruction.
 ```
 
 **Known limitation**: `ScopedConnection` captures `EventBus* this` in its unsubscribe
@@ -409,7 +428,7 @@ the codebase grows.
 
 ### Event types
 
-Events are plain structs — no base class, no macros, no inheritance hierarchy. Current
+Events are plain structs - no base class, no macros, no inheritance hierarchy. Current
 event types:
 
 - **Window**: `WindowResizeEvent { Width, Height }`, `WindowCloseEvent`
@@ -417,7 +436,22 @@ event types:
   `CharTypedEvent { Codepoint }`
 - **Mouse**: `MouseButtonPressedEvent { Button }`, `MouseButtonReleasedEvent { Button }`,
   `MouseScrolledEvent { XOffset, YOffset }`
+- **Device lifecycle**: `DeviceAttachedToSlotEvent { DeviceType, DeviceIndex }`,
+  `DeviceDetachedFromSlotEvent { DeviceType, DeviceIndex }`,
+  `DeviceConnectionChangedEvent { DeviceType, DeviceIndex, Connected }`
+- **Gamepad compatibility**: `GamepadConnectedEvent { DeviceIndex }`,
+  `GamepadDisconnectedEvent { DeviceIndex }`
 - **Application**: `DemoSwitchedEvent { NewIndex, NewName }`
+
+Device lifecycle semantics are intentionally split:
+
+- `DeviceAttachedToSlotEvent` / `DeviceDetachedFromSlotEvent` describe logical slot
+  topology changes in `InputDeviceManager`.
+- `DeviceConnectionChangedEvent` describes whether a slot's current device is connected
+  and usable.
+- `GamepadConnectedEvent` / `GamepadDisconnectedEvent` are compatibility projections of
+  `DeviceConnectionChangedEvent` for `Type::Gamepad`; they do not imply slot attach or
+  detach by themselves.
 
 **Design decisions**:
 
@@ -427,8 +461,7 @@ event types:
 
 **Planned extensions**:
 
-- `RendererSettingsChangedEvent` — for propagating `DebugPanel` tweaks; fields TBD.
-- `GamepadConnectedEvent` / `GamepadDisconnectedEvent` — needed when Layer 5 is built.
+- `RendererSettingsChangedEvent` - for propagating `DebugPanel` tweaks; fields TBD.
 - **Event queue**: ring buffer stores events, `FlushEvents()` dispatches at a defined
   point in the frame. Useful for deterministic ordering and cross-thread scenarios.
 
@@ -442,7 +475,7 @@ input, mouse button press/release, and scroll.
 
 The scroll callback feeds both the EventBus (`MouseScrolledEvent`) and
 `Input::AccumulateScroll()` simultaneously. This is the one case where both paths are
-active — event subscribers receive the raw value, polling consumers read the per-frame
+active - event subscribers receive the raw value, polling consumers read the per-frame
 accumulated total via `Input::GetScrollDelta()`.
 
 `Window::SetRefreshCallback()` provides a separate path for macOS live-resize rendering.
@@ -462,7 +495,7 @@ checks at call sites.
 
 **Why capture flags instead of event-based `Handled` flags?** One flag per device,
 checked in one place, with no ordering dependency on which layer processes events first.
-ImGui's `WantCapture*` flags are already the authoritative source — we forward them directly.
+ImGui's `WantCapture*` flags are already the authoritative source - we forward them directly.
 
 **Current limitations**:
 
@@ -481,7 +514,7 @@ highest-priority consuming context and the separate flag mechanism retired.
 
 **Planned extension.** Layer 9 adds multi-key combinations, sequential inputs, and
 time-sensitive gestures as first-class action bindings. All are built on top of the
-existing `InputActionMap` + `InputTrigger` infrastructure — no separate system needed.
+existing `InputActionMap` + `InputTrigger` infrastructure - no separate system needed.
 
 ### Chord (simultaneous keys)
 
@@ -552,7 +585,7 @@ private:
 ## 12. Layer 10 - Input Recording & Replay
 
 **Planned extension.** Layer 10 captures per-frame input state to a file and replays it
-deterministically — useful for automated testing, bug reproduction, and demo playback.
+deterministically - useful for automated testing, bug reproduction, and demo playback.
 
 ### Architecture
 
@@ -560,11 +593,10 @@ With the Device Abstraction (Layer 5), recording and replay become a matter of s
 device implementations:
 
 ```
-Normal:   GLFWwindow → KeyboardDevice → Input → ActionMap → Game
-Record:   GLFWwindow → KeyboardDevice → RecordingTee → Input → ActionMap → Game
-                                         ↓
-                                    Recording File
-Replay:   Recording File → ReplayDevice → Input → ActionMap → Game
+Normal:   GLFWwindow -> KeyboardDevice -> Input -> ActionMap -> Game
+Record:   GLFWwindow -> KeyboardDevice -> RecordingTee -> Input -> ActionMap -> Game
+                                         ->                                    Recording File
+Replay:   Recording File -> ReplayDevice -> Input -> ActionMap -> Game
 ```
 
 ### Planned interfaces
@@ -599,7 +631,7 @@ class ReplayDevice : public InputDevice { ... };
 
 1. **Fixed timestep** or recorded delta times must be replayed exactly.
 2. **No external randomness** in input-dependent code paths (or seed must be recorded).
-3. **Frame-accurate state** — all input queries must go through the device abstraction;
+3. **Frame-accurate state** - all input queries must go through the device abstraction;
    no direct GLFW calls in game logic.
 
 **Design decisions**:
@@ -613,7 +645,7 @@ class ReplayDevice : public InputDevice { ... };
 the boundary relative to discrete engine events (`CharTypedEvent`, `WindowResizeEvent`,
 device connect/disconnect) is not yet defined.
 
-**Dependency**: Requires Phase G (device abstraction — `ReplayDevice` implements `InputDevice`).
+**Dependency**: Phase G is complete; `ReplayDevice` can build directly on the existing `InputDevice` contract.
 
 ---
 
@@ -621,99 +653,48 @@ device connect/disconnect) is not yet defined.
 
 ### Core flow (implemented layers)
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        GLFW Callbacks                               │
-│   key / mouse button / scroll / char / resize / close               │
-└──────────┬────────────────────────────────┬─────────────────────────┘
-           │                                │
-           ▼                                ▼
-┌──────────────────────┐         ┌──────────────────────┐
-│   Input (Layer 1)    │         │  EventBus (Layer 6)  │
-│                      │         │                      │
-│ • BeginFrame() polls │         │ • Publish<T>() from  │
-│   GLFW state         │         │   GLFW callbacks     │
-│ • Double-buffer for  │         │ • Subscribers get    │
-│   edge detection     │         │   const T&           │
-│ • Scroll accumulator │         │ • RAII connections   │
-│   fed by callback    │         │ • Deferred removal   │
-└──────────┬───────────┘         └──────────┬───────────┘
-           │                                │
-           ▼                                ▼
-┌──────────────────────┐         ┌──────────────────────┐
-│ InputActionMap       │         │ Subscribers:         │
-│ (Layer 2+3)          │         │ • ImGuiLayer         │
-│                      │         │ • Application        │
-│ • Actions + Axes     │         │   (WindowResize,     │
-│ • Modifiers chain    │         │    WindowClose)      │
-│ • Trigger FSMs       │         │ • LabLayer           │
-│ • Update(dt)         │         │   (DemoSwitched)     │
-└──────────┬───────────┘         └──────────────────────┘
-           │
-           ▼
-┌──────────────────────┐
-│ InputContextStack    │
-│ (Layer 4)            │
-│                      │
-│ • Priority ordering  │
-│ • Consumption logic  │
-│ • Cross-ctx queries  │
-│ • Reset on deactivate│
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│ Demo / Layer code    │
-└──────────────────────┘
+```text
+GLFW callbacks -> Window / Input bridge
+  |- scroll callback -> Input::AccumulateScroll()
+  `- discrete callbacks -> EventBus
+
+Application::Run()
+  -> Input::BeginFrame()
+  -> InputDeviceManager::PollAll()
+  -> Input facade queries
+  -> InputActionMap
+  -> Modifiers / Triggers
+  -> InputContextStack
+  -> Demo / Layer code
 ```
 
 ### Full flow (all layers, including planned)
 
-```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                          Platform / GLFW                                 │
-└──────┬───────────────────────────────────────────┬───────────────────────┘
-       │                                           │
-       ▼                                           ▼
-┌──────────────────┐                    ┌──────────────────────┐
-│ InputDeviceManager│ (Layer 5) ⬜      │  Window callbacks    │ (Layer 7) ✅
-│ KeyboardDevice   │                    │  → EventBus          │
-│ MouseDevice      │                    └──────────┬───────────┘
-│ GamepadDevice    │                               │
-│ (ReplayDevice)   │                               ▼
-└──────┬───────────┘                    ┌──────────────────────┐
-       │ Poll()                         │  EventBus (Layer 6)  │ ✅
-       ▼                                │  WindowResize        │
-┌──────────────────┐                    │  WindowClose         │
-│ Input (Layer 1)  │ ✅                 │  GamepadConnected    │
-│ Double-buffered  │                    │  DemoSwitched        │
-│ state + capture  │                    └──────────────────────┘
-└──────┬───────────┘
-       ▼
-┌──────────────────┐
-│ InputActionMap   │ (Layer 2) ✅
-│ Actions + Axes   │
-└──────┬───────────┘
-       ▼
-┌──────────────────┐
-│ Modifiers &      │ (Layer 3) ✅
-│ Triggers         │
-└──────┬───────────┘
-       ▼
-┌──────────────────┐      ┌─────────────────────┐
-│ InputContext      │ ←──→ │ ImGui Capture       │ (Layer 8) ✅ partial
-│ Stack (Layer 4)  │ ✅   └─────────────────────┘
-└──────┬───────────┘
-       ▼
-┌──────────────────┐      ┌─────────────────────┐
-│ Chord / Combo /  │ ←──→ │ Input Recording     │
-│ Gesture (L9) ⬜  │      │ Capture / Replay    │
-└──────┬───────────┘      │ (Layer 10) ⬜       │
-       │                  └─────────────────────┘
-       ▼
-┌──────────────────┐
-│ Game / Demo code │
-└──────────────────┘
+```text
+Platform / GLFW
+  |                         \
+  | poll live devices        \ discrete callbacks
+  v                           v
+InputDeviceManager (Layer 5)  EventBus (Layer 6)
+  |- KeyboardDevice           |- WindowResize / WindowClose
+  |- MouseDevice              |- Key / Mouse / Char events
+  |- GamepadDevice            |- DeviceAttachedToSlot / DetachedFromSlot
+  |- (future) ReplayDevice    |- DeviceConnectionChanged
+  |                           |- GamepadConnected / Disconnected
+  v                           |- DemoSwitched
+Input (Layer 1)               |
+  v                           |
+InputActionMap (Layer 2)      |
+  v                           |
+Modifiers & Triggers (Layer 3)|
+  v                           |
+InputContextStack (Layer 4) <-> ImGui capture flags (Layer 8, partial)
+  v
+Game / Demo code
+
+Planned sidecars after Layer 5:
+- Layer 9: chord / combo / gesture recognition
+- Layer 10: input recording + replay via synthetic InputDevice implementations
 ```
 
 **Key insight**: The Input polling path (left) and Event bus path (right) are
@@ -724,66 +705,60 @@ Game logic uses the left path. System notifications use the right path.
 
 ## 14. File Layout
 
-```
+```text
 src/
-├── core/
-│   ├── input/
-│   │   ├── KeyCode.h                              # Layer 0    ✅
-│   │   ├── MouseCode.h                            # Layer 0    ✅
-│   │   ├── Input.h / Input.cpp                    # Layer 1    ✅
-│   │   ├── InputAction.h / InputAction.cpp        # Layer 2    ✅
-│   │   ├── InputNames.h / InputNames.cpp          # Layer 2    ✅ (Key/Mouse ↔ string)
-│   │   ├── InputActionSerialization.h             # Layer 2    ✅ (ADL traits)
-│   │   ├── InputModifier.h                        # Layer 3    ✅ (header-only)
-│   │   ├── InputTrigger.h                         # Layer 3    ✅ (header-only)
-│   │   ├── InputContextStack.h / .cpp             # Layer 4    ✅
-│   │   ├── InputDevice.h                          # Layer 5    ⬜
-│   │   ├── KeyboardDevice.h / .cpp                # Layer 5    ⬜
-│   │   ├── MouseDevice.h / .cpp                   # Layer 5    ⬜
-│   │   ├── GamepadDevice.h / .cpp                 # Layer 5    ⬜
-│   │   ├── InputDeviceManager.h / .cpp            # Layer 5    ⬜
-│   │   ├── ChordBinding.h                         # Layer 9    ⬜
-│   │   ├── ComboTracker.h / .cpp                  # Layer 9    ⬜
-│   │   ├── InputRecorder.h / .cpp                 # Layer 10   ⬜
-│   │   └── ReplayDevice.h / .cpp                  # Layer 10   ⬜
-│   ├── event/
-│   │   ├── ScopedConnection.h                     # Layer 6    ✅
-│   │   ├── EventBus.h                             # Layer 6    ✅ (header-only, templated)
-│   │   └── Events.h                               # Event struct definitions ✅
-│   ├── app/
-│   │   ├── Window.h / Window.cpp                  # Layer 7    ✅ (publishes events)
-│   │   ├── Application.h / Application.cpp        # Owns EventBus, RenderFrame ✅
-│   │   ├── Layer.h / Layer.cpp                    # ✅
-│   │   └── LayerStack.h / LayerStack.cpp          # ✅
-│   └── ... (serialization, FileSystem, Logger, Time)
-├── demos/
-│   ├── DemoBase.h / DemoRegistry.h / LabLayer.h   # ✅
-│   ├── showcase/
-│   │   ├── MaterialPlayground/                    # ✅
-│   │   └── ShadowMapping/                         # ✅
-│   └── tutorial/
-│       ├── 01_ClearScreen/                        # ✅
-│       └── 02_Triangle/                           # ✅
-├── gui/
-│   ├── ImGuiLayer.h / ImGuiLayer.cpp              # Layer 8    ✅ (capture flags)
-│   └── panels/
-└── tests/
-    ├── unit/
-    │   ├── TestInput.cpp                          # Layer 1    ✅
-    │   ├── TestInputAction.cpp                    # Layer 2    ✅
-    │   ├── TestInputNames.cpp                     # Layer 2    ✅
-    │   ├── TestInputModifiers.cpp                 # Layer 3    ✅ (8 tests)
-    │   ├── TestInputTriggers.cpp                  # Layer 3    ✅ (9 tests)
-    │   └── TestInputContextStack.cpp              # Layer 4    ✅ (17 tests)
-    └── contract/core/
-        └── TestEventBus.cpp                       # Layer 6    ✅ (4 tests)
+|-- Core/
+|   |-- Input/
+|   |   |-- Input.h / Input.cpp                    # Layer 1    implemented
+|   |   |-- Action/
+|   |   |   |-- InputAction.h / .cpp               # Layer 2    implemented
+|   |   |   |-- InputActionSerialization.h         # Layer 2    implemented
+|   |   |   |-- InputModifier.h                    # Layer 3    implemented
+|   |   |   |-- InputTrigger.h                     # Layer 3    implemented
+|   |   |   `-- InputContextStack.h / .cpp         # Layer 4    implemented
+|   |   |-- Code/
+|   |   |   |-- KeyCode.h                          # Layer 0    implemented
+|   |   |   |-- MouseCode.h                        # Layer 0    implemented
+|   |   |   |-- GamepadCode.h                      # Layer 0/5  implemented
+|   |   |   `-- InputNames.h / .cpp                # Layer 2/5  implemented
+|   |   `-- Device/
+|   |       |-- InputDevice.h                      # Layer 5    implemented
+|   |       |-- KeyboardDevice.h / .cpp            # Layer 5    implemented
+|   |       |-- MouseDevice.h / .cpp               # Layer 5    implemented
+|   |       |-- GamepadDevice.h / .cpp             # Layer 5    implemented
+|   |       `-- InputDeviceManager.h / .cpp        # Layer 5    implemented
+|   |-- Event/
+|   |   |-- ScopedConnection.h                     # Layer 6    implemented
+|   |   |-- EventBus.h                             # Layer 6    implemented
+|   |   `-- Events.h                               # Layer 6    implemented
+|   `-- App/
+|       |-- Window.h / Window.cpp                  # Layer 7    implemented
+|       `-- Application.h / Application.cpp        # main loop wiring
+|
+|-- GUI/
+|   `-- ImGuiLayer.h / ImGuiLayer.cpp              # Layer 8    partial
+|
+`-- Demos/
+    `-- ...                                        # demo consumers of the input stack
+
+tests/
+|-- Unit/
+|   |-- TestInput.cpp                              # Layers 1 + 5
+|   |-- TestInputAction.cpp                        # Layers 2 + 5
+|   |-- TestInputNames.cpp                         # code/name mapping
+|   |-- TestInputModifiers.cpp                     # Layer 3
+|   |-- TestInputTriggers.cpp                      # Layer 3
+|   |-- TestInputContextStack.cpp                  # Layer 4
+|   `-- TestInputDeviceManager.cpp                 # Layer 5 lifecycle + events
+`-- Contract/
+    `-- Core/TestEventBus.cpp                      # Layer 6
 ```
 
 ---
 
 ## 15. Phased Implementation Plan
 
-Phases A through F are complete. Phases G–I are planned in dependency order.
+Phases A through G are complete. Phases H-I remain in dependency order.
 
 ### Phase A - Foundation
 
@@ -799,19 +774,19 @@ Implemented `ScopedConnection`, `EventBus`, `Events`, window callback production
 live-resize), and `Application::RenderFrame()` extraction. `Application` now subscribes
 to `WindowResizeEvent` via EventBus; `Window::SetResizeCallback` / `m_ResizeCallback`
 have been removed. Two notification paths remain: EventBus (discrete events) and
-RefreshCallback (macOS live-resize render path — a different concern).
+RefreshCallback (macOS live-resize render path - a different concern).
 
 | Item | Layer | Status |
 |------|-------|--------|
-| `ScopedConnection.h` | 6 | ✅ Done |
-| `EventBus.h` (deferred removal) | 6 | ✅ Done |
-| `Events.h` (struct definitions) | 6 | ✅ Done |
-| Window callback installation | 7 | ✅ Done |
-| `Input` capture flags | 8 | ✅ Done |
-| `Window::SetRefreshCallback` | 7 | ✅ Done |
-| `Application::RenderFrame()` extraction | - | ✅ Done |
-| HiDPI framebuffer size init | 7 | ✅ Done |
-| Migrate resize to EventBus, remove `m_ResizeCallback` | 7 | ✅ Done |
+| `ScopedConnection.h` | 6 | Done |
+| `EventBus.h` (deferred removal) | 6 | Done |
+| `Events.h` (struct definitions) | 6 | Done |
+| Window callback installation | 7 | Done |
+| `Input` capture flags | 8 | Done |
+| `Window::SetRefreshCallback` | 7 | Done |
+| `Application::RenderFrame()` extraction | - | Done |
+| HiDPI framebuffer size init | 7 | Done |
+| Migrate resize to EventBus, remove `m_ResizeCallback` | 7 | Done |
 
 ### Phase C - Action mapping
 
@@ -822,10 +797,10 @@ placeholder; fields TBD based on `SceneRendererSpecification`.
 
 | Item | Layer | Status |
 |------|-------|--------|
-| `InputActionMap` | 2 | ✅ Done |
-| `InputActionSerialization.h` | 2 | ✅ Done |
-| `DemoSwitchedEvent` | 6 | ✅ Done |
-| `RendererSettingsChangedEvent` | 6 | ⬜ Placeholder only |
+| `InputActionMap` | 2 | Done |
+| `InputActionSerialization.h` | 2 | Done |
+| `DemoSwitchedEvent` | 6 | Done |
+| `RendererSettingsChangedEvent` | 6 | Placeholder only |
 
 ### Phase D - Resize callback unification
 
@@ -842,13 +817,13 @@ Backward-compatible with existing demos.
 
 | Step | Layer | Description | Status |
 |------|-------|-------------|--------|
-| 1. `InputModifier` base + built-ins | 3 | `DeadZone`, `Sensitivity`, `Clamp`, `Negate`, `Smooth` | ✅ |
-| 2. `InputTrigger` base + built-ins | 3 | `PressedTrigger`, `HoldTrigger`, `TapTrigger`, `ReleasedTrigger` | ✅ |
-| 3. `AddModifier()` / `SetTrigger()` | 2+3 | Integrated into `InputActionMap` | ✅ |
-| 4. `Update(dt)` | 3 | Advances trigger FSMs; called once per frame | ✅ |
-| 5. `WasActionTriggeredThisFrame()` / `GetActionTriggerState()` | 3 | Trigger-aware query API | ✅ |
-| 6. Migrate camera controller sensitivity | 3 | `DebugCameraController` no longer owns scaling | ⬜ Deferred |
-| 7. Unit tests | 3 | 8 modifier tests + 9 trigger tests | ✅ |
+| 1. `InputModifier` base + built-ins | 3 | `DeadZone`, `Sensitivity`, `Clamp`, `Negate`, `Smooth` | Done |
+| 2. `InputTrigger` base + built-ins | 3 | `PressedTrigger`, `HoldTrigger`, `TapTrigger`, `ReleasedTrigger` | Done |
+| 3. `AddModifier()` / `SetTrigger()` | 2+3 | Integrated into `InputActionMap` | Done |
+| 4. `Update(dt)` | 3 | Advances trigger FSMs; called once per frame | Done |
+| 5. `WasActionTriggeredThisFrame()` / `GetActionTriggerState()` | 3 | Trigger-aware query API | Done |
+| 6. Migrate camera controller sensitivity | 3 | `DebugCameraController` no longer owns scaling | Deferred |
+| 7. Unit tests | 3 | 8 modifier tests + 9 trigger tests | Done |
 
 ### Phase F - Input Context Stack
 
@@ -859,27 +834,34 @@ prevention.
 
 | Step | Layer | Description | Status |
 |------|-------|-------------|--------|
-| 1. `InputContextStack` class | 4 | Priority-sorted vector of `InputContext` entries | ✅ |
-| 2. `Push()` / `Pop()` / `SetActive()` | 4 | Context lifecycle with runtime state reset | ✅ |
-| 3. `Update(dt)` with consumption logic | 4 | Higher-priority contexts block lower ones | ✅ |
-| 4. Cross-context query methods | 4 | `IsActionDown()`, `GetAxis()`, `WasActionTriggeredThisFrame()` | ✅ |
-| 5. ImGui as highest-priority context | 4+8 | Replace capture flags with a context entry | ⬜ Deferred |
-| 6. Unit tests | 4 | Priority ordering, consumption blocking, reset behavior | ✅ |
+| 1. `InputContextStack` class | 4 | Priority-sorted vector of `InputContext` entries | Done |
+| 2. `Push()` / `Pop()` / `SetActive()` | 4 | Context lifecycle with runtime state reset | Done |
+| 3. `Update(dt)` with consumption logic | 4 | Higher-priority contexts block lower ones | Done |
+| 4. Cross-context query methods | 4 | `IsActionDown()`, `GetAxis()`, `WasActionTriggeredThisFrame()` | Done |
+| 5. ImGui as highest-priority context | 4+8 | Replace capture flags with a context entry | Deferred |
+| 6. Unit tests | 4 | Priority ordering, consumption blocking, reset behavior | Done |
 
 ### Phase G - Device abstraction
 
-**Not started.** Implement when adding gamepad support or preparing for recording/replay.
-This is a larger refactor that changes how `InputActionMap` queries physical state.
+Implemented. Layer 5 now owns the authoritative runtime polling state for keyboard,
+mouse, and gamepad slots, and `InputActionMap` resolves all source types through
+`InputDeviceManager`.
 
-| Step | Layer | Description |
-|------|-------|-------------|
-| 1. `InputDevice` interface | 5 | `Poll()`, `GetInput()`, `GetAxis()`, `IsConnected()` |
-| 2. `KeyboardDevice` + `MouseDevice` | 5 | Extract current `Input` static state into device instances |
-| 3. `InputDeviceManager` | 5 | Owns devices, calls `PollAll()` once per frame |
-| 4. Refactor `InputActionMap::IsSourceDown()` | 5 | Query through device manager instead of `Input::` statics |
-| 5. `GamepadDevice` | 5 | Wrap `glfwGetGamepadState()` |
-| 6. Hot-plug events | 5+6 | `GamepadConnectedEvent` / `DisconnectedEvent` |
-| 7. Decide fate of `Input` static API | 5 | Keep as convenience facade, or deprecate in favor of devices |
+| Step | Layer | Description | Status |
+|------|-------|-------------|--------|
+| 1. `InputDevice` interface | 5 | `Poll()`, `GetInput()`, `GetAxis()`, previous-frame queries, connection state | Done |
+| 2. `KeyboardDevice` + `MouseDevice` | 5 | Extracted polling state into device instances | Done |
+| 3. `InputDeviceManager` | 5 | Owns devices, calls `PollAll()` once per frame, supports add/remove/clear | Done |
+| 4. Refactor `InputActionMap` source queries | 5 | Query through device manager instead of keyboard/mouse-only paths | Done |
+| 5. `GamepadDevice` | 5 | Wraps `glfwGetGamepadState()` and joystick connected state | Done |
+| 6. Device lifecycle events | 5+6 | Slot attach/detach plus connection-changed events, with gamepad compatibility events | Done |
+| 7. Decide fate of `Input` static API | 5 | Kept as convenience facade backed by the device manager | Done |
+
+Remaining follow-up work for this area lives in Phase I:
+
+- `ReplayDevice` and recording infrastructure
+- final documentation of event ordering relative to replay capture/playback
+- any future migration from capture flags to ImGui-as-context
 
 ### Phase H - Advanced input patterns
 
@@ -906,23 +888,24 @@ or double-tap gestures.
 | 3. Binary save/load | 10 | Persist recordings to disk (compact format) |
 | 4. Deterministic replay validation | 10 | Verify frame-accurate reproduction |
 
-**Dependency**: Phase G (device abstraction).
+**Dependency**: Phase G is complete; Layer 10 can build on the existing `InputDevice`
+contract and `InputDeviceManager` slot model.
 
 ### Implementation order summary
 
 ```
-Phase A  Foundation                 ✅ Done
-Phase B  ImGui / Event System       ✅ Done
-Phase C  Action Mapping             ✅ Done (RendererSettingsChangedEvent deferred)
-Phase D  Resize unification         ✅ Done
-Phase E  Modifiers & Triggers       ✅ Done (camera migration deferred)
-Phase F  Context Stack              ✅ Done (ImGui-as-context deferred)
-Phase G  Device Abstraction         ← recommended next (enables gamepad + replay)
-Phase H  Advanced Patterns          ← after F + G
-Phase I  Recording & Replay         ← after G
+Phase A  Foundation                 Done
+Phase B  ImGui / Event System       Done
+Phase C  Action Mapping             Done (RendererSettingsChangedEvent deferred)
+Phase D  Resize unification         Done
+Phase E  Modifiers & Triggers       Done (camera migration deferred)
+Phase F  Context Stack              Done (ImGui-as-context deferred)
+Phase G  Device Abstraction         Done
+Phase H  Advanced Patterns          -> after F + G
+Phase I  Recording & Replay         -> after G
 ```
 
-Phases G–I form a dependency chain and should be done in sequence.
+Phases H-I form the remaining dependency chain.
 
 ---
 
@@ -939,7 +922,7 @@ Phases G–I form a dependency chain and should be done in sequence.
 | Continuous input | Mixed with event system | Separate polling system with `InputActionMap` |
 | Allocation | Heap-allocated event objects | Stack-constructed, passed by `const&` |
 | Dispatch safety | No protection against mid-dispatch mutation | Deferred removal with `DispatchDepth` counter |
-| Input abstraction | Direct GLFW calls | Device abstraction layer (planned) |
+| Input abstraction | Direct GLFW calls | Device abstraction layer (implemented) |
 | Action mapping | None (raw key codes in game logic) | `InputActionMap` with modifiers and triggers |
 | Multi-layer input | LayerStack linear propagation | `InputContextStack` with priorities |
 
@@ -966,16 +949,19 @@ Phases G–I form a dependency chain and should be done in sequence.
 | `InputAction.Enable()` / `Disable()` | Toggle action map | `InputContextStack::SetActive()` |
 | `Interaction` | Hold, Tap, MultiTap, SlowTap, Press | `InputTrigger` |
 | `Processor` | DeadZone, Normalize, Invert, Scale | `InputModifier` |
-| `InputDevice` | Abstract device base class | `InputDevice` (planned) |
+| `InputDevice` | Abstract device base class | `InputDevice` |
 | `InputEventTrace` | Records input events to buffer | `InputRecorder` (planned) |
 
 ### Godot 4
 
 | Concept | Godot Implementation | Our Equivalent |
 |---------|---------------------|----------------|
-| `InputMap` | Global action → key mapping | `InputActionMap` |
+| `InputMap` | Global action to key mapping | `InputActionMap` |
 | `Input.is_action_pressed()` | Polling query | `InputActionMap::IsActionDown()` |
 | `Input.is_action_just_pressed()` | Edge detection | `InputActionMap::WasActionPressedThisFrame()` |
 | `_input(event)` / `_unhandled_input(event)` | Event propagation through scene tree | `EventBus` + context stack |
 | `InputEventAction` | Action-level event | `Subscribe<ActionTriggeredEvent>` (future) |
 | Dead zone | Per-action configurable | `DeadZone` modifier |
+
+
+
