@@ -78,6 +78,9 @@ Current state as of 2026-04-08:
 - packaged mounts now load cooked catalogs directly from archives and materialize the
   selected artifact into a cache-backed extraction root without changing the public
   logical path
+- the runtime now supports a loose overlay layer via `RTRLAB_OVERLAY_ROOT` or the
+  repository-local `Saved/Overrides/` development path, and overlay catalog entries
+  take precedence over packaged/cooked/source entries for the same logical path
 
 ---
 
@@ -512,6 +515,8 @@ Today the implemented/remaining split is:
 - explicit overlay precedence handling is still not implemented
 - packaged/archive-backed catalog loading is now implemented for the current custom
   `.rtrpak` mount backend
+- overlay precedence is now implemented for the current single-root loose override
+  layer, but broader mod/patch policy remains intentionally minimal
 - cooked catalog binary serialization beyond the current JSON bootstrap is still not
   implemented
 - document-style paths such as `/Project/Config/...`, `/Saved/...`, and `/Cache/...`
@@ -1207,9 +1212,9 @@ checklist below.
 
 ### Phase 13 - Archive packaging
 
-- in progress; custom `.rtrpak` archives, packaged mount discovery, cooked catalog
-  loading from archives, and packaged-path parity tests are now implemented for the
-  current MVP, while overlay/patch precedence is still pending
+- implemented for the current MVP; custom `.rtrpak` archives, packaged mount
+  discovery, cooked catalog loading from archives, and loose overlay precedence over
+  packaged/cooked/source mounts are now in place
 
 ### Phase 14 - Final cleanup
 
@@ -1371,7 +1376,9 @@ without repeatedly redefining scope.
 - [x] Implement archive mount
 - [x] Mount packaged content into `/Project/` and `/Engine/`
 - [x] Ensure packaged mounts carry cooked catalogs
-- [ ] Define patch/mod overlay precedence over packaged data
+- [x] Define patch/mod overlay precedence over packaged data
+      current MVP policy: `RTRLAB_OVERLAY_ROOT` and development `Saved/Overrides/`
+      mount as loose override layers above packaged, cooked, and source entries
 - [x] Add contract tests for packaged-path parity with loose files
 
 ### 15.15 Phase 14 - Final cleanup
