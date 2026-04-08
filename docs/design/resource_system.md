@@ -58,7 +58,7 @@ Current state as of 2026-04-08:
   cooked mounts under `Saved/Cache/Cooked/`
 - the cook tool now also supports `build/Cooked/` as an explicit loose cooked output
   layout for development workflows
-- the current runtime can load and validate the bootstrap cooked texture payload
+- the current runtime can read metadata and load the bootstrap cooked texture payload
   written at cooked `.rtrtex` artifact paths
 - loose cooked catalogs now use a distinct versioned JSON cooked schema rather than
   reusing the source catalog JSON payload shape verbatim
@@ -67,6 +67,9 @@ Current state as of 2026-04-08:
 - the current runtime can discover loose cooked mounts from `Saved/Cache/Cooked/`,
   `build/Cooked/`, or an explicit `RTRLAB_COOKED_ROOT` override when running in the
   `cooked` profile
+- the current `.rtrtex` bootstrap payload writer now emits a v2 header with explicit
+  `rowPitch` and `mipLevelCount` metadata, while the runtime still accepts legacy
+  version 1 bootstrap payloads
 
 ---
 
@@ -725,8 +728,8 @@ Current minimal implementation:
   when the active resource profile is `cooked`, searching an explicit
   `RTRLAB_COOKED_ROOT` override first, then `Saved/Cache/Cooked/`, then
   `build/Cooked/`
-- the current runtime can also load and validate the current bootstrap cooked
-  texture payload format through a dedicated helper, so the texture cook flow now
+- the current runtime can also read metadata and load the current bootstrap cooked
+  texture payload format through dedicated helpers, so the texture cook flow now
   has a basic generation-and-consumption contract
 
 This is intentionally a bootstrap implementation. It proves that the same logical
@@ -735,7 +738,9 @@ in `cooked` without yet committing to the final binary cooked catalog format or 
 final transcoding backend. The current texture cook step decodes source images to an
 engine-owned RGBA8 bootstrap blob and writes that payload at cooked `.rtrtex`
 artifact paths; the artifact identity is now distinct from the source image and no
-longer pretends to be final KTX2 output.
+longer pretends to be final KTX2 output. The current bootstrap writer emits a v2
+header with explicit `rowPitch` and `mipLevelCount` metadata, and the runtime keeps
+compatibility with older v1 bootstrap headers while the format is still evolving.
 
 ### 9.6 Physical storage and format strategy
 
@@ -1164,7 +1169,7 @@ checklist below.
 ### Phase 12 - Cooking integration
 
 - in progress; loose cooked catalog generation, runtime selection between source
-  and cooked project artifacts, bootstrap cooked texture read/validation, a
+  and cooked project artifacts, bootstrap cooked texture metadata/readback, a
   distinct loose cooked JSON catalog schema, and an explicit `cache` vs `build`
   loose cooked output layout are now implemented for development-time mounts
 

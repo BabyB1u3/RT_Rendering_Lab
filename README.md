@@ -172,8 +172,9 @@ Resource tooling:
 - `rtr_asset_cook` writes loose cooked `.rtr/catalog.json` files under
   `Saved/Cache/Cooked/` by default, or under `build/Cooked/` when invoked with
   `--layout build`; texture assets currently decode to an RGBA8 bootstrap binary
-  at cooked `.rtrtex` artifact paths, and the runtime can load/validate that
-  bootstrap cooked texture payload through `Resource::LoadCookedTexture()`
+  at cooked `.rtrtex` artifact paths with explicit `rowPitch` / `mipLevelCount`
+  metadata in the v2 header, and the runtime can read metadata or full payload
+  through `Resource::ReadCookedTextureMetadata()` and `Resource::LoadCookedTexture()`
 - loose cooked catalogs now use a distinct versioned cooked JSON schema rather than
   reusing the source catalog payload shape verbatim
 
