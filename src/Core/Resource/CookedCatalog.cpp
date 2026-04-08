@@ -36,10 +36,32 @@ namespace
 
     static_assert(sizeof(BootstrapTextureHeader) == 32);
 
+    struct CookedTextureHeaderV2
+    {
+        char magic[8] = {'R', 'T', 'R', 'T', 'E', 'X', '0', '1'};
+        uint32_t version = 2;
+        uint32_t width = 0;
+        uint32_t height = 0;
+        uint32_t channelCount = 4;
+        uint32_t pixelFormat = 1; // RGBA8_UNORM bootstrap payload
+        uint32_t mipLevelCount = 1;
+        uint32_t rowPitch = 0;
+        uint32_t dataOffset = 0;
+        uint32_t dataSize = 0;
+    };
+
+    static_assert(sizeof(CookedTextureHeaderV2) == 44);
+
     constexpr std::array<char, 8> kBootstrapTextureMagic{'R', 'T', 'R', 'T', 'E', 'X', '0', '1'};
     constexpr uint32_t kBootstrapTextureVersion = 1;
+    constexpr uint32_t kCookedTextureVersion = 2;
 
     bool HasExpectedMagic(const BootstrapTextureHeader &header)
+    {
+        return std::equal(kBootstrapTextureMagic.begin(), kBootstrapTextureMagic.end(), header.magic);
+    }
+
+    bool HasExpectedMagic(const CookedTextureHeaderV2 &header)
     {
         return std::equal(kBootstrapTextureMagic.begin(), kBootstrapTextureMagic.end(), header.magic);
     }
@@ -53,6 +75,153 @@ namespace
         default:
             return std::nullopt;
         }
+    }
+
+    bool ReadCookedTextureMetadataFromStream(std::ifstream &in,
+                                             const std::filesystem::path &artifactPath,
+                                             Resource::CookedTextureMetadata &metadata,
+                                             std::streamoff &dataOffset,
+                                             std::string *errorMessage)
+    {
+        BootstrapTextureHeader baseHeader{};
+        in.read(reinterpret_cast<char *>(&baseHeader), sizeof(baseHeader));
+        if (in.gcount() != static_cast<std::streamsize>(sizeof(baseHeader)))
+        {
+            if (errorMessage != nullptr)
+                *errorMessage = "cooked texture artifact is truncated: " + artifactPath.string();
+            return false;
+        }
+
+        if (!HasExpectedMagic(baseHeader))
+        {
+            if (errorMessage != nullptr)
+                *errorMessage = "cooked texture artifact has invalid magic: " + artifactPath.string();
+            return false;
+        }
+
+        if (baseHeader.version == kBootstrapTextureVersion)
+        {
+            const auto pixelFormat = ParseCookedTexturePixelFormat(baseHeader.pixelFormat);
+            if (!pixelFormat.has_value())
+            {
+                if (errorMessage != nullptr)
+                    *errorMessage = "unsupported cooked texture pixel format in artifact: " + artifactPath.string();
+                return false;
+            }
+
+            if (baseHeader.width == 0 || baseHeader.height == 0 || baseHeader.channelCount == 0)
+            {
+                if (errorMessage != nullptr)
+                    *errorMessage = "cooked texture artifact has invalid dimensions: " + artifactPath.string();
+                return false;
+            }
+
+            const uint64_t expectedDataSize = static_cast<uint64_t>(baseHeader.width) *
+                                              static_cast<uint64_t>(baseHeader.height) *
+                                              static_cast<uint64_t>(baseHeader.channelCount);
+            if (expectedDataSize != baseHeader.dataSize)
+            {
+                if (errorMessage != nullptr)
+                    *errorMessage = "cooked texture artifact data size does not match metadata: " + artifactPath.string();
+                return false;
+            }
+
+            if (*pixelFormat == Resource::CookedTexturePixelFormat::RGBA8_UNorm && baseHeader.channelCount != 4)
+            {
+                if (errorMessage != nullptr)
+                    *errorMessage = "cooked RGBA8 texture artifact must contain 4 channels: " + artifactPath.string();
+                return false;
+            }
+
+            metadata.width = baseHeader.width;
+            metadata.height = baseHeader.height;
+            metadata.channelCount = baseHeader.channelCount;
+            metadata.mipLevelCount = 1;
+            metadata.rowPitch = baseHeader.width * baseHeader.channelCount;
+            metadata.dataSize = baseHeader.dataSize;
+            metadata.pixelFormat = *pixelFormat;
+            dataOffset = sizeof(BootstrapTextureHeader);
+            return true;
+        }
+
+        if (baseHeader.version != kCookedTextureVersion)
+        {
+            if (errorMessage != nullptr)
+                *errorMessage = "unsupported cooked texture version in artifact: " + artifactPath.string();
+            return false;
+        }
+
+        in.seekg(0, std::ios::beg);
+        CookedTextureHeaderV2 header{};
+        in.read(reinterpret_cast<char *>(&header), sizeof(header));
+        if (in.gcount() != static_cast<std::streamsize>(sizeof(header)))
+        {
+            if (errorMessage != nullptr)
+                *errorMessage = "cooked texture artifact is truncated: " + artifactPath.string();
+            return false;
+        }
+
+        if (!HasExpectedMagic(header))
+        {
+            if (errorMessage != nullptr)
+                *errorMessage = "cooked texture artifact has invalid magic: " + artifactPath.string();
+            return false;
+        }
+
+        const auto pixelFormat = ParseCookedTexturePixelFormat(header.pixelFormat);
+        if (!pixelFormat.has_value())
+        {
+            if (errorMessage != nullptr)
+                *errorMessage = "unsupported cooked texture pixel format in artifact: " + artifactPath.string();
+            return false;
+        }
+
+        if (header.width == 0 || header.height == 0 || header.channelCount == 0 || header.mipLevelCount == 0)
+        {
+            if (errorMessage != nullptr)
+                *errorMessage = "cooked texture artifact has invalid dimensions: " + artifactPath.string();
+            return false;
+        }
+
+        if (*pixelFormat == Resource::CookedTexturePixelFormat::RGBA8_UNorm && header.channelCount != 4)
+        {
+            if (errorMessage != nullptr)
+                *errorMessage = "cooked RGBA8 texture artifact must contain 4 channels: " + artifactPath.string();
+            return false;
+        }
+
+        const uint64_t minimumRowPitch = static_cast<uint64_t>(header.width) * static_cast<uint64_t>(header.channelCount);
+        if (header.rowPitch < minimumRowPitch)
+        {
+            if (errorMessage != nullptr)
+                *errorMessage = "cooked texture artifact row pitch is smaller than the texel width: " + artifactPath.string();
+            return false;
+        }
+
+        if (header.dataOffset < sizeof(CookedTextureHeaderV2))
+        {
+            if (errorMessage != nullptr)
+                *errorMessage = "cooked texture artifact data offset is invalid: " + artifactPath.string();
+            return false;
+        }
+
+        const uint64_t minimumDataSize = static_cast<uint64_t>(header.rowPitch) * static_cast<uint64_t>(header.height);
+        if (header.dataSize < minimumDataSize)
+        {
+            if (errorMessage != nullptr)
+                *errorMessage = "cooked texture artifact data size does not match metadata: " + artifactPath.string();
+            return false;
+        }
+
+        metadata.width = header.width;
+        metadata.height = header.height;
+        metadata.channelCount = header.channelCount;
+        metadata.mipLevelCount = header.mipLevelCount;
+        metadata.rowPitch = header.rowPitch;
+        metadata.dataSize = header.dataSize;
+        metadata.pixelFormat = *pixelFormat;
+        dataOffset = header.dataOffset;
+        return true;
     }
 
     std::vector<SourceMountDescriptor> DiscoverReadableSourceMounts(const std::filesystem::path &rootPath,
@@ -341,13 +510,17 @@ namespace
             }
             (void)sourceChannels;
 
-            const uint32_t dataSize = static_cast<uint32_t>(width * height * 4);
-            const BootstrapTextureHeader header{
-                .version = kBootstrapTextureVersion,
+            const uint32_t rowPitch = static_cast<uint32_t>(width * 4);
+            const uint32_t dataSize = static_cast<uint32_t>(rowPitch * height);
+            const CookedTextureHeaderV2 header{
+                .version = kCookedTextureVersion,
                 .width = static_cast<uint32_t>(width),
                 .height = static_cast<uint32_t>(height),
                 .channelCount = 4,
                 .pixelFormat = static_cast<uint32_t>(Resource::CookedTexturePixelFormat::RGBA8_UNorm),
+                .mipLevelCount = 1,
+                .rowPitch = rowPitch,
+                .dataOffset = sizeof(CookedTextureHeaderV2),
                 .dataSize = dataSize,
             };
 
@@ -405,6 +578,25 @@ namespace Resource
         return rootPath / "Saved" / "Cache" / "Cooked";
     }
 
+    std::optional<CookedTextureMetadata> ReadCookedTextureMetadata(const std::filesystem::path &artifactPath,
+                                                                   std::string *errorMessage)
+    {
+        std::ifstream in(artifactPath, std::ios::binary);
+        if (!in.is_open())
+        {
+            if (errorMessage != nullptr)
+                *errorMessage = "failed to open cooked texture artifact: " + artifactPath.string();
+            return std::nullopt;
+        }
+
+        CookedTextureMetadata metadata;
+        std::streamoff dataOffset = 0;
+        if (!ReadCookedTextureMetadataFromStream(in, artifactPath, metadata, dataOffset, errorMessage))
+            return std::nullopt;
+
+        return metadata;
+    }
+
     std::optional<CookedTextureData> LoadCookedTexture(const std::filesystem::path &artifactPath,
                                                        std::string *errorMessage)
     {
@@ -416,67 +608,27 @@ namespace Resource
             return std::nullopt;
         }
 
-        BootstrapTextureHeader header{};
-        in.read(reinterpret_cast<char *>(&header), sizeof(header));
-        if (in.gcount() != static_cast<std::streamsize>(sizeof(header)))
-        {
-            if (errorMessage != nullptr)
-                *errorMessage = "cooked texture artifact is truncated: " + artifactPath.string();
+        CookedTextureMetadata metadata;
+        std::streamoff dataOffset = 0;
+        if (!ReadCookedTextureMetadataFromStream(in, artifactPath, metadata, dataOffset, errorMessage))
             return std::nullopt;
-        }
-
-        if (!HasExpectedMagic(header))
-        {
-            if (errorMessage != nullptr)
-                *errorMessage = "cooked texture artifact has invalid magic: " + artifactPath.string();
-            return std::nullopt;
-        }
-
-        if (header.version != kBootstrapTextureVersion)
-        {
-            if (errorMessage != nullptr)
-                *errorMessage = "unsupported cooked texture version in artifact: " + artifactPath.string();
-            return std::nullopt;
-        }
-
-        const auto pixelFormat = ParseCookedTexturePixelFormat(header.pixelFormat);
-        if (!pixelFormat.has_value())
-        {
-            if (errorMessage != nullptr)
-                *errorMessage = "unsupported cooked texture pixel format in artifact: " + artifactPath.string();
-            return std::nullopt;
-        }
-
-        if (header.width == 0 || header.height == 0 || header.channelCount == 0)
-        {
-            if (errorMessage != nullptr)
-                *errorMessage = "cooked texture artifact has invalid dimensions: " + artifactPath.string();
-            return std::nullopt;
-        }
-
-        const uint64_t expectedDataSize = static_cast<uint64_t>(header.width) *
-                                          static_cast<uint64_t>(header.height) *
-                                          static_cast<uint64_t>(header.channelCount);
-        if (expectedDataSize != header.dataSize)
-        {
-            if (errorMessage != nullptr)
-                *errorMessage = "cooked texture artifact data size does not match metadata: " + artifactPath.string();
-            return std::nullopt;
-        }
-
-        if (*pixelFormat == CookedTexturePixelFormat::RGBA8_UNorm && header.channelCount != 4)
-        {
-            if (errorMessage != nullptr)
-                *errorMessage = "cooked RGBA8 texture artifact must contain 4 channels: " + artifactPath.string();
-            return std::nullopt;
-        }
 
         CookedTextureData texture;
-        texture.width = header.width;
-        texture.height = header.height;
-        texture.channelCount = header.channelCount;
-        texture.pixelFormat = *pixelFormat;
-        texture.pixelData.resize(header.dataSize);
+        texture.width = metadata.width;
+        texture.height = metadata.height;
+        texture.channelCount = metadata.channelCount;
+        texture.mipLevelCount = metadata.mipLevelCount;
+        texture.rowPitch = metadata.rowPitch;
+        texture.pixelFormat = metadata.pixelFormat;
+        texture.pixelData.resize(metadata.dataSize);
+
+        in.seekg(dataOffset, std::ios::beg);
+        if (!in.good())
+        {
+            if (errorMessage != nullptr)
+                *errorMessage = "failed to seek to cooked texture payload: " + artifactPath.string();
+            return std::nullopt;
+        }
 
         in.read(reinterpret_cast<char *>(texture.pixelData.data()), static_cast<std::streamsize>(texture.pixelData.size()));
         if (in.gcount() != static_cast<std::streamsize>(texture.pixelData.size()))

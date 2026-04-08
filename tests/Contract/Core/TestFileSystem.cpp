@@ -262,6 +262,8 @@ TEST(FileSystemContractTests, ResolveReadPathCanLoadCookedProjectTextureArtifact
         EXPECT_GT(cookedTexture->width, 0u);
         EXPECT_GT(cookedTexture->height, 0u);
         EXPECT_EQ(cookedTexture->channelCount, 4u);
+        EXPECT_EQ(cookedTexture->mipLevelCount, 1u);
+        EXPECT_EQ(cookedTexture->rowPitch, cookedTexture->width * 4u);
         EXPECT_EQ(cookedTexture->pixelFormat, Resource::CookedTexturePixelFormat::RGBA8_UNorm);
         EXPECT_FALSE(cookedTexture->pixelData.empty());
     }

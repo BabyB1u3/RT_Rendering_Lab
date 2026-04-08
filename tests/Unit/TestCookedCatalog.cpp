@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <iterator>
 #include <string>
@@ -12,6 +13,17 @@
 
 namespace
 {
+    struct LegacyBootstrapTextureHeader
+    {
+        char magic[8] = {'R', 'T', 'R', 'T', 'E', 'X', '0', '1'};
+        uint32_t version = 1;
+        uint32_t width = 0;
+        uint32_t height = 0;
+        uint32_t channelCount = 4;
+        uint32_t pixelFormat = 1;
+        uint32_t dataSize = 0;
+    };
+
     class CookedCatalogTests : public ::testing::Test
     {
     protected:
@@ -74,11 +86,23 @@ TEST_F(CookedCatalogTests, CookRepositoryCatalogsCopiesArtifactsAndWritesCookedC
     EXPECT_EQ(cookedContents.find("sourceRelativePath"), std::string::npos);
 
     std::string errorMessageFromLoad;
+    const auto metadata = Resource::ReadCookedTextureMetadata(cookedArtifactPath, &errorMessageFromLoad);
+    ASSERT_TRUE(metadata.has_value()) << errorMessageFromLoad;
+    EXPECT_EQ(metadata->width, 1u);
+    EXPECT_EQ(metadata->height, 1u);
+    EXPECT_EQ(metadata->channelCount, 4u);
+    EXPECT_EQ(metadata->mipLevelCount, 1u);
+    EXPECT_EQ(metadata->rowPitch, 4u);
+    EXPECT_EQ(metadata->dataSize, 4u);
+    EXPECT_EQ(metadata->pixelFormat, Resource::CookedTexturePixelFormat::RGBA8_UNorm);
+
     const auto cookedTexture = Resource::LoadCookedTexture(cookedArtifactPath, &errorMessageFromLoad);
     ASSERT_TRUE(cookedTexture.has_value()) << errorMessageFromLoad;
     EXPECT_EQ(cookedTexture->width, 1u);
     EXPECT_EQ(cookedTexture->height, 1u);
     EXPECT_EQ(cookedTexture->channelCount, 4u);
+    EXPECT_EQ(cookedTexture->mipLevelCount, 1u);
+    EXPECT_EQ(cookedTexture->rowPitch, 4u);
     EXPECT_EQ(cookedTexture->pixelFormat, Resource::CookedTexturePixelFormat::RGBA8_UNorm);
     EXPECT_EQ(cookedTexture->pixelData.size(), 4u);
 }
@@ -112,4 +136,44 @@ TEST_F(CookedCatalogTests, GetCookOutputRootSupportsCacheAndBuildLayouts)
               repoRoot / "Saved" / "Cache" / "Cooked");
     EXPECT_EQ(Resource::GetCookOutputRoot(repoRoot, Resource::CookOutputLayout::Build),
               repoRoot / "build" / "Cooked");
+}
+
+TEST_F(CookedCatalogTests, LoadCookedTextureSupportsLegacyVersion1Artifacts)
+{
+    const auto cookedArtifactPath = TestRoot() / "legacy.rtrtex";
+    const LegacyBootstrapTextureHeader header{
+        .version = 1,
+        .width = 1,
+        .height = 1,
+        .channelCount = 4,
+        .pixelFormat = static_cast<uint32_t>(Resource::CookedTexturePixelFormat::RGBA8_UNorm),
+        .dataSize = 4,
+    };
+
+    std::vector<unsigned char> bytes(sizeof(header) + 4, 0);
+    std::memcpy(bytes.data(), &header, sizeof(header));
+    bytes[sizeof(header) + 0] = 255;
+    bytes[sizeof(header) + 1] = 128;
+    bytes[sizeof(header) + 2] = 64;
+    bytes[sizeof(header) + 3] = 32;
+    test_support::WriteBinaryFileOrFail(cookedArtifactPath, bytes);
+
+    std::string errorMessage;
+    const auto metadata = Resource::ReadCookedTextureMetadata(cookedArtifactPath, &errorMessage);
+    ASSERT_TRUE(metadata.has_value()) << errorMessage;
+    EXPECT_EQ(metadata->mipLevelCount, 1u);
+    EXPECT_EQ(metadata->rowPitch, 4u);
+
+    const auto cookedTexture = Resource::LoadCookedTexture(cookedArtifactPath, &errorMessage);
+    ASSERT_TRUE(cookedTexture.has_value()) << errorMessage;
+    EXPECT_EQ(cookedTexture->width, 1u);
+    EXPECT_EQ(cookedTexture->height, 1u);
+    EXPECT_EQ(cookedTexture->channelCount, 4u);
+    EXPECT_EQ(cookedTexture->mipLevelCount, 1u);
+    EXPECT_EQ(cookedTexture->rowPitch, 4u);
+    ASSERT_EQ(cookedTexture->pixelData.size(), 4u);
+    EXPECT_EQ(cookedTexture->pixelData[0], 255u);
+    EXPECT_EQ(cookedTexture->pixelData[1], 128u);
+    EXPECT_EQ(cookedTexture->pixelData[2], 64u);
+    EXPECT_EQ(cookedTexture->pixelData[3], 32u);
 }

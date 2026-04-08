@@ -24,14 +24,30 @@ namespace Resource
         RGBA8_UNorm = 1,
     };
 
+    struct CookedTextureMetadata
+    {
+        uint32_t width = 0;
+        uint32_t height = 0;
+        uint32_t channelCount = 0;
+        uint32_t mipLevelCount = 0;
+        uint32_t rowPitch = 0;
+        uint32_t dataSize = 0;
+        CookedTexturePixelFormat pixelFormat = CookedTexturePixelFormat::Unknown;
+    };
+
     struct CookedTextureData
     {
         uint32_t width = 0;
         uint32_t height = 0;
         uint32_t channelCount = 0;
+        uint32_t mipLevelCount = 0;
+        uint32_t rowPitch = 0;
         CookedTexturePixelFormat pixelFormat = CookedTexturePixelFormat::Unknown;
         std::vector<uint8_t> pixelData;
     };
+
+    std::optional<CookedTextureMetadata> ReadCookedTextureMetadata(const std::filesystem::path &artifactPath,
+                                                                   std::string *errorMessage = nullptr);
 
     std::optional<CookedTextureData> LoadCookedTexture(const std::filesystem::path &artifactPath,
                                                        std::string *errorMessage = nullptr);
