@@ -43,9 +43,10 @@ Current state as of 2026-04-08:
   the resource system
 - asset-reference serialization now has an explicit validated path type instead of
   relying on raw strings
-- a minimal source-catalog JSON loader is now implemented for readable mounts
-- extensionless project and plugin asset paths can now resolve through source
-  catalogs in development builds
+- a minimal source-catalog JSON loader and merged loose-mount resolution table are
+  now implemented for readable mounts
+- extensionless project, engine, and plugin asset paths can now resolve through
+  source catalogs in development builds
 
 ---
 
@@ -452,9 +453,11 @@ Today the implemented/remaining split is:
 - duplicate logical paths within a single catalog are rejected
 - artifact selection is still minimal: prefer `profileTag = dev`, then `any`, then
   the first artifact
-- the runtime still does **not** build a merged global catalog table across active
-  mounts
-- conflict handling across equal-precedence mounts/overlays is still not implemented
+- the runtime now builds a merged global catalog table across current loose readable
+  mounts (`/Project`, `/Engine`, `/Plugins/<Name>`)
+- duplicate logical paths across currently loaded loose readable mounts are treated
+  as invalid during merge
+- explicit overlay precedence handling is still not implemented
 - cooked catalog formats and packaged/archive-backed catalog loading are still not
   implemented
 - document-style paths such as `/Project/Config/...`, `/Saved/...`, and `/Cache/...`
@@ -535,11 +538,16 @@ The resource catalog is a first-class subsystem of the path/resource layer.
 Implementation status:
 
 - a minimal source-catalog JSON loader is implemented
-- the current runtime can resolve catalog-backed project and plugin assets from
-  mount-local `.rtr/catalog.json` files in development builds
+- the current runtime scans project, engine, and plugin loose mounts and merges their
+  mount-local `.rtr/catalog.json` files into a global development-time resolution
+  table
+- the current runtime can resolve catalog-backed project, engine, and plugin assets
+  from that merged development-time table
 - duplicate logical paths within a single catalog are treated as invalid
+- duplicate logical paths across currently loaded loose readable mounts are also
+  treated as invalid
 - catalog support is still incomplete: there is no cooked catalog format, no merged
-  multi-mount resolution table, and no platform/backend/profile-aware artifact
+  packaged/archive resolution table, and no platform/backend/profile-aware artifact
   selection policy yet
 
 It is **not** an optional helper and it is **not** a temporary convenience for the
@@ -1020,8 +1028,9 @@ checklist below.
 
 ### Phase 3 - Resource catalog design and implementation
 
-- in progress; per-mount source catalog loading, duplicate-path rejection, and basic
-  project/plugin asset lookup are implemented
+- in progress; loose-mount source catalog loading, merged development-time
+  resolution, duplicate-path rejection, and basic project/engine/plugin asset lookup
+  are implemented
 
 ### Phase 4 - Public FileSystem API migration
 
@@ -1120,8 +1129,8 @@ without repeatedly redefining scope.
 - [ ] Finalize cooked catalog serialization format
 - [x] Implement catalog versioning and compatibility checks
 - [x] Implement catalog loader for readable mounts
-- [ ] Implement merged global resolution table
-- [ ] Implement conflict detection rules
+- [x] Implement merged global resolution table
+- [x] Implement conflict detection rules
 - [ ] Implement artifact selection policy by platform/backend/profile
 - [x] Add tests for catalog lookup and duplicate-path rejection
 
