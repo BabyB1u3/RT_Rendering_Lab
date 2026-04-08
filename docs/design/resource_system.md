@@ -1190,10 +1190,10 @@ checklist below.
 
 ### Phase 12 - Cooking integration
 
-- in progress; loose cooked catalog generation, runtime selection between source
-  and cooked project artifacts, bootstrap cooked texture metadata/readback, a
-  distinct loose cooked JSON catalog schema, and an explicit `cache` vs `build`
-  loose cooked output layout are now implemented for development-time mounts
+- implemented for current loose cooked mounts; source/cooked runtime selection,
+  bootstrap cooked texture metadata/readback, distinct loose cooked catalog
+  schema, explicit `cache` vs `build` output layout, and logical-path parity for
+  project/engine/plugin loose cooked content are now in place
 
 ### Phase 13 - Archive packaging
 
@@ -1347,7 +1347,9 @@ without repeatedly redefining scope.
 - [x] Decide whether cooking writes under `build/`, `Cache/`, or both
       current policy: default to `Saved/Cache/Cooked/`, explicitly support
       `build/Cooked/`, and allow `RTRLAB_COOKED_ROOT` as a runtime override hook
-- [ ] Ensure cooked assets do not change public logical paths
+- [x] Ensure cooked assets do not change public logical paths
+      current loose cooked contract: project, engine, and plugin cooked catalogs
+      preserve the same public logical paths as their source catalogs
 - [x] Add tests that verify the same logical path can resolve from loose vs cooked backends
 
 ### 15.14 Phase 13 - Archive packaging
