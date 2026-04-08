@@ -694,12 +694,16 @@ Current minimal implementation:
   `Saved/Cache/Cooked/Engine`, and `Saved/Cache/Cooked/Plugins/<Name>`
 - it writes loose cooked `catalog.json` files that currently retain the same JSON
   schema as source catalogs, but rewrite artifact `profileTag` to `cooked`
+- project texture assets currently switch from source `.jpg`/`.png` style artifacts
+  to cooked `.ktx2` artifact paths in the generated cooked catalog
 - the current runtime can select those cooked loose mounts for catalog-backed reads
   when the active resource profile is `cooked`
 
 This is intentionally a bootstrap implementation. It proves that the same logical
 path can resolve from loose source content in `dev` and from loose cooked artifacts
-in `cooked` without yet committing to the final binary cooked catalog format.
+in `cooked` without yet committing to the final binary cooked catalog format or a
+final transcoding backend. The current texture cook step rewrites the cooked artifact
+identity to `.ktx2`, but still copies source bytes as a placeholder.
 
 ### 9.6 Physical storage and format strategy
 
