@@ -25,6 +25,7 @@ set(GLAB_RESOURCE_SOURCES
     Core/Resource/ConfigResolver.cpp
     Core/Resource/CookedCatalog.cpp
     Core/Resource/FileSystem.cpp
+    Core/Resource/MountBackend.cpp
     Core/Resource/MountResolver.cpp
     Core/Resource/PakArchive.cpp
     Core/Resource/PathParser.cpp
@@ -39,6 +40,7 @@ set(GLAB_RESOURCE_HEADERS
     Core/Resource/AssetPath.h
     Core/Resource/CookedCatalog.h
     Core/Resource/FileSystem.h
+    Core/Resource/MountBackend.h
     Core/Resource/MountResolver.h
     Core/Resource/PakArchive.h
     Core/Resource/PathParser.h

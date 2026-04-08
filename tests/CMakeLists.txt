@@ -75,6 +75,7 @@ glab_add_test_executable(rtrlab_unit_tests
     Unit/TestInputTriggers.cpp
     Unit/TestJsonBackend.cpp
     Unit/TestLayerStack.cpp
+    Unit/TestMountBackend.cpp
     Unit/TestPakArchive.cpp
     Unit/TestPropertyTree.cpp
     Unit/TestSourceCatalog.cpp

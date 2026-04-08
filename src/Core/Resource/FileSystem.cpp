@@ -3,6 +3,7 @@
 #include "Core/Diagnostics/LogCategories.h"
 #include "Core/Diagnostics/LogMacros.h"
 #include "Core/Resource/ConfigResolver.h"
+#include "Core/Resource/MountBackend.h"
 #include "Core/Resource/MountResolver.h"
 #include "Core/Resource/PathParser.h"
 #include "Core/Resource/PhysicalIO.h"
@@ -83,24 +84,15 @@ std::optional<std::filesystem::path> FileSystem::ResolveWritePath(std::string_vi
     if (!virtualPath.has_value())
         return std::nullopt;
 
-    switch (virtualPath->domain)
-    {
-    case PathDomain::Saved:
-    case PathDomain::Cache:
-        break;
-    case PathDomain::Project:
-    case PathDomain::Engine:
-    case PathDomain::Plugin:
+    const auto writableMount = Resource::ResolveWritableMount(virtualPath->domain, GetSavedDir(), GetCacheDir());
+    if (!writableMount.has_value())
         return std::nullopt;
-    }
 
-    const auto resolved = Resource::ResolvePhysicalPath(
-        s_RootPath, s_EngineDir, GetSavedDir(), GetCacheDir(), *virtualPath, kProjectContentDirName);
-    if (!resolved.has_value())
-        return std::nullopt;
+    const auto relativePath = Resource::GetPhysicalRelativePath(*virtualPath);
+    const auto resolved = relativePath.empty() ? writableMount->rootPath : writableMount->rootPath / relativePath;
 
     std::error_code ec;
-    std::filesystem::create_directories(resolved->parent_path(), ec);
+    std::filesystem::create_directories(resolved.parent_path(), ec);
     return resolved;
 }
 
