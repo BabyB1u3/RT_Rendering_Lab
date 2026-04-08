@@ -60,6 +60,8 @@ Current state as of 2026-04-08:
   written at cooked `.rtrtex` artifact paths
 - loose cooked catalogs now use a distinct versioned JSON cooked schema rather than
   reusing the source catalog JSON payload shape verbatim
+- the in-memory catalog model now distinguishes source vs cooked catalog kind, and
+  only source entries carry `sourceRelativePath` provenance
 
 ---
 
@@ -1111,8 +1113,9 @@ checklist below.
 
 - in progress; loose-mount source catalog loading, merged development-time
   resolution, duplicate-path rejection, basic runtime artifact selection,
-  refreshable catalog state, source catalog generation tooling, and
-  project/engine/plugin asset lookup are implemented
+  refreshable catalog state, source catalog generation tooling, project/engine/plugin
+  asset lookup, and the canonical in-memory source-vs-cooked entry split are
+  implemented
 
 ### Phase 4 - Public FileSystem API migration
 
@@ -1212,7 +1215,7 @@ without repeatedly redefining scope.
 
 ### 15.4 Phase 3 - Resource catalog design and implementation
 
-- [ ] Finalize the canonical in-memory catalog schema
+- [x] Finalize the canonical in-memory catalog schema
 - [x] Finalize source catalog serialization format for current loose-mount
       development catalogs
 - [ ] Finalize cooked catalog serialization format beyond the current temporary
