@@ -543,6 +543,38 @@ TEST(FileSystemContractTests, ResolveReadPathProjectCatalogStillWorksWhenAnother
     test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
 }
 
+TEST(FileSystemContractTests, ResolveReadPathRejectsSourceCatalogEntriesWithoutSourceRelativePath)
+{
+    FileSystem::Init();
+
+    const auto pluginRoot = FileSystem::GetRootPath() / "Plugins" / "MissingSourcePathPlugin" / "Content";
+    const auto catalogPath = pluginRoot / ".rtr" / "catalog.json";
+
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
+
+    test_support::WriteTextFileOrFail(
+        catalogPath,
+        "{\n"
+        "  \"version\": 1,\n"
+        "  \"entries\": [\n"
+        "    {\n"
+        "      \"logicalPath\": \"/Plugins/MissingSourcePathPlugin/Materials/Checker\",\n"
+        "      \"artifacts\": [\n"
+        "        {\n"
+        "          \"relativePath\": \"Materials/Checker.json\",\n"
+        "          \"format\": \"json\",\n"
+        "          \"profileTag\": \"dev\"\n"
+        "        }\n"
+        "      ]\n"
+        "    }\n"
+        "  ]\n"
+        "}\n");
+
+    EXPECT_FALSE(FileSystem::ResolveReadPath("/Plugins/MissingSourcePathPlugin/Materials/Checker").has_value());
+
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
+}
+
 TEST(FileSystemContractTests, RefreshCatalogsDiscoversPluginCatalogAddedAfterInitialLookup)
 {
     FileSystem::Init();

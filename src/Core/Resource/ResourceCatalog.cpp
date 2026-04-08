@@ -89,6 +89,8 @@ namespace
 
     bool LoadCatalogFromJson(const std::filesystem::path &catalogPath,
                              const Resource::VirtualPath &mountPath,
+                             Resource::CatalogKind &catalogKind,
+                             int &catalogVersion,
                              std::unordered_map<std::string, Resource::ResourceCatalogEntry> &entries)
     {
         std::ifstream in(catalogPath, std::ios::in | std::ios::binary);
@@ -113,13 +115,15 @@ namespace
             return false;
         }
 
-        const int version = versionIt->get<int>();
-        const bool isCookedCatalog = version == 2;
-        if (version != 1 && !isCookedCatalog)
+        catalogVersion = versionIt->get<int>();
+        const bool isCookedCatalog = catalogVersion == 2;
+        if (catalogVersion != 1 && !isCookedCatalog)
         {
             LOG_ERROR_CAT(LogCategory::FileSystem, "Unsupported catalog version in '{}'", catalogPath.string());
             return false;
         }
+
+        catalogKind = isCookedCatalog ? Resource::CatalogKind::Cooked : Resource::CatalogKind::Source;
 
         if (isCookedCatalog)
         {
@@ -171,12 +175,17 @@ namespace
             entry.logicalPath = logicalPath;
             if (!isCookedCatalog)
             {
-                if (const auto it = entryJson.find("sourceRelativePath"); it != entryJson.end() && it->is_string())
-                    entry.sourceRelativePath = it->get<std::string>();
-            }
-            else if (const auto it = entryJson.find("sourceRelativePath"); it != entryJson.end() && it->is_string())
-            {
-                entry.sourceRelativePath = it->get<std::string>();
+                const auto sourceRelativePathIt = entryJson.find("sourceRelativePath");
+                if (sourceRelativePathIt == entryJson.end() || !sourceRelativePathIt->is_string())
+                {
+                    LOG_ERROR_CAT(LogCategory::FileSystem,
+                                  "Source catalog '{}' entry '{}' is missing sourceRelativePath",
+                                  catalogPath.string(),
+                                  logicalPath);
+                    return false;
+                }
+
+                entry.sourceRelativePath = sourceRelativePathIt->get<std::string>();
             }
 
             const auto artifactsIt = entryJson.find("artifacts");
@@ -437,6 +446,8 @@ namespace
             globalEntries.emplace(logicalPath,
                                   Resource::CatalogRegistry::GlobalCatalogEntry{
                                       entry,
+                                      cache.kind,
+                                      cache.version,
                                       mount.mountRoot,
                                       mount.sourceKey,
                                   });
@@ -480,8 +491,10 @@ namespace Resource
                     const auto catalogPath = mount.mountRoot / ".rtr" / "catalog.json";
                     if (std::filesystem::exists(catalogPath))
                     {
+                        cache.kind = CatalogKind::Source;
+                        cache.version = 0;
                         std::unordered_map<std::string, ResourceCatalogEntry> loadedEntries;
-                        if (!LoadCatalogFromJson(catalogPath, mount.mountPath, loadedEntries))
+                        if (!LoadCatalogFromJson(catalogPath, mount.mountPath, cache.kind, cache.version, loadedEntries))
                         {
                             cache.entries.clear();
                             LOG_ERROR_CAT(LogCategory::FileSystem, "Failed to load catalog '{}'", catalogPath.string());

@@ -509,7 +509,6 @@ namespace Resource
 
                 ResourceCatalogEntry cookedEntry;
                 cookedEntry.logicalPath = sourceEntry.logicalPath;
-                cookedEntry.sourceRelativePath = sourceEntry.sourceRelativePath;
 
                 for (const auto &sourceArtifact : sourceEntry.artifacts)
                 {

@@ -13,6 +13,12 @@
 
 namespace Resource
 {
+    enum class CatalogKind
+    {
+        Source,
+        Cooked,
+    };
+
     struct ArtifactRecord
     {
         std::string relativePath;
@@ -26,7 +32,7 @@ namespace Resource
     struct ResourceCatalogEntry
     {
         std::string logicalPath;
-        std::string sourceRelativePath;
+        std::optional<std::string> sourceRelativePath;
         std::vector<ArtifactRecord> artifacts;
     };
 
@@ -36,12 +42,16 @@ namespace Resource
         struct MountCatalogCache
         {
             bool attemptedLoad = false;
+            CatalogKind kind = CatalogKind::Source;
+            int version = 0;
             std::unordered_map<std::string, ResourceCatalogEntry> entries;
         };
 
         struct GlobalCatalogEntry
         {
             ResourceCatalogEntry entry;
+            CatalogKind kind = CatalogKind::Source;
+            int version = 0;
             std::filesystem::path mountRoot;
             std::string sourceMountKey;
         };

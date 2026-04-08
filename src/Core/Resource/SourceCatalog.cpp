@@ -245,9 +245,16 @@ namespace Resource
 
         for (const auto &entry : entries)
         {
+            if (!entry.sourceRelativePath.has_value())
+            {
+                if (errorMessage != nullptr)
+                    *errorMessage = "source catalog entry is missing sourceRelativePath: " + entry.logicalPath;
+                return false;
+            }
+
             Json entryJson;
             entryJson["logicalPath"] = entry.logicalPath;
-            entryJson["sourceRelativePath"] = entry.sourceRelativePath;
+            entryJson["sourceRelativePath"] = *entry.sourceRelativePath;
             entryJson["artifacts"] = Json::array();
 
             for (const auto &artifact : entry.artifacts)

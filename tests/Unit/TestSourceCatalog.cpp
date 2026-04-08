@@ -50,7 +50,8 @@ TEST_F(SourceCatalogTests, BuildProjectSourceCatalogSkipsConfigAndCatalogArtifac
 
     ASSERT_EQ(entries.size(), 1u);
     EXPECT_EQ(entries[0].logicalPath, "/Project/Textures/Grassy_Square");
-    EXPECT_EQ(entries[0].sourceRelativePath, "textures/Grassy_Square.jpg");
+    ASSERT_TRUE(entries[0].sourceRelativePath.has_value());
+    EXPECT_EQ(*entries[0].sourceRelativePath, "textures/Grassy_Square.jpg");
     ASSERT_EQ(entries[0].artifacts.size(), 1u);
     EXPECT_EQ(entries[0].artifacts[0].relativePath, "textures/Grassy_Square.jpg");
     EXPECT_EQ(entries[0].artifacts[0].format, "jpg");
@@ -154,4 +155,25 @@ TEST_F(SourceCatalogTests, IndexRepositorySourceCatalogsSkipsPluginsWithInvalidM
 
     EXPECT_TRUE(std::filesystem::exists(validCatalogPath));
     EXPECT_FALSE(std::filesystem::exists(invalidCatalogPath));
+}
+
+TEST_F(SourceCatalogTests, WriteSourceCatalogJsonRejectsEntriesWithoutSourceRelativePath)
+{
+    std::vector<Resource::ResourceCatalogEntry> entries{
+        Resource::ResourceCatalogEntry{
+            .logicalPath = "/Project/Textures/Grassy_Square",
+            .artifacts =
+                {
+                    Resource::ArtifactRecord{
+                        .relativePath = "textures/Grassy_Square.jpg",
+                        .format = "jpg",
+                        .profileTag = "dev",
+                    },
+                },
+        },
+    };
+
+    std::string errorMessage;
+    EXPECT_FALSE(Resource::WriteSourceCatalogJson(TestRoot() / ".rtr" / "catalog.json", entries, &errorMessage));
+    EXPECT_NE(errorMessage.find("missing sourceRelativePath"), std::string::npos);
 }
