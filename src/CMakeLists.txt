@@ -28,6 +28,7 @@ set(GLAB_RESOURCE_SOURCES
     Core/Resource/PathParser.cpp
     Core/Resource/PhysicalIO.cpp
     Core/Resource/ResourceCatalog.cpp
+    Core/Resource/SourceCatalog.cpp
     Core/Resource/RootDiscovery.cpp
 )
 
@@ -40,6 +41,7 @@ set(GLAB_RESOURCE_HEADERS
     Core/Resource/PathTypes.h
     Core/Resource/PhysicalIO.h
     Core/Resource/ResourceCatalog.h
+    Core/Resource/SourceCatalog.h
     Core/Resource/RootDiscovery.h
 )
 
@@ -353,9 +355,31 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES
 )
 
 # -----------------------------------------------------------------------------
+# Tools
+# -----------------------------------------------------------------------------
+add_executable(rtr_asset_index
+    Tools/AssetIndexMain.cpp
+)
+
+target_link_libraries(rtr_asset_index PRIVATE
+    RTRLabCore
+)
+
+if(GLAB_ENABLE_PCH)
+    target_precompile_headers(rtr_asset_index REUSE_FROM RTRLabCore)
+endif()
+
+glab_configure_local_target(rtr_asset_index)
+
+set_target_properties(rtr_asset_index PROPERTIES
+    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
+# -----------------------------------------------------------------------------
 # Install rules
 # -----------------------------------------------------------------------------
 install(TARGETS RTRLab RUNTIME DESTINATION .)
+install(TARGETS rtr_asset_index RUNTIME DESTINATION tools)
 
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/Content/
         DESTINATION Content

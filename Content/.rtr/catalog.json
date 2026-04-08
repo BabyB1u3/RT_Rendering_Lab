@@ -1,18 +1,18 @@
 {
-  "version": 1,
   "entries": [
     {
-      "logicalPath": "/Project/Textures/Grassy_Square",
-      "sourceRelativePath": "textures/Grassy_Square.jpg",
       "artifacts": [
         {
-          "relativePath": "textures/Grassy_Square.jpg",
+          "backendTag": "any",
           "format": "jpg",
           "platformTag": "any",
-          "backendTag": "any",
-          "profileTag": "dev"
+          "profileTag": "dev",
+          "relativePath": "textures/Grassy_Square.jpg"
         }
-      ]
+      ],
+      "logicalPath": "/Project/Textures/Grassy_Square",
+      "sourceRelativePath": "textures/Grassy_Square.jpg"
     }
-  ]
+  ],
+  "version": 1
 }
