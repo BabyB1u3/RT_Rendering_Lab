@@ -1,11 +1,11 @@
 #include <gtest/gtest.h>
 
 #include <filesystem>
-#include <fstream>
 #include <iterator>
 #include <string>
 
 #include "Core/Resource/SourceCatalog.h"
+#include "TestPaths.h"
 
 namespace
 {
@@ -14,36 +14,19 @@ namespace
     protected:
         void SetUp() override
         {
-            m_TestRoot = std::filesystem::current_path() / "test-output" / "source-catalog" /
-                         ::testing::UnitTest::GetInstance()->current_test_info()->name();
-
-            std::error_code ec;
-            std::filesystem::remove_all(m_TestRoot, ec);
-            std::filesystem::create_directories(m_TestRoot);
+            m_TestRoot = test_support::CurrentTestRoot("source-catalog");
+            test_support::ResetCurrentTestRoot("source-catalog");
         }
 
         void TearDown() override
         {
-            std::error_code ec;
-            std::filesystem::remove_all(std::filesystem::current_path() / "test-output" / "source-catalog", ec);
-            ec.clear();
-            std::filesystem::remove(std::filesystem::current_path() / "test-output", ec);
+            test_support::RemoveCurrentTestArtifacts("source-catalog");
         }
 
         std::filesystem::path TestRoot() const
         {
             return m_TestRoot;
         }
-
-        void WriteTextFile(const std::filesystem::path &path, std::string_view contents) const
-        {
-            std::filesystem::create_directories(path.parent_path());
-            std::ofstream out(path, std::ios::binary);
-            ASSERT_TRUE(out.is_open());
-            out << contents;
-            ASSERT_TRUE(out.good());
-        }
-
     private:
         std::filesystem::path m_TestRoot;
     };
@@ -51,9 +34,9 @@ namespace
 
 TEST_F(SourceCatalogTests, BuildProjectSourceCatalogSkipsConfigAndCatalogArtifacts)
 {
-    WriteTextFile(TestRoot() / "textures" / "Grassy_Square.jpg", "jpg");
-    WriteTextFile(TestRoot() / "Config" / "input" / "DebugCameraControl.json", "{}");
-    WriteTextFile(TestRoot() / ".rtr" / "catalog.json", "{}");
+    test_support::WriteTextFileOrFail(TestRoot() / "textures" / "Grassy_Square.jpg", "jpg");
+    test_support::WriteTextFileOrFail(TestRoot() / "Config" / "input" / "DebugCameraControl.json", "{}");
+    test_support::WriteTextFileOrFail(TestRoot() / ".rtr" / "catalog.json", "{}");
 
     std::vector<Resource::ResourceCatalogEntry> entries;
     std::string errorMessage;
@@ -76,7 +59,7 @@ TEST_F(SourceCatalogTests, BuildProjectSourceCatalogSkipsConfigAndCatalogArtifac
 
 TEST_F(SourceCatalogTests, BuildPluginSourceCatalogUsesPluginNamespace)
 {
-    WriteTextFile(TestRoot() / "Materials" / "Checker.json", "{\n}\n");
+    test_support::WriteTextFileOrFail(TestRoot() / "Materials" / "Checker.json", "{\n}\n");
 
     std::vector<Resource::ResourceCatalogEntry> entries;
     std::string errorMessage;
@@ -94,8 +77,8 @@ TEST_F(SourceCatalogTests, BuildPluginSourceCatalogUsesPluginNamespace)
 
 TEST_F(SourceCatalogTests, BuildSourceCatalogRejectsDuplicateLogicalPaths)
 {
-    WriteTextFile(TestRoot() / "Textures" / "Grassy_Square.jpg", "jpg");
-    WriteTextFile(TestRoot() / "Textures" / "Grassy_Square.png", "png");
+    test_support::WriteTextFileOrFail(TestRoot() / "Textures" / "Grassy_Square.jpg", "jpg");
+    test_support::WriteTextFileOrFail(TestRoot() / "Textures" / "Grassy_Square.png", "png");
 
     std::vector<Resource::ResourceCatalogEntry> entries;
     std::string errorMessage;
@@ -111,9 +94,9 @@ TEST_F(SourceCatalogTests, BuildSourceCatalogRejectsDuplicateLogicalPaths)
 TEST_F(SourceCatalogTests, IndexRepositorySourceCatalogsWritesProjectEngineAndPluginCatalogs)
 {
     const auto repoRoot = TestRoot() / "Repo";
-    WriteTextFile(repoRoot / "Content" / "Textures" / "Grassy_Square.jpg", "jpg");
-    WriteTextFile(repoRoot / "EngineContent" / "Defaults" / "Materials" / "ErrorMaterial.json", "{\n}\n");
-    WriteTextFile(repoRoot / "Plugins" / "ExamplePlugin" / "Content" / "Materials" / "Checker.json", "{\n}\n");
+    test_support::WriteTextFileOrFail(repoRoot / "Content" / "Textures" / "Grassy_Square.jpg", "jpg");
+    test_support::WriteTextFileOrFail(repoRoot / "EngineContent" / "Defaults" / "Materials" / "ErrorMaterial.json", "{\n}\n");
+    test_support::WriteTextFileOrFail(repoRoot / "Plugins" / "ExamplePlugin" / "Content" / "Materials" / "Checker.json", "{\n}\n");
 
     std::string errorMessage;
     ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(repoRoot, "Content", &errorMessage)) << errorMessage;

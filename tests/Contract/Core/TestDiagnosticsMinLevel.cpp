@@ -11,6 +11,7 @@
 #define RTRLAB_LOG_MIN_LEVEL 3
 #include "Core/Diagnostics/LogMacros.h"
 #include "Core/Diagnostics/Logger.h"
+#include "TestPaths.h"
 
 namespace
 {
@@ -18,18 +19,6 @@ namespace
     {
         const auto path = FileSystem::ResolveWritePath("/Saved/logs/diagnostics-min-level-contract.log");
         return path.value_or(std::filesystem::path{});
-    }
-
-    void RemovePathIfExists(const std::filesystem::path &path)
-    {
-        std::error_code ec;
-        std::filesystem::remove(path, ec);
-    }
-
-    void RemoveDirectoryIfEmpty(const std::filesystem::path &path)
-    {
-        std::error_code ec;
-        std::filesystem::remove(path, ec);
     }
 
     std::atomic<int> g_SideEffectCounter{0};
@@ -46,7 +35,7 @@ protected:
     void SetUp() override
     {
         FileSystem::Init();
-        RemovePathIfExists(MinLevelContractTestLogPath());
+        test_support::RemovePathIfExists(MinLevelContractTestLogPath());
         Diagnostics::Logger::Init(MinLevelContractTestLogPath());
         g_SideEffectCounter.store(0, std::memory_order_relaxed);
     }
@@ -55,8 +44,8 @@ protected:
     {
         Diagnostics::Logger::Shutdown();
         const auto logPath = MinLevelContractTestLogPath();
-        RemovePathIfExists(logPath);
-        RemoveDirectoryIfEmpty(logPath.parent_path());
+        test_support::RemovePathIfExists(logPath);
+        test_support::RemoveDirectoryIfEmpty(logPath.parent_path());
     }
 };
 

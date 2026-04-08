@@ -361,12 +361,7 @@ TEST_F(LoggerHasLoggerTests, JsonSinkEnableFailureLeavesSinkDisabledAndLogsError
     DiagnosticsTestSupport::RemovePathIfExists(blockerPath);
     DiagnosticsTestSupport::RemovePathIfExists(invalidJsonPath);
 
-    std::filesystem::create_directories(blockerPath.parent_path());
-    {
-        std::ofstream output(blockerPath);
-        ASSERT_TRUE(output.is_open());
-        output << "blocker";
-    }
+    test_support::WriteTextFileOrFail(blockerPath, "blocker");
 
     Diagnostics::Logger::EnableJsonSink(invalidJsonPath);
     EXPECT_FALSE(Diagnostics::Logger::IsJsonSinkEnabled());

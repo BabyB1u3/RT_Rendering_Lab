@@ -2,13 +2,13 @@
 
 #include <cstdint>
 #include <filesystem>
-#include <fstream>
 #include <iterator>
 #include <string>
 #include <vector>
 
 #include "Core/Resource/CookedCatalog.h"
 #include "Core/Resource/SourceCatalog.h"
+#include "TestPaths.h"
 
 namespace
 {
@@ -17,45 +17,19 @@ namespace
     protected:
         void SetUp() override
         {
-            m_TestRoot = std::filesystem::current_path() / "test-output" / "cooked-catalog" /
-                         ::testing::UnitTest::GetInstance()->current_test_info()->name();
-
-            std::error_code ec;
-            std::filesystem::remove_all(m_TestRoot, ec);
-            std::filesystem::create_directories(m_TestRoot);
+            m_TestRoot = test_support::CurrentTestRoot("cooked-catalog");
+            test_support::ResetCurrentTestRoot("cooked-catalog");
         }
 
         void TearDown() override
         {
-            std::error_code ec;
-            std::filesystem::remove_all(std::filesystem::current_path() / "test-output" / "cooked-catalog", ec);
-            ec.clear();
-            std::filesystem::remove(std::filesystem::current_path() / "test-output", ec);
+            test_support::RemoveCurrentTestArtifacts("cooked-catalog");
         }
 
         std::filesystem::path TestRoot() const
         {
             return m_TestRoot;
         }
-
-        void WriteTextFile(const std::filesystem::path &path, std::string_view contents) const
-        {
-            std::filesystem::create_directories(path.parent_path());
-            std::ofstream out(path, std::ios::binary);
-            ASSERT_TRUE(out.is_open());
-            out << contents;
-            ASSERT_TRUE(out.good());
-        }
-
-        void WriteBinaryFile(const std::filesystem::path &path, const std::vector<unsigned char> &contents) const
-        {
-            std::filesystem::create_directories(path.parent_path());
-            std::ofstream out(path, std::ios::binary);
-            ASSERT_TRUE(out.is_open());
-            out.write(reinterpret_cast<const char *>(contents.data()), static_cast<std::streamsize>(contents.size()));
-            ASSERT_TRUE(out.good());
-        }
-
     private:
         std::filesystem::path m_TestRoot;
     };
@@ -85,7 +59,7 @@ TEST_F(CookedCatalogTests, CookRepositoryCatalogsCopiesArtifactsAndWritesCookedC
         0x1F, 0x00, 0x05, 0x00, 0x01, 0xFF, 0x89, 0x99, 0x3D, 0x1D, 0x00, 0x00,
         0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
     };
-    WriteBinaryFile(repoRoot / "Content" / "textures" / "Grassy_Square.png", kOnePixelPng);
+    test_support::WriteBinaryFileOrFail(repoRoot / "Content" / "textures" / "Grassy_Square.png", kOnePixelPng);
 
     std::string errorMessage;
     ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(repoRoot, "Content", &errorMessage)) << errorMessage;

@@ -2,11 +2,11 @@
 
 #include <cstdlib>
 #include <filesystem>
-#include <fstream>
 #include <optional>
 #include <string>
 
 #include "Core/Resource/FileSystem.h"
+#include "TestPaths.h"
 
 namespace
 {
@@ -39,33 +39,6 @@ namespace
     constexpr std::string_view CurrentProfileTag()
     {
         return "dev";
-    }
-
-    void RemovePathIfExists(const std::filesystem::path &path)
-    {
-        std::error_code ec;
-        std::filesystem::remove(path, ec);
-    }
-
-    void RemoveDirectoryIfEmpty(const std::filesystem::path &path)
-    {
-        std::error_code ec;
-        std::filesystem::remove(path, ec);
-    }
-
-    void RemoveDirectoryTreeIfExists(const std::filesystem::path &path)
-    {
-        std::error_code ec;
-        std::filesystem::remove_all(path, ec);
-    }
-
-    void WriteTextFileOrFail(const std::filesystem::path &path, std::string_view contents)
-    {
-        std::filesystem::create_directories(path.parent_path());
-        std::ofstream out(path, std::ios::binary);
-        ASSERT_TRUE(out.is_open());
-        out << contents;
-        ASSERT_TRUE(out.good());
     }
 
     class ScopedEnvVar
@@ -176,10 +149,10 @@ TEST(FileSystemContractTests, ResolveReadPathCanSwitchBetweenSourceAndCookedProj
     const auto cookedArtifactPath = cookedRoot / "Textures" / "Grassy_Square.ktx2";
     const auto cookedCatalogPath = cookedRoot / ".rtr" / "catalog.json";
 
-    RemoveDirectoryTreeIfExists(cookedRoot);
+    test_support::RemoveTreeIfExists(cookedRoot);
 
-    WriteTextFileOrFail(cookedArtifactPath, "cooked");
-    WriteTextFileOrFail(
+    test_support::WriteTextFileOrFail(cookedArtifactPath, "cooked");
+    test_support::WriteTextFileOrFail(
         cookedCatalogPath,
         "{\n"
         "  \"version\": 1,\n"
@@ -214,7 +187,7 @@ TEST(FileSystemContractTests, ResolveReadPathCanSwitchBetweenSourceAndCookedProj
     ASSERT_TRUE(revertedResolved.has_value());
     EXPECT_EQ(*revertedResolved, FileSystem::GetAssetPath("textures/Grassy_Square.jpg"));
 
-    RemoveDirectoryTreeIfExists(FileSystem::GetCacheDir() / "Cooked");
+    test_support::RemoveTreeIfExists(FileSystem::GetCacheDir() / "Cooked");
 }
 
 TEST(FileSystemContractTests, ResolveReadPathUsesCatalogForExtensionlessEngineAsset)
@@ -225,10 +198,10 @@ TEST(FileSystemContractTests, ResolveReadPathUsesCatalogForExtensionlessEngineAs
     const auto artifactPath = engineRoot / "Defaults" / "Materials" / "ErrorMaterial.json";
     const auto catalogPath = engineRoot / ".rtr" / "catalog.json";
 
-    RemovePathIfExists(artifactPath);
-    RemovePathIfExists(catalogPath);
-    WriteTextFileOrFail(artifactPath, "{\n  \"name\": \"error-material\"\n}\n");
-    WriteTextFileOrFail(
+    test_support::RemovePathIfExists(artifactPath);
+    test_support::RemovePathIfExists(catalogPath);
+    test_support::WriteTextFileOrFail(artifactPath, "{\n  \"name\": \"error-material\"\n}\n");
+    test_support::WriteTextFileOrFail(
         catalogPath,
         "{\n"
         "  \"version\": 1,\n"
@@ -253,11 +226,11 @@ TEST(FileSystemContractTests, ResolveReadPathUsesCatalogForExtensionlessEngineAs
     EXPECT_EQ(*resolved, artifactPath);
     EXPECT_TRUE(std::filesystem::exists(*resolved));
 
-    RemovePathIfExists(artifactPath);
-    RemovePathIfExists(catalogPath);
-    RemoveDirectoryIfEmpty(artifactPath.parent_path());
-    RemoveDirectoryIfEmpty(artifactPath.parent_path().parent_path());
-    RemoveDirectoryIfEmpty(catalogPath.parent_path());
+    test_support::RemovePathIfExists(artifactPath);
+    test_support::RemovePathIfExists(catalogPath);
+    test_support::RemoveDirectoryIfEmpty(artifactPath.parent_path());
+    test_support::RemoveDirectoryIfEmpty(artifactPath.parent_path().parent_path());
+    test_support::RemoveDirectoryIfEmpty(catalogPath.parent_path());
 }
 
 TEST(FileSystemContractTests, ResolveReadPathUsesCatalogForExtensionlessPluginAsset)
@@ -268,10 +241,10 @@ TEST(FileSystemContractTests, ResolveReadPathUsesCatalogForExtensionlessPluginAs
     const auto artifactPath = pluginRoot / "Materials" / "Checker.json";
     const auto catalogPath = pluginRoot / ".rtr" / "catalog.json";
 
-    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
 
-    WriteTextFileOrFail(artifactPath, "{\n  \"name\": \"checker\"\n}\n");
-    WriteTextFileOrFail(
+    test_support::WriteTextFileOrFail(artifactPath, "{\n  \"name\": \"checker\"\n}\n");
+    test_support::WriteTextFileOrFail(
         catalogPath,
         "{\n"
         "  \"version\": 1,\n"
@@ -296,7 +269,7 @@ TEST(FileSystemContractTests, ResolveReadPathUsesCatalogForExtensionlessPluginAs
     EXPECT_EQ(*resolved, artifactPath);
     EXPECT_TRUE(std::filesystem::exists(*resolved));
 
-    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
 }
 
 TEST(FileSystemContractTests, ResolveReadPathPrefersMostSpecificArtifactForCurrentRuntime)
@@ -309,12 +282,12 @@ TEST(FileSystemContractTests, ResolveReadPathPrefersMostSpecificArtifactForCurre
     const auto runtimeSpecificPath = pluginRoot / "Materials" / "RuntimeSpecific.json";
     const auto catalogPath = pluginRoot / ".rtr" / "catalog.json";
 
-    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
 
-    WriteTextFileOrFail(fallbackPath, "{\n  \"name\": \"fallback\"\n}\n");
-    WriteTextFileOrFail(backendSpecificPath, "{\n  \"name\": \"backend\"\n}\n");
-    WriteTextFileOrFail(runtimeSpecificPath, "{\n  \"name\": \"runtime\"\n}\n");
-    WriteTextFileOrFail(
+    test_support::WriteTextFileOrFail(fallbackPath, "{\n  \"name\": \"fallback\"\n}\n");
+    test_support::WriteTextFileOrFail(backendSpecificPath, "{\n  \"name\": \"backend\"\n}\n");
+    test_support::WriteTextFileOrFail(runtimeSpecificPath, "{\n  \"name\": \"runtime\"\n}\n");
+    test_support::WriteTextFileOrFail(
         catalogPath,
         std::string("{\n") +
             "  \"version\": 1,\n"
@@ -334,27 +307,31 @@ TEST(FileSystemContractTests, ResolveReadPathPrefersMostSpecificArtifactForCurre
             "          \"relativePath\": \"Materials/BackendSpecific.json\",\n"
             "          \"format\": \"json\",\n"
             "          \"profileTag\": \"any\",\n"
-            "          \"backendTag\": \"" + std::string(CurrentBackendTag()) + "\",\n"
-            "          \"platformTag\": \"any\"\n"
-            "        },\n"
-            "        {\n"
-            "          \"relativePath\": \"Materials/RuntimeSpecific.json\",\n"
-            "          \"format\": \"json\",\n"
-            "          \"profileTag\": \"" + std::string(CurrentProfileTag()) + "\",\n"
-            "          \"backendTag\": \"" + std::string(CurrentBackendTag()) + "\",\n"
-            "          \"platformTag\": \"" + std::string(CurrentPlatformTag()) + "\"\n"
-            "        }\n"
-            "      ]\n"
-            "    }\n"
-            "  ]\n"
-            "}\n");
+            "          \"backendTag\": \"" +
+            std::string(CurrentBackendTag()) + "\",\n"
+                                               "          \"platformTag\": \"any\"\n"
+                                               "        },\n"
+                                               "        {\n"
+                                               "          \"relativePath\": \"Materials/RuntimeSpecific.json\",\n"
+                                               "          \"format\": \"json\",\n"
+                                               "          \"profileTag\": \"" +
+            std::string(CurrentProfileTag()) + "\",\n"
+                                               "          \"backendTag\": \"" +
+            std::string(CurrentBackendTag()) + "\",\n"
+                                               "          \"platformTag\": \"" +
+            std::string(CurrentPlatformTag()) + "\"\n"
+                                                "        }\n"
+                                                "      ]\n"
+                                                "    }\n"
+                                                "  ]\n"
+                                                "}\n");
 
     const auto resolved = FileSystem::ResolveReadPath("/Plugins/RuntimeSpecificCatalogPlugin/Materials/Picker");
 
     ASSERT_TRUE(resolved.has_value());
     EXPECT_EQ(*resolved, runtimeSpecificPath);
 
-    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
 }
 
 TEST(FileSystemContractTests, ResolveReadPathFallsBackToAnyArtifactWhenSpecificTagsDoNotMatch)
@@ -366,11 +343,11 @@ TEST(FileSystemContractTests, ResolveReadPathFallsBackToAnyArtifactWhenSpecificT
     const auto mismatchedPath = pluginRoot / "Materials" / "Mismatched.json";
     const auto catalogPath = pluginRoot / ".rtr" / "catalog.json";
 
-    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
 
-    WriteTextFileOrFail(fallbackPath, "{\n  \"name\": \"fallback\"\n}\n");
-    WriteTextFileOrFail(mismatchedPath, "{\n  \"name\": \"mismatch\"\n}\n");
-    WriteTextFileOrFail(
+    test_support::WriteTextFileOrFail(fallbackPath, "{\n  \"name\": \"fallback\"\n}\n");
+    test_support::WriteTextFileOrFail(mismatchedPath, "{\n  \"name\": \"mismatch\"\n}\n");
+    test_support::WriteTextFileOrFail(
         catalogPath,
         std::string("{\n") +
             "  \"version\": 1,\n"
@@ -403,7 +380,7 @@ TEST(FileSystemContractTests, ResolveReadPathFallsBackToAnyArtifactWhenSpecificT
     ASSERT_TRUE(resolved.has_value());
     EXPECT_EQ(*resolved, fallbackPath);
 
-    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
 }
 
 TEST(FileSystemContractTests, ResolveWritePathMapsSavedConfigLogicalPathToSavedConfigDirectory)
@@ -416,7 +393,7 @@ TEST(FileSystemContractTests, ResolveWritePathMapsSavedConfigLogicalPathToSavedC
     EXPECT_EQ(*resolved, FileSystem::GetSavedConfigPath("test-contract/Phase12Config.json"));
     EXPECT_TRUE(std::filesystem::exists(resolved->parent_path()));
 
-    RemoveDirectoryTreeIfExists(FileSystem::GetSavedDir() / "Config" / "test-contract");
+    test_support::RemoveTreeIfExists(FileSystem::GetSavedDir() / "Config" / "test-contract");
 }
 
 TEST(FileSystemContractTests, ResolveWritePathRejectsReadOnlyDomains)
@@ -438,8 +415,8 @@ TEST(FileSystemContractTests, ResolveWritePathCreatesCacheDirectoryParents)
     EXPECT_EQ(*resolved, FileSystem::GetCacheDir() / "Shaders" / "opengl" / "ForwardLit.cache");
     EXPECT_TRUE(std::filesystem::exists(resolved->parent_path()));
 
-    RemoveDirectoryTreeIfExists(FileSystem::GetCacheDir() / "Shaders" / "opengl");
-    RemoveDirectoryIfEmpty(FileSystem::GetCacheDir() / "Shaders");
+    test_support::RemoveTreeIfExists(FileSystem::GetCacheDir() / "Shaders" / "opengl");
+    test_support::RemoveDirectoryIfEmpty(FileSystem::GetCacheDir() / "Shaders");
 }
 
 TEST(FileSystemContractTests, ResolveReadPathRejectsInvalidMountsAndTraversal)
@@ -457,9 +434,9 @@ TEST(FileSystemContractTests, ResolveReadPathProjectCatalogStillWorksWhenAnother
     const auto pluginRoot = FileSystem::GetRootPath() / "Plugins" / "BrokenCatalogPlugin" / "Content";
     const auto catalogPath = pluginRoot / ".rtr" / "catalog.json";
 
-    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
 
-    WriteTextFileOrFail(
+    test_support::WriteTextFileOrFail(
         catalogPath,
         "{\n"
         "  \"version\": 1,\n"
@@ -477,7 +454,7 @@ TEST(FileSystemContractTests, ResolveReadPathProjectCatalogStillWorksWhenAnother
     ASSERT_TRUE(resolved.has_value());
     EXPECT_EQ(*resolved, FileSystem::GetAssetPath("textures/Grassy_Square.jpg"));
 
-    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
 }
 
 TEST(FileSystemContractTests, RefreshCatalogsDiscoversPluginCatalogAddedAfterInitialLookup)
@@ -491,10 +468,10 @@ TEST(FileSystemContractTests, RefreshCatalogsDiscoversPluginCatalogAddedAfterIni
     const auto artifactPath = pluginRoot / "Materials" / "Checker.json";
     const auto catalogPath = pluginRoot / ".rtr" / "catalog.json";
 
-    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
 
-    WriteTextFileOrFail(artifactPath, "{\n  \"name\": \"late-bound\"\n}\n");
-    WriteTextFileOrFail(
+    test_support::WriteTextFileOrFail(artifactPath, "{\n  \"name\": \"late-bound\"\n}\n");
+    test_support::WriteTextFileOrFail(
         catalogPath,
         "{\n"
         "  \"version\": 1,\n"
@@ -521,7 +498,7 @@ TEST(FileSystemContractTests, RefreshCatalogsDiscoversPluginCatalogAddedAfterIni
     ASSERT_TRUE(refreshedResolved.has_value());
     EXPECT_EQ(*refreshedResolved, artifactPath);
 
-    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
 }
 
 TEST(FileSystemContractTests, RefreshCatalogsDropsPluginCatalogRemovedAfterInitialLookup)
@@ -532,10 +509,10 @@ TEST(FileSystemContractTests, RefreshCatalogsDropsPluginCatalogRemovedAfterIniti
     const auto artifactPath = pluginRoot / "Materials" / "Checker.json";
     const auto catalogPath = pluginRoot / ".rtr" / "catalog.json";
 
-    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
 
-    WriteTextFileOrFail(artifactPath, "{\n  \"name\": \"removable\"\n}\n");
-    WriteTextFileOrFail(
+    test_support::WriteTextFileOrFail(artifactPath, "{\n  \"name\": \"removable\"\n}\n");
+    test_support::WriteTextFileOrFail(
         catalogPath,
         "{\n"
         "  \"version\": 1,\n"
@@ -558,7 +535,7 @@ TEST(FileSystemContractTests, RefreshCatalogsDropsPluginCatalogRemovedAfterIniti
     ASSERT_TRUE(initialResolved.has_value());
     EXPECT_EQ(*initialResolved, artifactPath);
 
-    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
 
     FileSystem::RefreshCatalogs();
 
@@ -573,10 +550,10 @@ TEST(FileSystemContractTests, ResolveReadPathRejectsCatalogWithDuplicateLogicalP
     const auto artifactPath = pluginRoot / "Materials" / "Checker.json";
     const auto catalogPath = pluginRoot / ".rtr" / "catalog.json";
 
-    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
 
-    WriteTextFileOrFail(artifactPath, "{\n  \"name\": \"checker\"\n}\n");
-    WriteTextFileOrFail(
+    test_support::WriteTextFileOrFail(artifactPath, "{\n  \"name\": \"checker\"\n}\n");
+    test_support::WriteTextFileOrFail(
         catalogPath,
         "{\n"
         "  \"version\": 1,\n"
@@ -608,7 +585,7 @@ TEST(FileSystemContractTests, ResolveReadPathRejectsCatalogWithDuplicateLogicalP
 
     EXPECT_FALSE(FileSystem::ResolveReadPath("/Plugins/DuplicateCatalogPlugin/Materials/Checker").has_value());
 
-    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
 }
 
 TEST(FileSystemContractTests, ExistsSupportsLogicalPaths)
@@ -648,15 +625,15 @@ TEST(FileSystemContractTests, WriteTextSupportsSavedLogicalPaths)
     constexpr std::string_view kExpectedContents = "{\n  \"path\": \"logical\"\n}\n";
     const auto savedPath = FileSystem::GetSavedConfigPath("test-contract/LogicalWriteText.json");
 
-    RemovePathIfExists(savedPath);
+    test_support::RemovePathIfExists(savedPath);
 
     ASSERT_TRUE(FileSystem::WriteText(kVirtualPath, kExpectedContents));
     const auto contents = FileSystem::ReadText(kVirtualPath);
     ASSERT_TRUE(contents.has_value());
     EXPECT_EQ(*contents, kExpectedContents);
 
-    RemovePathIfExists(savedPath);
-    RemoveDirectoryTreeIfExists(FileSystem::GetSavedDir() / "Config" / "test-contract");
+    test_support::RemovePathIfExists(savedPath);
+    test_support::RemoveTreeIfExists(FileSystem::GetSavedDir() / "Config" / "test-contract");
 }
 
 TEST(FileSystemContractTests, WriteBinarySupportsCacheLogicalPaths)
@@ -667,16 +644,16 @@ TEST(FileSystemContractTests, WriteBinarySupportsCacheLogicalPaths)
     const std::vector<uint8_t> expectedData{0x10, 0x20, 0x30, 0x40};
     const auto cachePath = FileSystem::GetCacheDir() / "Shaders" / "test-contract" / "ForwardLit.bin";
 
-    RemovePathIfExists(cachePath);
+    test_support::RemovePathIfExists(cachePath);
 
     ASSERT_TRUE(FileSystem::WriteBinary(kVirtualPath, expectedData));
     const auto contents = FileSystem::ReadBinary(kVirtualPath);
     ASSERT_TRUE(contents.has_value());
     EXPECT_EQ(*contents, expectedData);
 
-    RemovePathIfExists(cachePath);
-    RemoveDirectoryTreeIfExists(FileSystem::GetCacheDir() / "Shaders" / "test-contract");
-    RemoveDirectoryIfEmpty(FileSystem::GetCacheDir() / "Shaders");
+    test_support::RemovePathIfExists(cachePath);
+    test_support::RemoveTreeIfExists(FileSystem::GetCacheDir() / "Shaders" / "test-contract");
+    test_support::RemoveDirectoryIfEmpty(FileSystem::GetCacheDir() / "Shaders");
 }
 
 TEST(FileSystemContractTests, WriteHelpersRejectReadOnlyDomains)
@@ -692,7 +669,7 @@ TEST(FileSystemContractTests, ResolveConfigPathPrefersSavedConfigWhenPresent)
     FileSystem::Init();
 
     const auto savedPath = FileSystem::GetSavedConfigPath(kExistingConfig);
-    RemovePathIfExists(savedPath);
+    test_support::RemovePathIfExists(savedPath);
     ASSERT_TRUE(FileSystem::WriteText("/Saved/Config/input/DebugCameraControl.json", "{\n  \"source\": \"saved\"\n}\n"));
 
     const auto resolved = FileSystem::ResolveConfigPath(kExistingConfig);
@@ -700,9 +677,9 @@ TEST(FileSystemContractTests, ResolveConfigPathPrefersSavedConfigWhenPresent)
     EXPECT_EQ(resolved, savedPath);
     EXPECT_TRUE(std::filesystem::exists(resolved));
 
-    RemovePathIfExists(savedPath);
-    RemoveDirectoryIfEmpty(savedPath.parent_path());
-    RemoveDirectoryIfEmpty(savedPath.parent_path().parent_path());
+    test_support::RemovePathIfExists(savedPath);
+    test_support::RemoveDirectoryIfEmpty(savedPath.parent_path());
+    test_support::RemoveDirectoryIfEmpty(savedPath.parent_path().parent_path());
 }
 
 TEST(FileSystemContractTests, ResolveConfigPathCopiesDefaultConfigIntoSavedDirectory)
@@ -713,15 +690,9 @@ TEST(FileSystemContractTests, ResolveConfigPathCopiesDefaultConfigIntoSavedDirec
     const auto savedPath = FileSystem::GetSavedConfigPath(kTempConfig);
     const std::string expectedContents = "{\n  \"source\": \"contract-test\"\n}\n";
 
-    RemovePathIfExists(savedPath);
-    RemovePathIfExists(assetPath);
-
-    std::filesystem::create_directories(assetPath.parent_path());
-    {
-        std::ofstream out(assetPath, std::ios::binary);
-        ASSERT_TRUE(out.is_open());
-        out << expectedContents;
-    }
+    test_support::RemovePathIfExists(savedPath);
+    test_support::RemovePathIfExists(assetPath);
+    test_support::WriteTextFileOrFail(assetPath, expectedContents);
 
     const auto resolved = FileSystem::ResolveConfigPath(kTempConfig);
 
@@ -731,10 +702,10 @@ TEST(FileSystemContractTests, ResolveConfigPathCopiesDefaultConfigIntoSavedDirec
     ASSERT_TRUE(contents.has_value());
     EXPECT_EQ(*contents, expectedContents);
 
-    RemovePathIfExists(savedPath);
-    RemovePathIfExists(assetPath);
-    RemoveDirectoryTreeIfExists(FileSystem::GetSavedDir() / "Config" / "test-contract");
-    RemoveDirectoryIfEmpty(assetPath.parent_path());
+    test_support::RemovePathIfExists(savedPath);
+    test_support::RemovePathIfExists(assetPath);
+    test_support::RemoveTreeIfExists(FileSystem::GetSavedDir() / "Config" / "test-contract");
+    test_support::RemoveDirectoryIfEmpty(assetPath.parent_path());
 }
 
 TEST(FileSystemContractTests, ResolveConfigPathReturnsEmptyWhenConfigIsMissing)
@@ -744,12 +715,17 @@ TEST(FileSystemContractTests, ResolveConfigPathReturnsEmptyWhenConfigIsMissing)
     const auto assetPath = FileSystem::GetAssetPath("Config") / "test-contract/MissingConfig.json";
     const auto savedPath = FileSystem::GetSavedConfigPath("test-contract/MissingConfig.json");
 
-    RemovePathIfExists(savedPath);
-    RemovePathIfExists(assetPath);
+    test_support::RemovePathIfExists(savedPath);
+    test_support::RemovePathIfExists(assetPath);
 
     const auto resolved = FileSystem::ResolveConfigPath("test-contract/MissingConfig.json");
 
     EXPECT_TRUE(resolved.empty());
+
+    test_support::RemovePathIfExists(savedPath);
+    test_support::RemovePathIfExists(assetPath);
+    test_support::RemoveTreeIfExists(FileSystem::GetSavedDir() / "Config" / "test-contract");
+    test_support::RemoveDirectoryIfEmpty(assetPath.parent_path());
 }
 
 TEST(FileSystemContractTests, ResolveConfigPathFallsBackToEngineDefaultWhenProjectDefaultIsMissing)
@@ -763,8 +739,8 @@ TEST(FileSystemContractTests, ResolveConfigPathFallsBackToEngineDefaultWhenProje
 
     ASSERT_TRUE(std::filesystem::exists(enginePath));
 
-    RemovePathIfExists(savedPath);
-    RemovePathIfExists(projectPath);
+    test_support::RemovePathIfExists(savedPath);
+    test_support::RemovePathIfExists(projectPath);
 
     const auto resolved = FileSystem::ResolveConfigPath(kRelativePath);
 
@@ -774,9 +750,9 @@ TEST(FileSystemContractTests, ResolveConfigPathFallsBackToEngineDefaultWhenProje
     ASSERT_TRUE(contents.has_value());
     EXPECT_NE(contents->find("\"engine-default\""), std::string::npos);
 
-    RemovePathIfExists(savedPath);
-    RemoveDirectoryIfEmpty(savedPath.parent_path());
-    RemoveDirectoryIfEmpty(savedPath.parent_path().parent_path());
+    test_support::RemovePathIfExists(savedPath);
+    test_support::RemoveDirectoryIfEmpty(savedPath.parent_path());
+    test_support::RemoveDirectoryIfEmpty(savedPath.parent_path().parent_path());
 }
 
 // --- Error path tests ---
