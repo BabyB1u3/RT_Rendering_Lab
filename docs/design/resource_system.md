@@ -47,6 +47,8 @@ Current state as of 2026-04-08:
   now implemented for readable mounts
 - extensionless project, engine, and plugin asset paths can now resolve through
   source catalogs in development builds
+- the current runtime can explicitly refresh catalog state when readable mounts
+  change after initial lookup
 
 ---
 
@@ -422,7 +424,7 @@ The current codebase already exposes:
   `IsVirtualPath()`, `ParseVirtualPath()`, `IsCatalogBackedPath()`,
   `IsDocumentPath()`
 - logical path resolution:
-  `ResolveReadPath()`, `ResolveWritePath()`
+  `ResolveReadPath()`, `ResolveWritePath()`, `RefreshCatalogs()`
 - logical file I/O:
   `Exists()`, `ReadText()`, `ReadBinary()`, `WriteText()`, `WriteBinary()`
 - compatibility wrappers:
@@ -451,8 +453,8 @@ Today the implemented/remaining split is:
   and `/Plugins/Foo/Materials/DebugGrid` now resolve through mount-local source
   catalogs in development builds
 - duplicate logical paths within a single catalog are rejected
-- artifact selection is still minimal: prefer `profileTag = dev`, then `any`, then
-  the first artifact
+- artifact selection now prefers exact `profileTag` / `backendTag` / `platformTag`
+  matches for the current runtime, then falls back to `any`
 - the runtime now builds a merged global catalog table across current loose readable
   mounts (`/Project`, `/Engine`, `/Plugins/<Name>`)
 - duplicate logical paths across currently loaded loose readable mounts are treated
@@ -546,9 +548,11 @@ Implementation status:
 - duplicate logical paths within a single catalog are treated as invalid
 - duplicate logical paths across currently loaded loose readable mounts are also
   treated as invalid
+- artifact selection now applies a basic runtime policy across `profileTag`,
+  `backendTag`, and `platformTag`, preferring exact matches over `any`
 - catalog support is still incomplete: there is no cooked catalog format, no merged
   packaged/archive resolution table, and no platform/backend/profile-aware artifact
-  selection policy yet
+  selection policy for packaged/overlay precedence yet
 
 It is **not** an optional helper and it is **not** a temporary convenience for the
 current cooking discussion. It is the stable bridge between:
@@ -598,7 +602,9 @@ Each readable content mount owns a catalog:
 - overlay/archive/cooked mounts may ship alternate catalogs for the same logical root
 
 At runtime, the resource system loads catalogs from all active readable mounts and
-merges them into a global resolved view according to mount precedence.
+merges them into a global resolved view according to mount precedence. In the current
+development implementation, this table is built on first use and can be rebuilt
+explicitly through `RefreshCatalogs()` when readable mounts change after startup.
 
 ### 9.4 Catalog generation pipeline
 
@@ -1029,8 +1035,8 @@ checklist below.
 ### Phase 3 - Resource catalog design and implementation
 
 - in progress; loose-mount source catalog loading, merged development-time
-  resolution, duplicate-path rejection, and basic project/engine/plugin asset lookup
-  are implemented
+  resolution, duplicate-path rejection, basic runtime artifact selection, and
+  project/engine/plugin asset lookup are implemented
 
 ### Phase 4 - Public FileSystem API migration
 
@@ -1131,7 +1137,7 @@ without repeatedly redefining scope.
 - [x] Implement catalog loader for readable mounts
 - [x] Implement merged global resolution table
 - [x] Implement conflict detection rules
-- [ ] Implement artifact selection policy by platform/backend/profile
+- [x] Implement artifact selection policy by platform/backend/profile
 - [x] Add tests for catalog lookup and duplicate-path rejection
 
 ### 15.5 Phase 4 - Public FileSystem API migration
