@@ -376,8 +376,8 @@ continues execution. Returns `false` when the condition fails, so callers can ha
 the failure gracefully. Use for "this shouldn't happen but the engine can survive."
 
 **Callstack capture**: Platform-specific implementations in
-`Crash/Backends/Win32/Callstack.cpp` (`CaptureStackBackTrace` + `SymFromAddr`) and
-`Crash/Backends/Posix/Callstack.cpp` (`backtrace()` + `dladdr()` + `abi::__cxa_demangle()`).
+`Crash/Backends/Win32/Win32Callstack.cpp` (`CaptureStackBackTrace` + `SymFromAddr`) and
+`Crash/Backends/Posix/PosixCallstack.cpp` (`backtrace()` + `dladdr()` + `abi::__cxa_demangle()`).
 
 **Debugger integration**: `Debugger.h` provides cross-platform debugger detection
 (`IsDebuggerPresent` on Windows, `sysctl` / `ptrace` on POSIX) and a `DebugBreak()`
@@ -486,11 +486,11 @@ src/Core/Diagnostics/
         Debugger.h / .cpp        - Cross-platform debugger detection and trap
         Backends/
           Win32/
-            CrashHandler.cpp     - SEH + MiniDumpWriteDump
-            Callstack.cpp        - CaptureStackBackTrace + DbgHelp symbolization
+            Win32CrashHandler.cpp - SEH + MiniDumpWriteDump
+            Win32Callstack.cpp    - CaptureStackBackTrace + DbgHelp symbolization
           Posix/
-            CrashHandler.cpp     - Signal handler + crash summary writer
-            Callstack.cpp        - backtrace() + dladdr() + demangling
+            PosixCrashHandler.cpp - Signal handler + crash summary writer
+            PosixCallstack.cpp    - backtrace() + dladdr() + demangling
 
 src/gui/panels/
     ConsolePanel.h / .cpp        - ImGui debug console panel
