@@ -31,7 +31,7 @@ Current state as of 2026-04-08:
   `WriteBinary()` are implemented
 - compatibility wrappers such as `GetAssetPath()`, `GetSavedPath()`,
   `GetSavedConfigPath()`, and `ResolveConfigPath()` are intentionally retained only
-  for tests, bootstrap code, and narrow compatibility helpers
+  for tests and low-level bootstrap/compatibility code
 - the config resolution chain is implemented as
   `/Saved/Config -> /Project/Config -> /Engine/Config`
 - the repository now uses `Content/` for project content, and debug/development
@@ -1201,9 +1201,9 @@ checklist below.
 
 ### Phase 14 - Final cleanup
 
-- largely implemented; docs and public guidance now describe logical paths first,
-  remaining compatibility helpers have explicit scope, and the logical resource path
-  syntax is treated as a stable serialized contract
+- implemented; docs and public guidance now describe logical paths first, remaining
+  compatibility helpers have explicit scope, and the logical resource path syntax is
+  treated as a stable serialized contract
 
 ---
 
@@ -1366,8 +1366,7 @@ without repeatedly redefining scope.
 - [x] Update onboarding/build documentation to describe logical paths first
 - [x] Confirm every asset-facing subsystem now speaks logical paths
       current audit: outside `src/Core/Resource/`, production code no longer depends on
-      `GetAssetPath()` / `GetSavedPath()` callsites; the remaining `ResolveConfigPath()`
-      use in serialization is a narrow compatibility helper behind logical config APIs
+      `GetAssetPath()` / `GetSavedPath()` / `ResolveConfigPath()` callsites
 - [x] Freeze the resource path format as a long-term serialized contract
       the syntax and casing rules in Sections 2-6 are now treated as the stable
       serialized contract for logical resource paths
