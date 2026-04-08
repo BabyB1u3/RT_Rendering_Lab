@@ -39,6 +39,8 @@ Current state as of 2026-04-08:
 - shipped project config defaults now live under `Content/Config/`
 - runtime log, crash, and ImGui ini callsites now resolve through explicit logical
   `/Saved/...` paths rather than legacy saved-path wrappers
+- serialization now provides logical-path wrappers for document-style file I/O through
+  the resource system
 - the resource catalog design in Section 9 is **not** implemented yet, so
   extensionless catalog-backed asset paths are currently classified but not resolved
   through a catalog
@@ -1020,7 +1022,8 @@ checklist below.
 
 ### Phase 8 - Serialization and asset-reference rules
 
-- store logical paths, reject filesystem-path leakage
+- in progress; logical-path serialization helpers exist, but asset-reference policy and
+  leakage audit are still pending
 
 ### Phase 9 - Optional physical directory rename
 
@@ -1145,10 +1148,10 @@ without repeatedly redefining scope.
 ### 15.9 Phase 8 - Serialization and asset-reference rules
 
 - [ ] Define which data types are allowed to serialize logical resource paths
-- [ ] Update serialization guidance to prefer `/Project/...` or `/Engine/...`
+- [x] Update serialization guidance to prefer `/Project/...` or `/Engine/...`
 - [ ] Ban absolute filesystem paths in serialized asset references
 - [ ] Add validation/logging for malformed logical resource strings
-- [ ] Add at least one contract test that loads a serialized logical asset reference
+- [x] Add at least one contract test that loads a serialized logical asset reference
 
 ### 15.10 Phase 9 - Optional physical directory rename
 
