@@ -23,6 +23,13 @@ TEST(FileSystemVirtualPathTests, ParsePluginPathCapturesPluginMountName)
     EXPECT_EQ(parsed->relativePath, "Materials/Checker");
 }
 
+TEST(FileSystemVirtualPathTests, ParseRejectsPluginMountNamesOutsideIdentifierRules)
+{
+    EXPECT_FALSE(FileSystem::ParseVirtualPath("/Plugins/1BadPlugin/Materials/Checker").has_value());
+    EXPECT_FALSE(FileSystem::ParseVirtualPath("/Plugins/Bad-Plugin/Materials/Checker").has_value());
+    EXPECT_FALSE(FileSystem::ParseVirtualPath("/Plugins/Bad Plugin/Materials/Checker").has_value());
+}
+
 TEST(FileSystemVirtualPathTests, ParseRejectsMissingLeadingSlash)
 {
     EXPECT_FALSE(FileSystem::ParseVirtualPath("Project/Textures/Wood").has_value());

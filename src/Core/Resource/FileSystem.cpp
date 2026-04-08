@@ -1,31 +1,40 @@
 #include "Core/Resource/FileSystem.h"
 
-#include "Core/Diagnostics/LogCategories.h"
-#include "Core/Diagnostics/LogMacros.h"
-#include "Core/Resource/ConfigResolver.h"
-#include "Core/Resource/MountResolver.h"
-#include "Core/Resource/PathParser.h"
-#include "Core/Resource/PhysicalIO.h"
-#include "Core/Resource/RootDiscovery.h"
+#include "Core/Diagnostics/Logging/LogCategories.h"
+#include "Core/Diagnostics/Logging/LogMacros.h"
+#include "Core/Resource/Catalog/ResourceCatalog.h"
+#include "Core/Resource/Config/ConfigResolver.h"
+#include "Core/Resource/IO/PhysicalIO.h"
+#include "Core/Resource/Mount/MountBackend.h"
+#include "Core/Resource/Mount/MountResolver.h"
+#include "Core/Resource/Mount/RootDiscovery.h"
+#include "Core/Resource/Path/PathParser.h"
 
 std::filesystem::path FileSystem::s_RootPath;
 std::filesystem::path FileSystem::s_EngineDir;
 std::filesystem::path FileSystem::s_SavedDir;
 std::filesystem::path FileSystem::s_CacheDir;
+Resource::CatalogRegistry FileSystem::s_CatalogRegistry;
 bool FileSystem::s_Initialized = false;
 bool FileSystem::s_WritableDirsResolved = false;
 
 namespace
 {
-    static constexpr std::string_view kAssetDirName = "assets";
+    static constexpr std::string_view kProjectContentDirName = "Content";
     static constexpr const char *kAppName = "RTRLab";
 } // namespace
 
 void FileSystem::Init()
 {
-    s_RootPath = Resource::DiscoverRootPath(kAssetDirName);
+    s_RootPath = Resource::DiscoverRootPath(kProjectContentDirName);
     s_EngineDir = s_RootPath / "EngineContent";
+    s_CatalogRegistry.Reset();
     s_Initialized = true;
+}
+
+void FileSystem::RefreshCatalogs()
+{
+    s_CatalogRegistry.Reset();
 }
 
 bool FileSystem::IsVirtualPath(std::string_view path)
@@ -54,7 +63,19 @@ std::optional<std::filesystem::path> FileSystem::ResolveReadPath(std::string_vie
     if (!virtualPath.has_value())
         return std::nullopt;
 
-    return Resource::ResolvePhysicalPath(s_RootPath, s_EngineDir, GetSavedDir(), GetCacheDir(), *virtualPath, kAssetDirName);
+    if (Resource::IsCatalogBackedPath(virtualPathString))
+    {
+        if (const auto resolved = s_CatalogRegistry.ResolvePath(
+                s_RootPath, s_EngineDir, GetCacheDir(), *virtualPath, virtualPathString, kProjectContentDirName))
+        {
+            return resolved;
+        }
+
+        return std::nullopt;
+    }
+
+    return Resource::ResolvePhysicalPath(
+        s_RootPath, s_EngineDir, GetSavedDir(), GetCacheDir(), *virtualPath, kProjectContentDirName);
 }
 
 std::optional<std::filesystem::path> FileSystem::ResolveWritePath(std::string_view virtualPathString)
@@ -63,23 +84,15 @@ std::optional<std::filesystem::path> FileSystem::ResolveWritePath(std::string_vi
     if (!virtualPath.has_value())
         return std::nullopt;
 
-    switch (virtualPath->domain)
-    {
-    case PathDomain::Saved:
-    case PathDomain::Cache:
-        break;
-    case PathDomain::Project:
-    case PathDomain::Engine:
-    case PathDomain::Plugin:
+    const auto writableMount = Resource::ResolveWritableMount(virtualPath->domain, GetSavedDir(), GetCacheDir());
+    if (!writableMount.has_value())
         return std::nullopt;
-    }
 
-    const auto resolved = Resource::ResolvePhysicalPath(s_RootPath, s_EngineDir, GetSavedDir(), GetCacheDir(), *virtualPath, kAssetDirName);
-    if (!resolved.has_value())
-        return std::nullopt;
+    const auto relativePath = Resource::GetPhysicalRelativePath(*virtualPath);
+    const auto resolved = relativePath.empty() ? writableMount->rootPath : writableMount->rootPath / relativePath;
 
     std::error_code ec;
-    std::filesystem::create_directories(resolved->parent_path(), ec);
+    std::filesystem::create_directories(resolved.parent_path(), ec);
     return resolved;
 }
 
@@ -138,12 +151,12 @@ const std::filesystem::path &FileSystem::GetRootPath()
 
 std::filesystem::path FileSystem::GetAssetPath(std::string_view relativePath)
 {
-    return s_RootPath / kAssetDirName / relativePath;
+    return s_RootPath / kProjectContentDirName / relativePath;
 }
 
 std::filesystem::path FileSystem::GetCompiledShaderDir()
 {
-    const auto assetDir = s_RootPath / kAssetDirName / "shaders" / "compiled";
+    const auto assetDir = s_RootPath / kProjectContentDirName / "shaders" / "compiled";
     if (std::filesystem::exists(assetDir))
         return assetDir;
 
@@ -165,7 +178,7 @@ void FileSystem::ResolveWritableDirs()
     s_SavedDir = writableRoots.savedDir;
     s_CacheDir = writableRoots.cacheDir;
 
-    std::filesystem::create_directories(s_SavedDir / "configs");
+    std::filesystem::create_directories(s_SavedDir / "Config");
     std::filesystem::create_directories(s_CacheDir);
     s_WritableDirsResolved = true;
 }
@@ -203,7 +216,7 @@ std::filesystem::path FileSystem::GetSavedConfigPath(std::string_view relativePa
     if (const auto resolved = ResolveWritePath(virtualPath))
         return *resolved;
 
-    return GetSavedDir() / "configs" / relativePath;
+    return GetSavedDir() / "Config" / relativePath;
 }
 
 std::filesystem::path FileSystem::ResolveConfigPath(std::string_view relativePath)
@@ -216,8 +229,7 @@ std::filesystem::path FileSystem::ResolveConfigPath(std::string_view relativePat
         relativePath,
         GetSavedConfigPath(relativePath),
         ResolveReadPath("/Project/" + logicalConfigPath),
-        ResolveReadPath("/Engine/" + logicalConfigPath),
-        GetAssetPath("configs") / relativePath);
+        ResolveReadPath("/Engine/" + logicalConfigPath));
 }
 
 std::optional<std::string> FileSystem::ReadTextFile(const std::filesystem::path &path)

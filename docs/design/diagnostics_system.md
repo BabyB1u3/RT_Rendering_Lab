@@ -135,6 +135,11 @@ at destruction.
 3. Registers the "Core" category as an async logger.
 4. Starts periodic flush every 3 seconds.
 
+When no explicit log file path is provided, `Logger::Init()` now resolves the default
+logical write path `/Saved/logs/RTRLab.log` through the resource system. In development
+builds this lands under the repository `Saved/` tree; in shipping builds it follows the
+platform user-data mapping for `/Saved/`.
+
 **Shutdown** (`Logger::Shutdown`):
 1. Calls `spdlog::shutdown()` which synchronously drains the async queue, flushes all
    sinks, stops the thread pool and periodic flusher, then drops all loggers.
@@ -330,10 +335,12 @@ The `JsonLineSink` writes one JSON object per log message for machine-readable o
 **Always-registered, enable-on-demand design**: The sink is created at `Logger::Init()`
 in a disabled state (no file open) and included in the shared sink vector from the start.
 `EnableJsonSink(path)` opens the file and leaves the sink disabled if the file cannot be
-opened; the failure is recorded through the normal diagnostics log. `DisableJsonSink()`
-requests closure after a flush barrier. This avoids the thread-safety hazard of mutating
-a live logger's sink vector at runtime - the async worker thread iterates the sink vector
-without external locking, so adding/removing sinks while it runs would be a data race.
+opened; the failure is recorded through the normal diagnostics log. The path may be a
+physical path or a logical write path such as `/Saved/logs/session.jsonl`.
+`DisableJsonSink()` requests closure after a flush barrier. This avoids the thread-safety
+hazard of mutating a live logger's sink vector at runtime - the async worker thread
+iterates the sink vector without external locking, so adding/removing sinks while it runs
+would be a data race.
 
 The `Enable` / `Disable` / `RequestDisable` / `RequestReopen` methods all lock the
 `base_sink<std::mutex>::mutex_`, which is the same mutex the async worker acquires
@@ -345,7 +352,7 @@ reading the full file. Survives truncation (each line is independently parseable
 Compatible with `jq`:
 
 ```bash
-cat saved/logs/RTRLab.jsonl | jq 'select(.cat=="Shader" and .lvl=="error")'
+cat Saved/logs/RTRLab.jsonl | jq 'select(.cat=="Shader" and .lvl=="error")'
 ```
 
 ---
@@ -369,8 +376,8 @@ continues execution. Returns `false` when the condition fails, so callers can ha
 the failure gracefully. Use for "this shouldn't happen but the engine can survive."
 
 **Callstack capture**: Platform-specific implementations in
-`backends/win32/Callstack.cpp` (`CaptureStackBackTrace` + `SymFromAddr`) and
-`backends/posix/Callstack.cpp` (`backtrace()` + `dladdr()` + `abi::__cxa_demangle()`).
+`Crash/Backends/Win32/Win32Callstack.cpp` (`CaptureStackBackTrace` + `SymFromAddr`) and
+`Crash/Backends/Posix/PosixCallstack.cpp` (`backtrace()` + `dladdr()` + `abi::__cxa_demangle()`).
 
 **Debugger integration**: `Debugger.h` provides cross-platform debugger detection
 (`IsDebuggerPresent` on Windows, `sysctl` / `ptrace` on POSIX) and a `DebugBreak()`
@@ -426,7 +433,7 @@ Engine-owned control flow uses the macros above.
 The POSIX signal handler avoids the normal logger path (which is unsafe in a signal
 context) and uses low-level `write()` + `fsync()` to a dedicated crash summary file.
 
-**Dump naming**: `saved/logs/crashes/RTRLab_YYYYMMDD_HHMMSS.dmp`
+**Dump naming**: `Saved/logs/crashes/RTRLab_YYYYMMDD_HHMMSS.dmp`
 
 ---
 
@@ -449,7 +456,7 @@ filtering. Auto-scroll tracks the bottom of the log.
 | `log.filter *` | Show all categories |
 | `log.clear` | Clear the console buffer |
 | `log.flush` | Force flush all sinks |
-| `log.json on [path]` | Enable JSON Lines sink |
+| `log.json on [path]` | Enable JSON Lines sink. `path` may be physical or logical (`/Saved/...`) |
 | `log.json off` | Disable JSON Lines sink |
 
 **Category validation**: The command parser accepts a category if it is either in the
@@ -462,30 +469,33 @@ supporting dynamic categories that were registered by subsystem code.
 ## 8. File Layout
 
 ```
-src/core/diagnostics/
-    Logger.h / .cpp              - Async spdlog wrapper, sink management, lifecycle
-    LogCategories.h              - Predefined category names + KnownCategories array
-    LogMacros.h                  - LOG_*_CAT, _ONCE, _THROTTLE, _COND, compile-time stripping
-    FrameFormatter.h / .cpp      - Custom %@ spdlog flag for frame number
-    JsonLineSink.h / .cpp        - Structured JSON Lines sink (enable-on-demand)
-    ImGuiConsoleSink.h / .cpp    - Ring buffer sink for ImGui console
-    Assert.h / .cpp              - RTRLAB_ASSERT / VERIFY / ENSURE
-    ErrorMacros.h                - ERR_FAIL_COND_* family
-    CrashHandler.h               - Platform-independent crash handler interface
-    Callstack.h                  - Platform-independent callstack capture interface
-    Debugger.h / .cpp            - Cross-platform debugger detection and trap
-    backends/
-      win32/
-        CrashHandler.cpp         - SEH + MiniDumpWriteDump
-        Callstack.cpp            - CaptureStackBackTrace + DbgHelp symbolization
-      posix/
-        CrashHandler.cpp         - Signal handler + crash summary writer
-        Callstack.cpp            - backtrace() + dladdr() + demangling
+src/Core/Diagnostics/
+    Logging/
+        Logger.h / .cpp          - Async spdlog wrapper, sink management, lifecycle
+        LogCategories.h          - Predefined category names + KnownCategories array
+        LogMacros.h              - LOG_*_CAT, _ONCE, _THROTTLE, _COND, compile-time stripping
+        FrameFormatter.h / .cpp  - Custom %@ spdlog flag for frame number
+        JsonLineSink.h / .cpp    - Structured JSON Lines sink (enable-on-demand)
+        ImGuiConsoleSink.h / .cpp - Ring buffer sink for ImGui console
+    Assert/
+        Assert.h / .cpp          - RTRLAB_ASSERT / VERIFY / ENSURE
+        ErrorMacros.h            - ERR_FAIL_COND_* family
+    Crash/
+        CrashHandler.h / .cpp    - Platform-independent crash handler interface
+        Callstack.h              - Platform-independent callstack capture interface
+        Debugger.h / .cpp        - Cross-platform debugger detection and trap
+        Backends/
+          Win32/
+            Win32CrashHandler.cpp - SEH + MiniDumpWriteDump
+            Win32Callstack.cpp    - CaptureStackBackTrace + DbgHelp symbolization
+          Posix/
+            PosixCrashHandler.cpp - Signal handler + crash summary writer
+            PosixCallstack.cpp    - backtrace() + dladdr() + demangling
 
 src/gui/panels/
     ConsolePanel.h / .cpp        - ImGui debug console panel
 
-saved/logs/
+Saved/logs/
     RTRLab.log                   - Rotating text log (human-readable)
     RTRLab.jsonl                 - JSON Lines log (when enabled)
     crashes/
@@ -495,7 +505,7 @@ saved/logs/
 
 The `diagnostics/` module lives under `core/` because it is engine infrastructure
 depended on by every subsystem. Runtime log paths are resolved through the engine's
-saved-data policy: Debug builds write under the source tree's `saved/logs/`, Release
+saved-data policy: Debug builds write under the source tree's `Saved/logs/`, Release
 builds write under the platform user-data directory.
 
 ---

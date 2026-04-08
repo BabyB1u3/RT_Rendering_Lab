@@ -22,22 +22,33 @@ set(GLAB_APP_HEADERS
 )
 
 set(GLAB_RESOURCE_SOURCES
-    Core/Resource/ConfigResolver.cpp
+    Core/Resource/Config/ConfigResolver.cpp
+    Core/Resource/Cook/CookedCatalog.cpp
     Core/Resource/FileSystem.cpp
-    Core/Resource/MountResolver.cpp
-    Core/Resource/PathParser.cpp
-    Core/Resource/PhysicalIO.cpp
-    Core/Resource/RootDiscovery.cpp
+    Core/Resource/Mount/MountBackend.cpp
+    Core/Resource/Mount/MountResolver.cpp
+    Core/Resource/Package/PakArchive.cpp
+    Core/Resource/Path/PathParser.cpp
+    Core/Resource/IO/PhysicalIO.cpp
+    Core/Resource/Catalog/ResourceCatalog.cpp
+    Core/Resource/Catalog/SourceCatalog.cpp
+    Core/Resource/Mount/RootDiscovery.cpp
 )
 
 set(GLAB_RESOURCE_HEADERS
-    Core/Resource/ConfigResolver.h
+    Core/Resource/Config/ConfigResolver.h
+    Core/Resource/Catalog/AssetPath.h
+    Core/Resource/Cook/CookedCatalog.h
     Core/Resource/FileSystem.h
-    Core/Resource/MountResolver.h
-    Core/Resource/PathParser.h
-    Core/Resource/PathTypes.h
-    Core/Resource/PhysicalIO.h
-    Core/Resource/RootDiscovery.h
+    Core/Resource/Mount/MountBackend.h
+    Core/Resource/Mount/MountResolver.h
+    Core/Resource/Package/PakArchive.h
+    Core/Resource/Path/PathParser.h
+    Core/Resource/Path/PathTypes.h
+    Core/Resource/IO/PhysicalIO.h
+    Core/Resource/Catalog/ResourceCatalog.h
+    Core/Resource/Catalog/SourceCatalog.h
+    Core/Resource/Mount/RootDiscovery.h
 )
 
 set(GLAB_INPUT_SOURCES
@@ -70,27 +81,27 @@ set(GLAB_INPUT_HEADERS
 )
 
 set(GLAB_DIAGNOSTICS_SOURCES
-    Core/Diagnostics/Assert.cpp
-    Core/Diagnostics/CrashHandler.cpp
-    Core/Diagnostics/Debugger.cpp
-    Core/Diagnostics/FrameFormatter.cpp
-    Core/Diagnostics/ImGuiConsoleSink.cpp
-    Core/Diagnostics/JsonLineSink.cpp
-    Core/Diagnostics/Logger.cpp
+    Core/Diagnostics/Assert/Assert.cpp
+    Core/Diagnostics/Crash/CrashHandler.cpp
+    Core/Diagnostics/Crash/Debugger.cpp
+    Core/Diagnostics/Logging/FrameFormatter.cpp
+    Core/Diagnostics/Logging/ImGuiConsoleSink.cpp
+    Core/Diagnostics/Logging/JsonLineSink.cpp
+    Core/Diagnostics/Logging/Logger.cpp
 )
 
 set(GLAB_DIAGNOSTICS_HEADERS
-    Core/Diagnostics/Assert.h
-    Core/Diagnostics/Callstack.h
-    Core/Diagnostics/CrashHandler.h
-    Core/Diagnostics/Debugger.h
-    Core/Diagnostics/ErrorMacros.h
-    Core/Diagnostics/FrameFormatter.h
-    Core/Diagnostics/ImGuiConsoleSink.h
-    Core/Diagnostics/JsonLineSink.h
-    Core/Diagnostics/LogCategories.h
-    Core/Diagnostics/Logger.h
-    Core/Diagnostics/LogMacros.h
+    Core/Diagnostics/Assert/Assert.h
+    Core/Diagnostics/Crash/Callstack.h
+    Core/Diagnostics/Crash/CrashHandler.h
+    Core/Diagnostics/Crash/Debugger.h
+    Core/Diagnostics/Assert/ErrorMacros.h
+    Core/Diagnostics/Logging/FrameFormatter.h
+    Core/Diagnostics/Logging/ImGuiConsoleSink.h
+    Core/Diagnostics/Logging/JsonLineSink.h
+    Core/Diagnostics/Logging/LogCategories.h
+    Core/Diagnostics/Logging/Logger.h
+    Core/Diagnostics/Logging/LogMacros.h
 )
 
 set(GLAB_SERIALIZATION_SOURCES
@@ -151,13 +162,13 @@ set(GLAB_GUI_HEADERS
 set(GLAB_PLATFORM_SOURCES)
 if(WIN32)
     list(APPEND GLAB_PLATFORM_SOURCES
-        Core/Diagnostics/Backends/Win32/Callstack.cpp
-        Core/Diagnostics/Backends/Win32/CrashHandler.cpp
+        Core/Diagnostics/Crash/Backends/Win32/Win32Callstack.cpp
+        Core/Diagnostics/Crash/Backends/Win32/Win32CrashHandler.cpp
     )
 else()
     list(APPEND GLAB_PLATFORM_SOURCES
-        Core/Diagnostics/Backends/Posix/Callstack.cpp
-        Core/Diagnostics/Backends/Posix/CrashHandler.cpp
+        Core/Diagnostics/Crash/Backends/Posix/PosixCallstack.cpp
+        Core/Diagnostics/Crash/Backends/Posix/PosixCrashHandler.cpp
     )
 endif()
 
@@ -198,21 +209,30 @@ function(glab_enable_local_pch target_name)
     endif()
 endfunction()
 
-function(glab_copy_runtime_assets target_name)
+function(glab_copy_runtime_content target_name)
     add_custom_command(TARGET ${target_name} POST_BUILD
-        # Copy source assets (textures, models, etc.)
+        # Copy source content (textures, config defaults, etc.)
         COMMAND ${CMAKE_COMMAND} -E copy_directory
-                ${CMAKE_SOURCE_DIR}/assets
-                $<TARGET_FILE_DIR:${target_name}>/assets
+                ${CMAKE_SOURCE_DIR}/Content
+                $<TARGET_FILE_DIR:${target_name}>/Content
     )
+
+    if(EXISTS ${CMAKE_SOURCE_DIR}/EngineContent)
+        add_custom_command(TARGET ${target_name} POST_BUILD
+            # Copy engine-shipped defaults and shared resources.
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                    ${CMAKE_SOURCE_DIR}/EngineContent
+                    $<TARGET_FILE_DIR:${target_name}>/EngineContent
+        )
+    endif()
 
     if(TARGET CompileShaders)
         add_custom_command(TARGET ${target_name} POST_BUILD
-            # Merge compiled shaders into assets/shaders/compiled/ only when
+            # Merge compiled shaders into Content/shaders/compiled/ only when
             # the shader build target is enabled and produces this directory.
             COMMAND ${CMAKE_COMMAND} -E copy_directory
                     ${CMAKE_BINARY_DIR}/shaders
-                    $<TARGET_FILE_DIR:${target_name}>/assets/shaders/compiled
+                    $<TARGET_FILE_DIR:${target_name}>/Content/shaders/compiled
         )
     endif()
 endfunction()
@@ -288,7 +308,7 @@ endif()
 
 target_compile_definitions(RTRLabCore PUBLIC
     GLM_ENABLE_EXPERIMENTAL
-    GLAB_ASSET_DIR="assets"
+    GLAB_ASSET_DIR="Content"
     $<$<CONFIG:Debug>:GLAB_ROOT_DIR="${CMAKE_SOURCE_DIR}">
     $<$<CONFIG:Debug>:GLAB_SHADER_BUILD_DIR="${CMAKE_BINARY_DIR}/shaders">
     $<$<CONFIG:Debug>:RTRLAB_LOG_MIN_LEVEL=0>
@@ -334,7 +354,7 @@ if(TARGET CompileShaders)
     add_dependencies(RTRLab CompileShaders)
 endif()
 
-glab_copy_runtime_assets(RTRLab)
+glab_copy_runtime_content(RTRLab)
 glab_configure_local_target(RTRLab)
 
 set_target_properties(RTRLab PROPERTIES
@@ -350,15 +370,80 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES
 )
 
 # -----------------------------------------------------------------------------
+# Tools
+# -----------------------------------------------------------------------------
+add_executable(rtr_asset_index
+    Tools/AssetIndexMain.cpp
+)
+
+target_link_libraries(rtr_asset_index PRIVATE
+    RTRLabCore
+)
+
+if(GLAB_ENABLE_PCH)
+    target_precompile_headers(rtr_asset_index REUSE_FROM RTRLabCore)
+endif()
+
+glab_configure_local_target(rtr_asset_index)
+
+set_target_properties(rtr_asset_index PROPERTIES
+    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
+add_executable(rtr_asset_cook
+    Tools/AssetCookMain.cpp
+)
+
+target_link_libraries(rtr_asset_cook PRIVATE
+    RTRLabCore
+)
+
+if(GLAB_ENABLE_PCH)
+    target_precompile_headers(rtr_asset_cook REUSE_FROM RTRLabCore)
+endif()
+
+glab_configure_local_target(rtr_asset_cook)
+
+set_target_properties(rtr_asset_cook PROPERTIES
+    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
+add_executable(rtr_asset_pack
+    Tools/AssetPackMain.cpp
+)
+
+target_link_libraries(rtr_asset_pack PRIVATE
+    RTRLabCore
+)
+
+if(GLAB_ENABLE_PCH)
+    target_precompile_headers(rtr_asset_pack REUSE_FROM RTRLabCore)
+endif()
+
+glab_configure_local_target(rtr_asset_pack)
+
+set_target_properties(rtr_asset_pack PROPERTIES
+    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
+# -----------------------------------------------------------------------------
 # Install rules
 # -----------------------------------------------------------------------------
 install(TARGETS RTRLab RUNTIME DESTINATION .)
+install(TARGETS rtr_asset_index RUNTIME DESTINATION tools)
+install(TARGETS rtr_asset_cook RUNTIME DESTINATION tools)
+install(TARGETS rtr_asset_pack RUNTIME DESTINATION tools)
 
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/assets/
-        DESTINATION assets
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/Content/
+        DESTINATION Content
         PATTERN "*.slang" EXCLUDE)
+
+if(EXISTS ${CMAKE_SOURCE_DIR}/EngineContent)
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/EngineContent/
+            DESTINATION EngineContent)
+endif()
 
 if(TARGET CompileShaders)
     install(DIRECTORY ${CMAKE_BINARY_DIR}/shaders/
-            DESTINATION assets/shaders/compiled)
+            DESTINATION Content/shaders/compiled)
 endif()

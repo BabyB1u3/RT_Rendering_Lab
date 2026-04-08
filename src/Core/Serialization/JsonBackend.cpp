@@ -1,6 +1,6 @@
 #include "Core/Serialization/JsonBackend.h"
-#include "Core/Diagnostics/LogCategories.h"
-#include "Core/Diagnostics/LogMacros.h"
+#include "Core/Diagnostics/Logging/LogCategories.h"
+#include "Core/Diagnostics/Logging/LogMacros.h"
 
 #include <json.hpp>
 #include <limits>

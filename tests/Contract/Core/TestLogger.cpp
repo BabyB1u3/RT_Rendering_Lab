@@ -8,10 +8,11 @@
 #include <thread>
 #include <vector>
 
-#include "Core/Diagnostics/Assert.h"
-#include "Core/Diagnostics/LogCategories.h"
-#include "Core/Diagnostics/LogMacros.h"
-#include "Core/Diagnostics/Logger.h"
+#include "Core/Diagnostics/Assert/Assert.h"
+#include "Core/Diagnostics/Logging/LogCategories.h"
+#include "Core/Diagnostics/Logging/LogMacros.h"
+#include "Core/Diagnostics/Logging/Logger.h"
+#include "Core/Resource/FileSystem.h"
 
 #include "GUI/Panels/ConsolePanel.h"
 
@@ -50,6 +51,7 @@ class LoggerHasLoggerTests : public ::testing::Test
 protected:
     void SetUp() override
     {
+        FileSystem::Init();
         Diagnostics::Logger::Init(DiagnosticsTestSupport::TestPath("diagnostics-contract.log"));
     }
 
@@ -256,6 +258,32 @@ TEST_F(LoggerHasLoggerTests, ConsoleCommandCanEnableAndDisableJsonSink)
     DiagnosticsTestSupport::RemoveCurrentTestArtifacts();
 }
 
+TEST_F(LoggerHasLoggerTests, ConsoleCommandCanEnableJsonSinkAtLogicalSavedPath)
+{
+    const auto logicalPath = std::string("/Saved/Logs/console-contract.jsonl");
+    const auto resolvedPath = FileSystem::ResolveWritePath(logicalPath);
+    ASSERT_TRUE(resolvedPath.has_value());
+    DiagnosticsTestSupport::RemovePathIfExists(*resolvedPath);
+
+    ConsolePanel panel;
+    panel.ExecuteCommand("log.json on \"" + logicalPath + "\"");
+    EXPECT_TRUE(Diagnostics::Logger::IsJsonSinkEnabled());
+    EXPECT_EQ(Diagnostics::Logger::GetJsonSinkPath(), *resolvedPath);
+
+    LOG_INFO_CAT(LogCategory::Core, "json-logical-path");
+    Diagnostics::Logger::Shutdown();
+
+    {
+        std::ifstream input(*resolvedPath);
+        ASSERT_TRUE(input.is_open());
+        const std::string contents((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+        EXPECT_NE(contents.find("json-logical-path"), std::string::npos);
+    }
+
+    DiagnosticsTestSupport::RemovePathIfExists(*resolvedPath);
+    DiagnosticsTestSupport::RemoveDirectoryIfEmpty(resolvedPath->parent_path());
+}
+
 TEST_F(LoggerHasLoggerTests, ConsoleCommandCanEnableJsonSinkAtPathWithSpaces)
 {
     const auto jsonPath = DiagnosticsTestSupport::TestPath("diagnostics contract spaced path.jsonl");
@@ -269,12 +297,33 @@ TEST_F(LoggerHasLoggerTests, ConsoleCommandCanEnableJsonSinkAtPathWithSpaces)
     LOG_INFO_CAT(LogCategory::Core, "json-space-path");
     Diagnostics::Logger::Shutdown();
 
-    std::ifstream input(jsonPath);
-    ASSERT_TRUE(input.is_open());
-    const std::string contents((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
-    EXPECT_NE(contents.find("json-space-path"), std::string::npos);
+    {
+        std::ifstream input(jsonPath);
+        ASSERT_TRUE(input.is_open());
+        const std::string contents((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+        EXPECT_NE(contents.find("json-space-path"), std::string::npos);
+    }
 
     DiagnosticsTestSupport::RemoveCurrentTestArtifacts();
+}
+
+TEST_F(LoggerHasLoggerTests, LoggerInitWithoutExplicitPathUsesSavedLogsDirectory)
+{
+    Diagnostics::Logger::Shutdown();
+
+    const auto expectedPath = FileSystem::ResolveWritePath("/Saved/logs/RTRLab.log");
+    ASSERT_TRUE(expectedPath.has_value());
+    DiagnosticsTestSupport::RemovePathIfExists(*expectedPath);
+
+    Diagnostics::Logger::Init();
+    EXPECT_EQ(Diagnostics::Logger::GetLogFilePath(), *expectedPath);
+
+    LOG_INFO_CAT(LogCategory::Core, "default-logical-log-path");
+    Diagnostics::Logger::Shutdown();
+
+    EXPECT_TRUE(std::filesystem::exists(*expectedPath));
+    DiagnosticsTestSupport::RemovePathIfExists(*expectedPath);
+    DiagnosticsTestSupport::RemoveDirectoryIfEmpty(expectedPath->parent_path());
 }
 
 TEST_F(LoggerHasLoggerTests, LoggerCanSwitchJsonSinkPathsAtRuntime)
@@ -312,12 +361,7 @@ TEST_F(LoggerHasLoggerTests, JsonSinkEnableFailureLeavesSinkDisabledAndLogsError
     DiagnosticsTestSupport::RemovePathIfExists(blockerPath);
     DiagnosticsTestSupport::RemovePathIfExists(invalidJsonPath);
 
-    std::filesystem::create_directories(blockerPath.parent_path());
-    {
-        std::ofstream output(blockerPath);
-        ASSERT_TRUE(output.is_open());
-        output << "blocker";
-    }
+    test_support::WriteTextFileOrFail(blockerPath, "blocker");
 
     Diagnostics::Logger::EnableJsonSink(invalidJsonPath);
     EXPECT_FALSE(Diagnostics::Logger::IsJsonSinkEnabled());

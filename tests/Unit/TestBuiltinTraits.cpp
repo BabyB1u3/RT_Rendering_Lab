@@ -9,6 +9,7 @@
 #include <glm/glm.hpp>
 
 #include "Core/Serialization/BuiltinTraits.h"
+#include "Core/Resource/Catalog/AssetPath.h"
 
 using namespace Serialization;
 
@@ -125,6 +126,50 @@ TEST(BuiltinTraitsTests, StringRoundTrip)
     ASSERT_TRUE(Deserialize(tree, output));
     EXPECT_TRUE(tree.IsString());
     EXPECT_EQ(output, "RTRLab");
+}
+
+TEST(BuiltinTraitsTests, AssetPathRoundTrip)
+{
+    const auto input = Resource::AssetPath::TryCreate("/Project/Textures/Grassy_Square");
+    ASSERT_TRUE(input.has_value());
+
+    PropertyTree tree;
+    Serialize(tree, *input);
+
+    Resource::AssetPath output;
+    ASSERT_TRUE(Deserialize(tree, output));
+    EXPECT_TRUE(tree.IsString());
+    EXPECT_EQ(output.String(), "/Project/Textures/Grassy_Square");
+}
+
+TEST(BuiltinTraitsTests, AssetPathDeserializeRejectsAbsoluteFilesystemPathAndLeavesOutputUnchanged)
+{
+    const auto original = Resource::AssetPath::TryCreate("/Project/Textures/Original");
+    ASSERT_TRUE(original.has_value());
+    Resource::AssetPath output = *original;
+
+    EXPECT_FALSE(Deserialize(PropertyTree("C:/Users/name/dev/RTRLab/Content/textures/Grassy_Square.jpg"), output));
+    EXPECT_EQ(output, *original);
+}
+
+TEST(BuiltinTraitsTests, AssetPathDeserializeRejectsSavedDomainAndLeavesOutputUnchanged)
+{
+    const auto original = Resource::AssetPath::TryCreate("/Project/Textures/Original");
+    ASSERT_TRUE(original.has_value());
+    Resource::AssetPath output = *original;
+
+    EXPECT_FALSE(Deserialize(PropertyTree("/Saved/Config/Input/DebugCameraControl.json"), output));
+    EXPECT_EQ(output, *original);
+}
+
+TEST(BuiltinTraitsTests, AssetPathDeserializeRejectsDocumentPathAndLeavesOutputUnchanged)
+{
+    const auto original = Resource::AssetPath::TryCreate("/Project/Textures/Original");
+    ASSERT_TRUE(original.has_value());
+    Resource::AssetPath output = *original;
+
+    EXPECT_FALSE(Deserialize(PropertyTree("/Project/Config/input/DebugCameraControl.json"), output));
+    EXPECT_EQ(output, *original);
 }
 
 TEST(BuiltinTraitsTests, Uint8RoundTrip)

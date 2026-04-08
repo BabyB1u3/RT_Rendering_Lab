@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "Core/Diagnostics/LogCategories.h"
+#include "Core/Diagnostics/Logging/LogCategories.h"
 
 TEST(LogCategoriesTests, IsKnownCategoryRecognizesPredefinedNames)
 {

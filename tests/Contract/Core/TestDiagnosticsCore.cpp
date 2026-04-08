@@ -14,13 +14,13 @@
 #include <spdlog/sinks/base_sink.h>
 
 #include "Core/Resource/FileSystem.h"
-#include "Core/Diagnostics/Assert.h"
-#include "Core/Diagnostics/Callstack.h"
-#include "Core/Diagnostics/CrashHandler.h"
-#include "Core/Diagnostics/ErrorMacros.h"
-#include "Core/Diagnostics/LogCategories.h"
-#include "Core/Diagnostics/LogMacros.h"
-#include "Core/Diagnostics/Logger.h"
+#include "Core/Diagnostics/Assert/Assert.h"
+#include "Core/Diagnostics/Crash/Callstack.h"
+#include "Core/Diagnostics/Crash/CrashHandler.h"
+#include "Core/Diagnostics/Assert/ErrorMacros.h"
+#include "Core/Diagnostics/Logging/LogCategories.h"
+#include "Core/Diagnostics/Logging/LogMacros.h"
+#include "Core/Diagnostics/Logging/Logger.h"
 
 #include "DiagnosticsTestSupport.h"
 
@@ -86,8 +86,12 @@ TEST(DiagnosticsContractTests, CrashHandlerUsesSavedLogsCrashDirectory)
 {
     FileSystem::Init();
 
-    const auto expectedPath = FileSystem::GetSavedPath("logs/crashes");
-    EXPECT_EQ(Diagnostics::CrashHandler::GetCrashDirectory(), expectedPath);
+    const auto expectedPath = FileSystem::ResolveWritePath("/Saved/logs/crashes");
+    ASSERT_TRUE(expectedPath.has_value());
+    EXPECT_EQ(Diagnostics::CrashHandler::GetCrashDirectory(), *expectedPath);
+
+    DiagnosticsTestSupport::RemoveTreeIfExists(*expectedPath);
+    DiagnosticsTestSupport::RemoveDirectoryIfEmpty(expectedPath->parent_path());
 }
 
 TEST(DiagnosticsContractTests, EnsureIsNonFatalAndReturnsBooleanStatus)

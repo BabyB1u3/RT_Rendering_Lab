@@ -14,17 +14,17 @@
 /// Key/Mouse/Gamepad codes continue to use InputNames.h for stable canonical names.
 
 #include "Core/Serialization/BuiltinTraits.h"
-#include "Core/Diagnostics/LogCategories.h"
-#include "Core/Diagnostics/LogMacros.h"
+#include "Core/Diagnostics/Logging/LogCategories.h"
+#include "Core/Diagnostics/Logging/LogMacros.h"
 #include "Core/Input/Action/InputAction.h"
 #include "Core/Input/Code/InputNames.h"
 
 namespace Serialization
 {
 
-    // ════════════════════════════════════════════════════════════════════�?
+    // ════════════════════════════════════════════════════════════════════�?
     // InputSource
-    // ════════════════════════════════════════════════════════════════════�?
+    // ════════════════════════════════════════════════════════════════════�?
 
     inline void Serialize(PropertyTree &tree, const InputSource &src)
     {
@@ -95,9 +95,9 @@ namespace Serialization
         return true;
     }
 
-    // ════════════════════════════════════════════════════════════════════�?
+    // ════════════════════════════════════════════════════════════════════�?
     // InputActionMap
-    // ════════════════════════════════════════════════════════════════════�?
+    // ════════════════════════════════════════════════════════════════════�?
 
     inline void Serialize(PropertyTree &tree, const InputActionMap &map)
     {
