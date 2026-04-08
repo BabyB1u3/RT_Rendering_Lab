@@ -56,6 +56,8 @@ Current state as of 2026-04-08:
   for project, engine, and plugin loose content mounts
 - a minimal cooked catalog generation tool now exists for loose development-time
   cooked mounts under `Saved/Cache/Cooked/`
+- the current runtime can load and validate the bootstrap cooked texture payload
+  written at cooked `.ktx2` artifact paths
 
 ---
 
@@ -710,6 +712,9 @@ Current minimal implementation:
   to cooked `.ktx2` artifact paths in the generated cooked catalog
 - the current runtime can select those cooked loose mounts for catalog-backed reads
   when the active resource profile is `cooked`
+- the current runtime can also load and validate the current bootstrap cooked
+  texture payload format through a dedicated helper, so the texture cook flow now
+  has a basic generation-and-consumption contract
 
 This is intentionally a bootstrap implementation. It proves that the same logical
 path can resolve from loose source content in `dev` and from loose cooked artifacts
@@ -1144,8 +1149,9 @@ checklist below.
 
 ### Phase 12 - Cooking integration
 
-- in progress; loose cooked catalog generation and runtime selection between source
-  and cooked project artifacts are now implemented for development-time mounts
+- in progress; loose cooked catalog generation, runtime selection between source
+  and cooked project artifacts, and bootstrap cooked texture read/validation are
+  now implemented for development-time mounts
 
 ### Phase 13 - Archive packaging
 
@@ -1291,6 +1297,7 @@ without repeatedly redefining scope.
 - [x] Implement cooked catalog generation tool
 - [x] Define how cooked outputs map back into `/Project/` and `/Engine/` for the
       current loose development-time layout under `Saved/Cache/Cooked/`
+- [x] Add runtime read/validation for the current bootstrap cooked texture format
 - [ ] Decide whether cooking writes under `build/`, `Cache/`, or both
 - [ ] Ensure cooked assets do not change public logical paths
 - [x] Add tests that verify the same logical path can resolve from loose vs cooked backends

@@ -171,7 +171,8 @@ Resource tooling:
   `EngineContent/`, and `Plugins/*/Content/`
 - `rtr_asset_cook` writes loose cooked `.rtr/catalog.json` files under
   `Saved/Cache/Cooked/`; texture assets currently decode to an RGBA8 bootstrap
-  binary at cooked `.ktx2` artifact paths
+  binary at cooked `.ktx2` artifact paths, and the runtime can load/validate that
+  bootstrap cooked texture payload through `Resource::LoadCookedTexture()`
 
 ```bash
 ./build/<config>/rtr_asset_index --root .
