@@ -162,13 +162,13 @@ set(GLAB_GUI_HEADERS
 set(GLAB_PLATFORM_SOURCES)
 if(WIN32)
     list(APPEND GLAB_PLATFORM_SOURCES
-        Core/Diagnostics/Crash/Backends/Win32/Callstack.cpp
-        Core/Diagnostics/Crash/Backends/Win32/CrashHandler.cpp
+        Core/Diagnostics/Crash/Backends/Win32/Win32Callstack.cpp
+        Core/Diagnostics/Crash/Backends/Win32/Win32CrashHandler.cpp
     )
 else()
     list(APPEND GLAB_PLATFORM_SOURCES
-        Core/Diagnostics/Crash/Backends/Posix/Callstack.cpp
-        Core/Diagnostics/Crash/Backends/Posix/CrashHandler.cpp
+        Core/Diagnostics/Crash/Backends/Posix/PosixCallstack.cpp
+        Core/Diagnostics/Crash/Backends/Posix/PosixCrashHandler.cpp
     )
 endif()
 

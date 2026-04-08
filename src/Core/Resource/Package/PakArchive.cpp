@@ -37,7 +37,7 @@ namespace
         return std::equal(kPakMagic.begin(), kPakMagic.end(), header.magic);
     }
 
-    std::string ToGenericString(const std::filesystem::path &path)
+    std::string PakPathToGenericString(const std::filesystem::path &path)
     {
         return path.generic_string();
     }
@@ -146,7 +146,7 @@ namespace
         if (!LoadPakIndex(pakPath, entries, errorMessage))
             return std::nullopt;
 
-        const auto wantedPath = ToGenericString(relativePath);
+        const auto wantedPath = PakPathToGenericString(relativePath);
         const auto it = std::find_if(entries.begin(), entries.end(), [&](const PakIndexEntry &entry) {
             return entry.relativePath == wantedPath;
         });
@@ -269,7 +269,7 @@ namespace Resource
             }
 
             indexEntries.push_back(PakIndexEntry{
-                .relativePath = ToGenericString(relativePath),
+                .relativePath = PakPathToGenericString(relativePath),
                 .dataOffset = dataOffset,
                 .dataSize = static_cast<uint64_t>(buffer.size()),
             });

@@ -12,7 +12,7 @@ namespace
 {
     using Json = nlohmann::json;
 
-    std::string ToGenericString(const std::filesystem::path &path)
+    std::string CatalogPathToGenericString(const std::filesystem::path &path)
     {
         return path.generic_string();
     }
@@ -61,7 +61,7 @@ namespace
             canonicalRelative /= (lookupIt != kCanonicalSegmentNames.end()) ? lookupIt->second : segmentText;
         }
 
-        const auto relative = ToGenericString(canonicalRelative);
+        const auto relative = CatalogPathToGenericString(canonicalRelative);
 
         switch (mountPath.domain)
         {
@@ -218,9 +218,9 @@ namespace Resource
 
             ResourceCatalogEntry catalogEntry;
             catalogEntry.logicalPath = logicalPath;
-            catalogEntry.sourceRelativePath = ToGenericString(relativePath);
+            catalogEntry.sourceRelativePath = CatalogPathToGenericString(relativePath);
             catalogEntry.artifacts.push_back(ArtifactRecord{
-                .relativePath = ToGenericString(relativePath),
+                .relativePath = CatalogPathToGenericString(relativePath),
                 .format = DetectFormat(relativePath),
                 .platformTag = "any",
                 .backendTag = "any",

@@ -85,7 +85,7 @@ namespace Serialization
         return s_JsonBackend;
     }
 
-    /// Save: Serialize T â†?PropertyTree â†?format string â†?file.
+    /// Save: Serialize T -> PropertyTree -> format string -> file.
     /// Creates parent directories. Returns false on failure.
     template <Serializable T>
     bool SaveToFile(const T &value, const std::filesystem::path &path,
@@ -161,7 +161,7 @@ namespace Serialization
         return SaveToFile(value, *path);
     }
 
-    /// Load: file â†?format string â†?PropertyTree â†?Deserialize into T.
+    /// Load: file -> format string -> PropertyTree -> Deserialize into T.
     /// On failure, `value` is unchanged. Returns false on parse or validation error.
     template <Serializable T>
     bool LoadFromFile(T &value, const std::filesystem::path &path,
