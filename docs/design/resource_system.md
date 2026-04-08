@@ -57,7 +57,7 @@ Current state as of 2026-04-08:
 - a minimal cooked catalog generation tool now exists for loose development-time
   cooked mounts under `Saved/Cache/Cooked/`
 - the current runtime can load and validate the bootstrap cooked texture payload
-  written at cooked `.ktx2` artifact paths
+  written at cooked `.rtrtex` artifact paths
 
 ---
 
@@ -621,7 +621,7 @@ RTRLab has chosen extensionless logical asset paths such as:
 ```
 
 That means the runtime cannot resolve those paths by guessing whether the physical file
-is `.png`, `.jpg`, `.slang`, `.bin`, `.ktx2`, or something else.
+is `.png`, `.jpg`, `.slang`, `.bin`, `.rtrtex`, or something else.
 
 Therefore, catalog-backed asset paths must resolve through a **resource catalog**.
 
@@ -709,7 +709,7 @@ Current minimal implementation:
 - it writes loose cooked `catalog.json` files that currently retain the same JSON
   schema as source catalogs, but rewrite artifact `profileTag` to `cooked`
 - project texture assets currently switch from source `.jpg`/`.png` style artifacts
-  to cooked `.ktx2` artifact paths in the generated cooked catalog
+  to cooked `.rtrtex` artifact paths in the generated cooked catalog
 - the current runtime can select those cooked loose mounts for catalog-backed reads
   when the active resource profile is `cooked`
 - the current runtime can also load and validate the current bootstrap cooked
@@ -720,9 +720,9 @@ This is intentionally a bootstrap implementation. It proves that the same logica
 path can resolve from loose source content in `dev` and from loose cooked artifacts
 in `cooked` without yet committing to the final binary cooked catalog format or a
 final transcoding backend. The current texture cook step decodes source images to an
-engine-owned RGBA8 bootstrap blob and writes that payload at cooked `.ktx2` artifact
-paths; the artifact identity is now distinct from the source image even though the
-final KTX2 encoder is not implemented yet.
+engine-owned RGBA8 bootstrap blob and writes that payload at cooked `.rtrtex`
+artifact paths; the artifact identity is now distinct from the source image and no
+longer pretends to be final KTX2 output.
 
 ### 9.6 Physical storage and format strategy
 
@@ -778,7 +778,7 @@ enum class ResourceKind
 struct ArtifactRecord
 {
     std::string relativePath;      // physical path inside the mount/backend
-    std::string format;            // e.g. jpg, png, slang, ktx2, metallib, spirv
+    std::string format;            // e.g. jpg, png, slang, rtrtex, metallib, spirv
     std::string platformTag;       // e.g. any, windows, macos, linux
     std::string backendTag;        // e.g. any, opengl, metal, vulkan
     std::string profileTag;        // e.g. dev, cooked, shipping
@@ -1038,7 +1038,7 @@ Cooked file:    Cache/Cooked/Shaders/ForwardLit.bin
 
 Logical path:   /Project/Textures/Grassy_Square
 Source file:    Content/Textures/Grassy_Square.jpg
-Cooked file:    Cache/Cooked/Textures/Grassy_Square.ktx2
+Cooked file:    Cache/Cooked/Textures/Grassy_Square.rtrtex
 ```
 
 Cooked outputs may live physically under `Cache/` or `build/` during development, but
@@ -1050,7 +1050,7 @@ must still resolve back to the same logical identity:
 ```
 
 This requires the resource catalog defined in Section 9.
-The runtime must **not** guess file extensions by probing `.png`, `.jpg`, `.ktx2`,
+The runtime must **not** guess file extensions by probing `.png`, `.jpg`, `.rtrtex`,
 `.slang`, `.bin`, and similar variants at load time.
 
 If two different source files would map to the same logical path, that is an authoring
