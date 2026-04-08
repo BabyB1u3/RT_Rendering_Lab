@@ -125,6 +125,8 @@ TEST(FileSystemContractTests, ResolveWritePathMapsSavedConfigLogicalPathToSavedC
     ASSERT_TRUE(resolved.has_value());
     EXPECT_EQ(*resolved, FileSystem::GetSavedConfigPath("test-contract/Phase12Config.json"));
     EXPECT_TRUE(std::filesystem::exists(resolved->parent_path()));
+
+    RemoveDirectoryTreeIfExists(FileSystem::GetSavedDir() / "Config" / "test-contract");
 }
 
 TEST(FileSystemContractTests, ResolveWritePathRejectsReadOnlyDomains)
@@ -145,6 +147,9 @@ TEST(FileSystemContractTests, ResolveWritePathCreatesCacheDirectoryParents)
     ASSERT_TRUE(resolved.has_value());
     EXPECT_EQ(*resolved, FileSystem::GetCacheDir() / "Shaders" / "opengl" / "ForwardLit.cache");
     EXPECT_TRUE(std::filesystem::exists(resolved->parent_path()));
+
+    RemoveDirectoryTreeIfExists(FileSystem::GetCacheDir() / "Shaders" / "opengl");
+    RemoveDirectoryIfEmpty(FileSystem::GetCacheDir() / "Shaders");
 }
 
 TEST(FileSystemContractTests, ResolveReadPathRejectsInvalidMountsAndTraversal)
@@ -246,7 +251,7 @@ TEST(FileSystemContractTests, WriteTextSupportsSavedLogicalPaths)
     EXPECT_EQ(*contents, kExpectedContents);
 
     RemovePathIfExists(savedPath);
-    RemoveDirectoryIfEmpty(savedPath.parent_path());
+    RemoveDirectoryTreeIfExists(FileSystem::GetSavedDir() / "Config" / "test-contract");
 }
 
 TEST(FileSystemContractTests, WriteBinarySupportsCacheLogicalPaths)
@@ -265,7 +270,8 @@ TEST(FileSystemContractTests, WriteBinarySupportsCacheLogicalPaths)
     EXPECT_EQ(*contents, expectedData);
 
     RemovePathIfExists(cachePath);
-    RemoveDirectoryIfEmpty(cachePath.parent_path());
+    RemoveDirectoryTreeIfExists(FileSystem::GetCacheDir() / "Shaders" / "test-contract");
+    RemoveDirectoryIfEmpty(FileSystem::GetCacheDir() / "Shaders");
 }
 
 TEST(FileSystemContractTests, WriteHelpersRejectReadOnlyDomains)
@@ -291,6 +297,7 @@ TEST(FileSystemContractTests, ResolveConfigPathPrefersSavedConfigWhenPresent)
 
     RemovePathIfExists(savedPath);
     RemoveDirectoryIfEmpty(savedPath.parent_path());
+    RemoveDirectoryIfEmpty(savedPath.parent_path().parent_path());
 }
 
 TEST(FileSystemContractTests, ResolveConfigPathCopiesDefaultConfigIntoSavedDirectory)
@@ -321,7 +328,7 @@ TEST(FileSystemContractTests, ResolveConfigPathCopiesDefaultConfigIntoSavedDirec
 
     RemovePathIfExists(savedPath);
     RemovePathIfExists(assetPath);
-    RemoveDirectoryIfEmpty(savedPath.parent_path());
+    RemoveDirectoryTreeIfExists(FileSystem::GetSavedDir() / "Config" / "test-contract");
     RemoveDirectoryIfEmpty(assetPath.parent_path());
 }
 
