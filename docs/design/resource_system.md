@@ -41,6 +41,8 @@ Current state as of 2026-04-08:
   `/Saved/...` paths rather than legacy saved-path wrappers
 - serialization now provides logical-path wrappers for document-style file I/O through
   the resource system
+- asset-reference serialization now has an explicit validated path type instead of
+  relying on raw strings
 - the resource catalog design in Section 9 is **not** implemented yet, so
   extensionless catalog-backed asset paths are currently classified but not resolved
   through a catalog
@@ -903,6 +905,10 @@ The existing `Serialization::SaveToFile` / `LoadFromFile` APIs may keep taking
 `std::filesystem::path` for low-level use, but higher-level systems should gain
 resource-aware wrappers so application code can operate on logical paths directly.
 
+For serialized asset references specifically, code should prefer a validated wrapper
+type rather than a raw `std::string`, so malformed physical paths and non-asset logical
+paths are rejected at deserialize time.
+
 ---
 
 ## 13. Cooking and Packaging
@@ -1147,10 +1153,10 @@ without repeatedly redefining scope.
 
 ### 15.9 Phase 8 - Serialization and asset-reference rules
 
-- [ ] Define which data types are allowed to serialize logical resource paths
+- [x] Define which data types are allowed to serialize logical resource paths
 - [x] Update serialization guidance to prefer `/Project/...` or `/Engine/...`
-- [ ] Ban absolute filesystem paths in serialized asset references
-- [ ] Add validation/logging for malformed logical resource strings
+- [x] Ban absolute filesystem paths in serialized asset references
+- [x] Add validation/logging for malformed logical resource strings
 - [x] Add at least one contract test that loads a serialized logical asset reference
 
 ### 15.10 Phase 9 - Optional physical directory rename
