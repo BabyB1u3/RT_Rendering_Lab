@@ -2,7 +2,6 @@
 # Source inventory
 # -----------------------------------------------------------------------------
 set(GLAB_APP_SOURCES
-    Core/FileSystem.cpp
     Core/Time.cpp
     Core/App/Application.cpp
     Core/App/Window.cpp
@@ -12,7 +11,6 @@ set(GLAB_APP_SOURCES
 
 set(GLAB_APP_HEADERS
     Core/Base.h
-    Core/FileSystem.h
     Core/Time.h
     Core/App/Application.h
     Core/App/Layer.h
@@ -21,6 +19,25 @@ set(GLAB_APP_HEADERS
     Core/Event/EventBus.h
     Core/Event/Events.h
     Core/Event/ScopedConnection.h
+)
+
+set(GLAB_RESOURCE_SOURCES
+    Core/Resource/ConfigResolver.cpp
+    Core/Resource/FileSystem.cpp
+    Core/Resource/MountResolver.cpp
+    Core/Resource/PathParser.cpp
+    Core/Resource/PhysicalIO.cpp
+    Core/Resource/RootDiscovery.cpp
+)
+
+set(GLAB_RESOURCE_HEADERS
+    Core/Resource/ConfigResolver.h
+    Core/Resource/FileSystem.h
+    Core/Resource/MountResolver.h
+    Core/Resource/PathParser.h
+    Core/Resource/PathTypes.h
+    Core/Resource/PhysicalIO.h
+    Core/Resource/RootDiscovery.h
 )
 
 set(GLAB_INPUT_SOURCES
@@ -149,6 +166,7 @@ set(GLAB_METAL_HEADERS)
 
 set(GLAB_CORE_SOURCES
     ${GLAB_APP_SOURCES}
+    ${GLAB_RESOURCE_SOURCES}
     ${GLAB_INPUT_SOURCES}
     ${GLAB_DIAGNOSTICS_SOURCES}
     ${GLAB_SERIALIZATION_SOURCES}
@@ -160,6 +178,7 @@ set(GLAB_CORE_SOURCES
 
 set(GLAB_CORE_HEADERS
     ${GLAB_APP_HEADERS}
+    ${GLAB_RESOURCE_HEADERS}
     ${GLAB_INPUT_HEADERS}
     ${GLAB_DIAGNOSTICS_HEADERS}
     ${GLAB_SERIALIZATION_HEADERS}

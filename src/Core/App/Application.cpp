@@ -2,7 +2,7 @@
 
 #include <GLFW/glfw3.h>
 
-#include "Core/FileSystem.h"
+#include "Core/Resource/FileSystem.h"
 #include "Core/Diagnostics/Assert.h"
 #include "Core/Diagnostics/CrashHandler.h"
 #include "Core/Diagnostics/FrameFormatter.h"

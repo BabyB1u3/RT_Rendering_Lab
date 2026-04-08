@@ -15,6 +15,30 @@ This document intentionally does **not** treat the current shader pipeline as an
 architectural dependency. Shader compilation, cooking, and archive packaging must fit
 into the resource model defined here, not define it.
 
+## 0. Implementation Status Snapshot
+
+This document still describes the long-term architecture, but parts of the early
+phases are now implemented in the codebase.
+
+Current state as of 2026-04-08:
+
+- the resource/path module now lives under `src/Core/Resource/`
+- `FileSystem` remains the public facade, with a thin compatibility forwarding header
+  at `src/Core/FileSystem.h`
+- logical path parsing is implemented for `/Project/`, `/Engine/`,
+  `/Plugins/<Name>/`, `/Saved/`, and `/Cache/`
+- document-style path resolution is implemented for direct file-backed reads/writes
+- logical-path-based `Exists()`, `ReadText()`, `ReadBinary()`, `WriteText()`, and
+  `WriteBinary()` are implemented
+- compatibility wrappers such as `GetAssetPath()`, `GetSavedPath()`,
+  `GetSavedConfigPath()`, and `ResolveConfigPath()` still exist during migration
+- the config resolution chain is implemented as
+  `/Saved/Config -> /Project/Config -> /Engine/Config`, with compatibility mapping to
+  the current physical `configs/` directories
+- the resource catalog design in Section 9 is **not** implemented yet, so
+  extensionless catalog-backed asset paths are currently classified but not resolved
+  through a catalog
+
 ---
 
 ## 1. Design Goals
@@ -275,10 +299,23 @@ Typical mappings:
 
 The current repository still uses `assets/` and `saved/`.
 
-That layout may be preserved temporarily during migration by mounting:
+That layout is currently preserved during migration by mounting:
 
 - `assets/` as `/Project/`
 - `saved/` as `/Saved/`
+- `saved/cache/` as `/Cache/` in development
+- `EngineContent/` as `/Engine/`
+- `Plugins/<Name>/Content/` as `/Plugins/<Name>/`
+
+Current compatibility details:
+
+- logical `Config/` paths are mapped to the existing lower-case physical `configs/`
+  directories
+- `ResolveConfigPath()` already follows the logical override order
+  `/Saved/Config -> /Project/Config -> /Engine/Config`, while still seeding from the
+  current repository layout
+- writable roots resolve to repository-local `saved/` paths in debug/development
+  builds and to platform user-data directories in shipping-style builds
 
 However, the long-term recommendation is to rename them to `Content/` and `Saved/`
 because those names communicate intent better and reduce future confusion between
@@ -365,21 +402,48 @@ It is **not** responsible for:
 
 ## 8. API Direction
 
-The current `FileSystem` class is a useful bootstrap, but its public surface is too
-physical-path-oriented for the long-term model.
+The original single-file `FileSystem` bootstrap has now been split into a dedicated
+resource module under `src/Core/Resource/`, with `FileSystem` retained as the public
+facade.
 
-### 8.1 Current limitation
+### 8.1 Current implemented shape
 
-Today the API is built around:
+The current codebase already exposes:
 
-- `GetAssetPath(relative)`
-- `GetSavedPath(relative)`
-- `ReadTextFile(std::filesystem::path)`
-- `ReadBinaryFile(std::filesystem::path)`
+- logical path parsing and classification:
+  `IsVirtualPath()`, `ParseVirtualPath()`, `IsCatalogBackedPath()`,
+  `IsDocumentPath()`
+- logical path resolution:
+  `ResolveReadPath()`, `ResolveWritePath()`
+- logical file I/O:
+  `Exists()`, `ReadText()`, `ReadBinary()`, `WriteText()`, `WriteBinary()`
+- compatibility wrappers:
+  `GetAssetPath()`, `GetSavedPath()`, `GetSavedConfigPath()`, `ResolveConfigPath()`,
+  `ReadTextFile()`, `ReadBinaryFile()`
 
-That makes the caller choose the physical storage class too early.
+The module is currently split across small helpers such as:
 
-### 8.2 Target public API shape
+- `PathTypes`
+- `PathParser`
+- `MountResolver`
+- `ConfigResolver`
+- `PhysicalIO`
+- `RootDiscovery`
+
+### 8.2 Remaining limitation
+
+The main gap is no longer basic logical-path I/O. The remaining architectural gap is
+catalog-backed asset resolution.
+
+Today the unresolved part is:
+
+- extensionless read-domain asset paths such as `/Project/Textures/Grassy_Square`
+  are recognized as catalog-backed paths
+- but they do **not** yet resolve through a catalog loader / merged catalog table
+- read success today depends on document-style direct filesystem paths, especially
+  `/Project/Config/...`, `/Saved/...`, and `/Cache/...`
+
+### 8.3 Public API shape
 
 The exact names may change, but the resource system should evolve toward an API like:
 
@@ -425,6 +489,7 @@ public:
 Notes:
 
 - `mountName` is populated only for `/Plugins/<Name>/...`
+- most of this surface is now implemented in the current `FileSystem` facade
 - the first implementation may still return `std::optional`, but the long-term API
   should likely move to a richer result type so resolution failures can distinguish
   between invalid path, unknown mount, denied write domain, and file-not-found
@@ -432,7 +497,7 @@ Notes:
   future async APIs must build on the same logical path contract rather than inventing
   a second path system
 
-### 8.3 Compatibility layer
+### 8.4 Compatibility layer
 
 During migration, keep compatibility helpers such as:
 
@@ -448,6 +513,14 @@ API forever.
 ## 9. Resource Catalog
 
 The resource catalog is a first-class subsystem of the path/resource layer.
+
+Implementation status:
+
+- the design in this section is still forward-looking
+- no catalog loader, merged catalog table, or artifact selection policy is implemented
+  yet
+- current runtime support only covers document-style direct file-backed paths; it does
+  not yet provide end-to-end resolution for extensionless catalog-backed asset paths
 
 It is **not** an optional helper and it is **not** a temporary convenience for the
 current cooking discussion. It is the stable bridge between:
@@ -908,31 +981,31 @@ checklist below.
 
 ### Phase 0 - Design freeze and naming decisions
 
-- approve roots, syntax rules, and long-term naming
+- design direction documented; long-term physical rename still open
 
 ### Phase 1 - Core path primitives
 
-- add parsing, validation, normalization
+- implemented
 
 ### Phase 2 - Read/write resolution layer
 
-- resolve `/Project/`, `/Saved/`, `/Cache/`, and initial `/Engine/`
+- implemented for `/Project/`, `/Engine/`, `/Plugins/<Name>/`, `/Saved/`, and `/Cache/`
 
 ### Phase 3 - Resource catalog design and implementation
 
-- define catalog schema, loading, merge rules, and artifact selection
+- not started in code; design only
 
 ### Phase 4 - Public FileSystem API migration
 
-- add logical-path-based read/write/exists APIs
+- largely implemented in the `FileSystem` facade
 
 ### Phase 5 - Compatibility bridge for current repository layout
 
-- keep `assets/` and `saved/` mounted during migration
+- implemented for the current repository layout, including config compatibility mapping
 
 ### Phase 6 - Caller migration in runtime systems
 
-- migrate ImGui, diagnostics, config, and future asset-facing systems
+- partially pending; compatibility wrappers still carry several callsites
 
 ### Phase 7 - Config system cleanup
 
@@ -977,38 +1050,38 @@ without repeatedly redefining scope.
 
 ### 15.1 Phase 0 - Design freeze and naming decisions
 
-- [ ] Approve the public logical roots:
+- [x] Approve the public logical roots:
       `/Project/`, `/Engine/`, `/Plugins/<Name>/`, `/Saved/`, `/Cache/`
 - [ ] Decide whether the long-term physical rename is accepted:
       `assets/ -> Content/`, `saved/ -> Saved/`
 - [ ] Decide whether config defaults move out of content immediately or in a later pass
-- [ ] Freeze the logical path syntax rules:
+- [x] Freeze the logical path syntax rules:
       leading `/`, forward slashes only, no `.` / `..`, no raw OS paths in serialized references
-- [ ] Freeze the path-class distinction:
+- [x] Freeze the path-class distinction:
       catalog-backed assets vs document-style resource paths
-- [ ] Identify all current systems that read or write paths directly:
+- [x] Identify all current systems that read or write paths directly:
       `FileSystem`, diagnostics, ImGui ini, serialization callsites, future asset references
 
 ### 15.2 Phase 1 - Core path primitives
 
-- [ ] Add a logical path parser to `FileSystem`
-- [ ] Add mount/domain representation in code
-- [ ] Implement virtual path validation
-- [ ] Implement normalization rules
-- [ ] Reject invalid mount roots and traversal segments
-- [ ] Implement path-class detection:
+- [x] Add a logical path parser to `FileSystem`
+- [x] Add mount/domain representation in code
+- [x] Implement virtual path validation
+- [x] Implement normalization rules
+- [x] Reject invalid mount roots and traversal segments
+- [x] Implement path-class detection:
       catalog-backed asset path vs document-style path
-- [ ] Add unit tests for path parsing and normalization
+- [x] Add unit tests for path parsing and normalization
 
 ### 15.3 Phase 2 - Read/write resolution layer
 
-- [ ] Implement `/Project/` read resolution
-- [ ] Implement `/Saved/` write resolution
-- [ ] Implement `/Cache/` write resolution
-- [ ] Add platform-specific shipping mappings for `/Saved/` and `/Cache/`
-- [ ] Add a clear policy for `/Engine/` even if it is initially backed by an empty directory
-- [ ] Add directory creation for writable domains
-- [ ] Add contract tests for read/write domain behavior
+- [x] Implement `/Project/` read resolution
+- [x] Implement `/Saved/` write resolution
+- [x] Implement `/Cache/` write resolution
+- [x] Add platform-specific shipping mappings for `/Saved/` and `/Cache/`
+- [x] Add a clear policy for `/Engine/` even if it is initially backed by an empty directory
+- [x] Add directory creation for writable domains
+- [x] Add contract tests for read/write domain behavior
 
 ### 15.4 Phase 3 - Resource catalog design and implementation
 
@@ -1024,26 +1097,26 @@ without repeatedly redefining scope.
 
 ### 15.5 Phase 4 - Public FileSystem API migration
 
-- [ ] Add `IsVirtualPath()`
-- [ ] Add `ParseVirtualPath()`
-- [ ] Add `IsCatalogBackedPath()`
-- [ ] Add `IsDocumentPath()`
-- [ ] Add `ResolveReadPath()`
-- [ ] Add `ResolveWritePath()`
-- [ ] Add logical-path-based `Exists()`
-- [ ] Add logical-path-based `ReadText()`
-- [ ] Add logical-path-based `ReadBinary()`
-- [ ] Add logical-path-based write helpers
-- [ ] Keep legacy wrappers for `GetAssetPath()` / `GetSavedPath()` temporarily
-- [ ] Mark legacy physical-path helpers as migration-only in comments/docs
+- [x] Add `IsVirtualPath()`
+- [x] Add `ParseVirtualPath()`
+- [x] Add `IsCatalogBackedPath()`
+- [x] Add `IsDocumentPath()`
+- [x] Add `ResolveReadPath()`
+- [x] Add `ResolveWritePath()`
+- [x] Add logical-path-based `Exists()`
+- [x] Add logical-path-based `ReadText()`
+- [x] Add logical-path-based `ReadBinary()`
+- [x] Add logical-path-based write helpers
+- [x] Keep legacy wrappers for `GetAssetPath()` / `GetSavedPath()` temporarily
+- [x] Mark legacy physical-path helpers as migration-only in comments/docs
 
 ### 15.6 Phase 5 - Compatibility bridge for current repository layout
 
-- [ ] Mount current `assets/` as `/Project/`
-- [ ] Mount current `saved/` as `/Saved/`
-- [ ] Keep current startup root discovery working during migration
-- [ ] Rewrite `ResolveConfigPath()` on top of the new logical config model
-- [ ] Confirm that existing tests still pass through compatibility wrappers
+- [x] Mount current `assets/` as `/Project/`
+- [x] Mount current `saved/` as `/Saved/`
+- [x] Keep current startup root discovery working during migration
+- [x] Rewrite `ResolveConfigPath()` on top of the new logical config model
+- [x] Confirm that existing tests still pass through compatibility wrappers
 
 ### 15.7 Phase 6 - Caller migration in runtime systems
 
@@ -1080,9 +1153,9 @@ without repeatedly redefining scope.
 
 ### 15.11 Phase 10 - Engine and plugin mounts
 
-- [ ] Add `/Engine/` loose-directory mount
+- [x] Add `/Engine/` loose-directory mount
 - [ ] Define the physical location for engine-shipped content
-- [ ] Add `/Plugins/<Name>/` mount registration model
+- [x] Add `/Plugins/<Name>/` mount registration model
 - [ ] Decide plugin mount naming rules
 - [ ] Add tests for plugin mount discovery and precedence
 
@@ -1126,10 +1199,10 @@ This module is done when all of the following are true:
 
 - [ ] Runtime systems load shipped resources by logical path, not by ad hoc physical path joins
 - [ ] Runtime systems write user data only through writable logical domains
-- [ ] Config defaults and user overrides follow the documented resolution chain
+- [x] Config defaults and user overrides follow the documented resolution chain
 - [ ] Loose-file development and packaged/cooked builds expose the same public logical paths
 - [ ] Serialized asset references no longer depend on repository-relative or absolute filesystem paths
-- [ ] `/Engine/` and `/Plugins/...` are no longer just future ideas in the design doc
+- [x] `/Engine/` and `/Plugins/...` are no longer just future ideas in the design doc
 - [ ] The remaining compatibility wrappers are either removed or intentionally retained with documented scope
 
 ---

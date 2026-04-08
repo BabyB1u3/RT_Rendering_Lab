@@ -9,7 +9,7 @@
 #endif
 
 #include "Core/App/Application.h"
-#include "Core/FileSystem.h"
+#include "Core/Resource/FileSystem.h"
 #include "Core/Input/Input.h"
 
 ImGuiLayer::ImGuiLayer()
@@ -70,7 +70,7 @@ void ImGuiLayer::Begin()
 
     // Forward ImGui's capture state to the Input polling layer so that
     // game/demo code does not respond to keys/mouse meant for UI widgets.
-    ImGuiIO& io = ImGui::GetIO();
+    ImGuiIO &io = ImGui::GetIO();
     Input::SetKeyboardCaptured(io.WantCaptureKeyboard);
     Input::SetMouseCaptured(io.WantCaptureMouse);
 }

@@ -13,7 +13,7 @@
 #include <spdlog/async.h>
 #include <spdlog/sinks/base_sink.h>
 
-#include "Core/FileSystem.h"
+#include "Core/Resource/FileSystem.h"
 #include "Core/Diagnostics/Assert.h"
 #include "Core/Diagnostics/Callstack.h"
 #include "Core/Diagnostics/CrashHandler.h"
