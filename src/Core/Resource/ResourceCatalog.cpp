@@ -21,6 +21,7 @@ namespace
         std::string cacheKey;
         std::string sourceKey;
         Resource::VirtualPath mountPath;
+        Resource::MountPriority priority = Resource::MountPriority::Source;
         Resource::MountBackendKind backend = Resource::MountBackendKind::Directory;
         std::filesystem::path mountRoot;
         std::filesystem::path materializedRoot;
@@ -391,6 +392,7 @@ namespace
         const bool preferPackagedArtifacts = GetCurrentProfileTag() == "packaged" || GetCurrentProfileTag() == "shipping";
         std::vector<std::filesystem::path> cookedRootSearchOrder;
         std::vector<std::filesystem::path> packagedRootSearchOrder;
+        std::vector<std::filesystem::path> overlayRootSearchOrder;
 
         if (const char *overrideValue = std::getenv("RTRLAB_COOKED_ROOT"))
         {
@@ -404,11 +406,18 @@ namespace
             if (!overrideRoot.empty())
                 packagedRootSearchOrder.push_back(overrideRoot);
         }
+        if (const char *overrideValue = std::getenv("RTRLAB_OVERLAY_ROOT"))
+        {
+            const std::filesystem::path overrideRoot = overrideValue;
+            if (!overrideRoot.empty())
+                overlayRootSearchOrder.push_back(overrideRoot);
+        }
 
         cookedRootSearchOrder.push_back(cacheDir / "Cooked");
         cookedRootSearchOrder.push_back(rootPath / "build" / "Cooked");
         packagedRootSearchOrder.push_back(cacheDir / "Packaged");
         packagedRootSearchOrder.push_back(rootPath / "build" / "Packaged");
+        overlayRootSearchOrder.push_back(rootPath / "Saved" / "Overrides");
 
         auto findCookedMountRoot = [&](const std::filesystem::path &mountRelativePath) -> std::filesystem::path {
             for (const auto &cookedRoot : cookedRootSearchOrder)
@@ -433,80 +442,154 @@ namespace
             return {};
         };
 
+        auto findOverlayMountRoot = [&](const std::filesystem::path &mountRelativePath) -> std::filesystem::path {
+            for (const auto &overlayRoot : overlayRootSearchOrder)
+            {
+                const auto candidate = overlayRoot / mountRelativePath;
+                if (std::filesystem::exists(candidate / ".rtr" / "catalog.json"))
+                    return candidate;
+            }
+
+            return {};
+        };
+
+        const auto appendReadableMount = [&](std::string cacheKey,
+                                             const std::string &sourceKey,
+                                             const Resource::VirtualPath &mountPath,
+                                             const Resource::MountPriority priority,
+                                             const Resource::MountBackendKind backend,
+                                             const std::filesystem::path &mountRoot,
+                                             const std::filesystem::path &materializedRoot) {
+            if (mountRoot.empty())
+                return;
+
+            mounts.push_back(MountDescriptor{
+                std::move(cacheKey),
+                sourceKey,
+                mountPath,
+                priority,
+                backend,
+                mountRoot,
+                materializedRoot,
+            });
+        };
+
         const auto addReadableMount = [&](const std::string &sourceKey,
                                           const Resource::VirtualPath &mountPath,
                                           const std::filesystem::path &sourceRoot,
                                           const std::filesystem::path &cookedMountRelativePath,
                                           const std::filesystem::path &packagedArchiveRelativePath) {
+            const auto overlayRoot = findOverlayMountRoot(cookedMountRelativePath);
             const auto cookedRoot = findCookedMountRoot(cookedMountRelativePath);
             const auto packagedArchive = findPackagedMountArchive(packagedArchiveRelativePath);
+            const bool hasOverlayCatalog = !overlayRoot.empty();
             const bool hasCookedCatalog = !cookedRoot.empty();
             const bool hasPackagedCatalog = !packagedArchive.empty();
             const bool hasSourceRoot = std::filesystem::exists(sourceRoot);
             const auto materializedRoot = cacheDir / "PackagedExtracted" / SanitizeMountKeyForPath(sourceKey);
 
-            if (preferPackagedArtifacts && hasPackagedCatalog)
+            if (hasOverlayCatalog)
             {
-                mounts.push_back(MountDescriptor{
-                    "Packaged:" + sourceKey,
-                    sourceKey,
-                    mountPath,
-                    Resource::MountBackendKind::PakArchive,
-                    packagedArchive,
-                    materializedRoot,
-                });
+                appendReadableMount("Overlay:" + sourceKey,
+                                    sourceKey,
+                                    mountPath,
+                                    Resource::MountPriority::Overlay,
+                                    Resource::MountBackendKind::Directory,
+                                    overlayRoot,
+                                    {});
+            }
+
+            if (preferPackagedArtifacts)
+            {
+                if (hasPackagedCatalog)
+                {
+                    appendReadableMount("Packaged:" + sourceKey,
+                                        sourceKey,
+                                        mountPath,
+                                        Resource::MountPriority::Packaged,
+                                        Resource::MountBackendKind::PakArchive,
+                                        packagedArchive,
+                                        materializedRoot);
+                }
+                if (hasCookedCatalog)
+                {
+                    appendReadableMount("Cooked:" + sourceKey,
+                                        sourceKey,
+                                        mountPath,
+                                        Resource::MountPriority::Cooked,
+                                        Resource::MountBackendKind::Directory,
+                                        cookedRoot,
+                                        {});
+                }
+                if (hasSourceRoot)
+                {
+                    appendReadableMount(sourceKey,
+                                        sourceKey,
+                                        mountPath,
+                                        Resource::MountPriority::Source,
+                                        Resource::MountBackendKind::Directory,
+                                        sourceRoot,
+                                        {});
+                }
                 return;
             }
 
-            if (preferCookedArtifacts && hasCookedCatalog)
+            if (preferCookedArtifacts)
             {
-                mounts.push_back(MountDescriptor{
-                    "Cooked:" + sourceKey,
-                    sourceKey,
-                    mountPath,
-                    Resource::MountBackendKind::Directory,
-                    cookedRoot,
-                    {},
-                });
+                if (hasCookedCatalog)
+                {
+                    appendReadableMount("Cooked:" + sourceKey,
+                                        sourceKey,
+                                        mountPath,
+                                        Resource::MountPriority::Cooked,
+                                        Resource::MountBackendKind::Directory,
+                                        cookedRoot,
+                                        {});
+                }
+                if (hasSourceRoot)
+                {
+                    appendReadableMount(sourceKey,
+                                        sourceKey,
+                                        mountPath,
+                                        Resource::MountPriority::Source,
+                                        Resource::MountBackendKind::Directory,
+                                        sourceRoot,
+                                        {});
+                }
                 return;
             }
 
             if (hasSourceRoot)
             {
-                mounts.push_back(MountDescriptor{
-                    sourceKey,
-                    sourceKey,
-                    mountPath,
-                    Resource::MountBackendKind::Directory,
-                    sourceRoot,
-                    {},
-                });
+                appendReadableMount(sourceKey,
+                                    sourceKey,
+                                    mountPath,
+                                    Resource::MountPriority::Source,
+                                    Resource::MountBackendKind::Directory,
+                                    sourceRoot,
+                                    {});
                 return;
             }
 
             if (hasPackagedCatalog)
             {
-                mounts.push_back(MountDescriptor{
-                    "Packaged:" + sourceKey,
-                    sourceKey,
-                    mountPath,
-                    Resource::MountBackendKind::PakArchive,
-                    packagedArchive,
-                    materializedRoot,
-                });
-                return;
+                appendReadableMount("Packaged:" + sourceKey,
+                                    sourceKey,
+                                    mountPath,
+                                    Resource::MountPriority::Packaged,
+                                    Resource::MountBackendKind::PakArchive,
+                                    packagedArchive,
+                                    materializedRoot);
             }
-
             if (hasCookedCatalog)
             {
-                mounts.push_back(MountDescriptor{
-                    "Cooked:" + sourceKey,
-                    sourceKey,
-                    mountPath,
-                    Resource::MountBackendKind::Directory,
-                    cookedRoot,
-                    {},
-                });
+                appendReadableMount("Cooked:" + sourceKey,
+                                    sourceKey,
+                                    mountPath,
+                                    Resource::MountPriority::Cooked,
+                                    Resource::MountBackendKind::Directory,
+                                    cookedRoot,
+                                    {});
             }
         };
 
@@ -578,6 +661,23 @@ namespace
             }
         }
 
+        for (const auto &overlayRoot : overlayRootSearchOrder)
+        {
+            const auto overlayPluginsRoot = overlayRoot / "Plugins";
+            if (!std::filesystem::exists(overlayPluginsRoot))
+                continue;
+
+            for (const auto &entry : std::filesystem::directory_iterator(overlayPluginsRoot))
+            {
+                if (!entry.is_directory())
+                    continue;
+
+                const auto pluginName = entry.path().filename().string();
+                if (Resource::IsValidPluginMountName(pluginName))
+                    pluginNames.insert(std::move(pluginName));
+            }
+        }
+
         std::vector<std::string> sortedPluginNames(pluginNames.begin(), pluginNames.end());
         std::sort(sortedPluginNames.begin(), sortedPluginNames.end());
 
@@ -608,8 +708,26 @@ namespace
             const auto existingIt = globalEntries.find(logicalPath);
             if (existingIt != globalEntries.end())
             {
+                if (static_cast<int>(mount.priority) > static_cast<int>(existingIt->second.priority))
+                {
+                    existingIt->second = Resource::CatalogRegistry::GlobalCatalogEntry{
+                        entry,
+                        cache.kind,
+                        cache.version,
+                        mount.priority,
+                        mount.backend,
+                        mount.mountRoot,
+                        mount.materializedRoot,
+                        mount.sourceKey,
+                    };
+                    continue;
+                }
+
+                if (static_cast<int>(mount.priority) < static_cast<int>(existingIt->second.priority))
+                    continue;
+
                 LOG_ERROR_CAT(LogCategory::FileSystem,
-                              "Logical path '{}' is provided by multiple readable mounts ('{}' and '{}')",
+                              "Logical path '{}' is provided by multiple equal-precedence mounts ('{}' and '{}')",
                               logicalPath,
                               existingIt->second.sourceMountKey,
                               mount.sourceKey);
@@ -623,6 +741,7 @@ namespace
                                       entry,
                                       cache.kind,
                                       cache.version,
+                                      mount.priority,
                                       mount.backend,
                                       mount.mountRoot,
                                       mount.materializedRoot,

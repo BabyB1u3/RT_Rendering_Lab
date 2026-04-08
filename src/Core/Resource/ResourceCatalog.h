@@ -25,6 +25,14 @@ namespace Resource
         PakArchive,
     };
 
+    enum class MountPriority
+    {
+        Source = 0,
+        Cooked = 100,
+        Packaged = 200,
+        Overlay = 300,
+    };
+
     struct ArtifactRecord
     {
         std::string relativePath;
@@ -58,6 +66,7 @@ namespace Resource
             ResourceCatalogEntry entry;
             CatalogKind kind = CatalogKind::Source;
             int version = 0;
+            MountPriority priority = MountPriority::Source;
             MountBackendKind backend = MountBackendKind::Directory;
             std::filesystem::path mountRoot;
             std::filesystem::path materializedRoot;

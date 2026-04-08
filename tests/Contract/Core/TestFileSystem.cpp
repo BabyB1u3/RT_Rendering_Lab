@@ -493,6 +493,208 @@ TEST(FileSystemContractTests, ResolveReadPathCanSwitchBetweenLooseAndPackagedArt
     FileSystem::RefreshCatalogs();
 }
 
+TEST(FileSystemContractTests, ResolveReadPathPrefersOverlayMountsOverPackagedArtifacts)
+{
+    FileSystem::Init();
+
+    const auto projectArtifactPath = FileSystem::GetRootPath() / "Content" / "Materials" / "Phase13OverlayFallback.json";
+    const auto engineRoot = FileSystem::GetRootPath() / "EngineContent";
+    const auto engineArtifactPath = engineRoot / "Defaults" / "Materials" / "Phase13OverlayMaterial.json";
+    const auto engineCatalogPath = engineRoot / ".rtr" / "catalog.json";
+
+    const auto pluginRoot = FileSystem::GetRootPath() / "Plugins" / "Phase13OverlayPlugin" / "Content";
+    const auto pluginArtifactPath = pluginRoot / "Materials" / "Checker.json";
+    const auto pluginCatalogPath = pluginRoot / ".rtr" / "catalog.json";
+
+    const auto cookedRoot = test_support::CurrentTestRoot("filesystem-contract") / "phase13-overlay-cooked";
+    const auto packagedRoot = test_support::CurrentTestRoot("filesystem-contract") / "phase13-overlay-packaged";
+    const auto overlayRoot = test_support::CurrentTestRoot("filesystem-contract") / "phase13-overlay-root";
+
+    test_support::RemovePathIfExists(projectArtifactPath);
+    test_support::RemovePathIfExists(engineArtifactPath);
+    test_support::RemovePathIfExists(engineCatalogPath);
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
+    test_support::RemoveTreeIfExists(cookedRoot);
+    test_support::RemoveTreeIfExists(packagedRoot);
+    test_support::RemoveTreeIfExists(overlayRoot);
+
+    test_support::WriteTextFileOrFail(projectArtifactPath, "{\n  \"name\": \"project-packaged-fallback\"\n}\n");
+    test_support::WriteTextFileOrFail(engineArtifactPath, "{\n  \"name\": \"engine-packaged-base\"\n}\n");
+    test_support::WriteTextFileOrFail(
+        engineCatalogPath,
+        "{\n"
+        "  \"version\": 1,\n"
+        "  \"entries\": [\n"
+        "    {\n"
+        "      \"logicalPath\": \"/Engine/Defaults/Materials/Phase13OverlayMaterial\",\n"
+        "      \"sourceRelativePath\": \"Defaults/Materials/Phase13OverlayMaterial.json\",\n"
+        "      \"artifacts\": [\n"
+        "        {\n"
+        "          \"relativePath\": \"Defaults/Materials/Phase13OverlayMaterial.json\",\n"
+        "          \"format\": \"json\",\n"
+        "          \"profileTag\": \"dev\"\n"
+        "        }\n"
+        "      ]\n"
+        "    }\n"
+        "  ]\n"
+        "}\n");
+
+    test_support::WriteTextFileOrFail(pluginArtifactPath, "{\n  \"name\": \"plugin-packaged-base\"\n}\n");
+    test_support::WriteTextFileOrFail(
+        pluginCatalogPath,
+        "{\n"
+        "  \"version\": 1,\n"
+        "  \"entries\": [\n"
+        "    {\n"
+        "      \"logicalPath\": \"/Plugins/Phase13OverlayPlugin/Materials/Checker\",\n"
+        "      \"sourceRelativePath\": \"Materials/Checker.json\",\n"
+        "      \"artifacts\": [\n"
+        "        {\n"
+        "          \"relativePath\": \"Materials/Checker.json\",\n"
+        "          \"format\": \"json\",\n"
+        "          \"profileTag\": \"dev\"\n"
+        "        }\n"
+        "      ]\n"
+        "    }\n"
+        "  ]\n"
+        "}\n");
+
+    std::string errorMessage;
+    ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(FileSystem::GetRootPath(), "Content", &errorMessage)) << errorMessage;
+    ASSERT_TRUE(Resource::CookRepositoryCatalogs(FileSystem::GetRootPath(), cookedRoot, "Content", &errorMessage)) << errorMessage;
+    ASSERT_TRUE(Resource::PackageCookedRepositoryCatalogs(cookedRoot, packagedRoot, &errorMessage)) << errorMessage;
+
+    const auto overlayProjectArtifactPath = overlayRoot / "Project" / "Textures" / "Grassy_Square.rtrtex";
+    const auto overlayEngineArtifactPath = overlayRoot / "Engine" / "Defaults" / "Materials" / "Phase13OverlayMaterial.json";
+    const auto overlayPluginArtifactPath = overlayRoot / "Plugins" / "Phase13OverlayPlugin" / "Materials" / "Checker.json";
+
+    std::error_code copyError;
+    std::filesystem::create_directories(overlayProjectArtifactPath.parent_path(), copyError);
+    ASSERT_FALSE(copyError);
+    std::filesystem::copy_file(
+        cookedRoot / "Project" / "Textures" / "Grassy_Square.rtrtex",
+        overlayProjectArtifactPath,
+        std::filesystem::copy_options::overwrite_existing,
+        copyError);
+    ASSERT_FALSE(copyError);
+
+    test_support::WriteTextFileOrFail(
+        overlayRoot / "Project" / ".rtr" / "catalog.json",
+        "{\n"
+        "  \"version\": 2,\n"
+        "  \"kind\": \"cooked\",\n"
+        "  \"entries\": [\n"
+        "    {\n"
+        "      \"logicalPath\": \"/Project/Textures/Grassy_Square\",\n"
+        "      \"artifacts\": [\n"
+        "        {\n"
+        "          \"relativePath\": \"Textures/Grassy_Square.rtrtex\",\n"
+        "          \"format\": \"rtrtex\",\n"
+        "          \"profileTag\": \"cooked\",\n"
+        "          \"backendTag\": \"any\",\n"
+        "          \"platformTag\": \"any\"\n"
+        "        }\n"
+        "      ]\n"
+        "    }\n"
+        "  ]\n"
+        "}\n");
+
+    test_support::WriteTextFileOrFail(overlayEngineArtifactPath, "{\n  \"name\": \"engine-overlay\"\n}\n");
+    test_support::WriteTextFileOrFail(
+        overlayRoot / "Engine" / ".rtr" / "catalog.json",
+        "{\n"
+        "  \"version\": 2,\n"
+        "  \"kind\": \"cooked\",\n"
+        "  \"entries\": [\n"
+        "    {\n"
+        "      \"logicalPath\": \"/Engine/Defaults/Materials/Phase13OverlayMaterial\",\n"
+        "      \"artifacts\": [\n"
+        "        {\n"
+        "          \"relativePath\": \"Defaults/Materials/Phase13OverlayMaterial.json\",\n"
+        "          \"format\": \"json\",\n"
+        "          \"profileTag\": \"cooked\",\n"
+        "          \"backendTag\": \"any\",\n"
+        "          \"platformTag\": \"any\"\n"
+        "        }\n"
+        "      ]\n"
+        "    }\n"
+        "  ]\n"
+        "}\n");
+
+    test_support::WriteTextFileOrFail(overlayPluginArtifactPath, "{\n  \"name\": \"plugin-overlay\"\n}\n");
+    test_support::WriteTextFileOrFail(
+        overlayRoot / "Plugins" / "Phase13OverlayPlugin" / ".rtr" / "catalog.json",
+        "{\n"
+        "  \"version\": 2,\n"
+        "  \"kind\": \"cooked\",\n"
+        "  \"entries\": [\n"
+        "    {\n"
+        "      \"logicalPath\": \"/Plugins/Phase13OverlayPlugin/Materials/Checker\",\n"
+        "      \"artifacts\": [\n"
+        "        {\n"
+        "          \"relativePath\": \"Materials/Checker.json\",\n"
+        "          \"format\": \"json\",\n"
+        "          \"profileTag\": \"cooked\",\n"
+        "          \"backendTag\": \"any\",\n"
+        "          \"platformTag\": \"any\"\n"
+        "        }\n"
+        "      ]\n"
+        "    }\n"
+        "  ]\n"
+        "}\n");
+
+    {
+        ScopedEnvVar profileOverride("RTRLAB_RESOURCE_PROFILE", "packaged");
+        ScopedEnvVar packageRootOverride("RTRLAB_PACKAGE_ROOT", packagedRoot.string());
+        ScopedEnvVar overlayRootOverride("RTRLAB_OVERLAY_ROOT", overlayRoot.string());
+        FileSystem::RefreshCatalogs();
+
+        const auto overlayProjectResolved = FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square");
+        ASSERT_TRUE(overlayProjectResolved.has_value());
+        EXPECT_EQ(*overlayProjectResolved, overlayProjectArtifactPath);
+        const auto overlayProjectTexture = Resource::LoadCookedTexture(*overlayProjectResolved, &errorMessage);
+        ASSERT_TRUE(overlayProjectTexture.has_value()) << errorMessage;
+
+        const auto packagedProjectResolved = FileSystem::ResolveReadPath("/Project/Materials/Phase13OverlayFallback");
+        ASSERT_TRUE(packagedProjectResolved.has_value());
+        EXPECT_NE(packagedProjectResolved->string().find("PackagedExtracted"), std::string::npos);
+        const auto packagedProjectContents = FileSystem::ReadTextFile(*packagedProjectResolved);
+        ASSERT_TRUE(packagedProjectContents.has_value());
+        EXPECT_NE(packagedProjectContents->find("project-packaged-fallback"), std::string::npos);
+
+        const auto overlayEngineResolved = FileSystem::ResolveReadPath("/Engine/Defaults/Materials/Phase13OverlayMaterial");
+        ASSERT_TRUE(overlayEngineResolved.has_value());
+        EXPECT_EQ(*overlayEngineResolved, overlayEngineArtifactPath);
+        const auto overlayEngineContents = FileSystem::ReadTextFile(*overlayEngineResolved);
+        ASSERT_TRUE(overlayEngineContents.has_value());
+        EXPECT_NE(overlayEngineContents->find("engine-overlay"), std::string::npos);
+
+        const auto overlayPluginResolved = FileSystem::ResolveReadPath("/Plugins/Phase13OverlayPlugin/Materials/Checker");
+        ASSERT_TRUE(overlayPluginResolved.has_value());
+        EXPECT_EQ(*overlayPluginResolved, overlayPluginArtifactPath);
+        const auto overlayPluginContents = FileSystem::ReadTextFile(*overlayPluginResolved);
+        ASSERT_TRUE(overlayPluginContents.has_value());
+        EXPECT_NE(overlayPluginContents->find("plugin-overlay"), std::string::npos);
+    }
+
+    test_support::RemovePathIfExists(projectArtifactPath);
+    test_support::RemovePathIfExists(engineArtifactPath);
+    test_support::RemovePathIfExists(engineCatalogPath);
+    test_support::RemoveDirectoryIfEmpty(projectArtifactPath.parent_path());
+    test_support::RemovePathIfExists(FileSystem::GetRootPath() / "Content" / ".rtr" / "catalog.json");
+    test_support::RemoveDirectoryIfEmpty((FileSystem::GetRootPath() / "Content" / ".rtr"));
+    test_support::RemoveDirectoryIfEmpty(engineArtifactPath.parent_path());
+    test_support::RemoveDirectoryIfEmpty(engineArtifactPath.parent_path().parent_path());
+    test_support::RemoveDirectoryIfEmpty(engineCatalogPath.parent_path());
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
+    test_support::RemoveTreeIfExists(cookedRoot);
+    test_support::RemoveTreeIfExists(packagedRoot);
+    test_support::RemoveTreeIfExists(overlayRoot);
+    test_support::RemoveTreeIfExists(FileSystem::GetCacheDir() / "PackagedExtracted");
+    ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(FileSystem::GetRootPath(), "Content", &errorMessage)) << errorMessage;
+    FileSystem::RefreshCatalogs();
+}
+
 TEST(FileSystemContractTests, ResolveReadPathCanLoadCookedProjectTextureArtifacts)
 {
     FileSystem::Init();
