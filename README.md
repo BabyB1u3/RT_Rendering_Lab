@@ -30,6 +30,9 @@ under `Saved/Cache/Cooked/`, `build/Cooked/`, or an explicit
 `RTRLAB_COOKED_ROOT` override. New runtime systems should prefer
 `FileSystem::ResolveReadPath()`, `ResolveWritePath()`, `ReadText()`, `ReadBinary()`,
 `WriteText()`, and `WriteBinary()` over physical-path helper wrappers.
+In packaged runs, the same logical paths can resolve from `.rtrpak` archives under
+`Saved/Cache/Packaged/`, `build/Packaged/`, or an explicit `RTRLAB_PACKAGE_ROOT`
+override.
 
 ---
 
@@ -199,6 +202,11 @@ Resource tooling:
   at cooked `.rtrtex` artifact paths with explicit `rowPitch` / `mipLevelCount`
   metadata in the v2 header, and the runtime can read metadata or full payload
   through `Resource::ReadCookedTextureMetadata()` and `Resource::LoadCookedTexture()`
+- `rtr_asset_pack` packages cooked `Project`, `Engine`, and `Plugins/<Name>` mounts
+  into `.rtrpak` archives under `Saved/Cache/Packaged/` by default, or under
+  `build/Packaged/` with `--layout build`; packaged runs can resolve the same
+  public logical paths from those archives with `RTRLAB_RESOURCE_PROFILE=packaged`
+  and optionally `RTRLAB_PACKAGE_ROOT=<dir>`
 - loose cooked catalogs now use a distinct versioned cooked JSON schema rather than
   reusing the source catalog payload shape verbatim
 
@@ -206,6 +214,8 @@ Resource tooling:
 ./build/<config>/rtr_asset_index --root .
 ./build/<config>/rtr_asset_cook --root .
 ./build/<config>/rtr_asset_cook --root . --layout build
+./build/<config>/rtr_asset_pack --root .
+./build/<config>/rtr_asset_pack --root . --layout build
 ```
 
 OpenGL contract and integration tests create a hidden OpenGL context — they require a GPU or software renderer.

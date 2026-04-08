@@ -70,6 +70,14 @@ Current state as of 2026-04-08:
 - the current `.rtrtex` bootstrap payload writer now emits a v2 header with explicit
   `rowPitch` and `mipLevelCount` metadata, while the runtime still accepts legacy
   version 1 bootstrap payloads
+- a minimal `.rtrpak` archive format and `rtr_asset_pack` packaging tool now exist
+  for project, engine, and plugin cooked mounts
+- the runtime can now discover packaged mounts from `Saved/Cache/Packaged/`,
+  `build/Packaged/`, or an explicit `RTRLAB_PACKAGE_ROOT` override when running in a
+  `packaged` or `shipping` profile
+- packaged mounts now load cooked catalogs directly from archives and materialize the
+  selected artifact into a cache-backed extraction root without changing the public
+  logical path
 
 ---
 
@@ -502,7 +510,9 @@ Today the implemented/remaining split is:
 - duplicate logical paths across currently loaded loose readable mounts are treated
   as invalid during merge
 - explicit overlay precedence handling is still not implemented
-- cooked catalog formats and packaged/archive-backed catalog loading are still not
+- packaged/archive-backed catalog loading is now implemented for the current custom
+  `.rtrpak` mount backend
+- cooked catalog binary serialization beyond the current JSON bootstrap is still not
   implemented
 - document-style paths such as `/Project/Config/...`, `/Saved/...`, and `/Cache/...`
   intentionally continue to bypass catalog lookup and resolve directly through mounted
@@ -1197,7 +1207,9 @@ checklist below.
 
 ### Phase 13 - Archive packaging
 
-- add archive mount without changing public paths
+- in progress; custom `.rtrpak` archives, packaged mount discovery, cooked catalog
+  loading from archives, and packaged-path parity tests are now implemented for the
+  current MVP, while overlay/patch precedence is still pending
 
 ### Phase 14 - Final cleanup
 
@@ -1354,12 +1366,13 @@ without repeatedly redefining scope.
 
 ### 15.14 Phase 13 - Archive packaging
 
-- [ ] Choose archive format: ZIP first or custom `.pak`
-- [ ] Implement archive mount
-- [ ] Mount packaged content into `/Project/` and `/Engine/`
-- [ ] Ensure packaged mounts carry cooked catalogs
+- [x] Choose archive format: ZIP first or custom `.pak`
+      current choice: custom `.rtrpak` archive format for the Phase 13 MVP
+- [x] Implement archive mount
+- [x] Mount packaged content into `/Project/` and `/Engine/`
+- [x] Ensure packaged mounts carry cooked catalogs
 - [ ] Define patch/mod overlay precedence over packaged data
-- [ ] Add contract tests for packaged-path parity with loose files
+- [x] Add contract tests for packaged-path parity with loose files
 
 ### 15.15 Phase 14 - Final cleanup
 
@@ -1380,7 +1393,7 @@ This module is done when all of the following are true:
 - [x] Runtime systems load shipped resources by logical path, not by ad hoc physical path joins
 - [x] Runtime systems write user data only through writable logical domains
 - [x] Config defaults and user overrides follow the documented resolution chain
-- [ ] Loose-file development and packaged/cooked builds expose the same public logical paths
+- [x] Loose-file development and packaged/cooked builds expose the same public logical paths
 - [x] Serialized asset references no longer depend on repository-relative or absolute filesystem paths
 - [x] `/Engine/` and `/Plugins/...` are no longer just future ideas in the design doc
 - [x] The remaining compatibility wrappers are either removed or intentionally retained with documented scope
