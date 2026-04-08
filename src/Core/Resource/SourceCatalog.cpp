@@ -1,5 +1,7 @@
 #include "Core/Resource/SourceCatalog.h"
 
+#include "Core/Resource/PathParser.h"
+
 #include <algorithm>
 #include <cctype>
 #include <fstream>
@@ -68,9 +70,15 @@ namespace
         case Resource::PathDomain::Engine:
             return relative.empty() ? "/Engine" : "/Engine/" + relative;
         case Resource::PathDomain::Plugin:
+        {
+            const auto mountName = mountPath.mountName.value_or(std::string{});
+            if (!Resource::IsValidPluginMountName(mountName))
+                return {};
+
             return relative.empty()
-                       ? "/Plugins/" + mountPath.mountName.value_or(std::string{})
-                       : "/Plugins/" + mountPath.mountName.value_or(std::string{}) + "/" + relative;
+                       ? "/Plugins/" + mountName
+                       : "/Plugins/" + mountName + "/" + relative;
+        }
         case Resource::PathDomain::Saved:
             return relative.empty() ? "/Saved" : "/Saved/" + relative;
         case Resource::PathDomain::Cache:
@@ -118,12 +126,16 @@ namespace
 
             for (const auto &pluginDir : pluginDirs)
             {
+                const auto pluginName = pluginDir.path().filename().string();
+                if (!Resource::IsValidPluginMountName(pluginName))
+                    continue;
+
                 const auto contentRoot = pluginDir.path() / "Content";
                 if (!std::filesystem::exists(contentRoot))
                     continue;
 
                 mounts.emplace_back(
-                    Resource::VirtualPath{Resource::PathDomain::Plugin, pluginDir.path().filename().string(), {}},
+                    Resource::VirtualPath{Resource::PathDomain::Plugin, pluginName, {}},
                     contentRoot);
             }
         }

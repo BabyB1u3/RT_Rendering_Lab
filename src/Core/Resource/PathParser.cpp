@@ -5,6 +5,16 @@
 
 namespace
 {
+    bool IsAsciiAlpha(char c)
+    {
+        return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+    }
+
+    bool IsAsciiDigit(char c)
+    {
+        return c >= '0' && c <= '9';
+    }
+
     std::string JoinSegments(const std::vector<std::string> &segments, size_t firstSegment)
     {
         std::string joined;
@@ -34,6 +44,20 @@ namespace
 
 namespace Resource
 {
+    bool IsValidPluginMountName(std::string_view mountName)
+    {
+        if (mountName.empty() || !IsAsciiAlpha(mountName.front()))
+            return false;
+
+        for (const char c : mountName)
+        {
+            if (!IsAsciiAlpha(c) && !IsAsciiDigit(c) && c != '_')
+                return false;
+        }
+
+        return true;
+    }
+
     bool IsVirtualPath(std::string_view path)
     {
         return ParseVirtualPath(path).has_value();
@@ -103,6 +127,9 @@ namespace Resource
 
         if (segments[0] == "Plugins" && segments.size() >= 2)
         {
+            if (!IsValidPluginMountName(segments[1]))
+                return std::nullopt;
+
             virtualPath.domain = PathDomain::Plugin;
             virtualPath.mountName = segments[1];
             virtualPath.relativePath = JoinSegments(segments, 2);

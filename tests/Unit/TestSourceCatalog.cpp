@@ -75,6 +75,21 @@ TEST_F(SourceCatalogTests, BuildPluginSourceCatalogUsesPluginNamespace)
     EXPECT_EQ(entries[0].logicalPath, "/Plugins/ExamplePlugin/Materials/Checker");
 }
 
+TEST_F(SourceCatalogTests, BuildPluginSourceCatalogRejectsInvalidMountName)
+{
+    test_support::WriteTextFileOrFail(TestRoot() / "Materials" / "Checker.json", "{\n}\n");
+
+    std::vector<Resource::ResourceCatalogEntry> entries;
+    std::string errorMessage;
+
+    EXPECT_FALSE(Resource::BuildSourceCatalogEntries(
+        TestRoot(),
+        Resource::VirtualPath{Resource::PathDomain::Plugin, "Bad-Plugin", {}},
+        entries,
+        &errorMessage));
+    EXPECT_NE(errorMessage.find("failed to derive logical path"), std::string::npos);
+}
+
 TEST_F(SourceCatalogTests, BuildSourceCatalogRejectsDuplicateLogicalPaths)
 {
     test_support::WriteTextFileOrFail(TestRoot() / "Textures" / "Grassy_Square.jpg", "jpg");
@@ -123,4 +138,20 @@ TEST_F(SourceCatalogTests, IndexRepositorySourceCatalogsWritesProjectEngineAndPl
     EXPECT_NE(projectContents.find("/Project/Textures/Grassy_Square"), std::string::npos);
     EXPECT_NE(engineContents.find("/Engine/Defaults/Materials/ErrorMaterial"), std::string::npos);
     EXPECT_NE(pluginContents.find("/Plugins/ExamplePlugin/Materials/Checker"), std::string::npos);
+}
+
+TEST_F(SourceCatalogTests, IndexRepositorySourceCatalogsSkipsPluginsWithInvalidMountNames)
+{
+    const auto repoRoot = TestRoot() / "Repo";
+    test_support::WriteTextFileOrFail(repoRoot / "Plugins" / "ValidPlugin" / "Content" / "Materials" / "Checker.json", "{\n}\n");
+    test_support::WriteTextFileOrFail(repoRoot / "Plugins" / "Bad-Plugin" / "Content" / "Materials" / "Ignored.json", "{\n}\n");
+
+    std::string errorMessage;
+    ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(repoRoot, "Content", &errorMessage)) << errorMessage;
+
+    const auto validCatalogPath = repoRoot / "Plugins" / "ValidPlugin" / "Content" / ".rtr" / "catalog.json";
+    const auto invalidCatalogPath = repoRoot / "Plugins" / "Bad-Plugin" / "Content" / ".rtr" / "catalog.json";
+
+    EXPECT_TRUE(std::filesystem::exists(validCatalogPath));
+    EXPECT_FALSE(std::filesystem::exists(invalidCatalogPath));
 }

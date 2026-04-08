@@ -346,8 +346,12 @@ namespace
         {
             for (const auto &entry : std::filesystem::directory_iterator(pluginsRoot))
             {
-                if (entry.is_directory())
-                    pluginNames.insert(entry.path().filename().string());
+                if (!entry.is_directory())
+                    continue;
+
+                const auto pluginName = entry.path().filename().string();
+                if (Resource::IsValidPluginMountName(pluginName))
+                    pluginNames.insert(std::move(pluginName));
             }
         }
 
@@ -355,8 +359,12 @@ namespace
         {
             for (const auto &entry : std::filesystem::directory_iterator(cookedPluginsRoot))
             {
-                if (entry.is_directory())
-                    pluginNames.insert(entry.path().filename().string());
+                if (!entry.is_directory())
+                    continue;
+
+                const auto pluginName = entry.path().filename().string();
+                if (Resource::IsValidPluginMountName(pluginName))
+                    pluginNames.insert(std::move(pluginName));
             }
         }
 

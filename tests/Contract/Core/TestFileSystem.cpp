@@ -272,6 +272,58 @@ TEST(FileSystemContractTests, ResolveReadPathUsesCatalogForExtensionlessPluginAs
     test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
 }
 
+TEST(FileSystemContractTests, ResolveReadPathRejectsPluginPathsWithInvalidMountNames)
+{
+    FileSystem::Init();
+
+    EXPECT_FALSE(FileSystem::ResolveReadPath("/Plugins/Bad-Plugin/Materials/Checker").has_value());
+    EXPECT_FALSE(FileSystem::ResolveReadPath("/Plugins/1BadPlugin/Materials/Checker").has_value());
+}
+
+TEST(FileSystemContractTests, ResolveReadPathKeepsProjectAndPluginNamespacesSeparate)
+{
+    FileSystem::Init();
+
+    const auto pluginRoot = FileSystem::GetRootPath() / "Plugins" / "ShadowPlugin" / "Content";
+    const auto pluginArtifactPath = pluginRoot / "Textures" / "Grassy_Square.jpg";
+    const auto pluginCatalogPath = pluginRoot / ".rtr" / "catalog.json";
+
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
+
+    test_support::WriteTextFileOrFail(pluginArtifactPath, "plugin-shadow");
+    test_support::WriteTextFileOrFail(
+        pluginCatalogPath,
+        "{\n"
+        "  \"version\": 1,\n"
+        "  \"entries\": [\n"
+        "    {\n"
+        "      \"logicalPath\": \"/Plugins/ShadowPlugin/Textures/Grassy_Square\",\n"
+        "      \"sourceRelativePath\": \"Textures/Grassy_Square.jpg\",\n"
+        "      \"artifacts\": [\n"
+        "        {\n"
+        "          \"relativePath\": \"Textures/Grassy_Square.jpg\",\n"
+        "          \"format\": \"jpg\",\n"
+        "          \"profileTag\": \"dev\"\n"
+        "        }\n"
+        "      ]\n"
+        "    }\n"
+        "  ]\n"
+        "}\n");
+
+    FileSystem::RefreshCatalogs();
+
+    const auto projectResolved = FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square");
+    const auto pluginResolved = FileSystem::ResolveReadPath("/Plugins/ShadowPlugin/Textures/Grassy_Square");
+
+    ASSERT_TRUE(projectResolved.has_value());
+    ASSERT_TRUE(pluginResolved.has_value());
+    EXPECT_EQ(*projectResolved, FileSystem::GetAssetPath("textures/Grassy_Square.jpg"));
+    EXPECT_EQ(*pluginResolved, pluginArtifactPath);
+
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
+    FileSystem::RefreshCatalogs();
+}
+
 TEST(FileSystemContractTests, ResolveReadPathPrefersMostSpecificArtifactForCurrentRuntime)
 {
     FileSystem::Init();

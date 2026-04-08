@@ -77,14 +77,18 @@ namespace
 
             for (const auto &pluginDir : pluginDirs)
             {
+                const auto pluginName = pluginDir.path().filename().string();
+                if (!Resource::IsValidPluginMountName(pluginName))
+                    continue;
+
                 const auto contentRoot = pluginDir.path() / "Content";
                 if (!std::filesystem::exists(contentRoot))
                     continue;
 
                 mounts.push_back(SourceMountDescriptor{
-                    Resource::VirtualPath{Resource::PathDomain::Plugin, pluginDir.path().filename().string(), {}},
+                    Resource::VirtualPath{Resource::PathDomain::Plugin, pluginName, {}},
                     contentRoot,
-                    cookedRootPath / "Plugins" / pluginDir.path().filename(),
+                    cookedRootPath / "Plugins" / pluginName,
                 });
             }
         }
