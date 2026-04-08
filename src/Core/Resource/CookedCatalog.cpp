@@ -1,5 +1,6 @@
 #include "Core/Resource/CookedCatalog.h"
 
+#include "Core/Resource/PathParser.h"
 #include "Core/Resource/ResourceCatalog.h"
 #include "Core/Resource/SourceCatalog.h"
 
@@ -182,13 +183,41 @@ namespace
     }
 
     bool CopySourceArtifact(const std::filesystem::path &sourceMountRoot,
+                            const Resource::ResourceCatalogEntry &sourceEntry,
                             const Resource::ArtifactRecord &sourceArtifact,
                             const std::filesystem::path &cookedMountRoot,
                             Resource::ArtifactRecord &cookedArtifact,
                             std::string *errorMessage)
     {
         const auto sourcePath = sourceMountRoot / sourceArtifact.relativePath;
-        const auto cookedPath = cookedMountRoot / sourceArtifact.relativePath;
+        const auto parsedLogicalPath = Resource::ParseVirtualPath(sourceEntry.logicalPath);
+        if (!parsedLogicalPath.has_value())
+        {
+            if (errorMessage != nullptr)
+                *errorMessage = "invalid logical path in source catalog: " + sourceEntry.logicalPath;
+            return false;
+        }
+
+        std::filesystem::path cookedRelativePath = sourceArtifact.relativePath;
+        std::string cookedFormat = sourceArtifact.format;
+
+        const std::string lowerFormat = [&]() {
+            std::string value = sourceArtifact.format;
+            std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+                return static_cast<char>(std::tolower(c));
+            });
+            return value;
+        }();
+
+        const bool isTextureArtifact = parsedLogicalPath->relativePath.rfind("Textures/", 0) == 0 &&
+                                       (lowerFormat == "jpg" || lowerFormat == "jpeg" || lowerFormat == "png");
+        if (isTextureArtifact)
+        {
+            cookedRelativePath = std::filesystem::path(parsedLogicalPath->relativePath + ".ktx2");
+            cookedFormat = "ktx2";
+        }
+
+        const auto cookedPath = cookedMountRoot / cookedRelativePath;
 
         std::error_code ec;
         std::filesystem::create_directories(cookedPath.parent_path(), ec);
@@ -208,6 +237,8 @@ namespace
         }
 
         cookedArtifact = sourceArtifact;
+        cookedArtifact.relativePath = cookedRelativePath.generic_string();
+        cookedArtifact.format = cookedFormat;
         cookedArtifact.profileTag = "cooked";
         return true;
     }
@@ -253,7 +284,8 @@ namespace Resource
                 for (const auto &sourceArtifact : sourceEntry.artifacts)
                 {
                     ArtifactRecord cookedArtifact;
-                    if (!CopySourceArtifact(mount.sourceRoot, sourceArtifact, mount.cookedRoot, cookedArtifact, errorMessage))
+                    if (!CopySourceArtifact(
+                            mount.sourceRoot, sourceEntry, sourceArtifact, mount.cookedRoot, cookedArtifact, errorMessage))
                         return false;
 
                     cookedEntry.artifacts.push_back(std::move(cookedArtifact));

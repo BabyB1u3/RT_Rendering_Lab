@@ -62,7 +62,7 @@ TEST_F(CookedCatalogTests, CookRepositoryCatalogsCopiesArtifactsAndWritesCookedC
     ASSERT_TRUE(Resource::CookRepositoryCatalogs(repoRoot, cookedRoot, "Content", &errorMessage)) << errorMessage;
 
     const auto cookedCatalogPath = cookedRoot / "Project" / ".rtr" / "catalog.json";
-    const auto cookedArtifactPath = cookedRoot / "Project" / "textures" / "Grassy_Square.jpg";
+    const auto cookedArtifactPath = cookedRoot / "Project" / "Textures" / "Grassy_Square.ktx2";
 
     EXPECT_TRUE(std::filesystem::exists(cookedCatalogPath));
     EXPECT_TRUE(std::filesystem::exists(cookedArtifactPath));
@@ -73,6 +73,8 @@ TEST_F(CookedCatalogTests, CookRepositoryCatalogsCopiesArtifactsAndWritesCookedC
 
     EXPECT_NE(cookedContents.find("/Project/Textures/Grassy_Square"), std::string::npos);
     EXPECT_NE(cookedContents.find("\"profileTag\": \"cooked\""), std::string::npos);
+    EXPECT_NE(cookedContents.find("\"relativePath\": \"Textures/Grassy_Square.ktx2\""), std::string::npos);
+    EXPECT_NE(cookedContents.find("\"format\": \"ktx2\""), std::string::npos);
 
     std::ifstream cookedArtifact(cookedArtifactPath, std::ios::binary);
     ASSERT_TRUE(cookedArtifact.is_open());
