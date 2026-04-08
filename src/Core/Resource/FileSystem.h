@@ -21,6 +21,7 @@ public:
     using VirtualPath = Resource::VirtualPath;
 
     static void Init();
+    static void RefreshCatalogs();
 
     static bool IsVirtualPath(std::string_view path);
     static std::optional<VirtualPath> ParseVirtualPath(std::string_view path);

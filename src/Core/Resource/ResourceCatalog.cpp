@@ -19,6 +19,13 @@ namespace
         std::filesystem::path mountRoot;
     };
 
+    struct ArtifactSelectionContext
+    {
+        std::string_view platformTag;
+        std::string_view backendTag;
+        std::string_view profileTag;
+    };
+
     std::string MakeMountCacheKey(const Resource::VirtualPath &virtualPath)
     {
         switch (virtualPath.domain)
@@ -200,22 +207,82 @@ namespace
         return true;
     }
 
+    std::string_view GetCurrentPlatformTag()
+    {
+#if defined(_WIN32)
+        return "windows";
+#elif defined(__APPLE__)
+        return "macos";
+#elif defined(__linux__)
+        return "linux";
+#else
+        return "unknown";
+#endif
+    }
+
+    std::string_view GetCurrentBackendTag()
+    {
+#if defined(GLAB_BACKEND_METAL)
+        return "metal";
+#else
+        return "opengl";
+#endif
+    }
+
+    std::string_view GetCurrentProfileTag()
+    {
+#if defined(GLAB_ROOT_DIR)
+        return "dev";
+#elif defined(NDEBUG)
+        return "shipping";
+#else
+        return "dev";
+#endif
+    }
+
+    ArtifactSelectionContext GetCurrentArtifactSelectionContext()
+    {
+        return ArtifactSelectionContext{
+            GetCurrentPlatformTag(),
+            GetCurrentBackendTag(),
+            GetCurrentProfileTag(),
+        };
+    }
+
+    int ScoreTag(std::string_view candidateTag, std::string_view runtimeTag)
+    {
+        if (candidateTag.empty() || candidateTag == "any")
+            return 1;
+        if (candidateTag == runtimeTag)
+            return 2;
+        return -1;
+    }
+
     std::optional<Resource::ArtifactRecord> ChooseArtifact(const Resource::ResourceCatalogEntry &entry)
     {
-        for (const auto &artifact : entry.artifacts)
-        {
-            if (artifact.profileTag == "dev")
-                return artifact;
-        }
+        const auto context = GetCurrentArtifactSelectionContext();
+
+        const Resource::ArtifactRecord *bestArtifact = nullptr;
+        int bestScore = -1;
 
         for (const auto &artifact : entry.artifacts)
         {
-            if (artifact.profileTag == "any" || artifact.profileTag.empty())
-                return artifact;
+            const int profileScore = ScoreTag(artifact.profileTag, context.profileTag);
+            const int backendScore = ScoreTag(artifact.backendTag, context.backendTag);
+            const int platformScore = ScoreTag(artifact.platformTag, context.platformTag);
+            if (profileScore < 0 || backendScore < 0 || platformScore < 0)
+                continue;
+
+            const int totalScore = profileScore * 100 + backendScore * 10 + platformScore;
+            if (totalScore > bestScore)
+            {
+                bestArtifact = &artifact;
+                bestScore = totalScore;
+            }
         }
 
-        if (!entry.artifacts.empty())
-            return entry.artifacts.front();
+        if (bestArtifact != nullptr)
+            return *bestArtifact;
 
         return std::nullopt;
     }

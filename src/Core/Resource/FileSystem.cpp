@@ -31,6 +31,11 @@ void FileSystem::Init()
     s_Initialized = true;
 }
 
+void FileSystem::RefreshCatalogs()
+{
+    s_CatalogRegistry.Reset();
+}
+
 bool FileSystem::IsVirtualPath(std::string_view path)
 {
     return Resource::IsVirtualPath(path);

@@ -12,6 +12,33 @@ namespace
     constexpr const char *kExistingAsset = "Config/input/DebugCameraControl.json";
     constexpr const char *kTempConfig = "test-contract/AutoCopyConfig.json";
 
+    std::string_view CurrentPlatformTag()
+    {
+#if defined(_WIN32)
+        return "windows";
+#elif defined(__APPLE__)
+        return "macos";
+#elif defined(__linux__)
+        return "linux";
+#else
+        return "unknown";
+#endif
+    }
+
+    std::string_view CurrentBackendTag()
+    {
+#if defined(GLAB_BACKEND_METAL)
+        return "metal";
+#else
+        return "opengl";
+#endif
+    }
+
+    constexpr std::string_view CurrentProfileTag()
+    {
+        return "dev";
+    }
+
     void RemovePathIfExists(const std::filesystem::path &path)
     {
         std::error_code ec;
@@ -155,6 +182,113 @@ TEST(FileSystemContractTests, ResolveReadPathUsesCatalogForExtensionlessPluginAs
     RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
 }
 
+TEST(FileSystemContractTests, ResolveReadPathPrefersMostSpecificArtifactForCurrentRuntime)
+{
+    FileSystem::Init();
+
+    const auto pluginRoot = FileSystem::GetRootPath() / "Plugins" / "RuntimeSpecificCatalogPlugin" / "Content";
+    const auto fallbackPath = pluginRoot / "Materials" / "Fallback.json";
+    const auto backendSpecificPath = pluginRoot / "Materials" / "BackendSpecific.json";
+    const auto runtimeSpecificPath = pluginRoot / "Materials" / "RuntimeSpecific.json";
+    const auto catalogPath = pluginRoot / ".rtr" / "catalog.json";
+
+    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+
+    WriteTextFileOrFail(fallbackPath, "{\n  \"name\": \"fallback\"\n}\n");
+    WriteTextFileOrFail(backendSpecificPath, "{\n  \"name\": \"backend\"\n}\n");
+    WriteTextFileOrFail(runtimeSpecificPath, "{\n  \"name\": \"runtime\"\n}\n");
+    WriteTextFileOrFail(
+        catalogPath,
+        std::string("{\n") +
+            "  \"version\": 1,\n"
+            "  \"entries\": [\n"
+            "    {\n"
+            "      \"logicalPath\": \"/Plugins/RuntimeSpecificCatalogPlugin/Materials/Picker\",\n"
+            "      \"sourceRelativePath\": \"Materials/RuntimeSpecific.json\",\n"
+            "      \"artifacts\": [\n"
+            "        {\n"
+            "          \"relativePath\": \"Materials/Fallback.json\",\n"
+            "          \"format\": \"json\",\n"
+            "          \"profileTag\": \"any\",\n"
+            "          \"backendTag\": \"any\",\n"
+            "          \"platformTag\": \"any\"\n"
+            "        },\n"
+            "        {\n"
+            "          \"relativePath\": \"Materials/BackendSpecific.json\",\n"
+            "          \"format\": \"json\",\n"
+            "          \"profileTag\": \"any\",\n"
+            "          \"backendTag\": \"" + std::string(CurrentBackendTag()) + "\",\n"
+            "          \"platformTag\": \"any\"\n"
+            "        },\n"
+            "        {\n"
+            "          \"relativePath\": \"Materials/RuntimeSpecific.json\",\n"
+            "          \"format\": \"json\",\n"
+            "          \"profileTag\": \"" + std::string(CurrentProfileTag()) + "\",\n"
+            "          \"backendTag\": \"" + std::string(CurrentBackendTag()) + "\",\n"
+            "          \"platformTag\": \"" + std::string(CurrentPlatformTag()) + "\"\n"
+            "        }\n"
+            "      ]\n"
+            "    }\n"
+            "  ]\n"
+            "}\n");
+
+    const auto resolved = FileSystem::ResolveReadPath("/Plugins/RuntimeSpecificCatalogPlugin/Materials/Picker");
+
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_EQ(*resolved, runtimeSpecificPath);
+
+    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+}
+
+TEST(FileSystemContractTests, ResolveReadPathFallsBackToAnyArtifactWhenSpecificTagsDoNotMatch)
+{
+    FileSystem::Init();
+
+    const auto pluginRoot = FileSystem::GetRootPath() / "Plugins" / "FallbackCatalogPlugin" / "Content";
+    const auto fallbackPath = pluginRoot / "Materials" / "Fallback.json";
+    const auto mismatchedPath = pluginRoot / "Materials" / "Mismatched.json";
+    const auto catalogPath = pluginRoot / ".rtr" / "catalog.json";
+
+    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+
+    WriteTextFileOrFail(fallbackPath, "{\n  \"name\": \"fallback\"\n}\n");
+    WriteTextFileOrFail(mismatchedPath, "{\n  \"name\": \"mismatch\"\n}\n");
+    WriteTextFileOrFail(
+        catalogPath,
+        std::string("{\n") +
+            "  \"version\": 1,\n"
+            "  \"entries\": [\n"
+            "    {\n"
+            "      \"logicalPath\": \"/Plugins/FallbackCatalogPlugin/Materials/Picker\",\n"
+            "      \"sourceRelativePath\": \"Materials/Fallback.json\",\n"
+            "      \"artifacts\": [\n"
+            "        {\n"
+            "          \"relativePath\": \"Materials/Mismatched.json\",\n"
+            "          \"format\": \"json\",\n"
+            "          \"profileTag\": \"shipping\",\n"
+            "          \"backendTag\": \"vulkan\",\n"
+            "          \"platformTag\": \"linux\"\n"
+            "        },\n"
+            "        {\n"
+            "          \"relativePath\": \"Materials/Fallback.json\",\n"
+            "          \"format\": \"json\",\n"
+            "          \"profileTag\": \"any\",\n"
+            "          \"backendTag\": \"any\",\n"
+            "          \"platformTag\": \"any\"\n"
+            "        }\n"
+            "      ]\n"
+            "    }\n"
+            "  ]\n"
+            "}\n");
+
+    const auto resolved = FileSystem::ResolveReadPath("/Plugins/FallbackCatalogPlugin/Materials/Picker");
+
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_EQ(*resolved, fallbackPath);
+
+    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+}
+
 TEST(FileSystemContractTests, ResolveWritePathMapsSavedConfigLogicalPathToSavedConfigDirectory)
 {
     FileSystem::Init();
@@ -227,6 +361,91 @@ TEST(FileSystemContractTests, ResolveReadPathProjectCatalogStillWorksWhenAnother
     EXPECT_EQ(*resolved, FileSystem::GetAssetPath("textures/Grassy_Square.jpg"));
 
     RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+}
+
+TEST(FileSystemContractTests, RefreshCatalogsDiscoversPluginCatalogAddedAfterInitialLookup)
+{
+    FileSystem::Init();
+
+    const auto initialProjectResolved = FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square");
+    ASSERT_TRUE(initialProjectResolved.has_value());
+
+    const auto pluginRoot = FileSystem::GetRootPath() / "Plugins" / "LateBoundCatalogPlugin" / "Content";
+    const auto artifactPath = pluginRoot / "Materials" / "Checker.json";
+    const auto catalogPath = pluginRoot / ".rtr" / "catalog.json";
+
+    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+
+    WriteTextFileOrFail(artifactPath, "{\n  \"name\": \"late-bound\"\n}\n");
+    WriteTextFileOrFail(
+        catalogPath,
+        "{\n"
+        "  \"version\": 1,\n"
+        "  \"entries\": [\n"
+        "    {\n"
+        "      \"logicalPath\": \"/Plugins/LateBoundCatalogPlugin/Materials/Checker\",\n"
+        "      \"sourceRelativePath\": \"Materials/Checker.json\",\n"
+        "      \"artifacts\": [\n"
+        "        {\n"
+        "          \"relativePath\": \"Materials/Checker.json\",\n"
+        "          \"format\": \"json\",\n"
+        "          \"profileTag\": \"dev\"\n"
+        "        }\n"
+        "      ]\n"
+        "    }\n"
+        "  ]\n"
+        "}\n");
+
+    EXPECT_FALSE(FileSystem::ResolveReadPath("/Plugins/LateBoundCatalogPlugin/Materials/Checker").has_value());
+
+    FileSystem::RefreshCatalogs();
+
+    const auto refreshedResolved = FileSystem::ResolveReadPath("/Plugins/LateBoundCatalogPlugin/Materials/Checker");
+    ASSERT_TRUE(refreshedResolved.has_value());
+    EXPECT_EQ(*refreshedResolved, artifactPath);
+
+    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+}
+
+TEST(FileSystemContractTests, RefreshCatalogsDropsPluginCatalogRemovedAfterInitialLookup)
+{
+    FileSystem::Init();
+
+    const auto pluginRoot = FileSystem::GetRootPath() / "Plugins" / "RemovedCatalogPlugin" / "Content";
+    const auto artifactPath = pluginRoot / "Materials" / "Checker.json";
+    const auto catalogPath = pluginRoot / ".rtr" / "catalog.json";
+
+    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+
+    WriteTextFileOrFail(artifactPath, "{\n  \"name\": \"removable\"\n}\n");
+    WriteTextFileOrFail(
+        catalogPath,
+        "{\n"
+        "  \"version\": 1,\n"
+        "  \"entries\": [\n"
+        "    {\n"
+        "      \"logicalPath\": \"/Plugins/RemovedCatalogPlugin/Materials/Checker\",\n"
+        "      \"sourceRelativePath\": \"Materials/Checker.json\",\n"
+        "      \"artifacts\": [\n"
+        "        {\n"
+        "          \"relativePath\": \"Materials/Checker.json\",\n"
+        "          \"format\": \"json\",\n"
+        "          \"profileTag\": \"dev\"\n"
+        "        }\n"
+        "      ]\n"
+        "    }\n"
+        "  ]\n"
+        "}\n");
+
+    const auto initialResolved = FileSystem::ResolveReadPath("/Plugins/RemovedCatalogPlugin/Materials/Checker");
+    ASSERT_TRUE(initialResolved.has_value());
+    EXPECT_EQ(*initialResolved, artifactPath);
+
+    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+
+    FileSystem::RefreshCatalogs();
+
+    EXPECT_FALSE(FileSystem::ResolveReadPath("/Plugins/RemovedCatalogPlugin/Materials/Checker").has_value());
 }
 
 TEST(FileSystemContractTests, ResolveReadPathRejectsCatalogWithDuplicateLogicalPaths)
