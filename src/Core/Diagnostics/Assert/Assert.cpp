@@ -1,11 +1,11 @@
-#include "Core/Diagnostics/Assert.h"
+#include "Core/Diagnostics/Assert/Assert.h"
 
 #include <cstdio>
 #include <cstdlib>
 #include <string>
 
-#include "Core/Diagnostics/CrashHandler.h"
-#include "Core/Diagnostics/Debugger.h"
+#include "Core/Diagnostics/Crash/CrashHandler.h"
+#include "Core/Diagnostics/Crash/Debugger.h"
 
 namespace Diagnostics::Detail
 {

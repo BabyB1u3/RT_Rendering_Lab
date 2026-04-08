@@ -5,8 +5,8 @@
 ///        enums (via magic_enum), and standard containers.
 
 #include "Core/Serialization/SerializationTraits.h"
-#include "Core/Diagnostics/LogCategories.h"
-#include "Core/Diagnostics/LogMacros.h"
+#include "Core/Diagnostics/Logging/LogCategories.h"
+#include "Core/Diagnostics/Logging/LogMacros.h"
 #include "Core/Resource/Catalog/AssetPath.h"
 
 #include <glm/glm.hpp>
@@ -21,9 +21,9 @@
 namespace Serialization
 {
 
-    // ═════════════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════════�?
     // Primitives
-    // ═════════════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════════�?
 
     inline void Serialize(PropertyTree &tree, bool v) { tree = PropertyTree(v); }
     inline void Serialize(PropertyTree &tree, int v) { tree = PropertyTree(v); }
@@ -128,9 +128,9 @@ namespace Serialization
         return true;
     }
 
-    // ═════════════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════════�?
     // Named enums (via magic_enum)
-    // ═════════════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════════�?
     // Default path: enumerator name as string token.
     // Provide a custom overload to opt out (e.g., Key::Code uses InputNames.h).
 
@@ -159,9 +159,9 @@ namespace Serialization
         return true;
     }
 
-    // ═════════════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════════�?
     // GLM types
-    // ═════════════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════════�?
 
     // --- glm::vec2 ---
     inline void Serialize(PropertyTree &tree, const glm::vec2 &v)
@@ -234,9 +234,9 @@ namespace Serialization
         return true;
     }
 
-    // ═════════════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════════�?
     // Standard containers
-    // ═════════════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════════�?
 
     // --- std::vector<T> ---
 

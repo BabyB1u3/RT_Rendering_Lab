@@ -7,8 +7,8 @@
 #include <vector>
 
 #include "Core/Base.h"
-#include "Core/Diagnostics/ImGuiConsoleSink.h"
-#include "Core/Diagnostics/Logger.h"
+#include "Core/Diagnostics/Logging/ImGuiConsoleSink.h"
+#include "Core/Diagnostics/Logging/Logger.h"
 #include "TestPaths.h"
 
 namespace DiagnosticsTestSupport

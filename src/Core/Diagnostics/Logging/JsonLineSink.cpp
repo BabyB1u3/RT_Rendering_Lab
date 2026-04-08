@@ -1,11 +1,11 @@
-#include "Core/Diagnostics/JsonLineSink.h"
+#include "Core/Diagnostics/Logging/JsonLineSink.h"
 
 #include <chrono>
 #include <ctime>
 #include <iomanip>
 #include <sstream>
 
-#include "Core/Diagnostics/FrameFormatter.h"
+#include "Core/Diagnostics/Logging/FrameFormatter.h"
 
 namespace Diagnostics
 {

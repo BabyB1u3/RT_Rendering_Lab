@@ -1,4 +1,4 @@
-#include "Core/Diagnostics/CrashHandler.h"
+#include "Core/Diagnostics/Crash/CrashHandler.h"
 
 #include <atomic>
 #include <cstdio>
@@ -10,10 +10,10 @@
 #include <string>
 
 #include "Core/Resource/FileSystem.h"
-#include "Core/Diagnostics/Callstack.h"
-#include "Core/Diagnostics/LogCategories.h"
-#include "Core/Diagnostics/LogMacros.h"
-#include "Core/Diagnostics/Logger.h"
+#include "Core/Diagnostics/Crash/Callstack.h"
+#include "Core/Diagnostics/Logging/LogCategories.h"
+#include "Core/Diagnostics/Logging/LogMacros.h"
+#include "Core/Diagnostics/Logging/Logger.h"
 
 #ifdef _WIN32
 #include <Windows.h>

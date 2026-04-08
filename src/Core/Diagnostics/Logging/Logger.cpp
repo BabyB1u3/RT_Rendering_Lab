@@ -1,4 +1,4 @@
-#include "Core/Diagnostics/Logger.h"
+#include "Core/Diagnostics/Logging/Logger.h"
 
 #include <chrono>
 #include <filesystem>
@@ -8,10 +8,10 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
-#include "Core/Diagnostics/FrameFormatter.h"
-#include "Core/Diagnostics/ImGuiConsoleSink.h"
-#include "Core/Diagnostics/JsonLineSink.h"
-#include "Core/Diagnostics/LogCategories.h"
+#include "Core/Diagnostics/Logging/FrameFormatter.h"
+#include "Core/Diagnostics/Logging/ImGuiConsoleSink.h"
+#include "Core/Diagnostics/Logging/JsonLineSink.h"
+#include "Core/Diagnostics/Logging/LogCategories.h"
 #include "Core/Resource/FileSystem.h"
 
 namespace Diagnostics

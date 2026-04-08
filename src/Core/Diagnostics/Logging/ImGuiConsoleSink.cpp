@@ -1,4 +1,4 @@
-#include "Core/Diagnostics/ImGuiConsoleSink.h"
+#include "Core/Diagnostics/Logging/ImGuiConsoleSink.h"
 
 #include <ctime>
 #include <iomanip>

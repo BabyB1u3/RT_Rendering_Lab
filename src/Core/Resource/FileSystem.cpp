@@ -1,7 +1,7 @@
 #include "Core/Resource/FileSystem.h"
 
-#include "Core/Diagnostics/LogCategories.h"
-#include "Core/Diagnostics/LogMacros.h"
+#include "Core/Diagnostics/Logging/LogCategories.h"
+#include "Core/Diagnostics/Logging/LogMacros.h"
 #include "Core/Resource/Catalog/ResourceCatalog.h"
 #include "Core/Resource/Config/ConfigResolver.h"
 #include "Core/Resource/IO/PhysicalIO.h"

@@ -10,8 +10,8 @@
 
 #include <atomic>
 
-#include "Core/Diagnostics/LogCategories.h"
-#include "Core/Diagnostics/Logger.h"
+#include "Core/Diagnostics/Logging/LogCategories.h"
+#include "Core/Diagnostics/Logging/Logger.h"
 
 #ifndef RTRLAB_LOG_MIN_LEVEL
 #ifdef NDEBUG

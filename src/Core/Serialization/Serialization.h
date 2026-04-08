@@ -9,8 +9,8 @@
 #include "Core/Serialization/SerializationTraits.h"
 #include "Core/Serialization/JsonBackend.h"
 #include "Core/Resource/FileSystem.h"
-#include "Core/Diagnostics/LogCategories.h"
-#include "Core/Diagnostics/LogMacros.h"
+#include "Core/Diagnostics/Logging/LogCategories.h"
+#include "Core/Diagnostics/Logging/LogMacros.h"
 
 #include <filesystem>
 #include <fstream>
@@ -85,7 +85,7 @@ namespace Serialization
         return s_JsonBackend;
     }
 
-    /// Save: Serialize T â†’ PropertyTree â†’ format string â†’ file.
+    /// Save: Serialize T â†?PropertyTree â†?format string â†?file.
     /// Creates parent directories. Returns false on failure.
     template <Serializable T>
     bool SaveToFile(const T &value, const std::filesystem::path &path,
@@ -161,7 +161,7 @@ namespace Serialization
         return SaveToFile(value, *path);
     }
 
-    /// Load: file â†’ format string â†’ PropertyTree â†’ Deserialize into T.
+    /// Load: file â†?format string â†?PropertyTree â†?Deserialize into T.
     /// On failure, `value` is unchanged. Returns false on parse or validation error.
     template <Serializable T>
     bool LoadFromFile(T &value, const std::filesystem::path &path,

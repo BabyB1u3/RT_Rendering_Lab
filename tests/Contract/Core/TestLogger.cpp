@@ -8,10 +8,10 @@
 #include <thread>
 #include <vector>
 
-#include "Core/Diagnostics/Assert.h"
-#include "Core/Diagnostics/LogCategories.h"
-#include "Core/Diagnostics/LogMacros.h"
-#include "Core/Diagnostics/Logger.h"
+#include "Core/Diagnostics/Assert/Assert.h"
+#include "Core/Diagnostics/Logging/LogCategories.h"
+#include "Core/Diagnostics/Logging/LogMacros.h"
+#include "Core/Diagnostics/Logging/Logger.h"
 #include "Core/Resource/FileSystem.h"
 
 #include "GUI/Panels/ConsolePanel.h"

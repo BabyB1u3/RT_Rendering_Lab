@@ -1,4 +1,4 @@
-#include "Core/Diagnostics/Debugger.h"
+#include "Core/Diagnostics/Crash/Debugger.h"
 
 #include <csignal>
 #include <cstdlib>

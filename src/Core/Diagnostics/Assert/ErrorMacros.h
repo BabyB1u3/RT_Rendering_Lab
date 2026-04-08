@@ -3,8 +3,8 @@
 /// @file ErrorMacros.h
 /// @brief Log-and-return helpers for recoverable engine error paths.
 
-#include "Core/Diagnostics/LogCategories.h"
-#include "Core/Diagnostics/LogMacros.h"
+#include "Core/Diagnostics/Logging/LogCategories.h"
+#include "Core/Diagnostics/Logging/LogMacros.h"
 
 #define ERR_FAIL_COND_CAT(category, condition)                                                       \
     do                                                                                               \

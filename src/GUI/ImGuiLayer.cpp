@@ -9,7 +9,7 @@
 #endif
 
 #include "Core/App/Application.h"
-#include "Core/Diagnostics/Assert.h"
+#include "Core/Diagnostics/Assert/Assert.h"
 #include "Core/Resource/FileSystem.h"
 #include "Core/Input/Input.h"
 

@@ -81,27 +81,27 @@ set(GLAB_INPUT_HEADERS
 )
 
 set(GLAB_DIAGNOSTICS_SOURCES
-    Core/Diagnostics/Assert.cpp
-    Core/Diagnostics/CrashHandler.cpp
-    Core/Diagnostics/Debugger.cpp
-    Core/Diagnostics/FrameFormatter.cpp
-    Core/Diagnostics/ImGuiConsoleSink.cpp
-    Core/Diagnostics/JsonLineSink.cpp
-    Core/Diagnostics/Logger.cpp
+    Core/Diagnostics/Assert/Assert.cpp
+    Core/Diagnostics/Crash/CrashHandler.cpp
+    Core/Diagnostics/Crash/Debugger.cpp
+    Core/Diagnostics/Logging/FrameFormatter.cpp
+    Core/Diagnostics/Logging/ImGuiConsoleSink.cpp
+    Core/Diagnostics/Logging/JsonLineSink.cpp
+    Core/Diagnostics/Logging/Logger.cpp
 )
 
 set(GLAB_DIAGNOSTICS_HEADERS
-    Core/Diagnostics/Assert.h
-    Core/Diagnostics/Callstack.h
-    Core/Diagnostics/CrashHandler.h
-    Core/Diagnostics/Debugger.h
-    Core/Diagnostics/ErrorMacros.h
-    Core/Diagnostics/FrameFormatter.h
-    Core/Diagnostics/ImGuiConsoleSink.h
-    Core/Diagnostics/JsonLineSink.h
-    Core/Diagnostics/LogCategories.h
-    Core/Diagnostics/Logger.h
-    Core/Diagnostics/LogMacros.h
+    Core/Diagnostics/Assert/Assert.h
+    Core/Diagnostics/Crash/Callstack.h
+    Core/Diagnostics/Crash/CrashHandler.h
+    Core/Diagnostics/Crash/Debugger.h
+    Core/Diagnostics/Assert/ErrorMacros.h
+    Core/Diagnostics/Logging/FrameFormatter.h
+    Core/Diagnostics/Logging/ImGuiConsoleSink.h
+    Core/Diagnostics/Logging/JsonLineSink.h
+    Core/Diagnostics/Logging/LogCategories.h
+    Core/Diagnostics/Logging/Logger.h
+    Core/Diagnostics/Logging/LogMacros.h
 )
 
 set(GLAB_SERIALIZATION_SOURCES
@@ -162,13 +162,13 @@ set(GLAB_GUI_HEADERS
 set(GLAB_PLATFORM_SOURCES)
 if(WIN32)
     list(APPEND GLAB_PLATFORM_SOURCES
-        Core/Diagnostics/Backends/Win32/Callstack.cpp
-        Core/Diagnostics/Backends/Win32/CrashHandler.cpp
+        Core/Diagnostics/Crash/Backends/Win32/Callstack.cpp
+        Core/Diagnostics/Crash/Backends/Win32/CrashHandler.cpp
     )
 else()
     list(APPEND GLAB_PLATFORM_SOURCES
-        Core/Diagnostics/Backends/Posix/Callstack.cpp
-        Core/Diagnostics/Backends/Posix/CrashHandler.cpp
+        Core/Diagnostics/Crash/Backends/Posix/Callstack.cpp
+        Core/Diagnostics/Crash/Backends/Posix/CrashHandler.cpp
     )
 endif()
 

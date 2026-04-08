@@ -3,8 +3,8 @@
 #include <fstream>
 #include <sstream>
 
-#include "Core/Diagnostics/LogCategories.h"
-#include "Core/Diagnostics/LogMacros.h"
+#include "Core/Diagnostics/Logging/LogCategories.h"
+#include "Core/Diagnostics/Logging/LogMacros.h"
 
 namespace Resource
 {

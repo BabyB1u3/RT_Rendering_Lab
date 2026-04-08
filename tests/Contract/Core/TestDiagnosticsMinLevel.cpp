@@ -4,13 +4,13 @@
 #include <filesystem>
 
 #include "Core/Resource/FileSystem.h"
-#include "Core/Diagnostics/LogCategories.h"
+#include "Core/Diagnostics/Logging/LogCategories.h"
 #ifdef RTRLAB_LOG_MIN_LEVEL
 #undef RTRLAB_LOG_MIN_LEVEL
 #endif
 #define RTRLAB_LOG_MIN_LEVEL 3
-#include "Core/Diagnostics/LogMacros.h"
-#include "Core/Diagnostics/Logger.h"
+#include "Core/Diagnostics/Logging/LogMacros.h"
+#include "Core/Diagnostics/Logging/Logger.h"
 #include "TestPaths.h"
 
 namespace

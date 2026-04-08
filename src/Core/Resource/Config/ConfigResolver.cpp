@@ -1,7 +1,7 @@
 #include "Core/Resource/Config/ConfigResolver.h"
 
-#include "Core/Diagnostics/LogCategories.h"
-#include "Core/Diagnostics/LogMacros.h"
+#include "Core/Diagnostics/Logging/LogCategories.h"
+#include "Core/Diagnostics/Logging/LogMacros.h"
 
 namespace
 {

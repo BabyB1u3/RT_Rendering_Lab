@@ -1,7 +1,7 @@
 #include "Core/Resource/Catalog/ResourceCatalog.h"
 
-#include "Core/Diagnostics/LogCategories.h"
-#include "Core/Diagnostics/LogMacros.h"
+#include "Core/Diagnostics/Logging/LogCategories.h"
+#include "Core/Diagnostics/Logging/LogMacros.h"
 #include "Core/Resource/Mount/MountBackend.h"
 #include "Core/Resource/Path/PathParser.h"
 
