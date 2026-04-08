@@ -170,8 +170,9 @@ Resource tooling:
 - `rtr_asset_index` generates `.rtr/catalog.json` for `Content/`,
   `EngineContent/`, and `Plugins/*/Content/`
 - `rtr_asset_cook` writes loose cooked `.rtr/catalog.json` files under
-  `Saved/Cache/Cooked/`; texture assets currently decode to an RGBA8 bootstrap
-  binary at cooked `.rtrtex` artifact paths, and the runtime can load/validate that
+  `Saved/Cache/Cooked/` by default, or under `build/Cooked/` when invoked with
+  `--layout build`; texture assets currently decode to an RGBA8 bootstrap binary
+  at cooked `.rtrtex` artifact paths, and the runtime can load/validate that
   bootstrap cooked texture payload through `Resource::LoadCookedTexture()`
 - loose cooked catalogs now use a distinct versioned cooked JSON schema rather than
   reusing the source catalog payload shape verbatim
@@ -179,6 +180,7 @@ Resource tooling:
 ```bash
 ./build/<config>/rtr_asset_index --root .
 ./build/<config>/rtr_asset_cook --root .
+./build/<config>/rtr_asset_cook --root . --layout build
 ```
 
 OpenGL contract and integration tests create a hidden OpenGL context — they require a GPU or software renderer.

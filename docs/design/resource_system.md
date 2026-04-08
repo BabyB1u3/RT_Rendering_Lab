@@ -56,12 +56,17 @@ Current state as of 2026-04-08:
   for project, engine, and plugin loose content mounts
 - a minimal cooked catalog generation tool now exists for loose development-time
   cooked mounts under `Saved/Cache/Cooked/`
+- the cook tool now also supports `build/Cooked/` as an explicit loose cooked output
+  layout for development workflows
 - the current runtime can load and validate the bootstrap cooked texture payload
   written at cooked `.rtrtex` artifact paths
 - loose cooked catalogs now use a distinct versioned JSON cooked schema rather than
   reusing the source catalog JSON payload shape verbatim
 - the in-memory catalog model now distinguishes source vs cooked catalog kind, and
   only source entries carry `sourceRelativePath` provenance
+- the current runtime can discover loose cooked mounts from `Saved/Cache/Cooked/`,
+  `build/Cooked/`, or an explicit `RTRLAB_COOKED_ROOT` override when running in the
+  `cooked` profile
 
 ---
 
@@ -709,15 +714,17 @@ Responsibilities:
 Current minimal implementation:
 
 - `rtr_asset_cook` reads source `.rtr/catalog.json` files from loose content mounts
-- it writes current cooked artifacts under `Saved/Cache/Cooked/Project`,
-  `Saved/Cache/Cooked/Engine`, and `Saved/Cache/Cooked/Plugins/<Name>`
+- it writes current cooked artifacts under `Saved/Cache/Cooked/...` by default, and
+  can explicitly target `build/Cooked/...` for development-time build outputs
 - it writes loose cooked `catalog.json` files with a distinct versioned cooked JSON
   schema (`version = 2`, `kind = "cooked"`) rather than reusing source catalog
   entries directly
 - project texture assets currently switch from source `.jpg`/`.png` style artifacts
   to cooked `.rtrtex` artifact paths in the generated cooked catalog
 - the current runtime can select those cooked loose mounts for catalog-backed reads
-  when the active resource profile is `cooked`
+  when the active resource profile is `cooked`, searching an explicit
+  `RTRLAB_COOKED_ROOT` override first, then `Saved/Cache/Cooked/`, then
+  `build/Cooked/`
 - the current runtime can also load and validate the current bootstrap cooked
   texture payload format through a dedicated helper, so the texture cook flow now
   has a basic generation-and-consumption contract
@@ -1157,9 +1164,9 @@ checklist below.
 ### Phase 12 - Cooking integration
 
 - in progress; loose cooked catalog generation, runtime selection between source
-  and cooked project artifacts, bootstrap cooked texture read/validation, and a
-  distinct loose cooked JSON catalog schema are now implemented for
-  development-time mounts
+  and cooked project artifacts, bootstrap cooked texture read/validation, a
+  distinct loose cooked JSON catalog schema, and an explicit `cache` vs `build`
+  loose cooked output layout are now implemented for development-time mounts
 
 ### Phase 13 - Archive packaging
 
@@ -1308,7 +1315,9 @@ without repeatedly redefining scope.
 - [x] Define how cooked outputs map back into `/Project/` and `/Engine/` for the
       current loose development-time layout under `Saved/Cache/Cooked/`
 - [x] Add runtime read/validation for the current bootstrap cooked texture format
-- [ ] Decide whether cooking writes under `build/`, `Cache/`, or both
+- [x] Decide whether cooking writes under `build/`, `Cache/`, or both
+      current policy: default to `Saved/Cache/Cooked/`, explicitly support
+      `build/Cooked/`, and allow `RTRLAB_COOKED_ROOT` as a runtime override hook
 - [ ] Ensure cooked assets do not change public logical paths
 - [x] Add tests that verify the same logical path can resolve from loose vs cooked backends
 
