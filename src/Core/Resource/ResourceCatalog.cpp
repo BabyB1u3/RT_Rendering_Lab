@@ -4,12 +4,20 @@
 #include "Core/Diagnostics/LogMacros.h"
 #include "Core/Resource/PathParser.h"
 
+#include <algorithm>
 #include <fstream>
 #include <json.hpp>
 
 namespace
 {
     using Json = nlohmann::json;
+
+    struct MountDescriptor
+    {
+        std::string cacheKey;
+        Resource::VirtualPath mountPath;
+        std::filesystem::path mountRoot;
+    };
 
     std::string MakeMountCacheKey(const Resource::VirtualPath &virtualPath)
     {
@@ -211,13 +219,98 @@ namespace
 
         return std::nullopt;
     }
+
+    std::vector<MountDescriptor> DiscoverReadableMounts(const std::filesystem::path &rootPath,
+                                                        const std::filesystem::path &engineDir,
+                                                        std::string_view projectContentDirName)
+    {
+        std::vector<MountDescriptor> mounts;
+        mounts.push_back(MountDescriptor{
+            "Project",
+            Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, {}},
+            rootPath / projectContentDirName});
+
+        if (std::filesystem::exists(engineDir))
+        {
+            mounts.push_back(MountDescriptor{
+                "Engine",
+                Resource::VirtualPath{Resource::PathDomain::Engine, std::nullopt, {}},
+                engineDir});
+        }
+
+        const auto pluginsRoot = rootPath / "Plugins";
+        if (std::filesystem::exists(pluginsRoot))
+        {
+            std::vector<std::filesystem::directory_entry> pluginDirs;
+            for (const auto &entry : std::filesystem::directory_iterator(pluginsRoot))
+            {
+                if (entry.is_directory())
+                    pluginDirs.push_back(entry);
+            }
+
+            std::sort(pluginDirs.begin(), pluginDirs.end(), [](const auto &lhs, const auto &rhs) {
+                return lhs.path().filename().string() < rhs.path().filename().string();
+            });
+
+            for (const auto &pluginEntry : pluginDirs)
+            {
+                const auto pluginName = pluginEntry.path().filename().string();
+                const auto contentRoot = pluginEntry.path() / "Content";
+                if (!std::filesystem::exists(contentRoot))
+                    continue;
+
+                mounts.push_back(MountDescriptor{
+                    "Plugin:" + pluginName,
+                    Resource::VirtualPath{Resource::PathDomain::Plugin, pluginName, {}},
+                    contentRoot});
+            }
+        }
+
+        return mounts;
+    }
+
+    void MergeMountEntriesIntoGlobalTable(
+        const MountDescriptor &mount,
+        const Resource::CatalogRegistry::MountCatalogCache &cache,
+        std::unordered_map<std::string, Resource::CatalogRegistry::GlobalCatalogEntry> &globalEntries,
+        std::unordered_set<std::string> &conflictedLogicalPaths)
+    {
+        for (const auto &[logicalPath, entry] : cache.entries)
+        {
+            if (conflictedLogicalPaths.contains(logicalPath))
+                continue;
+
+            const auto existingIt = globalEntries.find(logicalPath);
+            if (existingIt != globalEntries.end())
+            {
+                LOG_ERROR_CAT(LogCategory::FileSystem,
+                              "Logical path '{}' is provided by multiple readable mounts ('{}' and '{}')",
+                              logicalPath,
+                              existingIt->second.sourceMountKey,
+                              mount.cacheKey);
+                conflictedLogicalPaths.insert(logicalPath);
+                globalEntries.erase(existingIt);
+                continue;
+            }
+
+            globalEntries.emplace(logicalPath,
+                                  Resource::CatalogRegistry::GlobalCatalogEntry{
+                                      entry,
+                                      mount.mountRoot,
+                                      mount.cacheKey,
+                                  });
+        }
+    }
 } // namespace
 
 namespace Resource
 {
     void CatalogRegistry::Reset()
     {
+        m_GlobalTableBuilt = false;
         m_MountCatalogs.clear();
+        m_GlobalEntries.clear();
+        m_ConflictedLogicalPaths.clear();
     }
 
     std::optional<std::filesystem::path> CatalogRegistry::ResolvePath(const std::filesystem::path &rootPath,
@@ -230,36 +323,51 @@ namespace Resource
         if (mountRoot.empty())
             return std::nullopt;
 
-        const auto cacheKey = MakeMountCacheKey(virtualPath);
-        auto &cache = m_MountCatalogs[cacheKey];
-        if (!cache.attemptedLoad)
+        if (!m_GlobalTableBuilt)
         {
-            cache.attemptedLoad = true;
-            const auto catalogPath = mountRoot / ".rtr" / "catalog.json";
-            if (std::filesystem::exists(catalogPath))
+            m_GlobalTableBuilt = true;
+            m_GlobalEntries.clear();
+            m_ConflictedLogicalPaths.clear();
+
+            for (const auto &mount : DiscoverReadableMounts(rootPath, engineDir, projectContentDirName))
             {
-                std::unordered_map<std::string, ResourceCatalogEntry> loadedEntries;
-                if (!LoadCatalogFromJson(catalogPath, virtualPath, loadedEntries))
+                auto &cache = m_MountCatalogs[mount.cacheKey];
+                if (!cache.attemptedLoad)
                 {
-                    cache.entries.clear();
-                    LOG_ERROR_CAT(LogCategory::FileSystem, "Failed to load catalog '{}'", catalogPath.string());
+                    cache.attemptedLoad = true;
+                    const auto catalogPath = mount.mountRoot / ".rtr" / "catalog.json";
+                    if (std::filesystem::exists(catalogPath))
+                    {
+                        std::unordered_map<std::string, ResourceCatalogEntry> loadedEntries;
+                        if (!LoadCatalogFromJson(catalogPath, mount.mountPath, loadedEntries))
+                        {
+                            cache.entries.clear();
+                            LOG_ERROR_CAT(LogCategory::FileSystem, "Failed to load catalog '{}'", catalogPath.string());
+                        }
+                        else
+                        {
+                            cache.entries = std::move(loadedEntries);
+                            LOG_INFO_CAT(LogCategory::FileSystem, "Loaded catalog '{}'", catalogPath.string());
+                        }
+                    }
                 }
-                else
-                {
-                    cache.entries = std::move(loadedEntries);
-                    LOG_INFO_CAT(LogCategory::FileSystem, "Loaded catalog '{}'", catalogPath.string());
-                }
+
+                MergeMountEntriesIntoGlobalTable(mount, cache, m_GlobalEntries, m_ConflictedLogicalPaths);
             }
         }
 
-        const auto entryIt = cache.entries.find(std::string(logicalPath));
-        if (entryIt == cache.entries.end())
+        const auto logicalPathString = std::string(logicalPath);
+        if (m_ConflictedLogicalPaths.contains(logicalPathString))
             return std::nullopt;
 
-        const auto artifact = ChooseArtifact(entryIt->second);
+        const auto entryIt = m_GlobalEntries.find(logicalPathString);
+        if (entryIt == m_GlobalEntries.end())
+            return std::nullopt;
+
+        const auto artifact = ChooseArtifact(entryIt->second.entry);
         if (!artifact.has_value())
             return std::nullopt;
 
-        return mountRoot / artifact->relativePath;
+        return entryIt->second.mountRoot / artifact->relativePath;
     }
 } // namespace Resource

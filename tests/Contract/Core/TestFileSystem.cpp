@@ -77,6 +77,45 @@ TEST(FileSystemContractTests, ResolveReadPathUsesCatalogForExtensionlessProjectA
     EXPECT_TRUE(std::filesystem::exists(*resolved));
 }
 
+TEST(FileSystemContractTests, ResolveReadPathUsesCatalogForExtensionlessEngineAsset)
+{
+    FileSystem::Init();
+
+    const auto engineRoot = FileSystem::GetRootPath() / "EngineContent";
+    const auto artifactPath = engineRoot / "Defaults" / "Materials" / "ErrorMaterial.json";
+    const auto catalogPath = engineRoot / ".rtr" / "catalog.json";
+
+    RemoveDirectoryTreeIfExists(engineRoot);
+
+    WriteTextFileOrFail(artifactPath, "{\n  \"name\": \"error-material\"\n}\n");
+    WriteTextFileOrFail(
+        catalogPath,
+        "{\n"
+        "  \"version\": 1,\n"
+        "  \"entries\": [\n"
+        "    {\n"
+        "      \"logicalPath\": \"/Engine/Defaults/Materials/ErrorMaterial\",\n"
+        "      \"sourceRelativePath\": \"Defaults/Materials/ErrorMaterial.json\",\n"
+        "      \"artifacts\": [\n"
+        "        {\n"
+        "          \"relativePath\": \"Defaults/Materials/ErrorMaterial.json\",\n"
+        "          \"format\": \"json\",\n"
+        "          \"profileTag\": \"dev\"\n"
+        "        }\n"
+        "      ]\n"
+        "    }\n"
+        "  ]\n"
+        "}\n");
+
+    const auto resolved = FileSystem::ResolveReadPath("/Engine/Defaults/Materials/ErrorMaterial");
+
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_EQ(*resolved, artifactPath);
+    EXPECT_TRUE(std::filesystem::exists(*resolved));
+
+    RemoveDirectoryTreeIfExists(engineRoot);
+}
+
 TEST(FileSystemContractTests, ResolveReadPathUsesCatalogForExtensionlessPluginAsset)
 {
     FileSystem::Init();
@@ -158,6 +197,36 @@ TEST(FileSystemContractTests, ResolveReadPathRejectsInvalidMountsAndTraversal)
 
     EXPECT_FALSE(FileSystem::ResolveReadPath("/Unknown/Textures/Grassy_Square").has_value());
     EXPECT_FALSE(FileSystem::ResolveReadPath("/Project/Textures/../Grassy_Square").has_value());
+}
+
+TEST(FileSystemContractTests, ResolveReadPathProjectCatalogStillWorksWhenAnotherMountCatalogIsInvalid)
+{
+    FileSystem::Init();
+
+    const auto pluginRoot = FileSystem::GetRootPath() / "Plugins" / "BrokenCatalogPlugin" / "Content";
+    const auto catalogPath = pluginRoot / ".rtr" / "catalog.json";
+
+    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
+
+    WriteTextFileOrFail(
+        catalogPath,
+        "{\n"
+        "  \"version\": 1,\n"
+        "  \"entries\": [\n"
+        "    {\n"
+        "      \"logicalPath\": \"/Plugins/BrokenCatalogPlugin/Materials/Broken\",\n"
+        "      \"sourceRelativePath\": \"Materials/Broken.json\",\n"
+        "      \"artifacts\": []\n"
+        "    }\n"
+        "  ]\n"
+        "}\n");
+
+    const auto resolved = FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square");
+
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_EQ(*resolved, FileSystem::GetAssetPath("textures/Grassy_Square.jpg"));
+
+    RemoveDirectoryTreeIfExists(pluginRoot.parent_path().parent_path());
 }
 
 TEST(FileSystemContractTests, ResolveReadPathRejectsCatalogWithDuplicateLogicalPaths)

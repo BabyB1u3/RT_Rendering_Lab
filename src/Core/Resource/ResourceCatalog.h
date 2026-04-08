@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <unordered_map>
 #include <vector>
 
@@ -32,6 +33,19 @@ namespace Resource
     class CatalogRegistry
     {
     public:
+        struct MountCatalogCache
+        {
+            bool attemptedLoad = false;
+            std::unordered_map<std::string, ResourceCatalogEntry> entries;
+        };
+
+        struct GlobalCatalogEntry
+        {
+            ResourceCatalogEntry entry;
+            std::filesystem::path mountRoot;
+            std::string sourceMountKey;
+        };
+
         void Reset();
 
         std::optional<std::filesystem::path> ResolvePath(const std::filesystem::path &rootPath,
@@ -41,12 +55,9 @@ namespace Resource
                                                          std::string_view projectContentDirName);
 
     private:
-        struct MountCatalogCache
-        {
-            bool attemptedLoad = false;
-            std::unordered_map<std::string, ResourceCatalogEntry> entries;
-        };
-
+        bool m_GlobalTableBuilt = false;
         std::unordered_map<std::string, MountCatalogCache> m_MountCatalogs;
+        std::unordered_map<std::string, GlobalCatalogEntry> m_GlobalEntries;
+        std::unordered_set<std::string> m_ConflictedLogicalPaths;
     };
 } // namespace Resource
