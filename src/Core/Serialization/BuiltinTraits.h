@@ -7,6 +7,7 @@
 #include "Core/Serialization/SerializationTraits.h"
 #include "Core/Diagnostics/LogCategories.h"
 #include "Core/Diagnostics/LogMacros.h"
+#include "Core/Resource/AssetPath.h"
 
 #include <glm/glm.hpp>
 #include <magic_enum.hpp>
@@ -76,6 +77,29 @@ namespace Serialization
         if (!tree.IsString())
             return false;
         v = tree.AsString();
+        return true;
+    }
+
+    inline void Serialize(PropertyTree &tree, const Resource::AssetPath &path)
+    {
+        tree = PropertyTree(path.String());
+    }
+
+    inline bool Deserialize(const PropertyTree &tree, Resource::AssetPath &path)
+    {
+        if (!tree.IsString())
+            return false;
+
+        const auto parsed = Resource::AssetPath::TryCreate(tree.AsString());
+        if (!parsed.has_value())
+        {
+            LOG_WARN_CAT(LogCategory::Serialization,
+                         "BuiltinTraits: invalid asset path '{}'",
+                         tree.AsString());
+            return false;
+        }
+
+        path = *parsed;
         return true;
     }
 

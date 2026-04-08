@@ -32,6 +32,7 @@ set(GLAB_RESOURCE_SOURCES
 
 set(GLAB_RESOURCE_HEADERS
     Core/Resource/ConfigResolver.h
+    Core/Resource/AssetPath.h
     Core/Resource/FileSystem.h
     Core/Resource/MountResolver.h
     Core/Resource/PathParser.h

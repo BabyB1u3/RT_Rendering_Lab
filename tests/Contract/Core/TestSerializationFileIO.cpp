@@ -16,6 +16,26 @@ using Serialization::SaveToVirtualPath;
 
 namespace
 {
+    struct MaterialReferenceRecord
+    {
+        Resource::AssetPath albedo;
+    };
+
+    void Serialize(Serialization::PropertyTree &tree, const MaterialReferenceRecord &value)
+    {
+        tree = Serialization::PropertyTree::Object{};
+        Serialization::PropertyTree albedoTree;
+        Serialize(albedoTree, value.albedo);
+        tree["albedo"] = std::move(albedoTree);
+    }
+
+    bool Deserialize(const Serialization::PropertyTree &tree, MaterialReferenceRecord &value)
+    {
+        if (!tree.IsObject() || !tree.Contains("albedo"))
+            return false;
+        return Deserialize(tree["albedo"], value.albedo);
+    }
+
     class SerializationFileIOContractTests : public ::testing::Test
     {
     protected:
@@ -237,4 +257,39 @@ TEST_F(SerializationFileIOContractTests, LoadFromVirtualPathDoesNotModifyValueOn
 
     EXPECT_FALSE(LoadFromVirtualPath(value, "/Saved/SerializationContract/missing.json"));
     EXPECT_EQ(value, 99);
+}
+
+TEST_F(SerializationFileIOContractTests, LoadSerializedAssetReferenceFromVirtualPath)
+{
+    const auto assetPath = Resource::AssetPath::TryCreate("/Project/Textures/Grassy_Square");
+    ASSERT_TRUE(assetPath.has_value());
+
+    const MaterialReferenceRecord input{*assetPath};
+    MaterialReferenceRecord output{*assetPath};
+
+    ASSERT_TRUE(SaveToVirtualPath(input, VirtualSavedPath("material-ref.json")));
+    ASSERT_TRUE(LoadFromVirtualPath(output, VirtualSavedPath("material-ref.json")));
+    EXPECT_EQ(output.albedo, *assetPath);
+}
+
+TEST_F(SerializationFileIOContractTests, LoadSerializedAssetReferenceRejectsAbsoluteFilesystemPath)
+{
+    const auto path = ResolveSavedVirtualPath("invalid-material-ref.json");
+    ASSERT_FALSE(path.empty());
+    std::filesystem::create_directories(path.parent_path());
+
+    {
+        std::ofstream out(path);
+        ASSERT_TRUE(out.is_open());
+        out << "{\n"
+            << "  \"albedo\": \"C:/Users/name/dev/RTRLab/Content/textures/Grassy_Square.jpg\"\n"
+            << "}\n";
+    }
+
+    const auto original = Resource::AssetPath::TryCreate("/Project/Textures/Original");
+    ASSERT_TRUE(original.has_value());
+    MaterialReferenceRecord value{*original};
+
+    EXPECT_FALSE(LoadFromVirtualPath(value, VirtualSavedPath("invalid-material-ref.json")));
+    EXPECT_EQ(value.albedo, *original);
 }
