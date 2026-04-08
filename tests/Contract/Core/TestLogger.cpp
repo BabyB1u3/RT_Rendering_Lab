@@ -273,12 +273,15 @@ TEST_F(LoggerHasLoggerTests, ConsoleCommandCanEnableJsonSinkAtLogicalSavedPath)
     LOG_INFO_CAT(LogCategory::Core, "json-logical-path");
     Diagnostics::Logger::Shutdown();
 
-    std::ifstream input(*resolvedPath);
-    ASSERT_TRUE(input.is_open());
-    const std::string contents((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
-    EXPECT_NE(contents.find("json-logical-path"), std::string::npos);
+    {
+        std::ifstream input(*resolvedPath);
+        ASSERT_TRUE(input.is_open());
+        const std::string contents((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+        EXPECT_NE(contents.find("json-logical-path"), std::string::npos);
+    }
 
     DiagnosticsTestSupport::RemovePathIfExists(*resolvedPath);
+    DiagnosticsTestSupport::RemoveDirectoryIfEmpty(resolvedPath->parent_path());
 }
 
 TEST_F(LoggerHasLoggerTests, ConsoleCommandCanEnableJsonSinkAtPathWithSpaces)
@@ -294,10 +297,12 @@ TEST_F(LoggerHasLoggerTests, ConsoleCommandCanEnableJsonSinkAtPathWithSpaces)
     LOG_INFO_CAT(LogCategory::Core, "json-space-path");
     Diagnostics::Logger::Shutdown();
 
-    std::ifstream input(jsonPath);
-    ASSERT_TRUE(input.is_open());
-    const std::string contents((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
-    EXPECT_NE(contents.find("json-space-path"), std::string::npos);
+    {
+        std::ifstream input(jsonPath);
+        ASSERT_TRUE(input.is_open());
+        const std::string contents((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+        EXPECT_NE(contents.find("json-space-path"), std::string::npos);
+    }
 
     DiagnosticsTestSupport::RemoveCurrentTestArtifacts();
 }
@@ -318,6 +323,7 @@ TEST_F(LoggerHasLoggerTests, LoggerInitWithoutExplicitPathUsesSavedLogsDirectory
 
     EXPECT_TRUE(std::filesystem::exists(*expectedPath));
     DiagnosticsTestSupport::RemovePathIfExists(*expectedPath);
+    DiagnosticsTestSupport::RemoveDirectoryIfEmpty(expectedPath->parent_path());
 }
 
 TEST_F(LoggerHasLoggerTests, LoggerCanSwitchJsonSinkPathsAtRuntime)

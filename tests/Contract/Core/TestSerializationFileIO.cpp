@@ -301,10 +301,16 @@ TEST_F(SerializationFileIOContractTests, SaveToConfigPathWritesIntoSavedConfigNa
     constexpr std::string_view kRelative = "serialization-contract/ConfigValue.json";
     const std::string input = "config saved";
     std::string output = "sentinel";
+    const auto savedPath = FileSystem::GetSavedConfigPath(kRelative);
 
     ASSERT_TRUE(SaveToConfigPath(input, kRelative));
     ASSERT_TRUE(LoadFromVirtualPath(output, "/Saved/Config/serialization-contract/ConfigValue.json"));
     EXPECT_EQ(output, input);
+
+    std::error_code ec;
+    std::filesystem::remove(savedPath, ec);
+    ec.clear();
+    std::filesystem::remove(savedPath.parent_path(), ec);
 }
 
 TEST_F(SerializationFileIOContractTests, LoadFromConfigPathFallsBackToEngineDefaults)

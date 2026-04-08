@@ -34,14 +34,22 @@ namespace DiagnosticsTestSupport
         std::filesystem::remove(path, ec);
     }
 
+    inline void RemoveDirectoryIfEmpty(const std::filesystem::path &path)
+    {
+        std::error_code ec;
+        std::filesystem::remove(path, ec);
+    }
+
     inline void RemoveCurrentTestArtifacts()
     {
         std::error_code ec;
         std::filesystem::remove_all(TestRoot(), ec);
         ec.clear();
-        std::filesystem::remove(BaseRoot().parent_path(), ec);
+        std::filesystem::remove(TestRoot().parent_path(), ec);
         ec.clear();
         std::filesystem::remove(BaseRoot(), ec);
+        ec.clear();
+        std::filesystem::remove(BaseRoot().parent_path(), ec);
     }
 
     inline size_t CountEntriesWithMessage(const std::vector<Diagnostics::ConsoleLogEntry> &entries, const char *message)
