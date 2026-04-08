@@ -26,6 +26,12 @@
 
 namespace
 {
+    void RemoveDirectoryIfEmpty(const std::filesystem::path &path)
+    {
+        std::error_code ec;
+        std::filesystem::remove(path, ec);
+    }
+
     bool ReturnsFalseWhenErrFailTriggers(bool shouldFail)
     {
         ERR_FAIL_COND_V_MSG_CAT(LogCategory::Core, shouldFail, false, "diagnostics contract test");
@@ -89,6 +95,10 @@ TEST(DiagnosticsContractTests, CrashHandlerUsesSavedLogsCrashDirectory)
     const auto expectedPath = FileSystem::ResolveWritePath("/Saved/logs/crashes");
     ASSERT_TRUE(expectedPath.has_value());
     EXPECT_EQ(Diagnostics::CrashHandler::GetCrashDirectory(), *expectedPath);
+
+    std::error_code ec;
+    std::filesystem::remove_all(*expectedPath, ec);
+    RemoveDirectoryIfEmpty(expectedPath->parent_path());
 }
 
 TEST(DiagnosticsContractTests, EnsureIsNonFatalAndReturnsBooleanStatus)

@@ -26,6 +26,12 @@ namespace
         std::filesystem::remove(path, ec);
     }
 
+    void RemoveDirectoryIfEmpty(const std::filesystem::path &path)
+    {
+        std::error_code ec;
+        std::filesystem::remove(path, ec);
+    }
+
     std::atomic<int> g_SideEffectCounter{0};
 
     int NextSideEffectValue()
@@ -48,7 +54,9 @@ protected:
     void TearDown() override
     {
         Diagnostics::Logger::Shutdown();
-        RemovePathIfExists(MinLevelContractTestLogPath());
+        const auto logPath = MinLevelContractTestLogPath();
+        RemovePathIfExists(logPath);
+        RemoveDirectoryIfEmpty(logPath.parent_path());
     }
 };
 
