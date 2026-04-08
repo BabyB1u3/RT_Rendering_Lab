@@ -170,8 +170,8 @@ Resource tooling:
 - `rtr_asset_index` generates `.rtr/catalog.json` for `Content/`,
   `EngineContent/`, and `Plugins/*/Content/`
 - `rtr_asset_cook` writes loose cooked `.rtr/catalog.json` files under
-  `Saved/Cache/Cooked/`; texture assets currently switch to cooked `.ktx2`
-  artifact paths as a bootstrap step
+  `Saved/Cache/Cooked/`; texture assets currently decode to an RGBA8 bootstrap
+  binary at cooked `.ktx2` artifact paths
 
 ```bash
 ./build/<config>/rtr_asset_index --root .

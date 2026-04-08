@@ -690,7 +690,7 @@ Responsibilities:
 Current minimal implementation:
 
 - `rtr_asset_cook` reads source `.rtr/catalog.json` files from loose content mounts
-- it copies current source artifacts into `Saved/Cache/Cooked/Project`,
+- it writes current cooked artifacts under `Saved/Cache/Cooked/Project`,
   `Saved/Cache/Cooked/Engine`, and `Saved/Cache/Cooked/Plugins/<Name>`
 - it writes loose cooked `catalog.json` files that currently retain the same JSON
   schema as source catalogs, but rewrite artifact `profileTag` to `cooked`
@@ -702,8 +702,10 @@ Current minimal implementation:
 This is intentionally a bootstrap implementation. It proves that the same logical
 path can resolve from loose source content in `dev` and from loose cooked artifacts
 in `cooked` without yet committing to the final binary cooked catalog format or a
-final transcoding backend. The current texture cook step rewrites the cooked artifact
-identity to `.ktx2`, but still copies source bytes as a placeholder.
+final transcoding backend. The current texture cook step decodes source images to an
+engine-owned RGBA8 bootstrap blob and writes that payload at cooked `.ktx2` artifact
+paths; the artifact identity is now distinct from the source image even though the
+final KTX2 encoder is not implemented yet.
 
 ### 9.6 Physical storage and format strategy
 
