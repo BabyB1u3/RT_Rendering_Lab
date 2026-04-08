@@ -1,1031 +1,447 @@
-# Resource System Design
+# Resource System
 
-This document defines the long-term resource architecture for RTRLab.
+The resource system gives RTRLab a stable, engine-owned way to talk about content.
+Runtime code refers to resources through logical paths such as `/Project/...`,
+`/Engine/...`, and `/Plugins/<Name>/...` rather than by concatenating repository or
+install-relative filesystem paths.
 
-The target is an Unreal-style system:
-
-- application code refers to resources through **logical engine paths**
-- runtime code does **not** depend on OS-specific physical paths
-- project content, engine content, plugin content, user-writable data, and caches are
-  separate concerns
-- loose files, cooked output, and packaged archives are interchangeable **mount
-  backends**, not different public APIs
-
-This document intentionally does **not** treat the current shader pipeline as an
-architectural dependency. Shader compilation, cooking, and archive packaging must fit
-into the resource model defined here, not define it.
-
-## 0. Implementation Status Snapshot
-
-This document still describes the long-term architecture, but parts of the early
-phases are now implemented in the codebase.
-
-Current state as of 2026-04-08:
-
-- the resource/path module now lives under `src/Core/Resource/`
-- `FileSystem` remains the public facade under `src/Core/Resource/FileSystem.h`
-- logical path parsing is implemented for `/Project/`, `/Engine/`,
-  `/Plugins/<Name>/`, `/Saved/`, and `/Cache/`
-- document-style path resolution is implemented for direct file-backed reads/writes
-- logical-path-based `Exists()`, `ReadText()`, `ReadBinary()`, `WriteText()`, and
-  `WriteBinary()` are implemented
-- compatibility wrappers such as `GetAssetPath()`, `GetSavedPath()`,
-  `GetSavedConfigPath()`, and `ResolveConfigPath()` are intentionally retained only
-  for tests and low-level bootstrap/compatibility code
-- the config resolution chain is implemented as
-  `/Saved/Config -> /Project/Config -> /Engine/Config`
-- the repository now uses `Content/` for project content, and debug/development
-  writable roots resolve under `Saved/`
-- shipped project config defaults now live under `Content/Config/`
-- shipped engine config defaults now live under `EngineContent/Config/`
-- runtime log, crash, and ImGui ini callsites now resolve through explicit logical
-  `/Saved/...` paths rather than legacy saved-path wrappers
-- diagnostics now default to `/Saved/logs/RTRLab.log`, and the JSON sink can resolve
-  explicit logical write paths such as `/Saved/Logs/*.jsonl`
-- serialization now provides logical-path wrappers for document-style file I/O through
-  the resource system
-- asset-reference serialization now has an explicit validated path type instead of
-  relying on raw strings
-- a minimal source-catalog JSON loader and merged loose-mount resolution table are
-  now implemented for readable mounts
-- extensionless project, engine, and plugin asset paths can now resolve through
-  source catalogs in development builds
-- the current runtime can explicitly refresh catalog state when readable mounts
-  change after initial lookup
-- a source catalog indexing tool now exists and can generate `.rtr/catalog.json`
-  for project, engine, and plugin loose content mounts
-- a minimal cooked catalog generation tool now exists for loose development-time
-  cooked mounts under `Saved/Cache/Cooked/`
-- the cook tool now also supports `build/Cooked/` as an explicit loose cooked output
-  layout for development workflows
-- the current runtime can read metadata and load the bootstrap cooked texture payload
-  written at cooked `.rtrtex` artifact paths
-- loose cooked catalogs now use a distinct versioned JSON cooked schema rather than
-  reusing the source catalog JSON payload shape verbatim
-- the in-memory catalog model now distinguishes source vs cooked catalog kind, and
-  only source entries carry `sourceRelativePath` provenance
-- the current runtime can discover loose cooked mounts from `Saved/Cache/Cooked/`,
-  `build/Cooked/`, or an explicit `RTRLAB_COOKED_ROOT` override when running in the
-  `cooked` profile
-- the current `.rtrtex` bootstrap payload writer now emits a v2 header with explicit
-  `rowPitch` and `mipLevelCount` metadata, while the runtime still accepts legacy
-  version 1 bootstrap payloads
-- a minimal `.rtrpak` archive format and `rtr_asset_pack` packaging tool now exist
-  for project, engine, and plugin cooked mounts
-- the runtime can now discover packaged mounts from `Saved/Cache/Packaged/`,
-  `build/Packaged/`, or an explicit `RTRLAB_PACKAGE_ROOT` override when running in a
-  `packaged` or `shipping` profile
-- packaged mounts now load cooked catalogs directly from archives and materialize the
-  selected artifact into a cache-backed extraction root without changing the public
-  logical path
-- the runtime now supports a loose overlay layer via `RTRLAB_OVERLAY_ROOT` or the
-  repository-local `Saved/Overrides/` development path, and overlay catalog entries
-  take precedence over packaged/cooked/source entries for the same logical path
-- readable and writable mount handling now goes through an explicit backend layer
-  rather than being embedded directly inside `ResourceCatalog` and `FileSystem`
+> **Design Philosophy**: Public resource identity is logical, not physical. The same
+> logical path should work across loose source content, loose cooked output, packaged
+> archives, and higher-priority override layers. Config and other document-style files
+> remain first-class mounted resources, but they are intentionally distinct from
+> catalog-backed imported assets.
 
 ---
 
-## 1. Design Goals
+## Table of Contents
 
-### 1.1 Primary goals
-
-1. Make resource references stable, readable, and independent of disk layout.
-2. Support Unreal-style logical roots such as `/Project/...` and `/Engine/...`.
-3. Separate read-only shipped content from user-writable data.
-4. Allow the same logical path to resolve from loose files in development and from
-   cooked packages in shipping builds.
-5. Make future plugin, mod, DLC, and patch support possible without changing gameplay
-   code or serialization formats.
-
-### 1.2 Non-goals
-
-- Reproducing Unreal's entire asset registry, `.uasset` format, or editor pipeline.
-- Locking the engine to a specific shader, model, or texture pipeline.
-- Making archive packaging mandatory in the first implementation.
+- [Resource System](#resource-system)
+  - [Table of Contents](#table-of-contents)
+  - [1. Motivation](#1-motivation)
+  - [2. Architecture Overview](#2-architecture-overview)
+  - [3. Logical Path Model](#3-logical-path-model)
+    - [3.1 Public Mount Roots](#31-public-mount-roots)
+    - [3.2 Path Categories](#32-path-categories)
+    - [3.3 Path Syntax Contract](#33-path-syntax-contract)
+  - [4. Resolution Model](#4-resolution-model)
+    - [4.1 Read Domains and Write Domains](#41-read-domains-and-write-domains)
+    - [4.2 Document-Style Resolution](#42-document-style-resolution)
+    - [4.3 Catalog-Backed Resolution](#43-catalog-backed-resolution)
+    - [4.4 Mount Precedence](#44-mount-precedence)
+  - [5. Catalog System](#5-catalog-system)
+    - [5.1 Source Catalogs](#51-source-catalogs)
+    - [5.2 Cooked Catalogs](#52-cooked-catalogs)
+    - [5.3 Artifact Selection](#53-artifact-selection)
+    - [5.4 Conflict Handling](#54-conflict-handling)
+  - [6. Mount Backends](#6-mount-backends)
+  - [7. FileSystem Facade](#7-filesystem-facade)
+  - [8. Config Integration](#8-config-integration)
+  - [9. Serialization Integration](#9-serialization-integration)
+  - [10. Cooking and Packaging](#10-cooking-and-packaging)
+    - [10.1 Source Indexing](#101-source-indexing)
+    - [10.2 Loose Cooked Output](#102-loose-cooked-output)
+    - [10.3 Packaged Output](#103-packaged-output)
+    - [10.4 Current Cooked Texture Format](#104-current-cooked-texture-format)
+  - [11. Current Implementation Status](#11-current-implementation-status)
+  - [12. Current Gaps and Near-Term Plan](#12-current-gaps-and-near-term-plan)
+  - [13. File Layout](#13-file-layout)
+  - [14. Key Design Decisions](#14-key-design-decisions)
+    - [Why logical paths are case-sensitive on every platform](#why-logical-paths-are-case-sensitive-on-every-platform)
+    - [Why config files are mounted documents, not extensionless assets](#why-config-files-are-mounted-documents-not-extensionless-assets)
+    - [Why source and cooked catalogs are separate schemas](#why-source-and-cooked-catalogs-are-separate-schemas)
+    - [Why packaged archives materialize into cache-backed files today](#why-packaged-archives-materialize-into-cache-backed-files-today)
+    - [Why compatibility wrappers still exist](#why-compatibility-wrappers-still-exist)
 
 ---
 
-## 2. Core Decision
+## 1. Motivation
 
-RTRLab adopts **logical mount-point paths** as its public resource identity.
+The original project treated content lookup mostly as filesystem string-joining:
+`assets/` for shipped data, `saved/` for writable data, and a handful of callsites that
+each knew their own relative directory rules. That approach worked while the codebase
+was small, but it had three structural problems:
 
-Examples:
+| Problem | Impact |
+|---------|--------|
+| Public references depended on physical layout | Serialized data and runtime code would break when directories changed |
+| Source, cooked, and packaged content were different code paths | Runtime systems could not treat them as interchangeable storage backends |
+| Read-only content and writable user data were mixed conceptually | Config, logs, cache data, and assets all wanted different rules but shared ad hoc helpers |
+
+The current resource system fixes that by separating **public identity** from
+**physical storage**:
+
+- public identity is a logical path such as `/Project/Textures/Grassy_Square`
+- physical storage may be a loose file, cooked artifact, packaged archive entry, or
+  override layer
+- writable data lives in explicit `/Saved/` and `/Cache/` domains instead of pretending
+  to be project content
+
+That gives RTRLab the same key property that larger engines rely on: a resource path can
+stay stable while the storage backend evolves.
+
+---
+
+## 2. Architecture Overview
+
+```
+                      Public API
+                /-------------------\
+                |    FileSystem     |
+                | logical path I/O  |
+                \---------+---------/
+                          |
+             +------------+------------+
+             |                         |
+             v                         v
+      Document-style paths       Catalog-backed paths
+      (/Saved/Config/...)        (/Project/Textures/...)
+             |                         |
+             v                         v
+     Mounted directory roots    CatalogRegistry
+                                + artifact selection
+                                + mount precedence
+                                + backend resolution
+                                          |
+                                +---------+---------+
+                                |                   |
+                                v                   v
+                        Readable mount backends   Tooling
+                        directory / pak /         source index / cook / pack
+                        overlay layers
+```
+
+At a high level, the system has four cooperating pieces:
+
+1. **Logical path parsing**
+   Validates and classifies public paths such as `/Project/...` and `/Saved/...`.
+
+2. **Mounted filesystem resolution**
+   Handles document-style resources that map directly to files, especially config,
+   logs, save data, and cache data.
+
+3. **Catalog-backed asset resolution**
+   Handles extensionless asset paths by loading catalogs from active readable mounts and
+   selecting the best artifact for the current runtime.
+
+4. **Tooling**
+   Generates source catalogs, loose cooked output, and packaged `.rtrpak` archives so
+   runtime code does not have to guess how an asset is stored.
+
+---
+
+## 3. Logical Path Model
+
+### 3.1 Public Mount Roots
+
+The resource system defines five public logical roots:
+
+| Mount | Purpose | Writable | Typical Examples |
+|------|---------|----------|------------------|
+| `/Project/` | Project-authored runtime content | No | textures, materials, shaders, scenes, config defaults |
+| `/Engine/` | Engine-shipped built-in content | No | fallback materials, shared defaults, editor/support assets |
+| `/Plugins/<Name>/` | Plugin-owned content | No | plugin materials, plugin defaults, plugin-specific assets |
+| `/Saved/` | User and runtime-generated data | Yes | config overrides, logs, save data |
+| `/Cache/` | Disposable derived data | Yes | shader cache, cooked intermediates, extracted packaged artifacts |
+
+`/Project/`, `/Engine/`, and `/Plugins/<Name>/` are read domains. `/Saved/` and
+`/Cache/` are write domains.
+
+### 3.2 Path Categories
+
+The system distinguishes two kinds of public resource paths.
+
+**Catalog-backed asset paths** identify imported/runtime assets and intentionally omit
+physical source extensions:
 
 ```text
 /Project/Textures/Grassy_Square
-/Project/Shaders/ForwardLit
-/Engine/Editor/Icons/Play
+/Engine/Defaults/Materials/ErrorMaterial
 /Plugins/ExamplePlugin/Materials/Checker
 ```
 
-These are **resource paths**, not OS filesystem paths.
+These resolve through a resource catalog rather than by probing the filesystem.
 
-Application code, serialized scene data, material definitions, config defaults, and
- future asset references should use these logical paths wherever the reference means
-"load a resource from the engine's resource space."
-
-Physical filesystem paths remain an implementation detail inside the resource system.
-
----
-
-## 3. Path Taxonomy
-
-RTRLab distinguishes three categories of paths:
-
-### 3.1 Resource paths
-
-Logical read-oriented paths that identify shipped or mountable content.
-
-Examples:
+**Document-style resource paths** identify directly readable files and retain their
+filenames and extensions:
 
 ```text
-/Project/Textures/Grassy_Square
-/Engine/Shaders/Common/Fullscreen
-/Plugins/Foo/Materials/DebugGrid
-```
-
-Properties:
-
-- stable across development, install, and packaging
-- valid in serialized data
-- resolved through the resource mount table
-- never directly concatenated with OS paths by gameplay code
-
-#### 3.1.1 Catalog-backed asset paths
-
-Most runtime content assets use **catalog-backed logical paths**.
-
-Examples:
-
-```text
-/Project/Textures/Grassy_Square
-/Project/Shaders/ForwardLit
-/Plugins/Foo/Materials/DebugGrid
-```
-
-Properties:
-
-- do **not** encode physical source extensions
-- do **not** change when content is cooked
-- resolve through the resource catalog, not by probing the filesystem for possible
-  extensions
-- are the preferred form for serialized asset references
-
-#### 3.1.2 Document-style resource paths
-
-Some resource subtrees intentionally retain explicit file names and extensions.
-
-Examples:
-
-```text
-/Project/Config/Input/DebugCameraControl.json
-/Engine/Config/Input/DefaultBindings.json
-/Saved/Config/Input/DebugCameraControl.json
-```
-
-Properties:
-
-- represent directly readable documents rather than catalog-backed imported assets
-- keep extensions because the document format itself is part of the contract
-- resolve directly through mounted filesystems
-- do **not** participate in extensionless asset lookup through the resource catalog
-
-### 3.2 User-data paths
-
-Logical write-oriented paths for runtime-generated or user-edited data.
-
-Examples:
-
-```text
-/Saved/Config/Input/DebugCameraControl.json
-/Saved/Logs/RTRLab.log
-/Saved/Saves/Slot01/save.json
-/Cache/Shaders/ForwardLit.metallib
-```
-
-Properties:
-
-- not part of shipped read-only content
-- writable by the application
-- mapped to platform-specific writable locations in non-development builds
-- generally should **not** appear as long-lived asset references inside scene/material
-  data
-
-### 3.3 Native filesystem paths
-
-Concrete `std::filesystem::path` values used internally by low-level file I/O.
-
-Examples:
-
-```text
-/Users/name/Projects/RTRLab/Content/Textures/Grassy_Square.jpg
-C:\Users\name\AppData\Local\RTRLab\Saved\Logs\RTRLab.log
-```
-
-Properties:
-
-- valid only inside the platform/filesystem layer
-- not used as stable identifiers
-- not serialized as asset references
-
----
-
-## 4. Public Mount Points
-
-RTRLab defines the following logical roots.
-
-| Mount | Purpose | Writable | Serialized as asset reference | Notes |
-|------|---------|----------|-------------------------------|-------|
-| `/Project/` | Project-authored runtime content | No | Yes | Main game/demo content root |
-| `/Engine/` | Engine-shipped built-in content | No | Yes | Shared default assets, editor icons, fallback materials |
-| `/Plugins/<Name>/` | Plugin-provided content | No | Yes | Optional; mounted only when plugin is enabled |
-| `/Saved/` | User/runtime-generated data | Yes | Rarely | Logs, per-user config overrides, save files |
-| `/Cache/` | Disposable derived data | Yes | No | Shader caches, cooked intermediates, thumbnails |
-
-### 4.1 Rules
-
-- `/Project/`, `/Engine/`, and `/Plugins/...` are **read domains**.
-- `/Saved/` and `/Cache/` are **write domains**.
-- Read APIs may accept any mount.
-- Write APIs must reject writes to read domains.
-- Asset references stored in user-facing/runtime content should normally point only to
-  `/Project/`, `/Engine/`, or `/Plugins/...`.
-
-### 4.2 Why this model
-
-This gives RTRLab the most important Unreal-like property:
-
-the public identity of a resource is its **mounted logical path**, not where that data
-physically lives today.
-
-That means `/Project/Textures/Grassy_Square` can come from:
-
-- a loose development directory
-- a cooked output directory
-- a packaged archive
-- a hotfix overlay
-
-without changing any serialized references or gameplay code.
-
-For clarity, plugin physical `Content/` directories are **mount roots**, not visible
-logical path segments.
-
-Example:
-
-- physical: `Plugins/Foo/Content/Materials/DebugGrid.json`
-- logical: `/Plugins/Foo/Materials/DebugGrid`
-
----
-
-## 5. Proposed Physical Layout
-
-This document recommends a deliberate directory layout centered on `Content/` rather
-than `assets/`.
-
-### 5.1 Recommended development layout
-
-```text
-RTRLab/
-  Content/                    ← mounted as /Project/
-    Textures/
-    Shaders/
-    Materials/
-    Scenes/
-    Config/                   ← /Project/Config/
-  EngineContent/              ← mounted as /Engine/ (optional at first)
-    Editor/
-    Defaults/
-    Config/                   ← /Engine/Config/
-  Plugins/
-    ExamplePlugin/
-      Content/                ← mounted as /Plugins/ExamplePlugin/
-      Config/
-  Saved/                      ← mounted as /Saved/ in development
-    Config/
-    Logs/
-    Saves/
-  Cache/                      ← mounted as /Cache/ in development
-    Shaders/
-    Cooked/
-  build/
-```
-
-### 5.2 Installed layout
-
-```text
-RTRLab/
-  RTRLab.exe
-  Content/                    ← /Project/
-    Config/                   ← /Project/Config/
-  EngineContent/              ← /Engine/
-    Config/                   ← /Engine/Config/
-  Plugins/
-  Saved/                      ← optional fallback only; normally user dir in shipping
-  Cache/                      ← optional fallback only; normally user dir in shipping
-```
-
-### 5.3 Platform user-data layout
-
-In shipping builds:
-
-- `/Saved/` maps to the platform user data directory
-- `/Cache/` maps to a platform cache directory when available, otherwise under `/Saved/`
-
-Typical mappings:
-
-| Platform | `/Saved/` | `/Cache/` |
-|----------|-----------|-----------|
-| Windows | `%LOCALAPPDATA%/RTRLab/Saved/` | `%LOCALAPPDATA%/RTRLab/Cache/` |
-| macOS | `~/Library/Application Support/RTRLab/Saved/` | `~/Library/Caches/RTRLab/` |
-| Linux | `$XDG_DATA_HOME/RTRLab/Saved/` or `~/.local/share/RTRLab/Saved/` | `$XDG_CACHE_HOME/RTRLab/` or `~/.cache/RTRLab/` |
-
-### 5.4 Compatibility note
-
-The repository now uses `Content/` for `/Project/` and `Saved/` for writable
-development data.
-
-Current development mappings:
-
-- `Content/` as `/Project/`
-- `Saved/` as `/Saved/`
-- `Saved/Cache/` as `/Cache/` in development
-- `EngineContent/` as `/Engine/`
-- `Plugins/<Name>/Content/` as `/Plugins/<Name>/`
-
-Current layout details:
-
-- shipped config defaults live under `Content/Config/`
-- writable config overrides live under `Saved/Config/`
-- `ResolveConfigPath()` follows the logical override order
-  `/Saved/Config -> /Project/Config -> /Engine/Config`
-- writable roots resolve to repository-local `Saved/` paths in debug/development
-  builds and to platform user-data directories in shipping-style builds
-
-The earlier `assets/` / `saved/` compatibility bridge is no longer the primary
-repository layout.
-
----
-
-## 6. Path Syntax Contract
-
-### 6.1 Grammar
-
-All logical paths use forward slashes:
-
-```text
-/MountName/Relative/Path[.ext]
-```
-
-`[.ext]` is optional:
-
-- catalog-backed asset paths typically omit physical extensions
-- document-style resource paths keep explicit file extensions
-
-Examples:
-
-```text
-/Project/Textures/Grassy_Square
-/Project/Shaders/ForwardLit
-/Engine/Defaults/Materials/ErrorMaterial.json
-/Plugins/Foo/Textures/Icon
+/Project/Config/input/DebugCameraControl.json
+/Engine/Config/input/DefaultBindings.json
 /Saved/Config/imgui.ini
+/Saved/logs/RTRLab.log
 ```
 
-### 6.2 Normalization rules
+These resolve through mounted backends directly and do not participate in extensionless
+asset lookup.
 
-The parser must:
+### 3.3 Path Syntax Contract
 
-- require a leading `/`
-- require a valid mount root
-- collapse repeated `/`
-- reject `.` and `..` segments
-- reject backslashes in public logical paths
-- treat logical paths as **case-sensitive** on all platforms
-- require repository content naming to match serialized logical path casing exactly
+Logical paths are part of RTRLab's serialized contract and follow strict rules:
 
-Plugin mount names under `/Plugins/<Name>/...` additionally follow identifier rules:
+- a path must begin with `/`
+- path segments use forward slashes only
+- repeated `/` segments are normalized
+- `.` and `..` segments are rejected
+- public logical paths are case-sensitive on all platforms
+- `/Plugins/<Name>/...` mount names must be valid identifiers:
+  non-empty, ASCII letter first, then ASCII letters, digits, or `_`
 
-- non-empty
-- ASCII letter as the first character
-- remaining characters limited to ASCII letters, digits, and `_`
+The parser accepts no raw OS path syntax. Strings like
+`C:\Project\Content\Textures\X.png` are not resource paths.
 
-Physical plugin directories that do not satisfy those rules are not treated as
-mountable plugin content roots by discovery/tooling.
+---
 
-This intentionally favors a stricter cross-platform contract over platform-local
-filesystem convenience. A path that differs only by case must be treated as a
-different logical path, and mismatched casing should be considered an authoring error.
+## 4. Resolution Model
 
-### 6.3 Serialized contract status
+### 4.1 Read Domains and Write Domains
 
-The syntax and normalization rules in this section are now treated as the stable
-serialized contract for logical resource paths in RTRLab.
+Read APIs may accept any logical domain, but write APIs only accept `/Saved/` and
+`/Cache/`.
 
 That means:
 
-- serialized asset references should preserve this exact leading-slash form
-- path matching is case-sensitive regardless of host platform
-- future runtime, tooling, cooking, and packaging work must continue to honor the
-  same public path syntax rather than inventing alternate serialized forms
+- `FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square")` is valid
+- `FileSystem::ResolveWritePath("/Saved/Config/input/Foo.json")` is valid
+- `FileSystem::ResolveWritePath("/Project/Config/Foo.json")` is rejected
 
-### 6.4 No raw OS path leakage
+This rule is enforced centrally by the resource system rather than by each caller.
 
-Public resource-facing APIs must not require callers to know:
+### 4.2 Document-Style Resolution
 
-- project root absolute path
-- executable directory
-- install prefix
-- archive location
-- platform user-data directory
+Document-style paths resolve through mounted backends directly.
 
-Those remain internal resolution details.
+In the current repository layout:
 
----
+| Logical Root | Development Backing |
+|-------------|---------------------|
+| `/Project/` | `Content/` |
+| `/Engine/` | `EngineContent/` |
+| `/Plugins/<Name>/` | `Plugins/<Name>/Content/` |
+| `/Saved/` | `Saved/` in debug/development, platform user-data in shipping-style builds |
+| `/Cache/` | `Saved/Cache/` in debug/development, platform cache/user-data in shipping-style builds |
 
-## 7. Resource System Responsibilities
+The current config chain is layered on top of those mounts:
 
-RTRLab's resource/path layer is responsible for:
+1. `/Saved/Config/...`
+2. `/Project/Config/...`
+3. `/Engine/Config/...`
 
-1. parsing logical paths
-2. validating mount roots
-3. loading and merging resource catalogs from active mounts
-4. resolving catalog-backed asset paths through the merged catalog
-5. resolving document-style paths through mounted backends
-6. resolving write paths for writable domains
-7. performing file I/O by logical path
-8. enforcing read/write domain rules
-9. exposing limited directory enumeration where needed
+Missing saved overrides may be auto-seeded from project or engine defaults, but shipped
+defaults are never modified in place.
 
-It is **not** responsible for:
+### 4.3 Catalog-Backed Resolution
 
-- decoding textures, models, or shader binaries
-- understanding scene/material semantics
-- being the editor asset database
+Catalog-backed logical paths resolve in two stages:
 
----
+1. **Catalog lookup**
+   Find a `ResourceCatalogEntry` for the requested logical path in the merged global
+   table.
 
-## 8. API Direction
+2. **Artifact resolution**
+   Choose the best matching artifact for the current runtime and resolve that artifact
+   through the owning mount backend.
 
-The original single-file `FileSystem` bootstrap has now been split into a dedicated
-resource module under `src/Core/Resource/`, with `FileSystem` retained as the public
-facade.
+The caller never sees whether the chosen artifact came from:
 
-### 8.1 Current implemented shape
+- a loose source directory
+- a loose cooked directory
+- a packaged `.rtrpak` archive
+- a higher-priority overlay directory
 
-The current codebase already exposes:
+The public path stays the same.
 
-- logical path parsing and classification:
-  `IsVirtualPath()`, `ParseVirtualPath()`, `IsCatalogBackedPath()`,
-  `IsDocumentPath()`
-- logical path resolution:
-  `ResolveReadPath()`, `ResolveWritePath()`, `RefreshCatalogs()`
-- logical file I/O:
-  `Exists()`, `ReadText()`, `ReadBinary()`, `WriteText()`, `WriteBinary()`
-- compatibility wrappers:
-  `GetAssetPath()`, `GetSavedPath()`, `GetSavedConfigPath()`, `ResolveConfigPath()`,
-  `ReadTextFile()`, `ReadBinaryFile()`
+### 4.4 Mount Precedence
 
-The module is currently split across small helpers such as:
+Readable mounts are merged with explicit precedence. For the current implementation,
+the order is:
 
-- `PathTypes`
-- `PathParser`
-- `MountResolver`
-- `ConfigResolver`
-- `PhysicalIO`
-- `RootDiscovery`
+1. overlay mounts
+2. packaged mounts
+3. loose cooked mounts
+4. loose source mounts
 
-### 8.2 Remaining limitations
+This precedence applies within the same logical namespace. Plugin content does not
+implicitly override `/Project/...`; it only affects `/Plugins/<Name>/...`.
 
-The main gap is no longer basic logical-path I/O, and it is no longer the absence of
-any catalog support. The remaining architectural gap is the difference between the
-current minimal per-mount catalog implementation and the long-term merged-catalog
-design.
-
-Today the implemented/remaining split is:
-
-- extensionless read-domain asset paths such as `/Project/Textures/Grassy_Square`
-  and `/Plugins/Foo/Materials/DebugGrid` now resolve through mount-local source
-  catalogs in development builds
-- duplicate logical paths within a single catalog are rejected
-- artifact selection now prefers exact `profileTag` / `backendTag` / `platformTag`
-  matches for the current runtime, then falls back to `any`
-- the runtime now builds a merged global catalog table across current loose readable
-  mounts (`/Project`, `/Engine`, `/Plugins/<Name>`)
-- duplicate logical paths across currently loaded loose readable mounts are treated
-  as invalid during merge
-- explicit overlay precedence handling is still not implemented
-- packaged/archive-backed catalog loading is now implemented for the current custom
-  `.rtrpak` mount backend
-- overlay precedence is now implemented for the current single-root loose override
-  layer, but broader mod/patch policy remains intentionally minimal
-- cooked catalog binary serialization beyond the current JSON bootstrap is still not
-  implemented
-- document-style paths such as `/Project/Config/...`, `/Saved/...`, and `/Cache/...`
-  intentionally continue to bypass catalog lookup and resolve directly through mounted
-  filesystems
-
-### 8.3 Public API shape
-
-The exact names may change, but the resource system should evolve toward an API like:
-
-```cpp
-enum class PathDomain
-{
-    Project,
-    Engine,
-    Plugin,
-    Saved,
-    Cache,
-};
-
-struct VirtualPath
-{
-    PathDomain domain;
-    std::optional<std::string> mountName;   // set only for Plugin domain
-    std::string relativePath;
-};
-
-class FileSystem
-{
-public:
-    static void Init();
-
-    static bool IsVirtualPath(std::string_view path);
-    static std::optional<VirtualPath> ParseVirtualPath(std::string_view path);
-    static bool IsCatalogBackedPath(std::string_view path);
-    static bool IsDocumentPath(std::string_view path);
-
-    static std::optional<std::filesystem::path> ResolveReadPath(std::string_view virtualPath);
-    static std::optional<std::filesystem::path> ResolveWritePath(std::string_view virtualPath);
-
-    static bool Exists(std::string_view virtualPath);
-    static std::optional<std::string> ReadText(std::string_view virtualPath);
-    static std::optional<std::vector<uint8_t>> ReadBinary(std::string_view virtualPath);
-
-    static bool WriteText(std::string_view virtualPath, std::string_view data);
-    static bool WriteBinary(std::string_view virtualPath, std::span<const uint8_t> data);
-};
-```
-
-Notes:
-
-- `mountName` is populated only for `/Plugins/<Name>/...`
-- most of this surface is now implemented in the current `FileSystem` facade
-- the first implementation may still return `std::optional`, but the long-term API
-  should likely move to a richer result type so resolution failures can distinguish
-  between invalid path, unknown mount, denied write domain, and file-not-found
-- asynchronous loading is intentionally out of scope for the first implementation, but
-  future async APIs must build on the same logical path contract rather than inventing
-  a second path system
-
-### 8.4 Compatibility layer
-
-The resource system still exposes a small physical-path compatibility layer, but it is
-now intentionally scoped rather than being the primary API surface.
-
-Retained helpers:
-
-- `GetAssetPath()` implemented as a legacy wrapper to `/Project/...`
-- `GetSavedPath()` implemented as a legacy wrapper to `/Saved/...`
-- `ResolveConfigPath()` rewritten on top of the new logical config rules
-
-Scope rules:
-
-- runtime systems should prefer logical-path APIs first
-- tests and bootstrap code may still use these wrappers where asserting physical
-  layout is part of the point
-- new asset-facing runtime code should not be built on these wrappers
-
-That preserves a narrow bridge for low-level code without locking the design to the
-old API surface.
+If an overlay supplies `/Project/Textures/Grassy_Square`, it overrides lower-priority
+project mounts for that logical path. Unrelated project entries still fall back to the
+next available lower layer.
 
 ---
 
-## 9. Resource Catalog
+## 5. Catalog System
 
-The resource catalog is a first-class subsystem of the path/resource layer.
+### 5.1 Source Catalogs
 
-Implementation status:
+Source catalogs describe loose authoring-time content. They are generated under each
+mount root as `.rtr/catalog.json`.
 
-- a minimal source-catalog JSON loader is implemented
-- a source catalog indexing tool (`rtr_asset_index`) is implemented for loose
-  project, engine, and plugin content roots
-- a minimal cooked catalog generation tool (`rtr_asset_cook`) is implemented for
-  loose development-time cooked roots under `Saved/Cache/Cooked/`
-- the current runtime scans project, engine, and plugin loose mounts and merges their
-  mount-local `.rtr/catalog.json` files into a global development-time resolution
-  table
-- the current runtime can resolve catalog-backed project, engine, and plugin assets
-  from that merged development-time table
-- duplicate logical paths within a single catalog are treated as invalid
-- duplicate logical paths across currently loaded loose readable mounts are also
-  treated as invalid
-- artifact selection now applies a basic runtime policy across `profileTag`,
-  `backendTag`, and `platformTag`, preferring exact matches over `any`
-- the current runtime can prefer loose cooked mounts for catalog-backed asset reads
-  when the active resource profile is `cooked`
-- catalog support is still incomplete: loose cooked catalogs now have their own
-  versioned JSON schema, but there is still no packaged/archive resolution table,
-  no binary cooked catalog format, and no platform/backend/profile-aware
-  packaged/overlay precedence policy yet
+Current source catalogs:
 
-It is **not** an optional helper and it is **not** a temporary convenience for the
-current cooking discussion. It is the stable bridge between:
+- use `version = 1`
+- include a `logicalPath`
+- include a required `sourceRelativePath`
+- include one or more candidate `artifacts`
 
-- extensionless logical asset paths
-- source-authoring files
-- cooked runtime artifacts
-- loose-file mounts
-- packaged/archive mounts
+Example shape:
 
-### 9.1 Current source catalog workflow
-
-Loose source catalogs are now generated by tooling rather than maintained by hand.
-
-The `rtr_asset_index` tool scans:
-
-- `Content/` as `/Project/`
-- `EngineContent/` as `/Engine/`
-- `Plugins/<Name>/Content/` as `/Plugins/<Name>/`
-
-and writes `.rtr/catalog.json` under each discovered loose content root.
-
-Current indexing rules:
-
-- `.rtr/` is excluded from scanning
-- `Config/` is excluded because config files remain document-style resource paths
-- logical asset paths are generated without physical file extensions
-- generated source artifacts currently use `profileTag = "dev"` and `platformTag`,
-  `backendTag = "any"`
-- duplicate generated logical paths within a mount are rejected as authoring errors
-
-This gives the current development workflow a stable bridge between loose source files
-and extensionless logical asset paths without requiring handwritten catalog entries.
-
-### 9.2 Why RTRLab needs a catalog
-
-RTRLab has chosen extensionless logical asset paths such as:
-
-```text
-/Project/Textures/Grassy_Square
-/Project/Shaders/ForwardLit
-```
-
-That means the runtime cannot resolve those paths by guessing whether the physical file
-is `.png`, `.jpg`, `.slang`, `.bin`, `.rtrtex`, or something else.
-
-Therefore, catalog-backed asset paths must resolve through a **resource catalog**.
-
-### 9.3 What goes through the catalog
-
-The catalog is used for:
-
-- imported/runtime assets whose logical path does not include the physical extension
-- source-to-cooked remapping
-- selecting the best physical artifact for the current platform/backend/profile
-- mount-precedence-aware asset resolution
-
-The catalog is **not** used for:
-
-- document-style config paths such as `/Project/Config/...json`
-- log files
-- arbitrary user data under `/Saved/`
-
-### 9.4 Catalog ownership and lifecycle
-
-Each readable content mount owns a catalog:
-
-- `/Project/` mount owns a project catalog
-- `/Engine/` mount owns an engine catalog
-- each `/Plugins/<Name>/` mount owns a plugin catalog
-- overlay/archive/cooked mounts may ship alternate catalogs for the same logical root
-
-At runtime, the resource system loads catalogs from all active readable mounts and
-merges them into a global resolved view according to mount precedence. In the current
-development implementation, this table is built on first use and can be rebuilt
-explicitly through `RefreshCatalogs()` when readable mounts change after startup.
-
-### 9.5 Catalog generation pipeline
-
-RTRLab should adopt a two-stage catalog pipeline:
-
-#### Source catalog generation
-
-A dedicated indexing/import tool scans authoring-time content roots and generates
-**source catalogs**.
-
-Recommended ownership:
-
-- project content: generated from `Content/`
-- engine content: generated from `EngineContent/`
-- plugin content: generated from `Plugins/<Name>/Content/`
-
-Recommended tool naming:
-
-```text
-rtr_asset_index
-```
-
-Responsibilities:
-
-- scan supported asset source files
-- classify asset kind
-- derive canonical logical paths
-- detect conflicts
-- emit a versioned source catalog
-
-#### Cooked catalog generation
-
-The cook pipeline consumes source catalogs and emits **cooked catalogs** alongside
-cooked artifacts.
-
-Recommended tool naming:
-
-```text
-rtr_asset_cook
-```
-
-Responsibilities:
-
-- read source catalogs
-- transform source files into runtime-ready artifacts
-- record the produced artifact variants
-- emit cooked catalogs for loose cooked directories and packaged archives
-
-Current minimal implementation:
-
-- `rtr_asset_cook` reads source `.rtr/catalog.json` files from loose content mounts
-- it writes current cooked artifacts under `Saved/Cache/Cooked/...` by default, and
-  can explicitly target `build/Cooked/...` for development-time build outputs
-- it writes loose cooked `catalog.json` files with a distinct versioned cooked JSON
-  schema (`version = 2`, `kind = "cooked"`) rather than reusing source catalog
-  entries directly
-- project texture assets currently switch from source `.jpg`/`.png` style artifacts
-  to cooked `.rtrtex` artifact paths in the generated cooked catalog
-- the current runtime can select those cooked loose mounts for catalog-backed reads
-  when the active resource profile is `cooked`, searching an explicit
-  `RTRLAB_COOKED_ROOT` override first, then `Saved/Cache/Cooked/`, then
-  `build/Cooked/`
-- the current runtime can also read metadata and load the current bootstrap cooked
-  texture payload format through dedicated helpers, so the texture cook flow now
-  has a basic generation-and-consumption contract
-
-This is intentionally a bootstrap implementation. It proves that the same logical
-path can resolve from loose source content in `dev` and from loose cooked artifacts
-in `cooked` without yet committing to the final binary cooked catalog format or a
-final transcoding backend. The current texture cook step decodes source images to an
-engine-owned RGBA8 bootstrap blob and writes that payload at cooked `.rtrtex`
-artifact paths; the artifact identity is now distinct from the source image and no
-longer pretends to be final KTX2 output. The current bootstrap writer emits a v2
-header with explicit `rowPitch` and `mipLevelCount` metadata, and the runtime keeps
-compatibility with older v1 bootstrap headers while the format is still evolving.
-
-### 9.6 Physical storage and format strategy
-
-The design should support different physical encodings for developer readability and
-shipping efficiency, while preserving a single canonical in-memory schema.
-
-Recommended strategy:
-
-- **source catalogs**: human-inspectable `JSON`
-- **cooked catalogs**: versioned binary format optimized for startup/load speed
-
-Recommended locations:
-
-```text
-Content/.rtr/catalog.json
-EngineContent/.rtr/catalog.json
-Plugins/Foo/Content/.rtr/catalog.json
-
-Cache/Cooked/Project/.rtr/catalog.bin
-Cache/Cooked/Engine/.rtr/catalog.bin
-Cache/Cooked/Plugins/Foo/.rtr/catalog.bin
-```
-
-For packaged archives, the archive must contain the cooked catalog for the mounted root,
-for example:
-
-```text
-data_project.pak -> contains /Project/ content + .rtr/catalog.bin
-data_engine.pak  -> contains /Engine/ content  + .rtr/catalog.bin
-```
-
-The exact file names may change, but the architectural rule should remain:
-
-- every readable catalog-backed mount carries a catalog artifact
-- the runtime never reconstructs the catalog by guessing extensions
-
-### 9.7 Canonical catalog schema
-
-RTRLab should standardize an engine-owned schema similar to:
-
-```cpp
-enum class ResourceKind
+```json
 {
-    Texture,
-    Shader,
-    Material,
-    Mesh,
-    Scene,
-    Audio,
-    BinaryBlob,
-};
-
-struct ArtifactRecord
-{
-    std::string relativePath;      // physical path inside the mount/backend
-    std::string format;            // e.g. jpg, png, slang, rtrtex, metallib, spirv
-    std::string platformTag;       // e.g. any, windows, macos, linux
-    std::string backendTag;        // e.g. any, opengl, metal, vulkan
-    std::string profileTag;        // e.g. dev, cooked, shipping
-    uint64_t contentHash = 0;
-};
-
-struct ResourceCatalogEntry
-{
-    std::string logicalPath;       // e.g. /Project/Textures/Grassy_Square
-    ResourceKind kind;
-    PathDomain domain;
-    std::optional<std::string> mountName;   // plugin name when applicable
-    std::string sourceRelativePath;         // authoring-time file within the mount
-    uint64_t sourceHash = 0;
-    std::vector<ArtifactRecord> artifacts;
-};
+  "version": 1,
+  "entries": [
+    {
+      "logicalPath": "/Project/Textures/Grassy_Square",
+      "sourceRelativePath": "textures/Grassy_Square.jpg",
+      "artifacts": [
+        {
+          "relativePath": "textures/Grassy_Square.jpg",
+          "format": "jpg",
+          "profileTag": "dev",
+          "backendTag": "any",
+          "platformTag": "any"
+        }
+      ]
+    }
+  ]
+}
 ```
 
-Important design rules:
+### 5.2 Cooked Catalogs
 
-- `logicalPath` is the stable identity
-- `sourceRelativePath` is descriptive metadata, not the public resource identity
-- `artifacts` may contain both development and cooked variants
-- artifact selection is runtime policy, not a serialized caller concern
+Cooked catalogs describe runtime-ready artifacts rather than authoring-time source
+files. They currently use a separate loose JSON schema:
 
-### 9.8 Catalog loading and merge model
+- `version = 2`
+- `kind = "cooked"`
+- entries omit `sourceRelativePath`
+- artifacts point at cooked payloads such as `.rtrtex`
 
-At startup or mount activation time:
+This split matters because runtime code should not assume cooked output still has a
+meaningful source-relative path.
 
-1. load the catalog associated with each readable mount
-2. validate catalog version/schema compatibility
-3. merge entries into a global resolution table
-4. apply mount precedence rules
+### 5.3 Artifact Selection
 
-Conflict rules:
+Each catalog entry can contain multiple artifacts. Runtime chooses the best one using:
 
-- duplicate `logicalPath` entries within the same catalog are invalid
-- duplicate `logicalPath` entries across equal-precedence mounts are invalid unless
-  the mount type explicitly allows override semantics
-- duplicate `logicalPath` entries across overlay layers are allowed only when the
-  higher-priority mount is explicitly marked as an override layer
-- plugin namespace entries do not collide with project namespace entries because
-  `/Plugins/<Name>/...` is a distinct logical root
+- `profileTag`
+- `backendTag`
+- `platformTag`
 
-### 9.9 Runtime resolution algorithm
+The current scoring rule is:
 
-For a catalog-backed logical path:
+- exact match beats `any`
+- explicit mismatch rejects the artifact
+- profile dominates backend, which dominates platform
 
-1. parse and validate the virtual path
-2. query the merged catalog by `logicalPath`
-3. choose the best matching artifact for the active runtime profile
-4. resolve that artifact into a physical file path or archive entry
-5. hand the bytes/path to the higher-level asset loader
+Packaged and shipping profiles currently select cooked artifacts rather than a distinct
+third artifact family. In other words, packaged storage changes the mount backend, not
+the logical asset identity.
 
-Artifact selection policy should consider:
+### 5.4 Conflict Handling
 
-- current build/profile (`dev`, `cooked`, `shipping`)
-- active backend (`opengl`, `metal`, `vulkan`)
-- platform tag
-- mount precedence
+Conflict handling happens at two levels.
 
-### 9.10 Document-style paths versus catalog-backed paths
+**Within a single catalog**
+Duplicate `logicalPath` entries are invalid and the catalog is rejected.
 
-This document intentionally uses two path styles:
+**Across active mounts**
+Equal-precedence duplicates are treated as a conflict and the logical path is removed
+from the merged table. Higher-precedence mounts are allowed to replace lower-precedence
+entries.
 
-- catalog-backed asset paths: `/Project/Textures/Grassy_Square`
-- document-style paths: `/Project/Config/Input/DebugCameraControl.json`
-
-The distinction is deliberate.
-
-Catalog-backed asset paths:
-
-- omit physical source extensions
-- resolve through the resource catalog
-- are used for imported/runtime assets
-
-Document-style paths:
-
-- retain explicit filenames and extensions
-- resolve directly through the mounted filesystem
-- are used for config and other directly consumed documents
-
-This means `/Project/Config/...` does **not** go through the extensionless asset catalog
-lookup flow.
+This is what allows overlay layers to replace packaged or source content without making
+equal-priority duplicates ambiguous.
 
 ---
 
-## 10. Mount Backends
+## 6. Mount Backends
 
-The public path system must be independent from storage backend.
+The current runtime treats storage as a backend detail behind a common mount layer.
 
-### 10.1 Initial backends
+| Backend | Current Role |
+|--------|---------------|
+| Directory mount | Loose source content, loose cooked output, overlay roots |
+| Writable user-directory mount | `/Saved/` and `/Cache/` roots |
+| Pak archive mount | Packaged cooked content in `.rtrpak` archives |
 
-| Backend | Description | Typical use |
-|--------|-------------|-------------|
-| Directory mount | Reads from a physical folder tree | Development, tests, loose installs |
-| User directory mount | Writable OS directory | `/Saved/`, `/Cache/` |
+The backend layer is responsible for:
 
-### 10.2 Future backends
+- discovering readable mounts for the current profile
+- checking whether a mount exposes a catalog
+- reading mount-local catalog bytes
+- resolving a selected artifact to a physical file path
+- materializing pak entries when the runtime still expects a file path
+- resolving writable mount roots for `/Saved/` and `/Cache/`
 
-| Backend | Description | Typical use |
-|--------|-------------|-------------|
-| Archive mount | Reads from zip/pak/container files | Shipping builds |
-| Overlay mount | Higher-priority patch/mod layer | DLC, hotfix, local overrides |
-| Cooked-output mount | Reads preprocessed runtime-ready assets | Console/mobile/release pipelines |
-
-### 10.3 Mount precedence
-
-For read domains, the system resolves from highest priority to lowest priority.
-
-Example for `/Project/...`:
-
-1. hotfix overlay
-2. explicit project overlay mod
-3. packaged cooked content
-4. loose cooked output
-5. loose source content in development
-
-Plugins do **not** implicitly override `/Project/...` just because they are plugins.
-Plugin content lives in its own namespace under `/Plugins/<Name>/...`.
-
-If RTRLab later supports project-content overrides from mods or patches, that must be
-implemented as an explicit overlay mount policy, not as a side effect of the plugin
-namespace existing.
-
-The caller still asks for the same path:
-
-```text
-/Project/Textures/Grassy_Square
-```
+This keeps `ResourceCatalog` focused on catalog semantics and keeps `FileSystem`
+focused on public API behavior.
 
 ---
 
-## 11. Config System Integration
+## 7. FileSystem Facade
 
-Config files are not generic content assets and should not remain buried under the
-project content tree forever.
+`FileSystem` remains the public facade for the resource system.
 
-### 11.1 Recommended config model
+Key public responsibilities:
 
-- shipped project config defaults live under `/Project/Config/`
-- shipped engine config defaults live under `/Engine/Config/`
-- user overrides live under `/Saved/Config/`
-- code reads config through a **resolved config namespace**
+- initialize root discovery and writable roots
+- parse and classify logical paths
+- resolve read and write paths
+- expose logical-path-based `Exists`, `ReadText`, `ReadBinary`, `WriteText`,
+  and `WriteBinary`
+- refresh the catalog registry when mount state changes
 
-Config paths are **document-style resource paths**:
+The current facade intentionally retains a narrow compatibility bridge:
 
-- they retain file extensions such as `.json`
+- `GetAssetPath()`
+- `GetSavedPath()`
+- `GetSavedConfigPath()`
+- `ResolveConfigPath()`
+- `ReadTextFile()`
+- `ReadBinaryFile()`
+
+Those helpers still exist for tests, bootstrap code, and a few low-level compatibility
+paths, but they are no longer the preferred runtime-facing API.
+
+---
+
+## 8. Config Integration
+
+Config files are treated as mounted documents, not imported assets.
+
+That means:
+
+- they keep their explicit filenames and extensions
 - they resolve directly through mounted filesystems
-- they do not participate in extensionless catalog-backed asset lookup
+- they participate in override order, not extensionless catalog lookup
 
-Examples:
+Current config locations:
 
-```text
-/Project/Config/Input/DebugCameraControl.json
-/Engine/Config/Input/DefaultBindings.json
-/Saved/Config/Input/DebugCameraControl.json
-```
+| Logical Path | Physical Development Backing |
+|-------------|------------------------------|
+| `/Project/Config/...` | `Content/Config/...` |
+| `/Engine/Config/...` | `EngineContent/Config/...` |
+| `/Saved/Config/...` | `Saved/Config/...` |
 
-### 11.2 Resolution chain
-
-For logical config key `Input/DebugCameraControl.json`:
-
-1. `/Saved/Config/Input/DebugCameraControl.json`
-2. project default: `/Project/Config/Input/DebugCameraControl.json`
-3. engine default: `/Engine/Config/Input/DebugCameraControl.json`
-
-### 11.3 Behavior
-
-- reads prefer saved override
-- missing saved override may be auto-seeded from defaults
-- writes always go to `/Saved/Config/...`
-- shipped defaults are never modified in place
-
-This preserves the useful behavior the current `ResolveConfigPath()` already provides,
-while moving it into a cleaner long-term structure.
+The current `ResolveConfigPath()` bridge and `Serialization::LoadFromConfigPath()` both
+sit on top of that logical model.
 
 ---
 
-## 12. Serialization Rules
+## 9. Serialization Integration
 
-Serialization must distinguish between:
+The serialization system distinguishes between:
 
-- **asset references**
-- **user-data file locations**
+- **asset references** that should serialize as logical resource paths
+- **document/config I/O** that should resolve through logical mounted files
 
-### 12.1 Asset references
+Current integration points:
 
-When serialized data references a loadable engine resource, it should store a logical
-resource path:
+- `Serialization::SaveToVirtualPath()` / `LoadFromVirtualPath()`
+- `Serialization::SaveToConfigPath()` / `LoadFromConfigPath()`
+- validated `Resource::AssetPath` for serialized asset references
+
+Serialized asset references are expected to look like this:
 
 ```json
 {
@@ -1033,7 +449,7 @@ resource path:
 }
 ```
 
-Not:
+Not like this:
 
 ```json
 {
@@ -1041,7 +457,7 @@ Not:
 }
 ```
 
-And never:
+or this:
 
 ```json
 {
@@ -1049,404 +465,249 @@ And never:
 }
 ```
 
-### 12.2 User data
+---
 
-Runtime-owned data such as logs or per-user config overrides should not be serialized as
-general asset references. Those locations are system-managed.
+## 10. Cooking and Packaging
 
-### 12.3 Serialization API impact
+### 10.1 Source Indexing
 
-The existing `Serialization::SaveToFile` / `LoadFromFile` APIs may keep taking
-`std::filesystem::path` for low-level use, but higher-level systems should gain
-resource-aware wrappers so application code can operate on logical paths directly.
+`rtr_asset_index` scans readable loose content roots and generates source catalogs for:
 
-For serialized asset references specifically, code should prefer a validated wrapper
-type rather than a raw `std::string`, so malformed physical paths and non-asset logical
-paths are rejected at deserialize time.
+- `Content/`
+- `EngineContent/`
+- `Plugins/<Name>/Content/`
+
+It skips document-style config subtrees for extensionless asset indexing and enforces
+logical-path uniqueness.
+
+### 10.2 Loose Cooked Output
+
+`rtr_asset_cook` transforms source catalogs into loose cooked output.
+
+Current supported loose cooked layouts:
+
+- `Saved/Cache/Cooked/`
+- `build/Cooked/`
+
+Runtime can also be pointed at an explicit cooked root through `RTRLAB_COOKED_ROOT`.
+
+Loose cooked output preserves the same public logical paths as source content. Only the
+artifact representation changes.
+
+### 10.3 Packaged Output
+
+`rtr_asset_pack` packages cooked mounts into `.rtrpak` archives.
+
+Current packaged layouts:
+
+- `Saved/Cache/Packaged/`
+- `build/Packaged/`
+
+Runtime can also be pointed at an explicit packaged root through `RTRLAB_PACKAGE_ROOT`.
+
+The current packaged convention is:
+
+- `Project.rtrpak`
+- `Engine.rtrpak`
+- `Plugins/<Name>.rtrpak`
+
+Each archive contains the cooked catalog for that mount plus the cooked artifacts it
+references.
+
+### 10.4 Current Cooked Texture Format
+
+Cooked textures currently use an engine-private `.rtrtex` format.
+
+The current format is intentionally modest:
+
+- versioned header
+- explicit width, height, channel count
+- explicit pixel format
+- explicit `rowPitch`
+- explicit `mipLevelCount`
+- payload bytes following the header
+
+Runtime can read metadata only or load the full payload:
+
+- `Resource::ReadCookedTextureMetadata()`
+- `Resource::LoadCookedTexture()`
+
+This is sufficient for the current loose cooked and packaged contracts, even though it
+is not yet a fully evolved long-term texture container.
 
 ---
 
-## 13. Cooking and Packaging
+## 11. Current Implementation Status
 
-Cooking and packaging are downstream of the resource model.
+As of 2026-04-08, the resource system is no longer a speculative design. It is an
+active engine subsystem with the following implemented behavior:
 
-### 13.1 Cooking
+- `src/Core/Resource/` is the home of the module
+- `FileSystem` is the public facade
+- logical path parsing and classification are implemented
+- read/write domain enforcement is implemented
+- `/Project/`, `/Engine/`, `/Plugins/<Name>/`, `/Saved/`, and `/Cache/` are active
+- config fallback resolution is implemented
+- logical-path-based file I/O is implemented
+- source catalogs are generated and consumed
+- loose cooked catalogs are generated and consumed
+- packaged `.rtrpak` archives are generated and consumed
+- overlay precedence over packaged/cooked/source mounts is implemented
+- mount handling now goes through a backend layer rather than being inlined inside the
+  catalog resolver
 
-Cooking transforms authoring-time content into runtime-ready data.
+The core path and mount architecture is in place, but the system is not "fully done" in
+the sense of having every long-term artifact format, mount policy, and runtime consumer
+already built. The remaining work is now mostly about formalizing the current bootstrap
+formats and connecting more engine systems to the logical resource model.
 
-Examples:
+---
 
-- shader source → compiled backend output
-- PNG/JPG → GPU-ready texture container
-- material graph source → flattened runtime description
+## 12. Current Gaps and Near-Term Plan
 
-RTRLab adopts the following rule:
+The resource system is intentionally past the "just a proposal" phase, but it still has
+some known unfinished areas. Those gaps are not in the public logical path contract;
+they are mostly in how far the current tooling and runtime consumers have been pushed.
 
-- **logical resource paths do not encode physical source extensions**
-- **logical resource paths do not change when content is cooked**
-- source files and cooked outputs are both resolved through a manifest/catalog layer
+### 12.1 Cooked catalog formalization
 
-Examples:
+Cooked catalogs currently use a loose JSON schema that is good enough for development,
+testing, and the current packaged MVP. What it is not yet is a finalized long-term
+runtime catalog container.
 
-```text
-Logical path:   /Project/Shaders/ForwardLit
-Source file:    Content/Shaders/ForwardLit.slang
-Cooked file:    Cache/Cooked/Shaders/ForwardLit.bin
+Near-term plan:
 
-Logical path:   /Project/Textures/Grassy_Square
-Source file:    Content/Textures/Grassy_Square.jpg
-Cooked file:    Cache/Cooked/Textures/Grassy_Square.rtrtex
+- keep the current versioned JSON cooked schema as the working contract
+- defer a binary cooked catalog format until the runtime has stronger reasons to need
+  it, such as startup cost or package size pressure
+- preserve the rule that cooked and packaged artifacts do not change public logical
+  paths
+
+### 12.2 Cooked texture evolution
+
+`.rtrtex` is now a real engine-owned cooked texture artifact, but it is still closer to
+a bootstrap runtime container than to a finished production texture format.
+
+Near-term plan:
+
+- extend the current format beyond the single-layer RGBA8 baseline
+- add richer metadata where needed, such as mip-chain layout and clearer long-term
+  pixel-format semantics
+- only do that work once there is a real runtime texture consumer path that benefits
+  from it
+
+### 12.3 Runtime consumer integration
+
+The resource system itself is now much further along than the current renderer/runtime
+consumer layer. In practice, that means the path/cook/package infrastructure exists
+before there are many high-level systems that fully exercise it.
+
+Near-term plan:
+
+- keep the logical path contract stable
+- integrate actual runtime resource consumers when the rendering/material path is ready
+- prefer connecting future loaders to `/Project/...`, `/Engine/...`, and
+  `/Plugins/<Name>/...` directly rather than introducing new physical-path shortcuts
+
+### 12.4 Overlay and packaging policy depth
+
+The current packaged/overlay model is intentionally small and explicit:
+
+- packaged content is mounted through `.rtrpak`
+- one loose override layer can sit above packaged/cooked/source mounts
+- precedence is defined, but multi-layer patching and chunk policy are still minimal
+
+Near-term plan:
+
+- keep the current override model as the baseline behavior
+- defer more complex mod/DLC/chunk policies until there is a concrete consumer need
+- avoid inventing a broader overlay stack before the runtime actually needs one
+
+### 12.5 Streaming versus materialized archive entries
+
+Packaged archive entries currently materialize into cache-backed files so the rest of
+the runtime can keep consuming physical file paths.
+
+Near-term plan:
+
+- keep materialization because it minimizes churn for current systems
+- revisit direct stream-style resource access only when higher-level runtime loaders are
+  in place and the cost of temporary extraction becomes meaningful
+
+---
+
+## 13. File Layout
+
+```
+src/Core/Resource/
+    FileSystem.h / .cpp         - Public facade and logical-path I/O entry points
+    PathTypes.h                 - Path domain and parsed virtual-path types
+    PathParser.h / .cpp         - Logical path validation and normalization
+    MountResolver.h / .cpp      - Writable-root policy and direct mounted path joins
+    MountBackend.h / .cpp       - Readable/writable backend abstraction layer
+    ResourceCatalog.h / .cpp    - Catalog registry, merge logic, artifact selection
+    SourceCatalog.h / .cpp      - Source catalog indexing and generation
+    CookedCatalog.h / .cpp      - Loose cook output + `.rtrtex` helpers
+    PakArchive.h / .cpp         - `.rtrpak` archive read/write helpers
+    ConfigResolver.h / .cpp     - Config fallback and auto-seed behavior
+    PhysicalIO.h / .cpp         - Low-level text/binary filesystem I/O
+    RootDiscovery.h / .cpp      - Repository/install root discovery
+
+src/Tools/
+    AssetIndexMain.cpp          - `rtr_asset_index`
+    AssetCookMain.cpp           - `rtr_asset_cook`
+    AssetPackMain.cpp           - `rtr_asset_pack`
+
+Content/
+    .rtr/catalog.json           - Generated project source catalog
+
+EngineContent/
+    .rtr/catalog.json           - Generated engine source catalog
+
+Plugins/<Name>/Content/
+    .rtr/catalog.json           - Generated plugin source catalog
+
+Saved/Cache/Cooked/
+    ...                         - Loose cooked output
+
+Saved/Cache/Packaged/
+    ...                         - Packaged `.rtrpak` output
+
+Saved/Overrides/
+    ...                         - Development-time loose overlay root
 ```
 
-Cooked outputs may live physically under `Cache/` or `build/` during development, but
-must still resolve back to the same logical identity:
-
-```text
-/Project/Shaders/ForwardLit
-/Project/Textures/Grassy_Square
-```
-
-This requires the resource catalog defined in Section 9.
-The runtime must **not** guess file extensions by probing `.png`, `.jpg`, `.rtrtex`,
-`.slang`, `.bin`, and similar variants at load time.
-
-If two different source files would map to the same logical path, that is an authoring
-error and must be rejected by tooling.
-
-### 13.2 Packaging
-
-Packaging should mount cooked archives into the same roots:
-
-- `/Project/`
-- `/Engine/`
-- `/Plugins/...`
-
-The packaging format is an implementation choice.
-
-Possible formats:
-
-- ZIP
-- custom `.pak`
-- multiple chunk archives
-
-The public path model must remain unchanged regardless of format choice.
-
-### 13.3 Recommendation
-
-Do **not** choose the final path API based on today's shader build scripts.
-
-Choose the path API first, then make cook/package tooling mount its outputs into that
-API.
-
 ---
 
-## 14. Migration Plan Summary
+## 14. Key Design Decisions
 
-This section is a high-level summary of the same numbered phases expanded in the
-checklist below.
+### Why logical paths are case-sensitive on every platform
 
-### Phase 0 - Design freeze and naming decisions
+RTRLab wants one serialized contract across Windows, macOS, and Linux. Treating logical
+paths as case-sensitive even on case-insensitive filesystems prevents subtle
+platform-specific ambiguity and makes mismatched casing an authoring error instead of a
+runtime lottery.
 
-- design direction approved
-- long-term physical rename accepted:
-  `assets/ -> Content/`, `saved/ -> Saved/`
-- config defaults move immediately to mounted `Config/` subtrees
+### Why config files are mounted documents, not extensionless assets
 
-### Phase 1 - Core path primitives
+Config files are consumed as documents, not imported as opaque runtime artifacts. Their
+format is part of their contract, so keeping explicit filenames and extensions is more
+useful than pretending they are catalog-backed assets.
 
-- implemented
+### Why source and cooked catalogs are separate schemas
 
-### Phase 2 - Read/write resolution layer
+Source catalogs need provenance like `sourceRelativePath`; cooked catalogs do not.
+Keeping the schemas separate prevents runtime code from accidentally depending on
+authoring-only details and makes the transition to richer cooked metadata cleaner.
 
-- implemented for `/Project/`, `/Engine/`, `/Plugins/<Name>/`, `/Saved/`, and `/Cache/`
+### Why packaged archives materialize into cache-backed files today
 
-### Phase 3 - Resource catalog design and implementation
+Most of the current runtime still wants a physical file path after resource resolution.
+Materializing pak entries into cache-backed files lets packaged mounts participate in
+the same path-based consumers without forcing a larger streaming/IO API redesign first.
 
-- in progress; loose-mount source catalog loading, merged development-time
-  resolution, duplicate-path rejection, basic runtime artifact selection,
-  refreshable catalog state, source catalog generation tooling, project/engine/plugin
-  asset lookup, and the canonical in-memory source-vs-cooked entry split are
-  implemented
+### Why compatibility wrappers still exist
 
-### Phase 4 - Public FileSystem API migration
-
-- largely implemented in the `FileSystem` facade
-
-### Phase 5 - Compatibility bridge for current repository layout
-
-- historical bridge completed; repository now uses `Content/` / `Saved/` directly
-
-### Phase 6 - Caller migration in runtime systems
-
-- mostly implemented; runtime diagnostics, crash artifacts, ImGui ini, and config-path
-  serialization helpers now resolve through logical resource paths
-
-### Phase 7 - Config system cleanup
-
-- largely implemented; project, engine, and saved config all use mounted `Config/`
-  paths with engine-default fallback backing
-
-### Phase 8 - Serialization and asset-reference rules
-
-- in progress; logical-path serialization helpers exist, but asset-reference policy and
-  leakage audit are still pending
-
-### Phase 9 - Optional physical directory rename
-
-- accepted and implemented for the active repository layout
-
-### Phase 10 - Engine and plugin mounts
-
-- largely implemented; `EngineContent/` backs `/Engine/`, plugin mounts are discovered
-  from `Plugins/<Name>/Content/`, and plugin mount names now follow the documented
-  identifier rules
-
-### Phase 11 - Mount backend abstraction
-
-- implemented for the current backends; readable mount discovery, catalog access,
-  artifact resolution, and writable user-directory mounts now route through an
-  explicit backend layer
-
-### Phase 12 - Cooking integration
-
-- implemented for current loose cooked mounts; source/cooked runtime selection,
-  bootstrap cooked texture metadata/readback, distinct loose cooked catalog
-  schema, explicit `cache` vs `build` output layout, and logical-path parity for
-  project/engine/plugin loose cooked content are now in place
-
-### Phase 13 - Archive packaging
-
-- implemented for the current MVP; custom `.rtrpak` archives, packaged mount
-  discovery, cooked catalog loading from archives, and loose overlay precedence over
-  packaged/cooked/source mounts are now in place
-
-### Phase 14 - Final cleanup
-
-- implemented; docs and public guidance now describe logical paths first, remaining
-  compatibility helpers have explicit scope, and the logical resource path syntax is
-  treated as a stable serialized contract
-
----
-
-## 15. End-to-End Work Checklist
-
-This section turns the design into an implementation checklist.
-
-The intent is that the team can work top-to-bottom and finish the whole module
-without repeatedly redefining scope.
-
-### 15.1 Phase 0 - Design freeze and naming decisions
-
-- [x] Approve the public logical roots:
-      `/Project/`, `/Engine/`, `/Plugins/<Name>/`, `/Saved/`, `/Cache/`
-- [x] Decide whether the long-term physical rename is accepted:
-      `assets/ -> Content/`, `saved/ -> Saved/`
-- [x] Decide whether config defaults move out of content immediately or in a later pass
-- [x] Freeze the logical path syntax rules:
-      leading `/`, forward slashes only, no `.` / `..`, no raw OS paths in serialized references
-- [x] Freeze the path-class distinction:
-      catalog-backed assets vs document-style resource paths
-- [x] Identify all current systems that read or write paths directly:
-      `FileSystem`, diagnostics, ImGui ini, serialization callsites, future asset references
-
-### 15.2 Phase 1 - Core path primitives
-
-- [x] Add a logical path parser to `FileSystem`
-- [x] Add mount/domain representation in code
-- [x] Implement virtual path validation
-- [x] Implement normalization rules
-- [x] Reject invalid mount roots and traversal segments
-- [x] Implement path-class detection:
-      catalog-backed asset path vs document-style path
-- [x] Add unit tests for path parsing and normalization
-
-### 15.3 Phase 2 - Read/write resolution layer
-
-- [x] Implement `/Project/` read resolution
-- [x] Implement `/Saved/` write resolution
-- [x] Implement `/Cache/` write resolution
-- [x] Add platform-specific shipping mappings for `/Saved/` and `/Cache/`
-- [x] Add a clear policy for `/Engine/` even if it is initially backed by an empty directory
-- [x] Add directory creation for writable domains
-- [x] Add contract tests for read/write domain behavior
-
-### 15.4 Phase 3 - Resource catalog design and implementation
-
-- [x] Finalize the canonical in-memory catalog schema
-- [x] Finalize source catalog serialization format for current loose-mount
-      development catalogs
-- [ ] Finalize cooked catalog serialization format beyond the current temporary
-      loose JSON bootstrap
-      distinct loose cooked JSON schema is now implemented, but binary cooked
-      catalog format and packaged/archive serialization are still pending
-- [x] Implement catalog versioning and compatibility checks
-- [x] Implement catalog loader for readable mounts
-- [x] Implement merged global resolution table
-- [x] Implement conflict detection rules
-- [x] Implement artifact selection policy by platform/backend/profile
-- [x] Add tests for catalog lookup and duplicate-path rejection
-
-### 15.5 Phase 4 - Public FileSystem API migration
-
-- [x] Add `IsVirtualPath()`
-- [x] Add `ParseVirtualPath()`
-- [x] Add `IsCatalogBackedPath()`
-- [x] Add `IsDocumentPath()`
-- [x] Add `ResolveReadPath()`
-- [x] Add `ResolveWritePath()`
-- [x] Add logical-path-based `Exists()`
-- [x] Add logical-path-based `ReadText()`
-- [x] Add logical-path-based `ReadBinary()`
-- [x] Add logical-path-based write helpers
-- [x] Keep legacy wrappers for `GetAssetPath()` / `GetSavedPath()` temporarily
-- [x] Mark legacy physical-path helpers as migration-only in comments/docs
-
-### 15.6 Phase 5 - Compatibility bridge for current repository layout
-
-- [x] Mount current `Content/` as `/Project/`
-- [x] Mount current `Saved/` as `/Saved/`
-- [x] Keep current startup root discovery working across the directory rename
-- [x] Rewrite `ResolveConfigPath()` on top of the new logical config model
-- [x] Confirm that existing tests still pass through compatibility wrappers
-
-### 15.7 Phase 6 - Caller migration in runtime systems
-
-- [x] Migrate ImGui ini handling to logical write-path resolution
-- [x] Migrate diagnostics/log output to logical write-path resolution
-- [x] Migrate crash dump/log-tail paths to logical write-path resolution
-- [x] Migrate config loading to the new config namespace rules
-- [x] Stop introducing new direct `std::filesystem::path` dependencies in gameplay-facing code
-- [x] Audit current and future serialization callsites for physical-path leakage
-
-### 15.8 Phase 7 - Config system cleanup
-
-- [x] Create `/Project/Config/` physical backing layout
-- [x] Create `/Engine/Config/` physical backing layout
-- [x] Move shipped config defaults into mounted config subtrees
-- [x] Preserve existing auto-seed behavior for first-run user config creation
-- [x] Add tests for saved override precedence and default seeding
-
-### 15.9 Phase 8 - Serialization and asset-reference rules
-
-- [x] Define which data types are allowed to serialize logical resource paths
-- [x] Update serialization guidance to prefer `/Project/...` or `/Engine/...`
-- [x] Ban absolute filesystem paths in serialized asset references
-- [x] Add validation/logging for malformed logical resource strings
-- [x] Add at least one contract test that loads a serialized logical asset reference
-
-### 15.10 Phase 9 - Optional physical directory rename
-
-- [x] Rename `assets/` to `Content/` if the team accepts the change
-- [x] Rename `saved/` to `Saved/` if the team accepts the change
-- [x] Update CMake copy/install logic
-- [x] Update `.gitignore`, docs, tests, and helper scripts
-- [x] Keep a short-lived migration shim only if necessary
-
-### 15.11 Phase 10 - Engine and plugin mounts
-
-- [x] Add `/Engine/` loose-directory mount
-- [x] Define the physical location for engine-shipped content
-- [x] Add `/Plugins/<Name>/` mount registration model
-- [x] Decide plugin mount naming rules
-- [x] Add tests for plugin mount discovery and precedence
-
-### 15.12 Phase 11 - Mount backend abstraction
-
-- [x] Introduce backend-agnostic mount interfaces if the simple resolver becomes too rigid
-- [x] Add loose directory mount implementation
-- [x] Add writable user-directory mount implementation
-- [x] Add overlay ordering policy
-- [x] Add directory enumeration only where truly needed
-
-### 15.13 Phase 12 - Cooking integration
-
-- [x] Implement source catalog generation tool
-- [x] Implement cooked catalog generation tool
-- [x] Define how cooked outputs map back into `/Project/` and `/Engine/` for the
-      current loose development-time layout under `Saved/Cache/Cooked/`
-- [x] Add runtime read/validation for the current bootstrap cooked texture format
-- [x] Decide whether cooking writes under `build/`, `Cache/`, or both
-      current policy: default to `Saved/Cache/Cooked/`, explicitly support
-      `build/Cooked/`, and allow `RTRLAB_COOKED_ROOT` as a runtime override hook
-- [x] Ensure cooked assets do not change public logical paths
-      current loose cooked contract: project, engine, and plugin cooked catalogs
-      preserve the same public logical paths as their source catalogs
-- [x] Add tests that verify the same logical path can resolve from loose vs cooked backends
-
-### 15.14 Phase 13 - Archive packaging
-
-- [x] Choose archive format: ZIP first or custom `.pak`
-      current choice: custom `.rtrpak` archive format for the Phase 13 MVP
-- [x] Implement archive mount
-- [x] Mount packaged content into `/Project/` and `/Engine/`
-- [x] Ensure packaged mounts carry cooked catalogs
-- [x] Define patch/mod overlay precedence over packaged data
-      current MVP policy: `RTRLAB_OVERLAY_ROOT` and development `Saved/Overrides/`
-      mount as loose override layers above packaged, cooked, and source entries
-- [x] Add contract tests for packaged-path parity with loose files
-
-### 15.15 Phase 14 - Final cleanup
-
-- [x] Remove legacy callsites that rely on raw `GetAssetPath()` / `GetSavedPath()`
-- [x] Remove temporary compatibility-only assumptions from docs
-- [x] Update onboarding/build documentation to describe logical paths first
-- [x] Confirm every asset-facing subsystem now speaks logical paths
-      current audit: outside `src/Core/Resource/`, production code no longer depends on
-      `GetAssetPath()` / `GetSavedPath()` / `ResolveConfigPath()` callsites
-- [x] Freeze the resource path format as a long-term serialized contract
-      the syntax and casing rules in Sections 2-6 are now treated as the stable
-      serialized contract for logical resource paths
-
-### 15.16 Definition of done
-
-This module is done when all of the following are true:
-
-- [x] Runtime systems load shipped resources by logical path, not by ad hoc physical path joins
-- [x] Runtime systems write user data only through writable logical domains
-- [x] Config defaults and user overrides follow the documented resolution chain
-- [x] Loose-file development and packaged/cooked builds expose the same public logical paths
-- [x] Serialized asset references no longer depend on repository-relative or absolute filesystem paths
-- [x] `/Engine/` and `/Plugins/...` are no longer just future ideas in the design doc
-- [x] The remaining compatibility wrappers are either removed or intentionally retained with documented scope
-
----
-
-## 16. Testing Requirements
-
-This system needs contract tests, not just unit tests.
-
-### 16.1 Required contracts
-
-1. `/Project/...` resolves in development from loose project content.
-2. `/Saved/...` resolves to a writable directory.
-3. write attempts to `/Project/...` fail.
-4. invalid mount roots are rejected.
-5. `..` segments are rejected.
-6. config resolution prefers `/Saved/Config/...` over shipped defaults.
-7. the same logical path resolves correctly from loose and packaged mounts.
-8. plugin mount precedence works as expected.
-9. catalog-backed paths and document-style paths follow different resolution flows as documented.
-
-### 16.2 Compatibility tests
-
-While legacy wrappers still exist:
-
-- `GetAssetPath("X")` must match `/Project/X`
-- `GetSavedPath("X")` must match `/Saved/X`
-
----
-
-## 17. Recommended Decision
-
-RTRLab should **not** preserve `assets/` and `saved/` as the architectural center of the
-resource system.
-
-Instead:
-
-- adopt Unreal-style logical mount points as the public model
-- use `Content/` and `Saved/` as the primary physical development layout
-- separate shipped config defaults from general content
-
-This is the version that best supports future plugins, cooked assets, packaged builds,
-and long-lived serialized asset references without dragging old path assumptions
-forward forever.
+They still serve tests, bootstrap code, and a few narrow migration bridges. Keeping
+them documented but scoped is lower risk than deleting them prematurely while the rest
+of the engine is still catching up to the resource model.
