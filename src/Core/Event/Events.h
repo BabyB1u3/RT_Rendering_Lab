@@ -7,6 +7,7 @@
 /// Subscribe to a specific type via EventBus::Subscribe<T>.
 
 #include <cstdint>
+#include "Core/Input/Device/InputDevice.h"
 #include "Core/Input/Code/KeyCode.h"
 #include "Core/Input/Code/MouseCode.h"
 
@@ -60,6 +61,35 @@ struct MouseScrolledEvent
     float XOffset;
     float YOffset;
 };
+
+// ---- Device lifecycle events ----
+// These describe changes to the logical device topology managed by
+// InputDeviceManager as well as the connected availability of a slot.
+
+struct DeviceAttachedToSlotEvent
+{
+    InputDevice::Type DeviceType;
+    uint8_t DeviceIndex;
+};
+
+struct DeviceDetachedFromSlotEvent
+{
+    InputDevice::Type DeviceType;
+    uint8_t DeviceIndex;
+};
+
+struct DeviceConnectionChangedEvent
+{
+    InputDevice::Type DeviceType;
+    uint8_t DeviceIndex;
+    bool Connected;
+};
+
+// ---- Gamepad compatibility events ----
+// These are convenience projections of DeviceConnectionChangedEvent for
+// gamepad slots only. They do not describe slot attach/detach or physical-only
+// hot-plug; they simply mean the logical gamepad slot became connected or
+// disconnected.
 
 struct GamepadConnectedEvent
 {
