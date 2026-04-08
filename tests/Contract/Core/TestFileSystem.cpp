@@ -157,11 +157,11 @@ TEST(FileSystemContractTests, ResolveReadPathCanSwitchBetweenSourceAndCookedProj
     test_support::WriteTextFileOrFail(
         cookedCatalogPath,
         "{\n"
-        "  \"version\": 1,\n"
+        "  \"version\": 2,\n"
+        "  \"kind\": \"cooked\",\n"
         "  \"entries\": [\n"
         "    {\n"
         "      \"logicalPath\": \"/Project/Textures/Grassy_Square\",\n"
-        "      \"sourceRelativePath\": \"textures/Grassy_Square.jpg\",\n"
         "      \"artifacts\": [\n"
         "        {\n"
         "          \"relativePath\": \"Textures/Grassy_Square.rtrtex\",\n"

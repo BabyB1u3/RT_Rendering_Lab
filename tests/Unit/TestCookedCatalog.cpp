@@ -65,10 +65,13 @@ TEST_F(CookedCatalogTests, CookRepositoryCatalogsCopiesArtifactsAndWritesCookedC
     ASSERT_TRUE(cookedCatalog.is_open());
     const std::string cookedContents((std::istreambuf_iterator<char>(cookedCatalog)), std::istreambuf_iterator<char>());
 
+    EXPECT_NE(cookedContents.find("\"version\": 2"), std::string::npos);
+    EXPECT_NE(cookedContents.find("\"kind\": \"cooked\""), std::string::npos);
     EXPECT_NE(cookedContents.find("/Project/Textures/Grassy_Square"), std::string::npos);
     EXPECT_NE(cookedContents.find("\"profileTag\": \"cooked\""), std::string::npos);
     EXPECT_NE(cookedContents.find("\"relativePath\": \"Textures/Grassy_Square.rtrtex\""), std::string::npos);
     EXPECT_NE(cookedContents.find("\"format\": \"rtrtex\""), std::string::npos);
+    EXPECT_EQ(cookedContents.find("sourceRelativePath"), std::string::npos);
 
     std::string errorMessageFromLoad;
     const auto cookedTexture = Resource::LoadCookedTexture(cookedArtifactPath, &errorMessageFromLoad);

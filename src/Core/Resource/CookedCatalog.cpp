@@ -222,6 +222,65 @@ namespace
         return true;
     }
 
+    bool WriteCookedCatalogJson(const std::filesystem::path &catalogPath,
+                                const std::vector<Resource::ResourceCatalogEntry> &entries,
+                                std::string *errorMessage)
+    {
+        Json root;
+        root["version"] = 2;
+        root["kind"] = "cooked";
+        root["entries"] = Json::array();
+
+        for (const auto &entry : entries)
+        {
+            Json entryJson;
+            entryJson["logicalPath"] = entry.logicalPath;
+            entryJson["artifacts"] = Json::array();
+
+            for (const auto &artifact : entry.artifacts)
+            {
+                Json artifactJson;
+                artifactJson["relativePath"] = artifact.relativePath;
+                artifactJson["format"] = artifact.format;
+                artifactJson["platformTag"] = artifact.platformTag;
+                artifactJson["backendTag"] = artifact.backendTag;
+                artifactJson["profileTag"] = artifact.profileTag;
+                if (artifact.contentHash != 0)
+                    artifactJson["contentHash"] = artifact.contentHash;
+                entryJson["artifacts"].push_back(std::move(artifactJson));
+            }
+
+            root["entries"].push_back(std::move(entryJson));
+        }
+
+        std::error_code ec;
+        std::filesystem::create_directories(catalogPath.parent_path(), ec);
+        if (ec)
+        {
+            if (errorMessage != nullptr)
+                *errorMessage = "failed to create cooked catalog directory: " + ec.message();
+            return false;
+        }
+
+        std::ofstream out(catalogPath, std::ios::out | std::ios::trunc | std::ios::binary);
+        if (!out.is_open())
+        {
+            if (errorMessage != nullptr)
+                *errorMessage = "failed to open cooked catalog for writing: " + catalogPath.string();
+            return false;
+        }
+
+        out << root.dump(2) << '\n';
+        if (!out.good())
+        {
+            if (errorMessage != nullptr)
+                *errorMessage = "failed to write cooked catalog: " + catalogPath.string();
+            return false;
+        }
+
+        return true;
+    }
+
     bool CopySourceArtifact(const std::filesystem::path &sourceMountRoot,
                             const Resource::ResourceCatalogEntry &sourceEntry,
                             const Resource::ArtifactRecord &sourceArtifact,
@@ -465,7 +524,7 @@ namespace Resource
                 cookedEntries.push_back(std::move(cookedEntry));
             }
 
-            if (!WriteSourceCatalogJson(mount.cookedRoot / ".rtr" / "catalog.json", cookedEntries, errorMessage))
+            if (!WriteCookedCatalogJson(mount.cookedRoot / ".rtr" / "catalog.json", cookedEntries, errorMessage))
                 return false;
         }
 

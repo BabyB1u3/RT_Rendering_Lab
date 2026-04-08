@@ -107,10 +107,30 @@ namespace
         }
 
         const auto versionIt = rootJson.find("version");
-        if (versionIt == rootJson.end() || !versionIt->is_number_integer() || versionIt->get<int>() != 1)
+        if (versionIt == rootJson.end() || !versionIt->is_number_integer())
         {
             LOG_ERROR_CAT(LogCategory::FileSystem, "Unsupported catalog version in '{}'", catalogPath.string());
             return false;
+        }
+
+        const int version = versionIt->get<int>();
+        const bool isCookedCatalog = version == 2;
+        if (version != 1 && !isCookedCatalog)
+        {
+            LOG_ERROR_CAT(LogCategory::FileSystem, "Unsupported catalog version in '{}'", catalogPath.string());
+            return false;
+        }
+
+        if (isCookedCatalog)
+        {
+            const auto kindIt = rootJson.find("kind");
+            if (kindIt == rootJson.end() || !kindIt->is_string() || kindIt->get<std::string>() != "cooked")
+            {
+                LOG_ERROR_CAT(LogCategory::FileSystem,
+                              "Cooked catalog '{}' is missing kind='cooked'",
+                              catalogPath.string());
+                return false;
+            }
         }
 
         const auto entriesIt = rootJson.find("entries");
@@ -149,8 +169,15 @@ namespace
 
             Resource::ResourceCatalogEntry entry;
             entry.logicalPath = logicalPath;
-            if (const auto it = entryJson.find("sourceRelativePath"); it != entryJson.end() && it->is_string())
+            if (!isCookedCatalog)
+            {
+                if (const auto it = entryJson.find("sourceRelativePath"); it != entryJson.end() && it->is_string())
+                    entry.sourceRelativePath = it->get<std::string>();
+            }
+            else if (const auto it = entryJson.find("sourceRelativePath"); it != entryJson.end() && it->is_string())
+            {
                 entry.sourceRelativePath = it->get<std::string>();
+            }
 
             const auto artifactsIt = entryJson.find("artifacts");
             if (artifactsIt == entryJson.end() || !artifactsIt->is_array() || artifactsIt->empty())
