@@ -8,6 +8,7 @@
 
 #include "Core/Serialization/SerializationTraits.h"
 #include "Core/Serialization/JsonBackend.h"
+#include "Core/Resource/FileSystem.h"
 #include "Core/Diagnostics/LogCategories.h"
 #include "Core/Diagnostics/LogMacros.h"
 
@@ -69,6 +70,39 @@ namespace Serialization
         return SaveToFile(value, path, GetBackendForExtension(ext));
     }
 
+    /// Save directly through a logical resource path.
+    template <Serializable T>
+    bool SaveToVirtualPath(const T &value, std::string_view virtualPath,
+                           const IFormatBackend &backend)
+    {
+        const auto path = FileSystem::ResolveWritePath(virtualPath);
+        if (!path.has_value())
+        {
+            LOG_ERROR_CAT(LogCategory::Serialization,
+                          "Serialization: failed to resolve writable virtual path '{}'",
+                          virtualPath);
+            return false;
+        }
+
+        return SaveToFile(value, *path, backend);
+    }
+
+    /// Save with auto-detected backend through a logical resource path.
+    template <Serializable T>
+    bool SaveToVirtualPath(const T &value, std::string_view virtualPath)
+    {
+        const auto path = FileSystem::ResolveWritePath(virtualPath);
+        if (!path.has_value())
+        {
+            LOG_ERROR_CAT(LogCategory::Serialization,
+                          "Serialization: failed to resolve writable virtual path '{}'",
+                          virtualPath);
+            return false;
+        }
+
+        return SaveToFile(value, *path);
+    }
+
     /// Load: file → format string → PropertyTree → Deserialize into T.
     /// On failure, `value` is unchanged. Returns false on parse or validation error.
     template <Serializable T>
@@ -108,6 +142,39 @@ namespace Serialization
     {
         auto ext = path.extension().string();
         return LoadFromFile(value, path, GetBackendForExtension(ext));
+    }
+
+    /// Load directly through a logical resource path.
+    template <Serializable T>
+    bool LoadFromVirtualPath(T &value, std::string_view virtualPath,
+                             const IFormatBackend &backend)
+    {
+        const auto path = FileSystem::ResolveReadPath(virtualPath);
+        if (!path.has_value())
+        {
+            LOG_ERROR_CAT(LogCategory::Serialization,
+                          "Serialization: failed to resolve readable virtual path '{}'",
+                          virtualPath);
+            return false;
+        }
+
+        return LoadFromFile(value, *path, backend);
+    }
+
+    /// Load with auto-detected backend through a logical resource path.
+    template <Serializable T>
+    bool LoadFromVirtualPath(T &value, std::string_view virtualPath)
+    {
+        const auto path = FileSystem::ResolveReadPath(virtualPath);
+        if (!path.has_value())
+        {
+            LOG_ERROR_CAT(LogCategory::Serialization,
+                          "Serialization: failed to resolve readable virtual path '{}'",
+                          virtualPath);
+            return false;
+        }
+
+        return LoadFromFile(value, *path);
     }
 
 } // namespace Serialization
