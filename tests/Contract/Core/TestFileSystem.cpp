@@ -238,6 +238,142 @@ TEST(FileSystemContractTests, ResolveReadPathCanUseBuildCookedProjectArtifacts)
     FileSystem::RefreshCatalogs();
 }
 
+TEST(FileSystemContractTests, ResolveReadPathCanSwitchBetweenSourceAndCookedEngineAndPluginArtifacts)
+{
+    FileSystem::Init();
+
+    const auto engineRoot = FileSystem::GetRootPath() / "EngineContent";
+    const auto engineArtifactPath = engineRoot / "Defaults" / "Materials" / "Phase12ParityMaterial.json";
+    const auto engineCatalogPath = engineRoot / ".rtr" / "catalog.json";
+
+    const auto pluginRoot = FileSystem::GetRootPath() / "Plugins" / "Phase12ParityPlugin" / "Content";
+    const auto pluginArtifactPath = pluginRoot / "Materials" / "Checker.json";
+    const auto pluginCatalogPath = pluginRoot / ".rtr" / "catalog.json";
+
+    const auto cookedRoot = FileSystem::GetCacheDir() / "Cooked";
+    const auto cookedEngineArtifactPath = cookedRoot / "Engine" / "Defaults" / "Materials" / "Phase12ParityMaterial.json";
+    const auto cookedPluginArtifactPath = cookedRoot / "Plugins" / "Phase12ParityPlugin" / "Materials" / "Checker.json";
+
+    test_support::RemovePathIfExists(engineArtifactPath);
+    test_support::RemovePathIfExists(engineCatalogPath);
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
+    test_support::RemoveTreeIfExists(cookedRoot);
+
+    test_support::WriteTextFileOrFail(engineArtifactPath, "{\n  \"name\": \"engine-parity\"\n}\n");
+    test_support::WriteTextFileOrFail(
+        engineCatalogPath,
+        "{\n"
+        "  \"version\": 1,\n"
+        "  \"entries\": [\n"
+        "    {\n"
+        "      \"logicalPath\": \"/Engine/Defaults/Materials/Phase12ParityMaterial\",\n"
+        "      \"sourceRelativePath\": \"Defaults/Materials/Phase12ParityMaterial.json\",\n"
+        "      \"artifacts\": [\n"
+        "        {\n"
+        "          \"relativePath\": \"Defaults/Materials/Phase12ParityMaterial.json\",\n"
+        "          \"format\": \"json\",\n"
+        "          \"profileTag\": \"dev\"\n"
+        "        }\n"
+        "      ]\n"
+        "    }\n"
+        "  ]\n"
+        "}\n");
+
+    test_support::WriteTextFileOrFail(pluginArtifactPath, "{\n  \"name\": \"plugin-parity\"\n}\n");
+    test_support::WriteTextFileOrFail(
+        pluginCatalogPath,
+        "{\n"
+        "  \"version\": 1,\n"
+        "  \"entries\": [\n"
+        "    {\n"
+        "      \"logicalPath\": \"/Plugins/Phase12ParityPlugin/Materials/Checker\",\n"
+        "      \"sourceRelativePath\": \"Materials/Checker.json\",\n"
+        "      \"artifacts\": [\n"
+        "        {\n"
+        "          \"relativePath\": \"Materials/Checker.json\",\n"
+        "          \"format\": \"json\",\n"
+        "          \"profileTag\": \"dev\"\n"
+        "        }\n"
+        "      ]\n"
+        "    }\n"
+        "  ]\n"
+        "}\n");
+
+    const auto sourceEngineResolved = FileSystem::ResolveReadPath("/Engine/Defaults/Materials/Phase12ParityMaterial");
+    ASSERT_TRUE(sourceEngineResolved.has_value());
+    EXPECT_EQ(*sourceEngineResolved, engineArtifactPath);
+
+    const auto sourcePluginResolved = FileSystem::ResolveReadPath("/Plugins/Phase12ParityPlugin/Materials/Checker");
+    ASSERT_TRUE(sourcePluginResolved.has_value());
+    EXPECT_EQ(*sourcePluginResolved, pluginArtifactPath);
+
+    test_support::WriteTextFileOrFail(
+        cookedRoot / "Engine" / ".rtr" / "catalog.json",
+        "{\n"
+        "  \"version\": 2,\n"
+        "  \"kind\": \"cooked\",\n"
+        "  \"entries\": [\n"
+        "    {\n"
+        "      \"logicalPath\": \"/Engine/Defaults/Materials/Phase12ParityMaterial\",\n"
+        "      \"artifacts\": [\n"
+        "        {\n"
+        "          \"relativePath\": \"Defaults/Materials/Phase12ParityMaterial.json\",\n"
+        "          \"format\": \"json\",\n"
+        "          \"profileTag\": \"cooked\",\n"
+        "          \"backendTag\": \"any\",\n"
+        "          \"platformTag\": \"any\"\n"
+        "        }\n"
+        "      ]\n"
+        "    }\n"
+        "  ]\n"
+        "}\n");
+    test_support::WriteTextFileOrFail(cookedEngineArtifactPath, "{\n  \"name\": \"engine-cooked\"\n}\n");
+
+    test_support::WriteTextFileOrFail(
+        cookedRoot / "Plugins" / "Phase12ParityPlugin" / ".rtr" / "catalog.json",
+        "{\n"
+        "  \"version\": 2,\n"
+        "  \"kind\": \"cooked\",\n"
+        "  \"entries\": [\n"
+        "    {\n"
+        "      \"logicalPath\": \"/Plugins/Phase12ParityPlugin/Materials/Checker\",\n"
+        "      \"artifacts\": [\n"
+        "        {\n"
+        "          \"relativePath\": \"Materials/Checker.json\",\n"
+        "          \"format\": \"json\",\n"
+        "          \"profileTag\": \"cooked\",\n"
+        "          \"backendTag\": \"any\",\n"
+        "          \"platformTag\": \"any\"\n"
+        "        }\n"
+        "      ]\n"
+        "    }\n"
+        "  ]\n"
+        "}\n");
+    test_support::WriteTextFileOrFail(cookedPluginArtifactPath, "{\n  \"name\": \"plugin-cooked\"\n}\n");
+
+    {
+        ScopedEnvVar profileOverride("RTRLAB_RESOURCE_PROFILE", "cooked");
+        FileSystem::RefreshCatalogs();
+
+        const auto cookedEngineResolved = FileSystem::ResolveReadPath("/Engine/Defaults/Materials/Phase12ParityMaterial");
+        ASSERT_TRUE(cookedEngineResolved.has_value());
+        EXPECT_EQ(*cookedEngineResolved, cookedEngineArtifactPath);
+
+        const auto cookedPluginResolved = FileSystem::ResolveReadPath("/Plugins/Phase12ParityPlugin/Materials/Checker");
+        ASSERT_TRUE(cookedPluginResolved.has_value());
+        EXPECT_EQ(*cookedPluginResolved, cookedPluginArtifactPath);
+    }
+
+    test_support::RemovePathIfExists(engineArtifactPath);
+    test_support::RemovePathIfExists(engineCatalogPath);
+    test_support::RemoveDirectoryIfEmpty(engineArtifactPath.parent_path());
+    test_support::RemoveDirectoryIfEmpty(engineArtifactPath.parent_path().parent_path());
+    test_support::RemoveDirectoryIfEmpty(engineCatalogPath.parent_path());
+    test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
+    test_support::RemoveTreeIfExists(cookedRoot);
+    FileSystem::RefreshCatalogs();
+}
+
 TEST(FileSystemContractTests, ResolveReadPathCanLoadCookedProjectTextureArtifacts)
 {
     FileSystem::Init();

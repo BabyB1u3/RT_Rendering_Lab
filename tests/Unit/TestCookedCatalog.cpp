@@ -13,6 +13,15 @@
 
 namespace
 {
+    const std::vector<unsigned char> kOnePixelPng{
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
+        0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+        0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00,
+        0x0D, 0x49, 0x44, 0x41, 0x54, 0x78, 0xDA, 0x63, 0xF8, 0xCF, 0xC0, 0xF0,
+        0x1F, 0x00, 0x05, 0x00, 0x01, 0xFF, 0x89, 0x99, 0x3D, 0x1D, 0x00, 0x00,
+        0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+    };
+
     struct LegacyBootstrapTextureHeader
     {
         char magic[8] = {'R', 'T', 'R', 'T', 'E', 'X', '0', '1'};
@@ -51,14 +60,6 @@ namespace
 TEST_F(CookedCatalogTests, CookRepositoryCatalogsCopiesArtifactsAndWritesCookedCatalog)
 {
     const auto repoRoot = TestRoot() / "Repo";
-    const std::vector<unsigned char> kOnePixelPng{
-        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
-        0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
-        0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00,
-        0x0D, 0x49, 0x44, 0x41, 0x54, 0x78, 0xDA, 0x63, 0xF8, 0xCF, 0xC0, 0xF0,
-        0x1F, 0x00, 0x05, 0x00, 0x01, 0xFF, 0x89, 0x99, 0x3D, 0x1D, 0x00, 0x00,
-        0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
-    };
     test_support::WriteBinaryFileOrFail(repoRoot / "Content" / "textures" / "Grassy_Square.png", kOnePixelPng);
 
     std::string errorMessage;
@@ -105,6 +106,49 @@ TEST_F(CookedCatalogTests, CookRepositoryCatalogsCopiesArtifactsAndWritesCookedC
     EXPECT_EQ(cookedTexture->rowPitch, 4u);
     EXPECT_EQ(cookedTexture->pixelFormat, Resource::CookedTexturePixelFormat::RGBA8_UNorm);
     EXPECT_EQ(cookedTexture->pixelData.size(), 4u);
+}
+
+TEST_F(CookedCatalogTests, CookRepositoryCatalogsPreservesLogicalPathsAcrossMounts)
+{
+    const auto repoRoot = TestRoot() / "Repo";
+    test_support::WriteBinaryFileOrFail(repoRoot / "Content" / "textures" / "Grassy_Square.png", kOnePixelPng);
+    test_support::WriteTextFileOrFail(
+        repoRoot / "EngineContent" / "Defaults" / "Materials" / "ErrorMaterial.json",
+        "{\n  \"name\": \"error-material\"\n}\n");
+    test_support::WriteTextFileOrFail(
+        repoRoot / "Plugins" / "ExamplePlugin" / "Content" / "Materials" / "Checker.json",
+        "{\n  \"name\": \"checker\"\n}\n");
+
+    std::string errorMessage;
+    ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(repoRoot, "Content", &errorMessage)) << errorMessage;
+
+    const auto cookedRoot = repoRoot / "Saved" / "Cache" / "Cooked";
+    ASSERT_TRUE(Resource::CookRepositoryCatalogs(repoRoot, cookedRoot, "Content", &errorMessage)) << errorMessage;
+
+    const auto readFile = [](const std::filesystem::path &path) {
+        std::ifstream in(path);
+        EXPECT_TRUE(in.is_open()) << path.string();
+        return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    };
+
+    const auto projectSourceCatalog = readFile(repoRoot / "Content" / ".rtr" / "catalog.json");
+    const auto engineSourceCatalog = readFile(repoRoot / "EngineContent" / ".rtr" / "catalog.json");
+    const auto pluginSourceCatalog = readFile(repoRoot / "Plugins" / "ExamplePlugin" / "Content" / ".rtr" / "catalog.json");
+
+    const auto projectCookedCatalog = readFile(cookedRoot / "Project" / ".rtr" / "catalog.json");
+    const auto engineCookedCatalog = readFile(cookedRoot / "Engine" / ".rtr" / "catalog.json");
+    const auto pluginCookedCatalog = readFile(cookedRoot / "Plugins" / "ExamplePlugin" / ".rtr" / "catalog.json");
+
+    EXPECT_NE(projectSourceCatalog.find("/Project/Textures/Grassy_Square"), std::string::npos);
+    EXPECT_NE(projectCookedCatalog.find("/Project/Textures/Grassy_Square"), std::string::npos);
+    EXPECT_NE(engineSourceCatalog.find("/Engine/Defaults/Materials/ErrorMaterial"), std::string::npos);
+    EXPECT_NE(engineCookedCatalog.find("/Engine/Defaults/Materials/ErrorMaterial"), std::string::npos);
+    EXPECT_NE(pluginSourceCatalog.find("/Plugins/ExamplePlugin/Materials/Checker"), std::string::npos);
+    EXPECT_NE(pluginCookedCatalog.find("/Plugins/ExamplePlugin/Materials/Checker"), std::string::npos);
+
+    EXPECT_TRUE(std::filesystem::exists(cookedRoot / "Project" / "Textures" / "Grassy_Square.rtrtex"));
+    EXPECT_TRUE(std::filesystem::exists(cookedRoot / "Engine" / "Defaults" / "Materials" / "ErrorMaterial.json"));
+    EXPECT_TRUE(std::filesystem::exists(cookedRoot / "Plugins" / "ExamplePlugin" / "Materials" / "Checker.json"));
 }
 
 TEST_F(CookedCatalogTests, LoadCookedTextureRejectsInvalidMagic)

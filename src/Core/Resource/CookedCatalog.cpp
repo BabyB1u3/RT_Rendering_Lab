@@ -674,6 +674,12 @@ namespace Resource
 
                 ResourceCatalogEntry cookedEntry;
                 cookedEntry.logicalPath = sourceEntry.logicalPath;
+                if (cookedEntry.logicalPath.empty() || cookedEntry.logicalPath != sourceEntry.logicalPath)
+                {
+                    if (errorMessage != nullptr)
+                        *errorMessage = "cooked catalog entry must preserve source logical path: " + sourceEntry.logicalPath;
+                    return false;
+                }
 
                 for (const auto &sourceArtifact : sourceEntry.artifacts)
                 {
