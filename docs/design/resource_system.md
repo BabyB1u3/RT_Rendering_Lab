@@ -81,6 +81,8 @@ Current state as of 2026-04-08:
 - the runtime now supports a loose overlay layer via `RTRLAB_OVERLAY_ROOT` or the
   repository-local `Saved/Overrides/` development path, and overlay catalog entries
   take precedence over packaged/cooked/source entries for the same logical path
+- readable and writable mount handling now goes through an explicit backend layer
+  rather than being embedded directly inside `ResourceCatalog` and `FileSystem`
 
 ---
 
@@ -1201,7 +1203,9 @@ checklist below.
 
 ### Phase 11 - Mount backend abstraction
 
-- introduce backend abstraction when needed
+- implemented for the current backends; readable mount discovery, catalog access,
+  artifact resolution, and writable user-directory mounts now route through an
+  explicit backend layer
 
 ### Phase 12 - Cooking integration
 
@@ -1348,11 +1352,11 @@ without repeatedly redefining scope.
 
 ### 15.12 Phase 11 - Mount backend abstraction
 
-- [ ] Introduce backend-agnostic mount interfaces if the simple resolver becomes too rigid
-- [ ] Add loose directory mount implementation
-- [ ] Add writable user-directory mount implementation
-- [ ] Add overlay ordering policy
-- [ ] Add directory enumeration only where truly needed
+- [x] Introduce backend-agnostic mount interfaces if the simple resolver becomes too rigid
+- [x] Add loose directory mount implementation
+- [x] Add writable user-directory mount implementation
+- [x] Add overlay ordering policy
+- [x] Add directory enumeration only where truly needed
 
 ### 15.13 Phase 12 - Cooking integration
 
