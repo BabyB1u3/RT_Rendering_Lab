@@ -104,8 +104,8 @@ depends only on layers below it.
 
 **Serialization**: `InputActionMap` bindings persist through the shared serialization
 framework (`Serialization::SaveToFile` / `LoadFromFile` + `InputActionSerialization.h`).
-Config files live in `assets/configs/` (shipped defaults) and are auto-copied to
-`saved/configs/` on first access via `FileSystem::ResolveConfigPath()`.
+Config files live in `Content/Config/` (shipped defaults) and are auto-copied to
+`Saved/Config/` on first access via `FileSystem::ResolveConfigPath()`.
 
 **`InputSource::Type`** already includes gamepad-related enum values, but runtime
 querying only supports keyboard and mouse until Layer 5 is built.
@@ -174,8 +174,8 @@ abstractions:
   (raw pixel or scroll units).
 
 Each demo/layer owns its own `InputActionMap` instance. The `ShadowMapping` and
-`MaterialPlayground` demos each load bindings from `assets/configs/input/*.json` and
-fall back to hardcoded defaults saved to `saved/configs/`. Gamepad source types are
+`MaterialPlayground` demos each load bindings from `Content/Config/input/*.json` and
+fall back to hardcoded defaults saved to `Saved/Config/`. Gamepad source types are
 present in `InputSource::Type` but `IsSourceDown()` only handles keyboard and mouse
 until Layer 5 is built.
 

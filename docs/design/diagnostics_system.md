@@ -345,7 +345,7 @@ reading the full file. Survives truncation (each line is independently parseable
 Compatible with `jq`:
 
 ```bash
-cat saved/logs/RTRLab.jsonl | jq 'select(.cat=="Shader" and .lvl=="error")'
+cat Saved/logs/RTRLab.jsonl | jq 'select(.cat=="Shader" and .lvl=="error")'
 ```
 
 ---
@@ -426,7 +426,7 @@ Engine-owned control flow uses the macros above.
 The POSIX signal handler avoids the normal logger path (which is unsafe in a signal
 context) and uses low-level `write()` + `fsync()` to a dedicated crash summary file.
 
-**Dump naming**: `saved/logs/crashes/RTRLab_YYYYMMDD_HHMMSS.dmp`
+**Dump naming**: `Saved/logs/crashes/RTRLab_YYYYMMDD_HHMMSS.dmp`
 
 ---
 
@@ -485,7 +485,7 @@ src/core/diagnostics/
 src/gui/panels/
     ConsolePanel.h / .cpp        - ImGui debug console panel
 
-saved/logs/
+Saved/logs/
     RTRLab.log                   - Rotating text log (human-readable)
     RTRLab.jsonl                 - JSON Lines log (when enabled)
     crashes/
@@ -495,7 +495,7 @@ saved/logs/
 
 The `diagnostics/` module lives under `core/` because it is engine infrastructure
 depended on by every subsystem. Runtime log paths are resolved through the engine's
-saved-data policy: Debug builds write under the source tree's `saved/logs/`, Release
+saved-data policy: Debug builds write under the source tree's `Saved/logs/`, Release
 builds write under the platform user-data directory.
 
 ---

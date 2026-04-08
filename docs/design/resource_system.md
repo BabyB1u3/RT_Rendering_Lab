@@ -33,8 +33,10 @@ Current state as of 2026-04-08:
 - compatibility wrappers such as `GetAssetPath()`, `GetSavedPath()`,
   `GetSavedConfigPath()`, and `ResolveConfigPath()` still exist during migration
 - the config resolution chain is implemented as
-  `/Saved/Config -> /Project/Config -> /Engine/Config`, with compatibility mapping to
-  the current physical `configs/` directories
+  `/Saved/Config -> /Project/Config -> /Engine/Config`
+- the repository now uses `Content/` for project content, and debug/development
+  writable roots resolve under `Saved/`
+- shipped project config defaults now live under `Content/Config/`
 - the resource catalog design in Section 9 is **not** implemented yet, so
   extensionless catalog-backed asset paths are currently classified but not resolved
   through a catalog
@@ -235,8 +237,8 @@ Example:
 
 ## 5. Proposed Physical Layout
 
-This document recommends a deliberate directory rename away from the current
-`assets/`-centric naming.
+This document recommends a deliberate directory layout centered on `Content/` rather
+than `assets/`.
 
 ### 5.1 Recommended development layout
 
@@ -297,29 +299,28 @@ Typical mappings:
 
 ### 5.4 Compatibility note
 
-The current repository still uses `assets/` and `saved/`.
+The repository now uses `Content/` for `/Project/` and `Saved/` for writable
+development data.
 
-That layout is currently preserved during migration by mounting:
+Current development mappings:
 
-- `assets/` as `/Project/`
-- `saved/` as `/Saved/`
-- `saved/cache/` as `/Cache/` in development
+- `Content/` as `/Project/`
+- `Saved/` as `/Saved/`
+- `Saved/Cache/` as `/Cache/` in development
 - `EngineContent/` as `/Engine/`
 - `Plugins/<Name>/Content/` as `/Plugins/<Name>/`
 
-Current compatibility details:
+Current layout details:
 
-- logical `Config/` paths are mapped to the existing lower-case physical `configs/`
-  directories
-- `ResolveConfigPath()` already follows the logical override order
-  `/Saved/Config -> /Project/Config -> /Engine/Config`, while still seeding from the
-  current repository layout
-- writable roots resolve to repository-local `saved/` paths in debug/development
+- shipped config defaults live under `Content/Config/`
+- writable config overrides live under `Saved/Config/`
+- `ResolveConfigPath()` follows the logical override order
+  `/Saved/Config -> /Project/Config -> /Engine/Config`
+- writable roots resolve to repository-local `Saved/` paths in debug/development
   builds and to platform user-data directories in shipping-style builds
 
-However, the long-term recommendation is to rename them to `Content/` and `Saved/`
-because those names communicate intent better and reduce future confusion between
-"source assets", "runtime content", "cooked assets", and "editor resources".
+The earlier `assets/` / `saved/` compatibility bridge is no longer the primary
+repository layout.
 
 ---
 
@@ -875,7 +876,7 @@ Not:
 
 ```json
 {
-  "albedo": "assets/textures/Grassy_Square.jpg"
+  "albedo": "Content/textures/Grassy_Square.jpg"
 }
 ```
 
@@ -883,7 +884,7 @@ And never:
 
 ```json
 {
-  "albedo": "C:/Users/name/dev/RTRLab/assets/textures/Grassy_Square.jpg"
+  "albedo": "C:/Users/name/dev/RTRLab/Content/textures/Grassy_Square.jpg"
 }
 ```
 
@@ -981,7 +982,10 @@ checklist below.
 
 ### Phase 0 - Design freeze and naming decisions
 
-- design direction documented; long-term physical rename still open
+- design direction approved
+- long-term physical rename accepted:
+  `assets/ -> Content/`, `saved/ -> Saved/`
+- config defaults move immediately to mounted `Config/` subtrees
 
 ### Phase 1 - Core path primitives
 
@@ -1001,7 +1005,7 @@ checklist below.
 
 ### Phase 5 - Compatibility bridge for current repository layout
 
-- implemented for the current repository layout, including config compatibility mapping
+- historical bridge completed; repository now uses `Content/` / `Saved/` directly
 
 ### Phase 6 - Caller migration in runtime systems
 
@@ -1009,7 +1013,7 @@ checklist below.
 
 ### Phase 7 - Config system cleanup
 
-- move config to `/Project/Config/`, `/Engine/Config/`, `/Saved/Config/`
+- partially implemented; project and saved config now use mounted `Config/` paths
 
 ### Phase 8 - Serialization and asset-reference rules
 
@@ -1017,7 +1021,7 @@ checklist below.
 
 ### Phase 9 - Optional physical directory rename
 
-- `assets/ -> Content/`, `saved/ -> Saved/` if approved
+- accepted and implemented for the active repository layout
 
 ### Phase 10 - Engine and plugin mounts
 
@@ -1052,9 +1056,9 @@ without repeatedly redefining scope.
 
 - [x] Approve the public logical roots:
       `/Project/`, `/Engine/`, `/Plugins/<Name>/`, `/Saved/`, `/Cache/`
-- [ ] Decide whether the long-term physical rename is accepted:
+- [x] Decide whether the long-term physical rename is accepted:
       `assets/ -> Content/`, `saved/ -> Saved/`
-- [ ] Decide whether config defaults move out of content immediately or in a later pass
+- [x] Decide whether config defaults move out of content immediately or in a later pass
 - [x] Freeze the logical path syntax rules:
       leading `/`, forward slashes only, no `.` / `..`, no raw OS paths in serialized references
 - [x] Freeze the path-class distinction:
@@ -1112,9 +1116,9 @@ without repeatedly redefining scope.
 
 ### 15.6 Phase 5 - Compatibility bridge for current repository layout
 
-- [x] Mount current `assets/` as `/Project/`
-- [x] Mount current `saved/` as `/Saved/`
-- [x] Keep current startup root discovery working during migration
+- [x] Mount current `Content/` as `/Project/`
+- [x] Mount current `Saved/` as `/Saved/`
+- [x] Keep current startup root discovery working across the directory rename
 - [x] Rewrite `ResolveConfigPath()` on top of the new logical config model
 - [x] Confirm that existing tests still pass through compatibility wrappers
 
@@ -1129,11 +1133,11 @@ without repeatedly redefining scope.
 
 ### 15.8 Phase 7 - Config system cleanup
 
-- [ ] Create `/Project/Config/` physical backing layout
+- [x] Create `/Project/Config/` physical backing layout
 - [ ] Create `/Engine/Config/` physical backing layout
-- [ ] Move shipped config defaults into mounted config subtrees
-- [ ] Preserve existing auto-seed behavior for first-run user config creation
-- [ ] Add tests for saved override precedence and default seeding
+- [x] Move shipped config defaults into mounted config subtrees
+- [x] Preserve existing auto-seed behavior for first-run user config creation
+- [x] Add tests for saved override precedence and default seeding
 
 ### 15.9 Phase 8 - Serialization and asset-reference rules
 
@@ -1145,11 +1149,11 @@ without repeatedly redefining scope.
 
 ### 15.10 Phase 9 - Optional physical directory rename
 
-- [ ] Rename `assets/` to `Content/` if the team accepts the change
-- [ ] Rename `saved/` to `Saved/` if the team accepts the change
-- [ ] Update CMake copy/install logic
-- [ ] Update `.gitignore`, docs, tests, and helper scripts
-- [ ] Keep a short-lived migration shim only if necessary
+- [x] Rename `assets/` to `Content/` if the team accepts the change
+- [x] Rename `saved/` to `Saved/` if the team accepts the change
+- [x] Update CMake copy/install logic
+- [x] Update `.gitignore`, docs, tests, and helper scripts
+- [x] Keep a short-lived migration shim only if necessary
 
 ### 15.11 Phase 10 - Engine and plugin mounts
 
@@ -1240,9 +1244,7 @@ resource system.
 Instead:
 
 - adopt Unreal-style logical mount points as the public model
-- treat existing `assets/` / `saved/` directories as temporary migration-era physical
-  backends
-- strongly consider renaming them to `Content/` and `Saved/`
+- use `Content/` and `Saved/` as the primary physical development layout
 - separate shipped config defaults from general content
 
 This is the version that best supports future plugins, cooked assets, packaged builds,

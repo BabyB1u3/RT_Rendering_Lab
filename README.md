@@ -53,7 +53,7 @@ RT_Rendering_Lab/
 │   ├── demos/          # DemoBase, DemoRegistry, LabLayer, ShadowMapping/, MaterialPlayground/
 │   ├── gui/            # ImGuiLayer, DebugPanel, DemoSelectorPanel
 │   └── main.cpp
-├── assets/
+├── Content/
 │   ├── shaders/        # GLSL source (.vert/.frag) + compiled SPIR-V (.spv)
 │   ├── models/
 │   ├── textures/

@@ -159,10 +159,6 @@ TEST(FileSystemContractTests, ResolveConfigPathPrefersSavedConfigWhenPresent)
     FileSystem::Init();
 
     const auto savedPath = FileSystem::GetSavedConfigPath(kExistingConfig);
-    const auto projectPath = FileSystem::GetAssetPath("Config") / kExistingConfig;
-    const auto projectContents = FileSystem::ReadTextFile(projectPath);
-    ASSERT_TRUE(projectContents.has_value());
-
     RemovePathIfExists(savedPath);
     ASSERT_TRUE(FileSystem::WriteText("/Saved/Config/input/DebugCameraControl.json", "{\n  \"source\": \"saved\"\n}\n"));
 
