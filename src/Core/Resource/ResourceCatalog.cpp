@@ -5,8 +5,10 @@
 #include "Core/Resource/PathParser.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <fstream>
 #include <json.hpp>
+#include <unordered_set>
 
 namespace
 {
@@ -15,6 +17,7 @@ namespace
     struct MountDescriptor
     {
         std::string cacheKey;
+        std::string sourceKey;
         Resource::VirtualPath mountPath;
         std::filesystem::path mountRoot;
     };
@@ -25,25 +28,6 @@ namespace
         std::string_view backendTag;
         std::string_view profileTag;
     };
-
-    std::string MakeMountCacheKey(const Resource::VirtualPath &virtualPath)
-    {
-        switch (virtualPath.domain)
-        {
-        case Resource::PathDomain::Project:
-            return "Project";
-        case Resource::PathDomain::Engine:
-            return "Engine";
-        case Resource::PathDomain::Plugin:
-            return "Plugin:" + virtualPath.mountName.value_or(std::string{});
-        case Resource::PathDomain::Saved:
-            return "Saved";
-        case Resource::PathDomain::Cache:
-            return "Cache";
-        }
-
-        return {};
-    }
 
     std::filesystem::path GetMountRoot(const std::filesystem::path &rootPath,
                                        const std::filesystem::path &engineDir,
@@ -231,6 +215,13 @@ namespace
 
     std::string_view GetCurrentProfileTag()
     {
+        if (const char *overrideValue = std::getenv("RTRLAB_RESOURCE_PROFILE"))
+        {
+            const std::string_view value = overrideValue;
+            if (!value.empty())
+                return value;
+        }
+
 #if defined(GLAB_ROOT_DIR)
         return "dev";
 #elif defined(NDEBUG)
@@ -289,48 +280,96 @@ namespace
 
     std::vector<MountDescriptor> DiscoverReadableMounts(const std::filesystem::path &rootPath,
                                                         const std::filesystem::path &engineDir,
+                                                        const std::filesystem::path &cacheDir,
                                                         std::string_view projectContentDirName)
     {
         std::vector<MountDescriptor> mounts;
-        mounts.push_back(MountDescriptor{
+        const bool preferCookedArtifacts = GetCurrentProfileTag() == "cooked";
+
+        const auto addReadableMount = [&](const std::string &sourceKey,
+                                          const Resource::VirtualPath &mountPath,
+                                          const std::filesystem::path &sourceRoot,
+                                          const std::filesystem::path &cookedRoot) {
+            const bool hasCookedCatalog = std::filesystem::exists(cookedRoot / ".rtr" / "catalog.json");
+            const bool hasSourceRoot = std::filesystem::exists(sourceRoot);
+
+            if (preferCookedArtifacts && hasCookedCatalog)
+            {
+                mounts.push_back(MountDescriptor{
+                    "Cooked:" + sourceKey,
+                    sourceKey,
+                    mountPath,
+                    cookedRoot,
+                });
+                return;
+            }
+
+            if (hasSourceRoot)
+            {
+                mounts.push_back(MountDescriptor{
+                    sourceKey,
+                    sourceKey,
+                    mountPath,
+                    sourceRoot,
+                });
+                return;
+            }
+
+            if (hasCookedCatalog)
+            {
+                mounts.push_back(MountDescriptor{
+                    "Cooked:" + sourceKey,
+                    sourceKey,
+                    mountPath,
+                    cookedRoot,
+                });
+            }
+        };
+
+        addReadableMount(
             "Project",
             Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, {}},
-            rootPath / projectContentDirName});
+            rootPath / projectContentDirName,
+            cacheDir / "Cooked" / "Project");
 
-        if (std::filesystem::exists(engineDir))
-        {
-            mounts.push_back(MountDescriptor{
-                "Engine",
-                Resource::VirtualPath{Resource::PathDomain::Engine, std::nullopt, {}},
-                engineDir});
-        }
+        addReadableMount(
+            "Engine",
+            Resource::VirtualPath{Resource::PathDomain::Engine, std::nullopt, {}},
+            engineDir,
+            cacheDir / "Cooked" / "Engine");
 
         const auto pluginsRoot = rootPath / "Plugins";
+        const auto cookedPluginsRoot = cacheDir / "Cooked" / "Plugins";
+        std::unordered_set<std::string> pluginNames;
+
         if (std::filesystem::exists(pluginsRoot))
         {
-            std::vector<std::filesystem::directory_entry> pluginDirs;
             for (const auto &entry : std::filesystem::directory_iterator(pluginsRoot))
             {
                 if (entry.is_directory())
-                    pluginDirs.push_back(entry);
+                    pluginNames.insert(entry.path().filename().string());
             }
+        }
 
-            std::sort(pluginDirs.begin(), pluginDirs.end(), [](const auto &lhs, const auto &rhs) {
-                return lhs.path().filename().string() < rhs.path().filename().string();
-            });
-
-            for (const auto &pluginEntry : pluginDirs)
+        if (std::filesystem::exists(cookedPluginsRoot))
+        {
+            for (const auto &entry : std::filesystem::directory_iterator(cookedPluginsRoot))
             {
-                const auto pluginName = pluginEntry.path().filename().string();
-                const auto contentRoot = pluginEntry.path() / "Content";
-                if (!std::filesystem::exists(contentRoot))
-                    continue;
-
-                mounts.push_back(MountDescriptor{
-                    "Plugin:" + pluginName,
-                    Resource::VirtualPath{Resource::PathDomain::Plugin, pluginName, {}},
-                    contentRoot});
+                if (entry.is_directory())
+                    pluginNames.insert(entry.path().filename().string());
             }
+        }
+
+        std::vector<std::string> sortedPluginNames(pluginNames.begin(), pluginNames.end());
+        std::sort(sortedPluginNames.begin(), sortedPluginNames.end());
+
+        for (const auto &pluginName : sortedPluginNames)
+        {
+            addReadableMount(
+                "Plugin:" + pluginName,
+                Resource::VirtualPath{Resource::PathDomain::Plugin, pluginName, {}},
+                pluginsRoot / pluginName / "Content",
+                cookedPluginsRoot / pluginName);
         }
 
         return mounts;
@@ -354,7 +393,7 @@ namespace
                               "Logical path '{}' is provided by multiple readable mounts ('{}' and '{}')",
                               logicalPath,
                               existingIt->second.sourceMountKey,
-                              mount.cacheKey);
+                              mount.sourceKey);
                 conflictedLogicalPaths.insert(logicalPath);
                 globalEntries.erase(existingIt);
                 continue;
@@ -364,7 +403,7 @@ namespace
                                   Resource::CatalogRegistry::GlobalCatalogEntry{
                                       entry,
                                       mount.mountRoot,
-                                      mount.cacheKey,
+                                      mount.sourceKey,
                                   });
         }
     }
@@ -382,6 +421,7 @@ namespace Resource
 
     std::optional<std::filesystem::path> CatalogRegistry::ResolvePath(const std::filesystem::path &rootPath,
                                                                       const std::filesystem::path &engineDir,
+                                                                      const std::filesystem::path &cacheDir,
                                                                       const VirtualPath &virtualPath,
                                                                       std::string_view logicalPath,
                                                                       std::string_view projectContentDirName)
@@ -396,7 +436,7 @@ namespace Resource
             m_GlobalEntries.clear();
             m_ConflictedLogicalPaths.clear();
 
-            for (const auto &mount : DiscoverReadableMounts(rootPath, engineDir, projectContentDirName))
+            for (const auto &mount : DiscoverReadableMounts(rootPath, engineDir, cacheDir, projectContentDirName))
             {
                 auto &cache = m_MountCatalogs[mount.cacheKey];
                 if (!cache.attemptedLoad)

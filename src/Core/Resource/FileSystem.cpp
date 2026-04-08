@@ -65,7 +65,7 @@ std::optional<std::filesystem::path> FileSystem::ResolveReadPath(std::string_vie
     if (Resource::IsCatalogBackedPath(virtualPathString))
     {
         if (const auto resolved = s_CatalogRegistry.ResolvePath(
-                s_RootPath, s_EngineDir, *virtualPath, virtualPathString, kProjectContentDirName))
+                s_RootPath, s_EngineDir, GetCacheDir(), *virtualPath, virtualPathString, kProjectContentDirName))
         {
             return resolved;
         }

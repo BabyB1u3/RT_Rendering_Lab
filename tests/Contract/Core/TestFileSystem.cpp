@@ -1,7 +1,9 @@
 #include <gtest/gtest.h>
 
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <string>
 
 #include "Core/Resource/FileSystem.h"
@@ -65,6 +67,53 @@ namespace
         out << contents;
         ASSERT_TRUE(out.good());
     }
+
+    class ScopedEnvVar
+    {
+    public:
+        ScopedEnvVar(const char *name, std::string_view value)
+            : m_Name(name)
+        {
+            if (const char *existing = std::getenv(name))
+            {
+                m_PreviousValue = existing;
+                m_HadPreviousValue = true;
+            }
+
+            Set(value);
+        }
+
+        ~ScopedEnvVar()
+        {
+            if (m_HadPreviousValue)
+                Set(*m_PreviousValue);
+            else
+                Clear();
+        }
+
+    private:
+        void Set(std::string_view value)
+        {
+#if defined(_WIN32)
+            _putenv_s(m_Name.c_str(), std::string(value).c_str());
+#else
+            setenv(m_Name.c_str(), std::string(value).c_str(), 1);
+#endif
+        }
+
+        void Clear()
+        {
+#if defined(_WIN32)
+            _putenv_s(m_Name.c_str(), "");
+#else
+            unsetenv(m_Name.c_str());
+#endif
+        }
+
+        std::string m_Name;
+        std::optional<std::string> m_PreviousValue;
+        bool m_HadPreviousValue = false;
+    };
 }
 
 TEST(FileSystemContractTests, InitResolvesProjectRootAndCommonDirectories)
@@ -102,6 +151,59 @@ TEST(FileSystemContractTests, ResolveReadPathUsesCatalogForExtensionlessProjectA
     ASSERT_TRUE(resolved.has_value());
     EXPECT_EQ(*resolved, FileSystem::GetAssetPath("textures/Grassy_Square.jpg"));
     EXPECT_TRUE(std::filesystem::exists(*resolved));
+}
+
+TEST(FileSystemContractTests, ResolveReadPathCanSwitchBetweenSourceAndCookedProjectArtifacts)
+{
+    FileSystem::Init();
+
+    const auto sourceResolved = FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square");
+    ASSERT_TRUE(sourceResolved.has_value());
+    EXPECT_EQ(*sourceResolved, FileSystem::GetAssetPath("textures/Grassy_Square.jpg"));
+
+    const auto cookedRoot = FileSystem::GetCacheDir() / "Cooked" / "Project";
+    const auto cookedArtifactPath = cookedRoot / "Textures" / "Grassy_Square.ktx2";
+    const auto cookedCatalogPath = cookedRoot / ".rtr" / "catalog.json";
+
+    RemoveDirectoryTreeIfExists(cookedRoot);
+
+    WriteTextFileOrFail(cookedArtifactPath, "cooked");
+    WriteTextFileOrFail(
+        cookedCatalogPath,
+        "{\n"
+        "  \"version\": 1,\n"
+        "  \"entries\": [\n"
+        "    {\n"
+        "      \"logicalPath\": \"/Project/Textures/Grassy_Square\",\n"
+        "      \"sourceRelativePath\": \"textures/Grassy_Square.jpg\",\n"
+        "      \"artifacts\": [\n"
+        "        {\n"
+        "          \"relativePath\": \"Textures/Grassy_Square.ktx2\",\n"
+        "          \"format\": \"ktx2\",\n"
+        "          \"profileTag\": \"cooked\",\n"
+        "          \"backendTag\": \"any\",\n"
+        "          \"platformTag\": \"any\"\n"
+        "        }\n"
+        "      ]\n"
+        "    }\n"
+        "  ]\n"
+        "}\n");
+
+    {
+        ScopedEnvVar profileOverride("RTRLAB_RESOURCE_PROFILE", "cooked");
+        FileSystem::RefreshCatalogs();
+
+        const auto cookedResolved = FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square");
+        ASSERT_TRUE(cookedResolved.has_value());
+        EXPECT_EQ(*cookedResolved, cookedArtifactPath);
+    }
+
+    FileSystem::RefreshCatalogs();
+    const auto revertedResolved = FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square");
+    ASSERT_TRUE(revertedResolved.has_value());
+    EXPECT_EQ(*revertedResolved, FileSystem::GetAssetPath("textures/Grassy_Square.jpg"));
+
+    RemoveDirectoryTreeIfExists(FileSystem::GetCacheDir() / "Cooked");
 }
 
 TEST(FileSystemContractTests, ResolveReadPathUsesCatalogForExtensionlessEngineAsset)

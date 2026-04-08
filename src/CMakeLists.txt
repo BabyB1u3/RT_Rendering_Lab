@@ -23,6 +23,7 @@ set(GLAB_APP_HEADERS
 
 set(GLAB_RESOURCE_SOURCES
     Core/Resource/ConfigResolver.cpp
+    Core/Resource/CookedCatalog.cpp
     Core/Resource/FileSystem.cpp
     Core/Resource/MountResolver.cpp
     Core/Resource/PathParser.cpp
@@ -35,6 +36,7 @@ set(GLAB_RESOURCE_SOURCES
 set(GLAB_RESOURCE_HEADERS
     Core/Resource/ConfigResolver.h
     Core/Resource/AssetPath.h
+    Core/Resource/CookedCatalog.h
     Core/Resource/FileSystem.h
     Core/Resource/MountResolver.h
     Core/Resource/PathParser.h
@@ -375,11 +377,30 @@ set_target_properties(rtr_asset_index PROPERTIES
     VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 
+add_executable(rtr_asset_cook
+    Tools/AssetCookMain.cpp
+)
+
+target_link_libraries(rtr_asset_cook PRIVATE
+    RTRLabCore
+)
+
+if(GLAB_ENABLE_PCH)
+    target_precompile_headers(rtr_asset_cook REUSE_FROM RTRLabCore)
+endif()
+
+glab_configure_local_target(rtr_asset_cook)
+
+set_target_properties(rtr_asset_cook PROPERTIES
+    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
 # -----------------------------------------------------------------------------
 # Install rules
 # -----------------------------------------------------------------------------
 install(TARGETS RTRLab RUNTIME DESTINATION .)
 install(TARGETS rtr_asset_index RUNTIME DESTINATION tools)
+install(TARGETS rtr_asset_cook RUNTIME DESTINATION tools)
 
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/Content/
         DESTINATION Content

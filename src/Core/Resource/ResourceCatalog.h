@@ -50,6 +50,7 @@ namespace Resource
 
         std::optional<std::filesystem::path> ResolvePath(const std::filesystem::path &rootPath,
                                                          const std::filesystem::path &engineDir,
+                                                         const std::filesystem::path &cacheDir,
                                                          const VirtualPath &virtualPath,
                                                          std::string_view logicalPath,
                                                          std::string_view projectContentDirName);

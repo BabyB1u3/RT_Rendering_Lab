@@ -37,6 +37,7 @@ endfunction()
 glab_add_test_executable(rtrlab_unit_tests
     Unit/TestBuiltinTraits.cpp
     Unit/TestCamera.cpp
+    Unit/TestCookedCatalog.cpp
     Unit/TestDefaultCameraController.cpp
     Unit/TestFileSystemVirtualPaths.cpp
     Unit/TestInput.cpp
