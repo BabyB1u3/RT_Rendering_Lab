@@ -52,8 +52,10 @@ RT_Rendering_Lab/
 │   ├── scene/          # Camera, DebugCameraController, Light, Transform, SceneData
 │   ├── demos/          # DemoBase, DemoRegistry, LabLayer, ShadowMapping/, MaterialPlayground/
 │   ├── gui/            # ImGuiLayer, DebugPanel, DemoSelectorPanel
+│   ├── Tools/          # Developer utilities such as source catalog indexing
 │   └── main.cpp
 ├── Content/
+│   ├── .rtr/           # Generated source catalogs for loose content mounts
 │   ├── shaders/        # GLSL source (.vert/.frag) + compiled SPIR-V (.spv)
 │   ├── models/
 │   ├── textures/
@@ -162,6 +164,15 @@ Test executables:
 - `rtrlab_contract_tests`
 - `rtrlab_contract_tests_opengl`
 - `rtrlab_integration_tests_opengl`
+
+Resource tooling:
+
+- `rtr_asset_index` generates `.rtr/catalog.json` for `Content/`,
+  `EngineContent/`, and `Plugins/*/Content/`
+
+```bash
+./build/<config>/rtr_asset_index --root .
+```
 
 OpenGL contract and integration tests create a hidden OpenGL context — they require a GPU or software renderer.
 
