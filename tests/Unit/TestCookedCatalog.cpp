@@ -56,7 +56,7 @@ TEST_F(CookedCatalogTests, CookRepositoryCatalogsCopiesArtifactsAndWritesCookedC
     ASSERT_TRUE(Resource::CookRepositoryCatalogs(repoRoot, cookedRoot, "Content", &errorMessage)) << errorMessage;
 
     const auto cookedCatalogPath = cookedRoot / "Project" / ".rtr" / "catalog.json";
-    const auto cookedArtifactPath = cookedRoot / "Project" / "Textures" / "Grassy_Square.ktx2";
+    const auto cookedArtifactPath = cookedRoot / "Project" / "Textures" / "Grassy_Square.rtrtex";
 
     EXPECT_TRUE(std::filesystem::exists(cookedCatalogPath));
     EXPECT_TRUE(std::filesystem::exists(cookedArtifactPath));
@@ -67,8 +67,8 @@ TEST_F(CookedCatalogTests, CookRepositoryCatalogsCopiesArtifactsAndWritesCookedC
 
     EXPECT_NE(cookedContents.find("/Project/Textures/Grassy_Square"), std::string::npos);
     EXPECT_NE(cookedContents.find("\"profileTag\": \"cooked\""), std::string::npos);
-    EXPECT_NE(cookedContents.find("\"relativePath\": \"Textures/Grassy_Square.ktx2\""), std::string::npos);
-    EXPECT_NE(cookedContents.find("\"format\": \"ktx2\""), std::string::npos);
+    EXPECT_NE(cookedContents.find("\"relativePath\": \"Textures/Grassy_Square.rtrtex\""), std::string::npos);
+    EXPECT_NE(cookedContents.find("\"format\": \"rtrtex\""), std::string::npos);
 
     std::string errorMessageFromLoad;
     const auto cookedTexture = Resource::LoadCookedTexture(cookedArtifactPath, &errorMessageFromLoad);
@@ -82,7 +82,7 @@ TEST_F(CookedCatalogTests, CookRepositoryCatalogsCopiesArtifactsAndWritesCookedC
 
 TEST_F(CookedCatalogTests, LoadCookedTextureRejectsInvalidMagic)
 {
-    const auto cookedArtifactPath = TestRoot() / "invalid.ktx2";
+    const auto cookedArtifactPath = TestRoot() / "invalid.rtrtex";
     std::vector<unsigned char> invalidHeader(32, 0);
     invalidHeader[0] = 'B';
     invalidHeader[1] = 'A';

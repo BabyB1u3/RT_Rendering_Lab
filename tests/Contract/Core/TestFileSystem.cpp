@@ -148,7 +148,7 @@ TEST(FileSystemContractTests, ResolveReadPathCanSwitchBetweenSourceAndCookedProj
     EXPECT_EQ(*sourceResolved, FileSystem::GetAssetPath("textures/Grassy_Square.jpg"));
 
     const auto cookedRoot = FileSystem::GetCacheDir() / "Cooked" / "Project";
-    const auto cookedArtifactPath = cookedRoot / "Textures" / "Grassy_Square.ktx2";
+    const auto cookedArtifactPath = cookedRoot / "Textures" / "Grassy_Square.rtrtex";
     const auto cookedCatalogPath = cookedRoot / ".rtr" / "catalog.json";
 
     test_support::RemoveTreeIfExists(cookedRoot);
@@ -164,8 +164,8 @@ TEST(FileSystemContractTests, ResolveReadPathCanSwitchBetweenSourceAndCookedProj
         "      \"sourceRelativePath\": \"textures/Grassy_Square.jpg\",\n"
         "      \"artifacts\": [\n"
         "        {\n"
-        "          \"relativePath\": \"Textures/Grassy_Square.ktx2\",\n"
-        "          \"format\": \"ktx2\",\n"
+        "          \"relativePath\": \"Textures/Grassy_Square.rtrtex\",\n"
+        "          \"format\": \"rtrtex\",\n"
         "          \"profileTag\": \"cooked\",\n"
         "          \"backendTag\": \"any\",\n"
         "          \"platformTag\": \"any\"\n"
@@ -209,7 +209,7 @@ TEST(FileSystemContractTests, ResolveReadPathCanLoadCookedProjectTextureArtifact
 
         const auto cookedResolved = FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square");
         ASSERT_TRUE(cookedResolved.has_value());
-        EXPECT_EQ(cookedResolved->extension().string(), ".ktx2");
+        EXPECT_EQ(cookedResolved->extension().string(), ".rtrtex");
 
         const auto cookedTexture = Resource::LoadCookedTexture(*cookedResolved, &errorMessage);
         ASSERT_TRUE(cookedTexture.has_value()) << errorMessage;

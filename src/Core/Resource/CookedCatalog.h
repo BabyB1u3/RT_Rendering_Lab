@@ -9,6 +9,9 @@
 
 namespace Resource
 {
+    inline constexpr std::string_view kCookedTextureArtifactExtension = ".rtrtex";
+    inline constexpr std::string_view kCookedTextureArtifactFormat = "rtrtex";
+
     enum class CookedTexturePixelFormat : uint32_t
     {
         Unknown = 0,

@@ -253,8 +253,8 @@ namespace
                                        (lowerFormat == "jpg" || lowerFormat == "jpeg" || lowerFormat == "png");
         if (isTextureArtifact)
         {
-            cookedRelativePath = std::filesystem::path(parsedLogicalPath->relativePath + ".ktx2");
-            cookedFormat = "ktx2";
+            cookedRelativePath = std::filesystem::path(parsedLogicalPath->relativePath + std::string(Resource::kCookedTextureArtifactExtension));
+            cookedFormat = std::string(Resource::kCookedTextureArtifactFormat);
         }
 
         const auto cookedPath = cookedMountRoot / cookedRelativePath;
