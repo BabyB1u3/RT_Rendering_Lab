@@ -37,8 +37,11 @@ Current state as of 2026-04-08:
 - the repository now uses `Content/` for project content, and debug/development
   writable roots resolve under `Saved/`
 - shipped project config defaults now live under `Content/Config/`
+- shipped engine config defaults now live under `EngineContent/Config/`
 - runtime log, crash, and ImGui ini callsites now resolve through explicit logical
   `/Saved/...` paths rather than legacy saved-path wrappers
+- diagnostics now default to `/Saved/logs/RTRLab.log`, and the JSON sink can resolve
+  explicit logical write paths such as `/Saved/Logs/*.jsonl`
 - serialization now provides logical-path wrappers for document-style file I/O through
   the resource system
 - asset-reference serialization now has an explicit validated path type instead of
@@ -1103,12 +1106,13 @@ checklist below.
 
 ### Phase 6 - Caller migration in runtime systems
 
-- partially implemented; ImGui ini, log output, and crash artifacts now resolve
-  through explicit logical `/Saved/...` paths
+- mostly implemented; runtime diagnostics, crash artifacts, ImGui ini, and config-path
+  serialization helpers now resolve through logical resource paths
 
 ### Phase 7 - Config system cleanup
 
-- partially implemented; project and saved config now use mounted `Config/` paths
+- largely implemented; project, engine, and saved config all use mounted `Config/`
+  paths with engine-default fallback backing
 
 ### Phase 8 - Serialization and asset-reference rules
 
@@ -1226,14 +1230,14 @@ without repeatedly redefining scope.
 - [x] Migrate ImGui ini handling to logical write-path resolution
 - [x] Migrate diagnostics/log output to logical write-path resolution
 - [x] Migrate crash dump/log-tail paths to logical write-path resolution
-- [ ] Migrate config loading to the new config namespace rules
-- [ ] Stop introducing new direct `std::filesystem::path` dependencies in gameplay-facing code
-- [ ] Audit current and future serialization callsites for physical-path leakage
+- [x] Migrate config loading to the new config namespace rules
+- [x] Stop introducing new direct `std::filesystem::path` dependencies in gameplay-facing code
+- [x] Audit current and future serialization callsites for physical-path leakage
 
 ### 15.8 Phase 7 - Config system cleanup
 
 - [x] Create `/Project/Config/` physical backing layout
-- [ ] Create `/Engine/Config/` physical backing layout
+- [x] Create `/Engine/Config/` physical backing layout
 - [x] Move shipped config defaults into mounted config subtrees
 - [x] Preserve existing auto-seed behavior for first-run user config creation
 - [x] Add tests for saved override precedence and default seeding
@@ -1291,7 +1295,7 @@ without repeatedly redefining scope.
 
 ### 15.15 Phase 14 - Final cleanup
 
-- [ ] Remove legacy callsites that rely on raw `GetAssetPath()` / `GetSavedPath()`
+- [x] Remove legacy callsites that rely on raw `GetAssetPath()` / `GetSavedPath()`
 - [ ] Remove temporary compatibility-only assumptions from docs
 - [ ] Update onboarding/build documentation to describe logical paths first
 - [ ] Confirm every asset-facing subsystem now speaks logical paths

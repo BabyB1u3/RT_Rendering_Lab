@@ -475,8 +475,7 @@ bool LoadFromFile(T &value, const std::filesystem::path &path,
 
 // OnAttach()
 constexpr auto kInputCfg = "input/ShadowMapping.json";
-auto resolved = FileSystem::ResolveConfigPath(kInputCfg);
-if (!resolved.empty() && Serialization::LoadFromFile(m_InputMap, resolved))
+if (Serialization::LoadFromConfigPath(m_InputMap, kInputCfg))
 {
     // loaded successfully
 }
@@ -484,7 +483,7 @@ else
 {
     m_InputMap.BindAction("ShowFinalColor", Key::D1);
     // ... other defaults ...
-    Serialization::SaveToFile(m_InputMap, FileSystem::GetSavedConfigPath(kInputCfg));
+    Serialization::SaveToConfigPath(m_InputMap, kInputCfg);
 }
 ```
 

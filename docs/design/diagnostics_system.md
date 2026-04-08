@@ -135,6 +135,11 @@ at destruction.
 3. Registers the "Core" category as an async logger.
 4. Starts periodic flush every 3 seconds.
 
+When no explicit log file path is provided, `Logger::Init()` now resolves the default
+logical write path `/Saved/logs/RTRLab.log` through the resource system. In development
+builds this lands under the repository `Saved/` tree; in shipping builds it follows the
+platform user-data mapping for `/Saved/`.
+
 **Shutdown** (`Logger::Shutdown`):
 1. Calls `spdlog::shutdown()` which synchronously drains the async queue, flushes all
    sinks, stops the thread pool and periodic flusher, then drops all loggers.
@@ -330,10 +335,12 @@ The `JsonLineSink` writes one JSON object per log message for machine-readable o
 **Always-registered, enable-on-demand design**: The sink is created at `Logger::Init()`
 in a disabled state (no file open) and included in the shared sink vector from the start.
 `EnableJsonSink(path)` opens the file and leaves the sink disabled if the file cannot be
-opened; the failure is recorded through the normal diagnostics log. `DisableJsonSink()`
-requests closure after a flush barrier. This avoids the thread-safety hazard of mutating
-a live logger's sink vector at runtime - the async worker thread iterates the sink vector
-without external locking, so adding/removing sinks while it runs would be a data race.
+opened; the failure is recorded through the normal diagnostics log. The path may be a
+physical path or a logical write path such as `/Saved/logs/session.jsonl`.
+`DisableJsonSink()` requests closure after a flush barrier. This avoids the thread-safety
+hazard of mutating a live logger's sink vector at runtime - the async worker thread
+iterates the sink vector without external locking, so adding/removing sinks while it runs
+would be a data race.
 
 The `Enable` / `Disable` / `RequestDisable` / `RequestReopen` methods all lock the
 `base_sink<std::mutex>::mutex_`, which is the same mutex the async worker acquires
@@ -449,7 +456,7 @@ filtering. Auto-scroll tracks the bottom of the log.
 | `log.filter *` | Show all categories |
 | `log.clear` | Clear the console buffer |
 | `log.flush` | Force flush all sinks |
-| `log.json on [path]` | Enable JSON Lines sink |
+| `log.json on [path]` | Enable JSON Lines sink. `path` may be physical or logical (`/Saved/...`) |
 | `log.json off` | Disable JSON Lines sink |
 
 **Category validation**: The command parser accepts a category if it is either in the

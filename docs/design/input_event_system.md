@@ -103,9 +103,10 @@ of Layer 8 bridge the platform. Layers 5, 9, and 10 are planned extensions. Each
 depends only on layers below it.
 
 **Serialization**: `InputActionMap` bindings persist through the shared serialization
-framework (`Serialization::SaveToFile` / `LoadFromFile` + `InputActionSerialization.h`).
-Config files live in `Content/Config/` (shipped defaults) and are auto-copied to
-`Saved/Config/` on first access via `FileSystem::ResolveConfigPath()`.
+framework (`Serialization::SaveToConfigPath` / `LoadFromConfigPath` +
+`InputActionSerialization.h`). Config files live in `Content/Config/` (shipped
+defaults) and are auto-copied into `Saved/Config/` on first access through the
+resource system's config fallback chain.
 
 **`InputSource::Type`** already includes gamepad-related enum values, but runtime
 querying only supports keyboard and mouse until Layer 5 is built.
