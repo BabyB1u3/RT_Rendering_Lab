@@ -1,7 +1,7 @@
 #pragma once
 
 /// @file FileSystem.h
-/// @brief Cross-platform asset path resolution, saved-data directory, and file I/O.
+/// @brief Cross-platform logical resource paths, mount resolution, and file I/O.
 ///
 /// Init() determines the project root once at startup by probing several
 /// locations in priority order:
@@ -10,20 +10,20 @@
 ///   3. GLAB_ROOT_DIR compile-time define (in-source dev with VS debugger)
 ///   4. Current working directory         (last resort)
 ///
-/// After Init(), all asset/shader paths are resolved relative to the
-/// discovered root, so neither demos nor render passes need hardcoded paths.
+/// After Init(), all mount points are resolved relative to the discovered root,
+/// so runtime code can move toward logical paths such as /Project/... and
+/// /Saved/... instead of hardcoded physical filesystem joins.
 ///
-/// ## Saved Directory
+/// ## Writable Directories
 ///
-/// All runtime-writable files (user configs, saves, logs, caches) live under
-/// a single "saved" directory:
+/// Runtime-writable data is split between saved data and disposable cache data:
 ///
-///   - Development (GLAB_ROOT_DIR defined): {source_root}/saved/
-///   - Release:                             platform user dir (e.g., %LOCALAPPDATA%/RTRLab/)
+///   - Development (GLAB_ROOT_DIR defined): {source_root}/saved/ and {source_root}/saved/cache/
+///   - Release:                             platform user dir (e.g., %LOCALAPPDATA%/RTRLab/Saved/)
 ///
-/// Config resolution searches saved/configs/ first, then assets/configs/
-/// (shipped defaults). On first access, missing user configs are auto-copied
-/// from shipped defaults so users always have an editable file.
+/// Config resolution follows the logical /Saved/Config -> /Project/Config ->
+/// /Engine/Config chain, with a compatibility shim that still maps Config/ to
+/// the current physical configs/ folders during migration.
 
 #include <cstdint>
 #include <filesystem>
@@ -35,8 +35,40 @@
 class FileSystem
 {
 public:
+    enum class PathDomain
+    {
+        Project,
+        Engine,
+        Plugin,
+        Saved,
+        Cache,
+    };
+
+    struct VirtualPath
+    {
+        PathDomain domain;
+        std::optional<std::string> mountName;
+        std::string relativePath;
+    };
+
     /// Discover and cache the project root. Must be called once at startup.
     static void Init();
+
+    // --- Logical resource paths ---
+
+    /// Returns true when the string is a syntactically valid mounted logical path.
+    static bool IsVirtualPath(std::string_view path);
+    /// Parses and normalizes a logical path such as /Project/Config/foo.json.
+    static std::optional<VirtualPath> ParseVirtualPath(std::string_view path);
+    /// Catalog-backed assets are extensionless read-domain paths.
+    static bool IsCatalogBackedPath(std::string_view path);
+    /// Document paths keep explicit filenames/extensions such as .json or .ini.
+    static bool IsDocumentPath(std::string_view path);
+
+    /// Resolve a logical path to a physical read path for the current mount layout.
+    static std::optional<std::filesystem::path> ResolveReadPath(std::string_view virtualPath);
+    /// Resolve a logical path to a physical write path for writable domains only.
+    static std::optional<std::filesystem::path> ResolveWritePath(std::string_view virtualPath);
 
     // --- Read-only assets ---
 
@@ -52,14 +84,16 @@ public:
 
     /// Root of the saved directory (user configs, saves, logs, caches).
     static const std::filesystem::path &GetSavedDir();
+    /// Root of the cache directory (temporary derived data).
+    static const std::filesystem::path &GetCacheDir();
     /// Resolve a relative path under saved/ (e.g., "logs/engine.log").
     static std::filesystem::path GetSavedPath(std::string_view relativePath);
-    /// Resolve a relative path under saved/configs/ (e.g., "input/ShadowMapping.json").
+    /// Resolve a relative path under /Saved/Config/ (currently backed by saved/configs/).
     static std::filesystem::path GetSavedConfigPath(std::string_view relativePath);
 
-    /// Search for a config file: saved/configs/ first, then assets/configs/.
-    /// If found only in assets/configs/, auto-copies to saved/configs/ so it
-    /// becomes user-editable. Returns the resolved path, or empty if not found.
+    /// Search for a config file via /Saved/Config/, /Project/Config/, then
+    /// /Engine/Config/. Missing user configs are auto-copied into the saved
+    /// config location so they become user-editable.
     static std::filesystem::path ResolveConfigPath(std::string_view relativePath);
 
     // --- File I/O utilities ---
@@ -73,14 +107,21 @@ public:
 
 private:
     static std::filesystem::path s_RootPath;
+    static std::filesystem::path s_EngineDir;
     static std::filesystem::path s_SavedDir;
+    static std::filesystem::path s_CacheDir;
     static bool s_Initialized;
-    static bool s_SavedDirResolved;
+    static bool s_WritableDirsResolved;
 
     static std::filesystem::path DiscoverRootPath();
     static std::filesystem::path FindRootFromExecutable();
-    static void ResolveSavedDir();
+    static void ResolveWritableDirs();
+    static std::filesystem::path GetDomainBasePath(const VirtualPath &virtualPath);
+    static std::filesystem::path GetPhysicalRelativePath(const VirtualPath &virtualPath);
+    static std::optional<std::filesystem::path> ResolvePhysicalPath(const VirtualPath &virtualPath);
 
     /// Platform-specific user data directory (e.g., %LOCALAPPDATA%/appName/).
     static std::filesystem::path GetPlatformUserDataDir(std::string_view appName);
+    /// Platform-specific cache directory (e.g., %LOCALAPPDATA%/appName/Cache).
+    static std::filesystem::path GetPlatformCacheDir(std::string_view appName);
 };

@@ -19,67 +19,66 @@ function(glab_configure_test_target target_name)
         )
     endif()
 
-    glab_enable_build_speedups(${target_name})
-
-    if(GLAB_ENABLE_WARNINGS)
-        glab_set_warnings(${target_name})
-    endif()
-
-    if(GLAB_ENABLE_ASAN)
-        glab_enable_sanitizers(${target_name})
-    endif()
-
+    glab_configure_local_target(${target_name})
     gtest_discover_tests(${target_name})
 endfunction()
 
-add_executable(rtrlab_unit_tests
-    Unit/TestTime.cpp
-    Unit/TestLayerStack.cpp
-    Unit/TestTransform.cpp
+function(glab_add_test_executable target_name)
+    add_executable(${target_name}
+        ${ARGN}
+    )
+
+    glab_configure_test_target(${target_name})
+endfunction()
+
+# -----------------------------------------------------------------------------
+# Unit tests
+# -----------------------------------------------------------------------------
+glab_add_test_executable(rtrlab_unit_tests
+    Unit/TestBuiltinTraits.cpp
     Unit/TestCamera.cpp
     Unit/TestDefaultCameraController.cpp
-    Unit/TestSpecifications.cpp
-    Unit/TestInputModifiers.cpp
-    Unit/TestInputTriggers.cpp
-    Unit/TestInputDeviceManager.cpp
-    Unit/TestInputContextStack.cpp
+    Unit/TestFileSystemVirtualPaths.cpp
     Unit/TestInput.cpp
     Unit/TestInputAction.cpp
+    Unit/TestInputContextStack.cpp
+    Unit/TestInputDeviceManager.cpp
+    Unit/TestInputModifiers.cpp
     Unit/TestInputNames.cpp
-    Unit/TestPropertyTree.cpp
-    Unit/TestBuiltinTraits.cpp
+    Unit/TestInputTriggers.cpp
     Unit/TestJsonBackend.cpp
+    Unit/TestLayerStack.cpp
+    Unit/TestPropertyTree.cpp
+    Unit/TestSpecifications.cpp
+    Unit/TestTime.cpp
+    Unit/TestTransform.cpp
 )
 
-glab_configure_test_target(rtrlab_unit_tests)
-
-add_executable(rtrlab_contract_tests
+# -----------------------------------------------------------------------------
+# Contract tests
+# -----------------------------------------------------------------------------
+glab_add_test_executable(rtrlab_contract_tests
     Contract/Core/TestDiagnosticsCore.cpp
-    Contract/Core/TestImGuiConsoleSink.cpp
-    Contract/Core/TestLogger.cpp
-    Contract/Core/TestLogCategories.cpp
     Contract/Core/TestEventBus.cpp
     Contract/Core/TestFileSystem.cpp
+    Contract/Core/TestImGuiConsoleSink.cpp
     Contract/Core/TestLayerStackLifecycle.cpp
+    Contract/Core/TestLogCategories.cpp
+    Contract/Core/TestLogger.cpp
     Contract/Core/TestSerializationFileIO.cpp
 )
 
-glab_configure_test_target(rtrlab_contract_tests)
-
-add_executable(rtrlab_contract_tests_log_min_level
+glab_add_test_executable(rtrlab_contract_tests_log_min_level
     Contract/Core/TestDiagnosticsMinLevel.cpp
 )
-
-glab_configure_test_target(rtrlab_contract_tests_log_min_level)
 
 if(GLAB_BACKEND_OPENGL)
     # set_source_files_properties(
     #     ${CMAKE_CURRENT_SOURCE_DIR}/Support/GLTestContext.cpp
-    #     PROPERTIES
-    #         SKIP_UNITY_BUILD_INCLUSION ON
+    #     PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON
     # )
 
-    # add_executable(rtrlab_contract_tests_opengl
+    # glab_add_test_executable(rtrlab_contract_tests_opengl
     #     Contract/opengl/TestFramebuffer.cpp
     #     Contract/opengl/TestRenderPasses.cpp
     #     Contract/opengl/TestRenderTarget.cpp
@@ -90,19 +89,15 @@ if(GLAB_BACKEND_OPENGL)
     #     add_dependencies(rtrlab_contract_tests_opengl CompileShaders)
     # endif()
 
-    # glab_configure_test_target(rtrlab_contract_tests_opengl)
-
-    # add_executable(rtrlab_integration_tests_opengl
-    #     integration/opengl/TestShader.cpp
-    #     integration/opengl/TestTexture.cpp
+    # glab_add_test_executable(rtrlab_integration_tests_opengl
     #     integration/opengl/TestRenderResults.cpp
     #     integration/opengl/TestSceneRenderer.cpp
+    #     integration/opengl/TestShader.cpp
+    #     integration/opengl/TestTexture.cpp
     #     Support/GLTestContext.cpp
     # )
 
     # if(TARGET CompileShaders)
     #     add_dependencies(rtrlab_integration_tests_opengl CompileShaders)
     # endif()
-
-    # glab_configure_test_target(rtrlab_integration_tests_opengl)
 endif()
