@@ -18,6 +18,64 @@
 
 namespace Serialization
 {
+    namespace detail
+    {
+        inline std::string MakeConfigVirtualPath(std::string_view mountRoot, std::string_view relativePath)
+        {
+            if (relativePath.empty())
+                return std::string(mountRoot);
+
+            return std::string(mountRoot) + "/" + std::string(relativePath);
+        }
+
+        inline std::optional<std::filesystem::path> ResolveConfigReadPath(std::string_view relativePath)
+        {
+            const std::string savedVirtualPath = MakeConfigVirtualPath("/Saved/Config", relativePath);
+            const std::string projectVirtualPath = MakeConfigVirtualPath("/Project/Config", relativePath);
+            const std::string engineVirtualPath = MakeConfigVirtualPath("/Engine/Config", relativePath);
+
+            if (const auto savedPath = FileSystem::ResolveReadPath(savedVirtualPath);
+                savedPath.has_value() && std::filesystem::exists(*savedPath))
+            {
+                return savedPath;
+            }
+
+            const auto seedToSaved = [&](std::string_view sourceVirtualPath, std::string_view sourceLabel)
+                -> std::optional<std::filesystem::path>
+            {
+                const auto sourcePath = FileSystem::ResolveReadPath(sourceVirtualPath);
+                if (!sourcePath.has_value() || !std::filesystem::exists(*sourcePath))
+                    return std::nullopt;
+
+                const auto savedPath = FileSystem::ResolveWritePath(savedVirtualPath);
+                if (!savedPath.has_value())
+                    return sourcePath;
+
+                std::error_code ec;
+                std::filesystem::copy_file(*sourcePath, *savedPath, ec);
+                if (ec)
+                {
+                    LOG_WARN_CAT(LogCategory::Serialization,
+                                 "Serialization: failed to seed {} config '{}' into saved path '{}': {}",
+                                 sourceLabel,
+                                 relativePath,
+                                 savedPath->string(),
+                                 ec.message());
+                    return sourcePath;
+                }
+
+                return savedPath;
+            };
+
+            if (const auto seededProjectPath = seedToSaved(projectVirtualPath, "project"); seededProjectPath.has_value())
+                return seededProjectPath;
+
+            if (const auto seededEnginePath = seedToSaved(engineVirtualPath, "engine"); seededEnginePath.has_value())
+                return seededEnginePath;
+
+            return std::nullopt;
+        }
+    } // namespace detail
 
     /// Get the default backend for a file extension.
     inline const IFormatBackend &GetBackendForExtension(std::string_view /*ext*/)
@@ -203,8 +261,8 @@ namespace Serialization
     bool LoadFromConfigPath(T &value, std::string_view relativePath,
                             const IFormatBackend &backend)
     {
-        const auto path = FileSystem::ResolveConfigPath(relativePath);
-        if (path.empty())
+        const auto path = detail::ResolveConfigReadPath(relativePath);
+        if (!path.has_value())
         {
             LOG_ERROR_CAT(LogCategory::Serialization,
                           "Serialization: failed to resolve config path '{}'",
@@ -212,15 +270,15 @@ namespace Serialization
             return false;
         }
 
-        return LoadFromFile(value, path, backend);
+        return LoadFromFile(value, *path, backend);
     }
 
     /// Load through the config namespace with auto-detected backend.
     template <Serializable T>
     bool LoadFromConfigPath(T &value, std::string_view relativePath)
     {
-        const auto path = FileSystem::ResolveConfigPath(relativePath);
-        if (path.empty())
+        const auto path = detail::ResolveConfigReadPath(relativePath);
+        if (!path.has_value())
         {
             LOG_ERROR_CAT(LogCategory::Serialization,
                           "Serialization: failed to resolve config path '{}'",
@@ -228,7 +286,7 @@ namespace Serialization
             return false;
         }
 
-        return LoadFromFile(value, path);
+        return LoadFromFile(value, *path);
     }
 
 } // namespace Serialization

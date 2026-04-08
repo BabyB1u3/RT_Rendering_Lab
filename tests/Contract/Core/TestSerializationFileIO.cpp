@@ -303,6 +303,7 @@ TEST_F(SerializationFileIOContractTests, LoadFromConfigPathFallsBackToEngineDefa
     std::string value = "sentinel";
     ASSERT_TRUE(LoadFromConfigPath(value, "input/DefaultBindings.json"));
     EXPECT_NE(value.find("engine-default"), std::string::npos);
+    EXPECT_TRUE(std::filesystem::exists(savedPath));
 
     ec.clear();
     std::filesystem::remove(savedPath, ec);
