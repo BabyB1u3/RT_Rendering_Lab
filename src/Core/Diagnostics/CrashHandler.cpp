@@ -209,10 +209,13 @@ namespace Diagnostics
 
     std::filesystem::path CrashHandler::GetCrashDirectory()
     {
-        const auto crashDir = FileSystem::GetSavedPath("logs/crashes");
+        const auto crashDir = FileSystem::ResolveWritePath("/Saved/logs/crashes");
+        if (!crashDir.has_value())
+            return {};
+
         std::error_code ec;
-        std::filesystem::create_directories(crashDir, ec);
-        return crashDir;
+        std::filesystem::create_directories(*crashDir, ec);
+        return *crashDir;
     }
 
     [[noreturn]] void CrashHandler::FatalError(const char *reason, std::string_view callstack)

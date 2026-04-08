@@ -14,10 +14,10 @@
 
 namespace
 {
-    const std::filesystem::path &MinLevelContractTestLogPath()
+    std::filesystem::path MinLevelContractTestLogPath()
     {
-        static const auto path = FileSystem::GetSavedPath("logs/diagnostics-min-level-contract.log");
-        return path;
+        const auto path = FileSystem::ResolveWritePath("/Saved/logs/diagnostics-min-level-contract.log");
+        return path.value_or(std::filesystem::path{});
     }
 
     void RemovePathIfExists(const std::filesystem::path &path)

@@ -86,8 +86,9 @@ TEST(DiagnosticsContractTests, CrashHandlerUsesSavedLogsCrashDirectory)
 {
     FileSystem::Init();
 
-    const auto expectedPath = FileSystem::GetSavedPath("logs/crashes");
-    EXPECT_EQ(Diagnostics::CrashHandler::GetCrashDirectory(), expectedPath);
+    const auto expectedPath = FileSystem::ResolveWritePath("/Saved/logs/crashes");
+    ASSERT_TRUE(expectedPath.has_value());
+    EXPECT_EQ(Diagnostics::CrashHandler::GetCrashDirectory(), *expectedPath);
 }
 
 TEST(DiagnosticsContractTests, EnsureIsNonFatalAndReturnsBooleanStatus)

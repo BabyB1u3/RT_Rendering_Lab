@@ -37,6 +37,8 @@ Current state as of 2026-04-08:
 - the repository now uses `Content/` for project content, and debug/development
   writable roots resolve under `Saved/`
 - shipped project config defaults now live under `Content/Config/`
+- runtime log, crash, and ImGui ini callsites now resolve through explicit logical
+  `/Saved/...` paths rather than legacy saved-path wrappers
 - the resource catalog design in Section 9 is **not** implemented yet, so
   extensionless catalog-backed asset paths are currently classified but not resolved
   through a catalog
@@ -1009,7 +1011,8 @@ checklist below.
 
 ### Phase 6 - Caller migration in runtime systems
 
-- partially pending; compatibility wrappers still carry several callsites
+- partially implemented; ImGui ini, log output, and crash artifacts now resolve
+  through explicit logical `/Saved/...` paths
 
 ### Phase 7 - Config system cleanup
 
@@ -1124,9 +1127,9 @@ without repeatedly redefining scope.
 
 ### 15.7 Phase 6 - Caller migration in runtime systems
 
-- [ ] Migrate ImGui ini handling to logical write-path resolution
-- [ ] Migrate diagnostics/log output to logical write-path resolution
-- [ ] Migrate crash dump/log-tail paths to logical write-path resolution
+- [x] Migrate ImGui ini handling to logical write-path resolution
+- [x] Migrate diagnostics/log output to logical write-path resolution
+- [x] Migrate crash dump/log-tail paths to logical write-path resolution
 - [ ] Migrate config loading to the new config namespace rules
 - [ ] Stop introducing new direct `std::filesystem::path` dependencies in gameplay-facing code
 - [ ] Audit current and future serialization callsites for physical-path leakage
