@@ -198,21 +198,21 @@ function(glab_enable_local_pch target_name)
     endif()
 endfunction()
 
-function(glab_copy_runtime_assets target_name)
+function(glab_copy_runtime_content target_name)
     add_custom_command(TARGET ${target_name} POST_BUILD
-        # Copy source assets (textures, models, etc.)
+        # Copy source content (textures, config defaults, etc.)
         COMMAND ${CMAKE_COMMAND} -E copy_directory
-                ${CMAKE_SOURCE_DIR}/assets
-                $<TARGET_FILE_DIR:${target_name}>/assets
+                ${CMAKE_SOURCE_DIR}/Content
+                $<TARGET_FILE_DIR:${target_name}>/Content
     )
 
     if(TARGET CompileShaders)
         add_custom_command(TARGET ${target_name} POST_BUILD
-            # Merge compiled shaders into assets/shaders/compiled/ only when
+            # Merge compiled shaders into Content/shaders/compiled/ only when
             # the shader build target is enabled and produces this directory.
             COMMAND ${CMAKE_COMMAND} -E copy_directory
                     ${CMAKE_BINARY_DIR}/shaders
-                    $<TARGET_FILE_DIR:${target_name}>/assets/shaders/compiled
+                    $<TARGET_FILE_DIR:${target_name}>/Content/shaders/compiled
         )
     endif()
 endfunction()
@@ -288,7 +288,7 @@ endif()
 
 target_compile_definitions(RTRLabCore PUBLIC
     GLM_ENABLE_EXPERIMENTAL
-    GLAB_ASSET_DIR="assets"
+    GLAB_ASSET_DIR="Content"
     $<$<CONFIG:Debug>:GLAB_ROOT_DIR="${CMAKE_SOURCE_DIR}">
     $<$<CONFIG:Debug>:GLAB_SHADER_BUILD_DIR="${CMAKE_BINARY_DIR}/shaders">
     $<$<CONFIG:Debug>:RTRLAB_LOG_MIN_LEVEL=0>
@@ -334,7 +334,7 @@ if(TARGET CompileShaders)
     add_dependencies(RTRLab CompileShaders)
 endif()
 
-glab_copy_runtime_assets(RTRLab)
+glab_copy_runtime_content(RTRLab)
 glab_configure_local_target(RTRLab)
 
 set_target_properties(RTRLab PROPERTIES
@@ -354,11 +354,11 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES
 # -----------------------------------------------------------------------------
 install(TARGETS RTRLab RUNTIME DESTINATION .)
 
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/assets/
-        DESTINATION assets
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/Content/
+        DESTINATION Content
         PATTERN "*.slang" EXCLUDE)
 
 if(TARGET CompileShaders)
     install(DIRECTORY ${CMAKE_BINARY_DIR}/shaders/
-            DESTINATION assets/shaders/compiled)
+            DESTINATION Content/shaders/compiled)
 endif()

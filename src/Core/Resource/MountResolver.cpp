@@ -10,19 +10,19 @@ namespace
 #ifdef _WIN32
         if (const char *dir = std::getenv("LOCALAPPDATA"))
             return std::filesystem::path(dir) / appName / "Saved";
-        return rootPath / "saved";
+        return rootPath / "Saved";
 #elif defined(__APPLE__)
         if (const char *home = std::getenv("HOME"))
             return std::filesystem::path(home) / "Library" / "Application Support" / appName / "Saved";
-        return rootPath / "saved";
+        return rootPath / "Saved";
 #elif defined(__linux__)
         if (const char *xdg = std::getenv("XDG_DATA_HOME"))
             return std::filesystem::path(xdg) / appName / "Saved";
         if (const char *home = std::getenv("HOME"))
             return std::filesystem::path(home) / ".local" / "share" / appName / "Saved";
-        return rootPath / "saved";
+        return rootPath / "Saved";
 #else
-        return rootPath / "saved";
+        return rootPath / "Saved";
 #endif
     }
 
@@ -31,19 +31,19 @@ namespace
 #ifdef _WIN32
         if (const char *dir = std::getenv("LOCALAPPDATA"))
             return std::filesystem::path(dir) / appName / "Cache";
-        return rootPath / "saved" / "cache";
+        return rootPath / "Saved" / "Cache";
 #elif defined(__APPLE__)
         if (const char *home = std::getenv("HOME"))
             return std::filesystem::path(home) / "Library" / "Caches" / appName;
-        return rootPath / "saved" / "cache";
+        return rootPath / "Saved" / "Cache";
 #elif defined(__linux__)
         if (const char *xdg = std::getenv("XDG_CACHE_HOME"))
             return std::filesystem::path(xdg) / appName;
         if (const char *home = std::getenv("HOME"))
             return std::filesystem::path(home) / ".cache" / appName;
-        return rootPath / "saved" / "cache";
+        return rootPath / "Saved" / "Cache";
 #else
-        return rootPath / "saved" / "cache";
+        return rootPath / "Saved" / "Cache";
 #endif
     }
 } // namespace
@@ -57,8 +57,8 @@ namespace Resource
 #ifdef GLAB_ROOT_DIR
         (void)rootPath;
         (void)appName;
-        writableRoots.savedDir = std::filesystem::path(GLAB_ROOT_DIR) / "saved";
-        writableRoots.cacheDir = writableRoots.savedDir / "cache";
+        writableRoots.savedDir = std::filesystem::path(GLAB_ROOT_DIR) / "Saved";
+        writableRoots.cacheDir = writableRoots.savedDir / "Cache";
 #else
         writableRoots.savedDir = GetPlatformUserDataDir(rootPath, appName);
         writableRoots.cacheDir = GetPlatformCacheDir(rootPath, appName);
@@ -93,19 +93,7 @@ namespace Resource
 
     std::filesystem::path GetPhysicalRelativePath(const VirtualPath &virtualPath)
     {
-        std::filesystem::path relativePath(virtualPath.relativePath);
-
-        if (!virtualPath.relativePath.empty())
-        {
-            static constexpr std::string_view kConfigPrefix = "Config/";
-            if (virtualPath.relativePath == "Config")
-                return std::filesystem::path("configs");
-
-            if (virtualPath.relativePath.rfind(kConfigPrefix, 0) == 0)
-                return std::filesystem::path("configs") / virtualPath.relativePath.substr(kConfigPrefix.size());
-        }
-
-        return relativePath;
+        return std::filesystem::path(virtualPath.relativePath);
     }
 
     std::optional<std::filesystem::path> ResolvePhysicalPath(const std::filesystem::path &rootPath,

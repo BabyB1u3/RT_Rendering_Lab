@@ -9,7 +9,7 @@
 namespace
 {
     constexpr const char *kExistingConfig = "input/DebugCameraControl.json";
-    constexpr const char *kExistingAsset = "configs/input/DebugCameraControl.json";
+    constexpr const char *kExistingAsset = "Config/input/DebugCameraControl.json";
     constexpr const char *kTempConfig = "test-contract/AutoCopyConfig.json";
 
     void RemovePathIfExists(const std::filesystem::path &path)
@@ -33,25 +33,25 @@ TEST(FileSystemContractTests, InitResolvesProjectRootAndCommonDirectories)
     const auto &savedDir = FileSystem::GetSavedDir();
     const auto &cacheDir = FileSystem::GetCacheDir();
 
-    EXPECT_TRUE(std::filesystem::exists(root / "assets"));
+    EXPECT_TRUE(std::filesystem::exists(root / "Content"));
     EXPECT_TRUE(std::filesystem::exists(savedDir));
     EXPECT_TRUE(std::filesystem::exists(cacheDir));
-    EXPECT_TRUE(std::filesystem::exists(savedDir / "configs"));
+    EXPECT_TRUE(std::filesystem::exists(savedDir / "Config"));
     EXPECT_TRUE(std::filesystem::exists(FileSystem::GetAssetPath(kExistingAsset)));
 }
 
-TEST(FileSystemContractTests, ResolveReadPathMapsProjectConfigLogicalPathToLegacyConfigsDirectory)
+TEST(FileSystemContractTests, ResolveReadPathMapsProjectConfigLogicalPathToContentConfigDirectory)
 {
     FileSystem::Init();
 
     const auto resolved = FileSystem::ResolveReadPath("/Project/Config/input/DebugCameraControl.json");
 
     ASSERT_TRUE(resolved.has_value());
-    EXPECT_EQ(*resolved, FileSystem::GetAssetPath("configs/input/DebugCameraControl.json"));
+    EXPECT_EQ(*resolved, FileSystem::GetAssetPath("Config/input/DebugCameraControl.json"));
     EXPECT_TRUE(std::filesystem::exists(*resolved));
 }
 
-TEST(FileSystemContractTests, ResolveWritePathMapsSavedConfigLogicalPathToLegacyConfigsDirectory)
+TEST(FileSystemContractTests, ResolveWritePathMapsSavedConfigLogicalPathToSavedConfigDirectory)
 {
     FileSystem::Init();
 
@@ -158,17 +158,28 @@ TEST(FileSystemContractTests, ResolveConfigPathPrefersSavedConfigWhenPresent)
 {
     FileSystem::Init();
 
+    const auto savedPath = FileSystem::GetSavedConfigPath(kExistingConfig);
+    const auto projectPath = FileSystem::GetAssetPath("Config") / kExistingConfig;
+    const auto projectContents = FileSystem::ReadTextFile(projectPath);
+    ASSERT_TRUE(projectContents.has_value());
+
+    RemovePathIfExists(savedPath);
+    ASSERT_TRUE(FileSystem::WriteText("/Saved/Config/input/DebugCameraControl.json", "{\n  \"source\": \"saved\"\n}\n"));
+
     const auto resolved = FileSystem::ResolveConfigPath(kExistingConfig);
 
-    EXPECT_EQ(resolved, FileSystem::GetSavedConfigPath(kExistingConfig));
+    EXPECT_EQ(resolved, savedPath);
     EXPECT_TRUE(std::filesystem::exists(resolved));
+
+    RemovePathIfExists(savedPath);
+    RemoveDirectoryIfEmpty(savedPath.parent_path());
 }
 
 TEST(FileSystemContractTests, ResolveConfigPathCopiesDefaultConfigIntoSavedDirectory)
 {
     FileSystem::Init();
 
-    const auto assetPath = FileSystem::GetAssetPath("configs") / kTempConfig;
+    const auto assetPath = FileSystem::GetAssetPath("Config") / kTempConfig;
     const auto savedPath = FileSystem::GetSavedConfigPath(kTempConfig);
     const std::string expectedContents = "{\n  \"source\": \"contract-test\"\n}\n";
 
@@ -200,7 +211,7 @@ TEST(FileSystemContractTests, ResolveConfigPathReturnsEmptyWhenConfigIsMissing)
 {
     FileSystem::Init();
 
-    const auto assetPath = FileSystem::GetAssetPath("configs") / "test-contract/MissingConfig.json";
+    const auto assetPath = FileSystem::GetAssetPath("Config") / "test-contract/MissingConfig.json";
     const auto savedPath = FileSystem::GetSavedConfigPath("test-contract/MissingConfig.json");
 
     RemovePathIfExists(savedPath);

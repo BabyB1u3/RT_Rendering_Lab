@@ -30,8 +30,7 @@ namespace Resource
     std::filesystem::path ResolveConfigPath(std::string_view relativePath,
                                             const std::filesystem::path &savedPath,
                                             const std::optional<std::filesystem::path> &projectDefaultPath,
-                                            const std::optional<std::filesystem::path> &engineDefaultPath,
-                                            const std::filesystem::path &legacyDefaultPath)
+                                            const std::optional<std::filesystem::path> &engineDefaultPath)
     {
         if (std::filesystem::exists(savedPath))
             return savedPath;
@@ -41,9 +40,6 @@ namespace Resource
 
         if (engineDefaultPath.has_value() && std::filesystem::exists(*engineDefaultPath))
             return CopyConfigToSaved(relativePath, savedPath, *engineDefaultPath, "engine");
-
-        if (std::filesystem::exists(legacyDefaultPath))
-            return CopyConfigToSaved(relativePath, savedPath, legacyDefaultPath, "default");
 
         return {};
     }
