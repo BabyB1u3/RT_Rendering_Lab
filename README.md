@@ -9,6 +9,30 @@ It provides a lightweight framework where different rendering techniques can be 
 
 ---
 
+## Resource Paths First
+
+Runtime-facing content is identified by logical resource paths, not repository-relative
+filesystem joins.
+
+Examples:
+
+```text
+/Project/Textures/Grassy_Square
+/Engine/Defaults/Materials/ErrorMaterial
+/Plugins/ExamplePlugin/Materials/Checker
+/Saved/Config/Input/DebugCameraControl.json
+```
+
+In development, those logical paths currently resolve against loose `Content/`,
+`EngineContent/`, `Plugins/<Name>/Content/`, `Saved/`, and `Saved/Cache/` roots.
+In cooked runs, the same public logical paths can resolve from loose cooked outputs
+under `Saved/Cache/Cooked/`, `build/Cooked/`, or an explicit
+`RTRLAB_COOKED_ROOT` override. New runtime systems should prefer
+`FileSystem::ResolveReadPath()`, `ResolveWritePath()`, `ReadText()`, `ReadBinary()`,
+`WriteText()`, and `WriteBinary()` over physical-path helper wrappers.
+
+---
+
 ## Features
 
 - **Demo Framework** — modular architecture where each rendering technique lives as an independent, hot-switchable demo

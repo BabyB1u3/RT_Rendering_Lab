@@ -23,15 +23,15 @@ phases are now implemented in the codebase.
 Current state as of 2026-04-08:
 
 - the resource/path module now lives under `src/Core/Resource/`
-- `FileSystem` remains the public facade, with a thin compatibility forwarding header
-  at `src/Core/FileSystem.h`
+- `FileSystem` remains the public facade under `src/Core/Resource/FileSystem.h`
 - logical path parsing is implemented for `/Project/`, `/Engine/`,
   `/Plugins/<Name>/`, `/Saved/`, and `/Cache/`
 - document-style path resolution is implemented for direct file-backed reads/writes
 - logical-path-based `Exists()`, `ReadText()`, `ReadBinary()`, `WriteText()`, and
   `WriteBinary()` are implemented
 - compatibility wrappers such as `GetAssetPath()`, `GetSavedPath()`,
-  `GetSavedConfigPath()`, and `ResolveConfigPath()` still exist during migration
+  `GetSavedConfigPath()`, and `ResolveConfigPath()` are intentionally retained only
+  for tests, bootstrap code, and narrow compatibility helpers
 - the config resolution chain is implemented as
   `/Saved/Config -> /Project/Config -> /Engine/Config`
 - the repository now uses `Content/` for project content, and debug/development
@@ -404,7 +404,19 @@ This intentionally favors a stricter cross-platform contract over platform-local
 filesystem convenience. A path that differs only by case must be treated as a
 different logical path, and mismatched casing should be considered an authoring error.
 
-### 6.3 No raw OS path leakage
+### 6.3 Serialized contract status
+
+The syntax and normalization rules in this section are now treated as the stable
+serialized contract for logical resource paths in RTRLab.
+
+That means:
+
+- serialized asset references should preserve this exact leading-slash form
+- path matching is case-sensitive regardless of host platform
+- future runtime, tooling, cooking, and packaging work must continue to honor the
+  same public path syntax rather than inventing alternate serialized forms
+
+### 6.4 No raw OS path leakage
 
 Public resource-facing APIs must not require callers to know:
 
@@ -552,14 +564,24 @@ Notes:
 
 ### 8.4 Compatibility layer
 
-During migration, keep compatibility helpers such as:
+The resource system still exposes a small physical-path compatibility layer, but it is
+now intentionally scoped rather than being the primary API surface.
+
+Retained helpers:
 
 - `GetAssetPath()` implemented as a legacy wrapper to `/Project/...`
 - `GetSavedPath()` implemented as a legacy wrapper to `/Saved/...`
 - `ResolveConfigPath()` rewritten on top of the new logical config rules
 
-That lets the codebase migrate incrementally without locking the new design to the old
-API forever.
+Scope rules:
+
+- runtime systems should prefer logical-path APIs first
+- tests and bootstrap code may still use these wrappers where asserting physical
+  layout is part of the point
+- new asset-facing runtime code should not be built on these wrappers
+
+That preserves a narrow bridge for low-level code without locking the design to the
+old API surface.
 
 ---
 
@@ -1179,7 +1201,9 @@ checklist below.
 
 ### Phase 14 - Final cleanup
 
-- remove migration-era assumptions and freeze the serialized contract
+- largely implemented; docs and public guidance now describe logical paths first,
+  remaining compatibility helpers have explicit scope, and the logical resource path
+  syntax is treated as a stable serialized contract
 
 ---
 
@@ -1338,22 +1362,27 @@ without repeatedly redefining scope.
 ### 15.15 Phase 14 - Final cleanup
 
 - [x] Remove legacy callsites that rely on raw `GetAssetPath()` / `GetSavedPath()`
-- [ ] Remove temporary compatibility-only assumptions from docs
-- [ ] Update onboarding/build documentation to describe logical paths first
-- [ ] Confirm every asset-facing subsystem now speaks logical paths
-- [ ] Freeze the resource path format as a long-term serialized contract
+- [x] Remove temporary compatibility-only assumptions from docs
+- [x] Update onboarding/build documentation to describe logical paths first
+- [x] Confirm every asset-facing subsystem now speaks logical paths
+      current audit: outside `src/Core/Resource/`, production code no longer depends on
+      `GetAssetPath()` / `GetSavedPath()` callsites; the remaining `ResolveConfigPath()`
+      use in serialization is a narrow compatibility helper behind logical config APIs
+- [x] Freeze the resource path format as a long-term serialized contract
+      the syntax and casing rules in Sections 2-6 are now treated as the stable
+      serialized contract for logical resource paths
 
 ### 15.16 Definition of done
 
 This module is done when all of the following are true:
 
-- [ ] Runtime systems load shipped resources by logical path, not by ad hoc physical path joins
-- [ ] Runtime systems write user data only through writable logical domains
+- [x] Runtime systems load shipped resources by logical path, not by ad hoc physical path joins
+- [x] Runtime systems write user data only through writable logical domains
 - [x] Config defaults and user overrides follow the documented resolution chain
 - [ ] Loose-file development and packaged/cooked builds expose the same public logical paths
-- [ ] Serialized asset references no longer depend on repository-relative or absolute filesystem paths
+- [x] Serialized asset references no longer depend on repository-relative or absolute filesystem paths
 - [x] `/Engine/` and `/Plugins/...` are no longer just future ideas in the design doc
-- [ ] The remaining compatibility wrappers are either removed or intentionally retained with documented scope
+- [x] The remaining compatibility wrappers are either removed or intentionally retained with documented scope
 
 ---
 

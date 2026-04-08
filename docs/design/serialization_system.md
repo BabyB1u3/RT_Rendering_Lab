@@ -604,7 +604,8 @@ Even with that caveat, there are good long-term reasons to move it:
 When the team decides to focus this area, prefer the following layering:
 
 1. File read:
-   - `FileSystem::ReadTextFile()`
+   - `FileSystem::ReadText()` for logical resource paths
+   - `FileSystem::ReadTextFile()` only for low-level physical-path bridges
 
 2. Format decode:
    - `JsonBackend::ReadFromString()` into `PropertyTree`
