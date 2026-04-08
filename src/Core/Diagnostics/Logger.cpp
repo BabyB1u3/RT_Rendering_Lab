@@ -12,6 +12,7 @@
 #include "Core/Diagnostics/ImGuiConsoleSink.h"
 #include "Core/Diagnostics/JsonLineSink.h"
 #include "Core/Diagnostics/LogCategories.h"
+#include "Core/Resource/FileSystem.h"
 
 namespace Diagnostics
 {
@@ -31,6 +32,29 @@ namespace Diagnostics
         std::filesystem::path g_LogFilePath;
         constexpr size_t kMaxLogFileSizeBytes = 1024 * 1024;
         constexpr size_t kMaxLogFiles = 3;
+        constexpr std::string_view kDefaultLogVirtualPath = "/Saved/logs/RTRLab.log";
+
+        std::filesystem::path ResolveWritableDiagnosticsPath(const std::filesystem::path &path)
+        {
+            if (path.empty())
+            {
+                if (const auto resolved = FileSystem::ResolveWritePath(kDefaultLogVirtualPath))
+                    return *resolved;
+
+                return std::filesystem::path("logs") / "RTRLab.log";
+            }
+
+            const auto genericPath = path.generic_string();
+            if (!genericPath.empty() && FileSystem::IsVirtualPath(genericPath))
+            {
+                if (const auto resolved = FileSystem::ResolveWritePath(genericPath))
+                    return *resolved;
+
+                return {};
+            }
+
+            return path;
+        }
 
         std::filesystem::path DeriveJsonLogPath(const std::filesystem::path &logFilePath)
         {
@@ -49,7 +73,10 @@ namespace Diagnostics
         if (g_Initialized)
             return;
 
-        g_LogFilePath = logFilePath.empty() ? (std::filesystem::path("logs") / "RTRLab.log") : logFilePath;
+        g_LogFilePath = ResolveWritableDiagnosticsPath(logFilePath);
+        if (g_LogFilePath.empty())
+            return;
+
         std::filesystem::create_directories(g_LogFilePath.parent_path());
 
         auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
@@ -208,7 +235,7 @@ namespace Diagnostics
             if (!g_Initialized || !s_JsonSink)
                 return;
 
-            resolvedPath = filePath.empty() ? DeriveJsonLogPath(g_LogFilePath) : filePath;
+            resolvedPath = filePath.empty() ? DeriveJsonLogPath(g_LogFilePath) : ResolveWritableDiagnosticsPath(filePath);
             if (resolvedPath.empty())
                 return;
 

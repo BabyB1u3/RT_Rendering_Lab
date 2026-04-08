@@ -19,9 +19,7 @@ Application *Application::s_Instance = nullptr;
 Application::Application(const ApplicationSpecification &spec)
 {
     FileSystem::Init();
-    const auto logPath = FileSystem::ResolveWritePath("/Saved/logs/RTRLab.log");
-    RTRLAB_ASSERT_MSG(logPath.has_value(), "Failed to resolve /Saved/logs/RTRLab.log");
-    Diagnostics::Logger::Init(logPath.value_or(std::filesystem::path{}));
+    Diagnostics::Logger::Init();
     Diagnostics::CrashHandler::Init();
     LOG_INFO_CAT(LogCategory::FileSystem, "FileSystem initialized - root: {}", FileSystem::GetRootPath().string());
     LOG_INFO_CAT(LogCategory::FileSystem, "Saved directory: {}", FileSystem::GetSavedDir().string());
