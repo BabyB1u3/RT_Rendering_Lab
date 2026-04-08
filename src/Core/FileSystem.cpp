@@ -202,6 +202,68 @@ std::optional<std::filesystem::path> FileSystem::ResolveWritePath(std::string_vi
     return resolved;
 }
 
+bool FileSystem::Exists(std::string_view virtualPath)
+{
+    const auto resolved = ResolveReadPath(virtualPath);
+    return resolved.has_value() && std::filesystem::exists(*resolved);
+}
+
+std::optional<std::string> FileSystem::ReadText(std::string_view virtualPath)
+{
+    const auto resolved = ResolveReadPath(virtualPath);
+    if (!resolved.has_value())
+        return std::nullopt;
+
+    return ReadTextFile(*resolved);
+}
+
+std::optional<std::vector<uint8_t>> FileSystem::ReadBinary(std::string_view virtualPath)
+{
+    const auto resolved = ResolveReadPath(virtualPath);
+    if (!resolved.has_value())
+        return std::nullopt;
+
+    return ReadBinaryFile(*resolved);
+}
+
+bool FileSystem::WriteText(std::string_view virtualPath, std::string_view data)
+{
+    const auto resolved = ResolveWritePath(virtualPath);
+    if (!resolved.has_value())
+    {
+        LOG_ERROR_CAT(LogCategory::FileSystem, "WriteText rejected non-writable virtual path '{}'", virtualPath);
+        return false;
+    }
+
+    std::ofstream out(*resolved, std::ios::out | std::ios::binary | std::ios::trunc);
+    if (!out.is_open())
+    {
+        LOG_ERROR_CAT(LogCategory::FileSystem, "Failed to open text file for writing: {}", resolved->string());
+        return false;
+    }
+
+    out.write(data.data(), static_cast<std::streamsize>(data.size()));
+    if (!out.good())
+    {
+        LOG_ERROR_CAT(LogCategory::FileSystem, "Failed while writing text file: {}", resolved->string());
+        return false;
+    }
+
+    return true;
+}
+
+bool FileSystem::WriteBinary(std::string_view virtualPath, std::span<const uint8_t> data)
+{
+    const auto resolved = ResolveWritePath(virtualPath);
+    if (!resolved.has_value())
+    {
+        LOG_ERROR_CAT(LogCategory::FileSystem, "WriteBinary rejected non-writable virtual path '{}'", virtualPath);
+        return false;
+    }
+
+    return WriteBytes(*resolved, data);
+}
+
 const std::filesystem::path &FileSystem::GetRootPath()
 {
     return s_RootPath;
@@ -455,9 +517,25 @@ std::optional<std::vector<uint8_t>> FileSystem::ReadBinaryFile(const std::filesy
     return data;
 }
 
-bool FileSystem::Exists(const std::filesystem::path &path)
+bool FileSystem::WriteBytes(const std::filesystem::path &path, std::span<const uint8_t> data)
 {
-    return std::filesystem::exists(path);
+    std::ofstream out(path, std::ios::out | std::ios::binary | std::ios::trunc);
+    if (!out.is_open())
+    {
+        LOG_ERROR_CAT(LogCategory::FileSystem, "Failed to open binary file for writing: {}", path.string());
+        return false;
+    }
+
+    if (!data.empty())
+        out.write(reinterpret_cast<const char *>(data.data()), static_cast<std::streamsize>(data.size()));
+
+    if (!out.good())
+    {
+        LOG_ERROR_CAT(LogCategory::FileSystem, "Failed while writing binary file: {}", path.string());
+        return false;
+    }
+
+    return true;
 }
 
 std::filesystem::path FileSystem::GetDomainBasePath(const VirtualPath &virtualPath)

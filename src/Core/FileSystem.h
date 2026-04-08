@@ -28,6 +28,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -69,6 +70,16 @@ public:
     static std::optional<std::filesystem::path> ResolveReadPath(std::string_view virtualPath);
     /// Resolve a logical path to a physical write path for writable domains only.
     static std::optional<std::filesystem::path> ResolveWritePath(std::string_view virtualPath);
+    /// Check whether a logical path resolves to an existing file or directory.
+    static bool Exists(std::string_view virtualPath);
+    /// Read an entire text document by logical path. Returns std::nullopt on failure.
+    static std::optional<std::string> ReadText(std::string_view virtualPath);
+    /// Read an entire binary file by logical path. Returns std::nullopt on failure.
+    static std::optional<std::vector<uint8_t>> ReadBinary(std::string_view virtualPath);
+    /// Write an entire text document into a writable logical domain.
+    static bool WriteText(std::string_view virtualPath, std::string_view data);
+    /// Write an entire binary file into a writable logical domain.
+    static bool WriteBinary(std::string_view virtualPath, std::span<const uint8_t> data);
 
     // --- Read-only assets ---
 
@@ -98,12 +109,10 @@ public:
 
     // --- File I/O utilities ---
 
-    /// Read an entire text file into a string. Returns std::nullopt on failure.
+    /// Migration-only helper for direct physical-path file reads.
     static std::optional<std::string> ReadTextFile(const std::filesystem::path &path);
-    /// Read an entire binary file into a byte vector. Returns std::nullopt on failure.
+    /// Migration-only helper for direct physical-path file reads.
     static std::optional<std::vector<uint8_t>> ReadBinaryFile(const std::filesystem::path &path);
-    /// Check whether a file or directory exists.
-    static bool Exists(const std::filesystem::path &path);
 
 private:
     static std::filesystem::path s_RootPath;
@@ -119,6 +128,7 @@ private:
     static std::filesystem::path GetDomainBasePath(const VirtualPath &virtualPath);
     static std::filesystem::path GetPhysicalRelativePath(const VirtualPath &virtualPath);
     static std::optional<std::filesystem::path> ResolvePhysicalPath(const VirtualPath &virtualPath);
+    static bool WriteBytes(const std::filesystem::path &path, std::span<const uint8_t> data);
 
     /// Platform-specific user data directory (e.g., %LOCALAPPDATA%/appName/).
     static std::filesystem::path GetPlatformUserDataDir(std::string_view appName);
