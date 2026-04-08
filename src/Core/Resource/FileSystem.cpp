@@ -2,13 +2,13 @@
 
 #include "Core/Diagnostics/LogCategories.h"
 #include "Core/Diagnostics/LogMacros.h"
-#include "Core/Resource/ConfigResolver.h"
-#include "Core/Resource/MountBackend.h"
-#include "Core/Resource/MountResolver.h"
-#include "Core/Resource/PathParser.h"
-#include "Core/Resource/PhysicalIO.h"
-#include "Core/Resource/ResourceCatalog.h"
-#include "Core/Resource/RootDiscovery.h"
+#include "Core/Resource/Catalog/ResourceCatalog.h"
+#include "Core/Resource/Config/ConfigResolver.h"
+#include "Core/Resource/IO/PhysicalIO.h"
+#include "Core/Resource/Mount/MountBackend.h"
+#include "Core/Resource/Mount/MountResolver.h"
+#include "Core/Resource/Mount/RootDiscovery.h"
+#include "Core/Resource/Path/PathParser.h"
 
 std::filesystem::path FileSystem::s_RootPath;
 std::filesystem::path FileSystem::s_EngineDir;

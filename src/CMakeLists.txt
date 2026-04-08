@@ -22,33 +22,33 @@ set(GLAB_APP_HEADERS
 )
 
 set(GLAB_RESOURCE_SOURCES
-    Core/Resource/ConfigResolver.cpp
-    Core/Resource/CookedCatalog.cpp
+    Core/Resource/Config/ConfigResolver.cpp
+    Core/Resource/Cook/CookedCatalog.cpp
     Core/Resource/FileSystem.cpp
-    Core/Resource/MountBackend.cpp
-    Core/Resource/MountResolver.cpp
-    Core/Resource/PakArchive.cpp
-    Core/Resource/PathParser.cpp
-    Core/Resource/PhysicalIO.cpp
-    Core/Resource/ResourceCatalog.cpp
-    Core/Resource/SourceCatalog.cpp
-    Core/Resource/RootDiscovery.cpp
+    Core/Resource/Mount/MountBackend.cpp
+    Core/Resource/Mount/MountResolver.cpp
+    Core/Resource/Package/PakArchive.cpp
+    Core/Resource/Path/PathParser.cpp
+    Core/Resource/IO/PhysicalIO.cpp
+    Core/Resource/Catalog/ResourceCatalog.cpp
+    Core/Resource/Catalog/SourceCatalog.cpp
+    Core/Resource/Mount/RootDiscovery.cpp
 )
 
 set(GLAB_RESOURCE_HEADERS
-    Core/Resource/ConfigResolver.h
-    Core/Resource/AssetPath.h
-    Core/Resource/CookedCatalog.h
+    Core/Resource/Config/ConfigResolver.h
+    Core/Resource/Catalog/AssetPath.h
+    Core/Resource/Cook/CookedCatalog.h
     Core/Resource/FileSystem.h
-    Core/Resource/MountBackend.h
-    Core/Resource/MountResolver.h
-    Core/Resource/PakArchive.h
-    Core/Resource/PathParser.h
-    Core/Resource/PathTypes.h
-    Core/Resource/PhysicalIO.h
-    Core/Resource/ResourceCatalog.h
-    Core/Resource/SourceCatalog.h
-    Core/Resource/RootDiscovery.h
+    Core/Resource/Mount/MountBackend.h
+    Core/Resource/Mount/MountResolver.h
+    Core/Resource/Package/PakArchive.h
+    Core/Resource/Path/PathParser.h
+    Core/Resource/Path/PathTypes.h
+    Core/Resource/IO/PhysicalIO.h
+    Core/Resource/Catalog/ResourceCatalog.h
+    Core/Resource/Catalog/SourceCatalog.h
+    Core/Resource/Mount/RootDiscovery.h
 )
 
 set(GLAB_INPUT_SOURCES

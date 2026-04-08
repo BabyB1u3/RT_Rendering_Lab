@@ -7,8 +7,8 @@
 #include <string>
 #include <vector>
 
-#include "Core/Resource/CookedCatalog.h"
-#include "Core/Resource/SourceCatalog.h"
+#include "Core/Resource/Catalog/SourceCatalog.h"
+#include "Core/Resource/Cook/CookedCatalog.h"
 #include "TestPaths.h"
 
 namespace

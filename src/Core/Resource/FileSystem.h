@@ -3,8 +3,8 @@
 /// @file Resource/FileSystem.h
 /// @brief Cross-platform logical resource paths, mount resolution, and file I/O.
 
-#include "Core/Resource/PathTypes.h"
-#include "Core/Resource/ResourceCatalog.h"
+#include "Core/Resource/Catalog/ResourceCatalog.h"
+#include "Core/Resource/Path/PathTypes.h"
 
 #include <cstdint>
 #include <filesystem>

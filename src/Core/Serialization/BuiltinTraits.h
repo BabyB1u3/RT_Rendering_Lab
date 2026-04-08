@@ -7,7 +7,7 @@
 #include "Core/Serialization/SerializationTraits.h"
 #include "Core/Diagnostics/LogCategories.h"
 #include "Core/Diagnostics/LogMacros.h"
-#include "Core/Resource/AssetPath.h"
+#include "Core/Resource/Catalog/AssetPath.h"
 
 #include <glm/glm.hpp>
 #include <magic_enum.hpp>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/Resource/PathTypes.h"
+#include "Core/Resource/Path/PathTypes.h"
 
 #include <filesystem>
 #include <optional>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/Resource/ResourceCatalog.h"
+#include "Core/Resource/Catalog/ResourceCatalog.h"
 
 #include <filesystem>
 #include <optional>

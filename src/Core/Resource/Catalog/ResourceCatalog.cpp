@@ -1,9 +1,9 @@
-#include "Core/Resource/ResourceCatalog.h"
+#include "Core/Resource/Catalog/ResourceCatalog.h"
 
 #include "Core/Diagnostics/LogCategories.h"
 #include "Core/Diagnostics/LogMacros.h"
-#include "Core/Resource/MountBackend.h"
-#include "Core/Resource/PathParser.h"
+#include "Core/Resource/Mount/MountBackend.h"
+#include "Core/Resource/Path/PathParser.h"
 
 #include <algorithm>
 #include <cstdlib>

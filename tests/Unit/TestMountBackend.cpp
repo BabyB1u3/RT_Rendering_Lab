@@ -4,8 +4,8 @@
 #include <fstream>
 #include <iterator>
 
-#include "Core/Resource/MountBackend.h"
-#include "Core/Resource/PakArchive.h"
+#include "Core/Resource/Mount/MountBackend.h"
+#include "Core/Resource/Package/PakArchive.h"
 #include "TestPaths.h"
 
 namespace

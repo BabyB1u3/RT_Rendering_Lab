@@ -4,7 +4,7 @@
 #include <iterator>
 #include <string>
 
-#include "Core/Resource/SourceCatalog.h"
+#include "Core/Resource/Catalog/SourceCatalog.h"
 #include "TestPaths.h"
 
 namespace

@@ -4,7 +4,7 @@
 #include <iterator>
 #include <string>
 
-#include "Core/Resource/PakArchive.h"
+#include "Core/Resource/Package/PakArchive.h"
 #include "TestPaths.h"
 
 namespace

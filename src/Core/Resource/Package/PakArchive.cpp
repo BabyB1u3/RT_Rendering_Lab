@@ -1,6 +1,6 @@
-#include "Core/Resource/PakArchive.h"
+#include "Core/Resource/Package/PakArchive.h"
 
-#include "Core/Resource/PathParser.h"
+#include "Core/Resource/Path/PathParser.h"
 
 #include <algorithm>
 #include <array>

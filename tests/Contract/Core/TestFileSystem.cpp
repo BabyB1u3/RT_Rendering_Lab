@@ -5,10 +5,10 @@
 #include <optional>
 #include <string>
 
-#include "Core/Resource/CookedCatalog.h"
+#include "Core/Resource/Cook/CookedCatalog.h"
 #include "Core/Resource/FileSystem.h"
-#include "Core/Resource/PakArchive.h"
-#include "Core/Resource/SourceCatalog.h"
+#include "Core/Resource/Package/PakArchive.h"
+#include "Core/Resource/Catalog/SourceCatalog.h"
 #include "TestPaths.h"
 
 namespace

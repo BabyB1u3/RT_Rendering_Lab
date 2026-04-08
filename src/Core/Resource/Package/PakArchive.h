@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/Resource/CookedCatalog.h"
+#include "Core/Resource/Cook/CookedCatalog.h"
 
 #include <filesystem>
 #include <optional>

@@ -1,6 +1,6 @@
-#include "Core/Resource/SourceCatalog.h"
+#include "Core/Resource/Catalog/SourceCatalog.h"
 
-#include "Core/Resource/PathParser.h"
+#include "Core/Resource/Path/PathParser.h"
 
 #include <algorithm>
 #include <cctype>

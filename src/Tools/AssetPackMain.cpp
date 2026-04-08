@@ -1,5 +1,5 @@
-#include "Core/Resource/CookedCatalog.h"
-#include "Core/Resource/PakArchive.h"
+#include "Core/Resource/Cook/CookedCatalog.h"
+#include "Core/Resource/Package/PakArchive.h"
 
 #include <filesystem>
 #include <iostream>

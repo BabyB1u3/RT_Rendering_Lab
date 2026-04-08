@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Core/Resource/PathParser.h"
+#include "Core/Resource/Path/PathParser.h"
 
 #include <optional>
 #include <string>

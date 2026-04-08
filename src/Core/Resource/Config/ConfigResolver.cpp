@@ -1,4 +1,4 @@
-#include "Core/Resource/ConfigResolver.h"
+#include "Core/Resource/Config/ConfigResolver.h"
 
 #include "Core/Diagnostics/LogCategories.h"
 #include "Core/Diagnostics/LogMacros.h"

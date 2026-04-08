@@ -1,4 +1,4 @@
-#include "Core/Resource/SourceCatalog.h"
+#include "Core/Resource/Catalog/SourceCatalog.h"
 
 #include <filesystem>
 #include <iostream>

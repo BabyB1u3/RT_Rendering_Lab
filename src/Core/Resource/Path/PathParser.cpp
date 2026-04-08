@@ -1,4 +1,4 @@
-#include "Core/Resource/PathParser.h"
+#include "Core/Resource/Path/PathParser.h"
 
 #include <string>
 #include <vector>

@@ -9,7 +9,7 @@
 #include <glm/glm.hpp>
 
 #include "Core/Serialization/BuiltinTraits.h"
-#include "Core/Resource/AssetPath.h"
+#include "Core/Resource/Catalog/AssetPath.h"
 
 using namespace Serialization;
 

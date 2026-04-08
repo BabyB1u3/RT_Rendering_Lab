@@ -1,8 +1,8 @@
-#include "Core/Resource/CookedCatalog.h"
+#include "Core/Resource/Cook/CookedCatalog.h"
 
-#include "Core/Resource/PathParser.h"
-#include "Core/Resource/ResourceCatalog.h"
-#include "Core/Resource/SourceCatalog.h"
+#include "Core/Resource/Catalog/ResourceCatalog.h"
+#include "Core/Resource/Catalog/SourceCatalog.h"
+#include "Core/Resource/Path/PathParser.h"
 
 #include <stb_image.h>
 
