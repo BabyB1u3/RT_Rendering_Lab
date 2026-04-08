@@ -63,6 +63,21 @@ namespace
         uint8_t m_DeviceIndex = 0;
     };
 
+    class FakeCustomDevice final : public InputDevice
+    {
+    public:
+        explicit FakeCustomDevice(uint8_t deviceIndex)
+            : m_DeviceIndex(deviceIndex) {}
+
+        Type GetType() const override { return Type::Custom; }
+        void Poll() override {}
+        InputValue GetInput(uint16_t) const override { return {}; }
+        uint8_t GetDeviceIndex() const override { return m_DeviceIndex; }
+
+    private:
+        uint8_t m_DeviceIndex = 0;
+    };
+
     class InputPollingTests : public ::testing::Test
     {
     protected:
@@ -356,4 +371,24 @@ TEST_F(InputPollingTests, RestoreDefaultDevicesReinstallsBuiltInPollingDevices)
 
     EXPECT_TRUE(Input::IsKeyDown(Key::W));
     EXPECT_FALSE(Input::IsKeyDown(Key::Q));
+}
+
+TEST_F(InputPollingTests, RestoreDefaultDevicesRemovesExtraDevicesOutsideDefaultLayout)
+{
+    Input::RegisterDevice(CreateScope<FakeGamepadDevice>(7));
+    Input::RegisterDevice(CreateScope<FakeCustomDevice>(0));
+
+    auto &managerBefore = Input::GetDeviceManager();
+    ASSERT_NE(managerBefore.GetDevice(InputDevice::Type::Gamepad, 7), nullptr);
+    ASSERT_NE(managerBefore.GetDevice(InputDevice::Type::Custom, 0), nullptr);
+
+    Input::RestoreDefaultDevices();
+
+    auto &managerAfter = Input::GetDeviceManager();
+    EXPECT_EQ(managerAfter.GetDevice(InputDevice::Type::Gamepad, 7), nullptr);
+    EXPECT_EQ(managerAfter.GetDevice(InputDevice::Type::Custom, 0), nullptr);
+    EXPECT_NE(managerAfter.GetDevice(InputDevice::Type::Keyboard, 0), nullptr);
+    EXPECT_NE(managerAfter.GetDevice(InputDevice::Type::Mouse, 0), nullptr);
+    EXPECT_NE(managerAfter.GetDevice(InputDevice::Type::Gamepad, 0), nullptr);
+    EXPECT_NE(managerAfter.GetDevice(InputDevice::Type::Gamepad, 3), nullptr);
 }

@@ -77,7 +77,8 @@ public:
     static void BeginFrame();
     /// Register or replace a device in its logical type/index slot.
     static void RegisterDevice(Scope<InputDevice> device);
-    /// Restore the default live device layout (keyboard, mouse, four gamepads).
+    /// Restore the default live device layout exactly (keyboard, mouse, four gamepads).
+    /// Any extra custom or non-default-slot devices are removed.
     static void RestoreDefaultDevices();
 
     static InputDeviceManager &GetDeviceManager();

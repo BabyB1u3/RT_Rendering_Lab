@@ -60,7 +60,15 @@ void Input::RegisterDevice(Scope<InputDevice> device)
 
 void Input::RestoreDefaultDevices()
 {
-    EnsureDevices(s_Window);
+    if (!s_DeviceManager)
+    {
+        s_DeviceManager = CreateScope<InputDeviceManager>();
+        s_DeviceManager->SetEventBus(s_EventBus);
+    }
+    else
+    {
+        s_DeviceManager->Clear();
+    }
 
     s_DeviceManager->AddDevice(CreateScope<KeyboardDevice>(s_Window));
     s_DeviceManager->AddDevice(CreateScope<MouseDevice>(s_Window));
