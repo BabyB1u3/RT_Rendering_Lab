@@ -173,6 +173,8 @@ Resource tooling:
   `Saved/Cache/Cooked/`; texture assets currently decode to an RGBA8 bootstrap
   binary at cooked `.rtrtex` artifact paths, and the runtime can load/validate that
   bootstrap cooked texture payload through `Resource::LoadCookedTexture()`
+- loose cooked catalogs now use a distinct versioned cooked JSON schema rather than
+  reusing the source catalog payload shape verbatim
 
 ```bash
 ./build/<config>/rtr_asset_index --root .

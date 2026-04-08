@@ -58,6 +58,8 @@ Current state as of 2026-04-08:
   cooked mounts under `Saved/Cache/Cooked/`
 - the current runtime can load and validate the bootstrap cooked texture payload
   written at cooked `.rtrtex` artifact paths
+- loose cooked catalogs now use a distinct versioned JSON cooked schema rather than
+  reusing the source catalog JSON payload shape verbatim
 
 ---
 
@@ -574,9 +576,10 @@ Implementation status:
   `backendTag`, and `platformTag`, preferring exact matches over `any`
 - the current runtime can prefer loose cooked mounts for catalog-backed asset reads
   when the active resource profile is `cooked`
-- catalog support is still incomplete: cooked catalogs still use the loose JSON
-  schema as a placeholder, there is no packaged/archive resolution table, and there
-  is no platform/backend/profile-aware packaged/overlay precedence policy yet
+- catalog support is still incomplete: loose cooked catalogs now have their own
+  versioned JSON schema, but there is still no packaged/archive resolution table,
+  no binary cooked catalog format, and no platform/backend/profile-aware
+  packaged/overlay precedence policy yet
 
 It is **not** an optional helper and it is **not** a temporary convenience for the
 current cooking discussion. It is the stable bridge between:
@@ -706,8 +709,9 @@ Current minimal implementation:
 - `rtr_asset_cook` reads source `.rtr/catalog.json` files from loose content mounts
 - it writes current cooked artifacts under `Saved/Cache/Cooked/Project`,
   `Saved/Cache/Cooked/Engine`, and `Saved/Cache/Cooked/Plugins/<Name>`
-- it writes loose cooked `catalog.json` files that currently retain the same JSON
-  schema as source catalogs, but rewrite artifact `profileTag` to `cooked`
+- it writes loose cooked `catalog.json` files with a distinct versioned cooked JSON
+  schema (`version = 2`, `kind = "cooked"`) rather than reusing source catalog
+  entries directly
 - project texture assets currently switch from source `.jpg`/`.png` style artifacts
   to cooked `.rtrtex` artifact paths in the generated cooked catalog
 - the current runtime can select those cooked loose mounts for catalog-backed reads
@@ -1150,8 +1154,9 @@ checklist below.
 ### Phase 12 - Cooking integration
 
 - in progress; loose cooked catalog generation, runtime selection between source
-  and cooked project artifacts, and bootstrap cooked texture read/validation are
-  now implemented for development-time mounts
+  and cooked project artifacts, bootstrap cooked texture read/validation, and a
+  distinct loose cooked JSON catalog schema are now implemented for
+  development-time mounts
 
 ### Phase 13 - Archive packaging
 
@@ -1212,6 +1217,8 @@ without repeatedly redefining scope.
       development catalogs
 - [ ] Finalize cooked catalog serialization format beyond the current temporary
       loose JSON bootstrap
+      distinct loose cooked JSON schema is now implemented, but binary cooked
+      catalog format and packaged/archive serialization are still pending
 - [x] Implement catalog versioning and compatibility checks
 - [x] Implement catalog loader for readable mounts
 - [x] Implement merged global resolution table
