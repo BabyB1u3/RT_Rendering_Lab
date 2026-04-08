@@ -9,7 +9,7 @@ function(glab_configure_test_target target_name)
 
     target_include_directories(${target_name}
         PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}/support
+            ${CMAKE_CURRENT_SOURCE_DIR}/Support
             ${CMAKE_SOURCE_DIR}/src
     )
 
@@ -33,57 +33,57 @@ function(glab_configure_test_target target_name)
 endfunction()
 
 add_executable(rtrlab_unit_tests
-    unit/TestTime.cpp
-    unit/TestLayerStack.cpp
-    unit/TestTransform.cpp
-    unit/TestCamera.cpp
-    unit/TestDefaultCameraController.cpp
-    unit/TestSpecifications.cpp
-    unit/TestInputModifiers.cpp
-    unit/TestInputTriggers.cpp
-    unit/TestInputDeviceManager.cpp
-    unit/TestInputContextStack.cpp
-    unit/TestInput.cpp
-    unit/TestInputAction.cpp
-    unit/TestInputNames.cpp
-    unit/TestPropertyTree.cpp
-    unit/TestBuiltinTraits.cpp
-    unit/TestJsonBackend.cpp
+    Unit/TestTime.cpp
+    Unit/TestLayerStack.cpp
+    Unit/TestTransform.cpp
+    Unit/TestCamera.cpp
+    Unit/TestDefaultCameraController.cpp
+    Unit/TestSpecifications.cpp
+    Unit/TestInputModifiers.cpp
+    Unit/TestInputTriggers.cpp
+    Unit/TestInputDeviceManager.cpp
+    Unit/TestInputContextStack.cpp
+    Unit/TestInput.cpp
+    Unit/TestInputAction.cpp
+    Unit/TestInputNames.cpp
+    Unit/TestPropertyTree.cpp
+    Unit/TestBuiltinTraits.cpp
+    Unit/TestJsonBackend.cpp
 )
 
 glab_configure_test_target(rtrlab_unit_tests)
 
 add_executable(rtrlab_contract_tests
-    contract/core/TestDiagnosticsCore.cpp
-    contract/core/TestImGuiConsoleSink.cpp
-    contract/core/TestLogger.cpp
-    contract/core/TestLogCategories.cpp
-    contract/core/TestEventBus.cpp
-    contract/core/TestFileSystem.cpp
-    contract/core/TestLayerStackLifecycle.cpp
-    contract/core/TestSerializationFileIO.cpp
+    Contract/Core/TestDiagnosticsCore.cpp
+    Contract/Core/TestImGuiConsoleSink.cpp
+    Contract/Core/TestLogger.cpp
+    Contract/Core/TestLogCategories.cpp
+    Contract/Core/TestEventBus.cpp
+    Contract/Core/TestFileSystem.cpp
+    Contract/Core/TestLayerStackLifecycle.cpp
+    Contract/Core/TestSerializationFileIO.cpp
 )
 
 glab_configure_test_target(rtrlab_contract_tests)
 
 add_executable(rtrlab_contract_tests_log_min_level
-    contract/core/TestDiagnosticsMinLevel.cpp
+    Contract/Core/TestDiagnosticsMinLevel.cpp
 )
 
 glab_configure_test_target(rtrlab_contract_tests_log_min_level)
 
 if(GLAB_BACKEND_OPENGL)
     # set_source_files_properties(
-    #     ${CMAKE_CURRENT_SOURCE_DIR}/support/GLTestContext.cpp
+    #     ${CMAKE_CURRENT_SOURCE_DIR}/Support/GLTestContext.cpp
     #     PROPERTIES
     #         SKIP_UNITY_BUILD_INCLUSION ON
     # )
 
     # add_executable(rtrlab_contract_tests_opengl
-    #     contract/opengl/TestFramebuffer.cpp
-    #     contract/opengl/TestRenderPasses.cpp
-    #     contract/opengl/TestRenderTarget.cpp
-    #     support/GLTestContext.cpp
+    #     Contract/opengl/TestFramebuffer.cpp
+    #     Contract/opengl/TestRenderPasses.cpp
+    #     Contract/opengl/TestRenderTarget.cpp
+    #     Support/GLTestContext.cpp
     # )
 
     # if(TARGET CompileShaders)
@@ -97,7 +97,7 @@ if(GLAB_BACKEND_OPENGL)
     #     integration/opengl/TestTexture.cpp
     #     integration/opengl/TestRenderResults.cpp
     #     integration/opengl/TestSceneRenderer.cpp
-    #     support/GLTestContext.cpp
+    #     Support/GLTestContext.cpp
     # )
 
     # if(TARGET CompileShaders)
