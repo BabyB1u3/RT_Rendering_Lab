@@ -34,18 +34,6 @@ namespace
         std::filesystem::path m_TestRoot;
     };
 
-    struct BootstrapTextureHeader
-    {
-        char magic[8];
-        uint32_t version;
-        uint32_t width;
-        uint32_t height;
-        uint32_t channelCount;
-        uint32_t pixelFormat;
-        uint32_t dataSize;
-    };
-
-    static_assert(sizeof(BootstrapTextureHeader) == 32);
 } // namespace
 
 TEST_F(CookedCatalogTests, CookRepositoryCatalogsCopiesArtifactsAndWritesCookedCatalog)
@@ -82,21 +70,33 @@ TEST_F(CookedCatalogTests, CookRepositoryCatalogsCopiesArtifactsAndWritesCookedC
     EXPECT_NE(cookedContents.find("\"relativePath\": \"Textures/Grassy_Square.ktx2\""), std::string::npos);
     EXPECT_NE(cookedContents.find("\"format\": \"ktx2\""), std::string::npos);
 
-    std::ifstream cookedArtifact(cookedArtifactPath, std::ios::binary);
-    ASSERT_TRUE(cookedArtifact.is_open());
-    BootstrapTextureHeader header{};
-    cookedArtifact.read(reinterpret_cast<char *>(&header), sizeof(header));
-    ASSERT_TRUE(cookedArtifact.good());
-    EXPECT_EQ(std::string(header.magic, header.magic + 8), "RTRTEX01");
-    EXPECT_EQ(header.version, 1u);
-    EXPECT_EQ(header.width, 1u);
-    EXPECT_EQ(header.height, 1u);
-    EXPECT_EQ(header.channelCount, 4u);
-    EXPECT_EQ(header.pixelFormat, 1u);
-    EXPECT_EQ(header.dataSize, 4u);
+    std::string errorMessageFromLoad;
+    const auto cookedTexture = Resource::LoadCookedTexture(cookedArtifactPath, &errorMessageFromLoad);
+    ASSERT_TRUE(cookedTexture.has_value()) << errorMessageFromLoad;
+    EXPECT_EQ(cookedTexture->width, 1u);
+    EXPECT_EQ(cookedTexture->height, 1u);
+    EXPECT_EQ(cookedTexture->channelCount, 4u);
+    EXPECT_EQ(cookedTexture->pixelFormat, Resource::CookedTexturePixelFormat::RGBA8_UNorm);
+    EXPECT_EQ(cookedTexture->pixelData.size(), 4u);
+}
 
-    std::vector<unsigned char> pixelData(header.dataSize);
-    cookedArtifact.read(reinterpret_cast<char *>(pixelData.data()), static_cast<std::streamsize>(pixelData.size()));
-    ASSERT_TRUE(cookedArtifact.good() || cookedArtifact.eof());
-    EXPECT_EQ(pixelData.size(), 4u);
+TEST_F(CookedCatalogTests, LoadCookedTextureRejectsInvalidMagic)
+{
+    const auto cookedArtifactPath = TestRoot() / "invalid.ktx2";
+    std::vector<unsigned char> invalidHeader(32, 0);
+    invalidHeader[0] = 'B';
+    invalidHeader[1] = 'A';
+    invalidHeader[2] = 'D';
+    invalidHeader[3] = 'T';
+    invalidHeader[4] = 'E';
+    invalidHeader[5] = 'X';
+    invalidHeader[6] = '0';
+    invalidHeader[7] = '1';
+    test_support::WriteBinaryFileOrFail(cookedArtifactPath, invalidHeader);
+
+    std::string errorMessage;
+    const auto cookedTexture = Resource::LoadCookedTexture(cookedArtifactPath, &errorMessage);
+
+    EXPECT_FALSE(cookedTexture.has_value());
+    EXPECT_NE(errorMessage.find("invalid magic"), std::string::npos);
 }

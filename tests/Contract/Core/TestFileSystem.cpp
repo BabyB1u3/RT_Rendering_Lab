@@ -5,7 +5,9 @@
 #include <optional>
 #include <string>
 
+#include "Core/Resource/CookedCatalog.h"
 #include "Core/Resource/FileSystem.h"
+#include "Core/Resource/SourceCatalog.h"
 #include "TestPaths.h"
 
 namespace
@@ -188,6 +190,38 @@ TEST(FileSystemContractTests, ResolveReadPathCanSwitchBetweenSourceAndCookedProj
     EXPECT_EQ(*revertedResolved, FileSystem::GetAssetPath("textures/Grassy_Square.jpg"));
 
     test_support::RemoveTreeIfExists(FileSystem::GetCacheDir() / "Cooked");
+}
+
+TEST(FileSystemContractTests, ResolveReadPathCanLoadCookedProjectTextureArtifacts)
+{
+    FileSystem::Init();
+
+    std::string errorMessage;
+    ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(FileSystem::GetRootPath(), "Content", &errorMessage)) << errorMessage;
+
+    const auto cookedRoot = FileSystem::GetCacheDir() / "Cooked";
+    test_support::RemoveTreeIfExists(cookedRoot);
+    ASSERT_TRUE(Resource::CookRepositoryCatalogs(FileSystem::GetRootPath(), cookedRoot, "Content", &errorMessage)) << errorMessage;
+
+    {
+        ScopedEnvVar profileOverride("RTRLAB_RESOURCE_PROFILE", "cooked");
+        FileSystem::RefreshCatalogs();
+
+        const auto cookedResolved = FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square");
+        ASSERT_TRUE(cookedResolved.has_value());
+        EXPECT_EQ(cookedResolved->extension().string(), ".ktx2");
+
+        const auto cookedTexture = Resource::LoadCookedTexture(*cookedResolved, &errorMessage);
+        ASSERT_TRUE(cookedTexture.has_value()) << errorMessage;
+        EXPECT_GT(cookedTexture->width, 0u);
+        EXPECT_GT(cookedTexture->height, 0u);
+        EXPECT_EQ(cookedTexture->channelCount, 4u);
+        EXPECT_EQ(cookedTexture->pixelFormat, Resource::CookedTexturePixelFormat::RGBA8_UNorm);
+        EXPECT_FALSE(cookedTexture->pixelData.empty());
+    }
+
+    test_support::RemoveTreeIfExists(cookedRoot);
+    FileSystem::RefreshCatalogs();
 }
 
 TEST(FileSystemContractTests, ResolveReadPathUsesCatalogForExtensionlessEngineAsset)
