@@ -177,4 +177,58 @@ namespace Serialization
         return LoadFromFile(value, *path);
     }
 
+    /// Save through the logical config namespace. Writes always target /Saved/Config.
+    template <Serializable T>
+    bool SaveToConfigPath(const T &value, std::string_view relativePath,
+                          const IFormatBackend &backend)
+    {
+        const std::string virtualPath = relativePath.empty()
+                                            ? std::string{"/Saved/Config"}
+                                            : "/Saved/Config/" + std::string(relativePath);
+        return SaveToVirtualPath(value, virtualPath, backend);
+    }
+
+    /// Save through the logical config namespace with auto-detected backend.
+    template <Serializable T>
+    bool SaveToConfigPath(const T &value, std::string_view relativePath)
+    {
+        const std::string virtualPath = relativePath.empty()
+                                            ? std::string{"/Saved/Config"}
+                                            : "/Saved/Config/" + std::string(relativePath);
+        return SaveToVirtualPath(value, virtualPath);
+    }
+
+    /// Load through the config namespace. Reads apply saved -> project -> engine fallback.
+    template <Serializable T>
+    bool LoadFromConfigPath(T &value, std::string_view relativePath,
+                            const IFormatBackend &backend)
+    {
+        const auto path = FileSystem::ResolveConfigPath(relativePath);
+        if (path.empty())
+        {
+            LOG_ERROR_CAT(LogCategory::Serialization,
+                          "Serialization: failed to resolve config path '{}'",
+                          relativePath);
+            return false;
+        }
+
+        return LoadFromFile(value, path, backend);
+    }
+
+    /// Load through the config namespace with auto-detected backend.
+    template <Serializable T>
+    bool LoadFromConfigPath(T &value, std::string_view relativePath)
+    {
+        const auto path = FileSystem::ResolveConfigPath(relativePath);
+        if (path.empty())
+        {
+            LOG_ERROR_CAT(LogCategory::Serialization,
+                          "Serialization: failed to resolve config path '{}'",
+                          relativePath);
+            return false;
+        }
+
+        return LoadFromFile(value, path);
+    }
+
 } // namespace Serialization

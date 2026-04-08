@@ -142,6 +142,17 @@ TEST(FileSystemContractTests, ResolveReadPathMapsProjectConfigLogicalPathToConte
     EXPECT_TRUE(std::filesystem::exists(*resolved));
 }
 
+TEST(FileSystemContractTests, ResolveReadPathMapsEngineConfigLogicalPathToEngineContentConfigDirectory)
+{
+    FileSystem::Init();
+
+    const auto resolved = FileSystem::ResolveReadPath("/Engine/Config/input/DefaultBindings.json");
+
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_EQ(*resolved, FileSystem::GetRootPath() / "EngineContent" / "Config" / "input" / "DefaultBindings.json");
+    EXPECT_TRUE(std::filesystem::exists(*resolved));
+}
+
 TEST(FileSystemContractTests, ResolveReadPathUsesCatalogForExtensionlessProjectAsset)
 {
     FileSystem::Init();
@@ -214,8 +225,8 @@ TEST(FileSystemContractTests, ResolveReadPathUsesCatalogForExtensionlessEngineAs
     const auto artifactPath = engineRoot / "Defaults" / "Materials" / "ErrorMaterial.json";
     const auto catalogPath = engineRoot / ".rtr" / "catalog.json";
 
-    RemoveDirectoryTreeIfExists(engineRoot);
-
+    RemovePathIfExists(artifactPath);
+    RemovePathIfExists(catalogPath);
     WriteTextFileOrFail(artifactPath, "{\n  \"name\": \"error-material\"\n}\n");
     WriteTextFileOrFail(
         catalogPath,
@@ -242,7 +253,11 @@ TEST(FileSystemContractTests, ResolveReadPathUsesCatalogForExtensionlessEngineAs
     EXPECT_EQ(*resolved, artifactPath);
     EXPECT_TRUE(std::filesystem::exists(*resolved));
 
-    RemoveDirectoryTreeIfExists(engineRoot);
+    RemovePathIfExists(artifactPath);
+    RemovePathIfExists(catalogPath);
+    RemoveDirectoryIfEmpty(artifactPath.parent_path());
+    RemoveDirectoryIfEmpty(artifactPath.parent_path().parent_path());
+    RemoveDirectoryIfEmpty(catalogPath.parent_path());
 }
 
 TEST(FileSystemContractTests, ResolveReadPathUsesCatalogForExtensionlessPluginAsset)
@@ -735,6 +750,33 @@ TEST(FileSystemContractTests, ResolveConfigPathReturnsEmptyWhenConfigIsMissing)
     const auto resolved = FileSystem::ResolveConfigPath("test-contract/MissingConfig.json");
 
     EXPECT_TRUE(resolved.empty());
+}
+
+TEST(FileSystemContractTests, ResolveConfigPathFallsBackToEngineDefaultWhenProjectDefaultIsMissing)
+{
+    FileSystem::Init();
+
+    constexpr std::string_view kRelativePath = "input/DefaultBindings.json";
+    const auto projectPath = FileSystem::GetAssetPath("Config") / kRelativePath;
+    const auto savedPath = FileSystem::GetSavedConfigPath(kRelativePath);
+    const auto enginePath = FileSystem::GetRootPath() / "EngineContent" / "Config" / kRelativePath;
+
+    ASSERT_TRUE(std::filesystem::exists(enginePath));
+
+    RemovePathIfExists(savedPath);
+    RemovePathIfExists(projectPath);
+
+    const auto resolved = FileSystem::ResolveConfigPath(kRelativePath);
+
+    EXPECT_EQ(resolved, savedPath);
+    ASSERT_TRUE(std::filesystem::exists(savedPath));
+    const auto contents = FileSystem::ReadTextFile(savedPath);
+    ASSERT_TRUE(contents.has_value());
+    EXPECT_NE(contents->find("\"engine-default\""), std::string::npos);
+
+    RemovePathIfExists(savedPath);
+    RemoveDirectoryIfEmpty(savedPath.parent_path());
+    RemoveDirectoryIfEmpty(savedPath.parent_path().parent_path());
 }
 
 // --- Error path tests ---

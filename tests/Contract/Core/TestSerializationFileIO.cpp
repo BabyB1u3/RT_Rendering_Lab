@@ -10,8 +10,10 @@
 
 using Serialization::JsonBackend;
 using Serialization::LoadFromFile;
+using Serialization::LoadFromConfigPath;
 using Serialization::LoadFromVirtualPath;
 using Serialization::SaveToFile;
+using Serialization::SaveToConfigPath;
 using Serialization::SaveToVirtualPath;
 
 namespace
@@ -292,4 +294,35 @@ TEST_F(SerializationFileIOContractTests, LoadSerializedAssetReferenceRejectsAbso
 
     EXPECT_FALSE(LoadFromVirtualPath(value, VirtualSavedPath("invalid-material-ref.json")));
     EXPECT_EQ(value.albedo, *original);
+}
+
+TEST_F(SerializationFileIOContractTests, SaveToConfigPathWritesIntoSavedConfigNamespace)
+{
+    constexpr std::string_view kRelative = "serialization-contract/ConfigValue.json";
+    const std::string input = "config saved";
+    std::string output = "sentinel";
+
+    ASSERT_TRUE(SaveToConfigPath(input, kRelative));
+    ASSERT_TRUE(LoadFromVirtualPath(output, "/Saved/Config/serialization-contract/ConfigValue.json"));
+    EXPECT_EQ(output, input);
+}
+
+TEST_F(SerializationFileIOContractTests, LoadFromConfigPathFallsBackToEngineDefaults)
+{
+    const auto projectPath = FileSystem::GetAssetPath("Config") / "input/DefaultBindings.json";
+    const auto savedPath = FileSystem::GetSavedConfigPath("input/DefaultBindings.json");
+
+    std::error_code ec;
+    std::filesystem::remove(projectPath, ec);
+    ec.clear();
+    std::filesystem::remove(savedPath, ec);
+
+    std::string value = "sentinel";
+    ASSERT_TRUE(LoadFromConfigPath(value, "input/DefaultBindings.json"));
+    EXPECT_NE(value.find("engine-default"), std::string::npos);
+
+    ec.clear();
+    std::filesystem::remove(savedPath, ec);
+    ec.clear();
+    std::filesystem::remove(savedPath.parent_path(), ec);
 }
