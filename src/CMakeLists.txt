@@ -22,7 +22,6 @@ set(GLAB_APP_HEADERS
 )
 
 set(GLAB_RESOURCE_SOURCES
-    Core/Resource/Config/ConfigResolver.cpp
     Core/Resource/Cook/CookedCatalog.cpp
     Core/Resource/FileSystem.cpp
     Core/Resource/Mount/MountBackend.cpp
@@ -36,7 +35,6 @@ set(GLAB_RESOURCE_SOURCES
 )
 
 set(GLAB_RESOURCE_HEADERS
-    Core/Resource/Config/ConfigResolver.h
     Core/Resource/Catalog/AssetPath.h
     Core/Resource/Cook/CookedCatalog.h
     Core/Resource/FileSystem.h
@@ -237,6 +235,26 @@ function(glab_copy_runtime_content target_name)
     endif()
 endfunction()
 
+function(glab_add_tool_target target_name source_file)
+    add_executable(${target_name}
+        ${source_file}
+    )
+
+    target_link_libraries(${target_name} PRIVATE
+        RTRLabCore
+    )
+
+    if(GLAB_ENABLE_PCH)
+        target_precompile_headers(${target_name} REUSE_FROM RTRLabCore)
+    endif()
+
+    glab_configure_local_target(${target_name})
+
+    set_target_properties(${target_name} PROPERTIES
+        VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    )
+endfunction()
+
 # -----------------------------------------------------------------------------
 # Core library
 # -----------------------------------------------------------------------------
@@ -308,9 +326,7 @@ endif()
 
 target_compile_definitions(RTRLabCore PUBLIC
     GLM_ENABLE_EXPERIMENTAL
-    GLAB_ASSET_DIR="Content"
     $<$<CONFIG:Debug>:GLAB_ROOT_DIR="${CMAKE_SOURCE_DIR}">
-    $<$<CONFIG:Debug>:GLAB_SHADER_BUILD_DIR="${CMAKE_BINARY_DIR}/shaders">
     $<$<CONFIG:Debug>:RTRLAB_LOG_MIN_LEVEL=0>
     $<$<CONFIG:RelWithDebInfo>:RTRLAB_LOG_MIN_LEVEL=1>
     $<$<CONFIG:Release>:RTRLAB_LOG_MIN_LEVEL=2>
@@ -372,59 +388,9 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES
 # -----------------------------------------------------------------------------
 # Tools
 # -----------------------------------------------------------------------------
-add_executable(rtr_asset_index
-    Tools/AssetIndexMain.cpp
-)
-
-target_link_libraries(rtr_asset_index PRIVATE
-    RTRLabCore
-)
-
-if(GLAB_ENABLE_PCH)
-    target_precompile_headers(rtr_asset_index REUSE_FROM RTRLabCore)
-endif()
-
-glab_configure_local_target(rtr_asset_index)
-
-set_target_properties(rtr_asset_index PROPERTIES
-    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-)
-
-add_executable(rtr_asset_cook
-    Tools/AssetCookMain.cpp
-)
-
-target_link_libraries(rtr_asset_cook PRIVATE
-    RTRLabCore
-)
-
-if(GLAB_ENABLE_PCH)
-    target_precompile_headers(rtr_asset_cook REUSE_FROM RTRLabCore)
-endif()
-
-glab_configure_local_target(rtr_asset_cook)
-
-set_target_properties(rtr_asset_cook PROPERTIES
-    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-)
-
-add_executable(rtr_asset_pack
-    Tools/AssetPackMain.cpp
-)
-
-target_link_libraries(rtr_asset_pack PRIVATE
-    RTRLabCore
-)
-
-if(GLAB_ENABLE_PCH)
-    target_precompile_headers(rtr_asset_pack REUSE_FROM RTRLabCore)
-endif()
-
-glab_configure_local_target(rtr_asset_pack)
-
-set_target_properties(rtr_asset_pack PROPERTIES
-    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-)
+glab_add_tool_target(rtr_asset_index Tools/AssetIndexMain.cpp)
+glab_add_tool_target(rtr_asset_cook Tools/AssetCookMain.cpp)
+glab_add_tool_target(rtr_asset_pack Tools/AssetPackMain.cpp)
 
 # -----------------------------------------------------------------------------
 # Install rules

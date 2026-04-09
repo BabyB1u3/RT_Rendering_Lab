@@ -84,6 +84,16 @@ namespace
             }
         }
     };
+
+    std::filesystem::path SavedConfigPath(std::string_view relativePath)
+    {
+        return FileSystem::GetSavedDir() / "Config" / relativePath;
+    }
+
+    std::filesystem::path ProjectConfigPath(std::string_view relativePath)
+    {
+        return FileSystem::GetRootPath() / "Content" / "Config" / relativePath;
+    }
 } // namespace
 
 TEST_F(SerializationFileIOContractTests, SaveThenLoadIntRoundTrip)
@@ -278,7 +288,7 @@ TEST_F(SerializationFileIOContractTests, SaveToConfigPathWritesIntoSavedConfigNa
     constexpr std::string_view kRelative = "serialization-contract/ConfigValue.json";
     const std::string input = "config saved";
     std::string output = "sentinel";
-    const auto savedPath = FileSystem::GetSavedConfigPath(kRelative);
+    const auto savedPath = SavedConfigPath(kRelative);
 
     ASSERT_TRUE(SaveToConfigPath(input, kRelative));
     ASSERT_TRUE(LoadFromVirtualPath(output, "/Saved/Config/serialization-contract/ConfigValue.json"));
@@ -292,8 +302,8 @@ TEST_F(SerializationFileIOContractTests, SaveToConfigPathWritesIntoSavedConfigNa
 
 TEST_F(SerializationFileIOContractTests, LoadFromConfigPathFallsBackToEngineDefaults)
 {
-    const auto projectPath = FileSystem::GetAssetPath("Config") / "input/DefaultBindings.json";
-    const auto savedPath = FileSystem::GetSavedConfigPath("input/DefaultBindings.json");
+    const auto projectPath = ProjectConfigPath("input/DefaultBindings.json");
+    const auto savedPath = SavedConfigPath("input/DefaultBindings.json");
 
     std::error_code ec;
     std::filesystem::remove(projectPath, ec);
@@ -309,4 +319,54 @@ TEST_F(SerializationFileIOContractTests, LoadFromConfigPathFallsBackToEngineDefa
     std::filesystem::remove(savedPath, ec);
     ec.clear();
     std::filesystem::remove(savedPath.parent_path(), ec);
+}
+
+TEST_F(SerializationFileIOContractTests, LoadFromConfigPathPrefersSavedOverride)
+{
+    constexpr std::string_view kRelative = "input/DebugCameraControl.json";
+    const auto savedPath = SavedConfigPath(kRelative);
+
+    ASSERT_TRUE(SaveToConfigPath(std::string{"saved"}, kRelative));
+
+    std::string value = "sentinel";
+    ASSERT_TRUE(LoadFromConfigPath(value, kRelative));
+    EXPECT_EQ(value, "saved");
+
+    std::error_code ec;
+    std::filesystem::remove(savedPath, ec);
+}
+
+TEST_F(SerializationFileIOContractTests, LoadFromConfigPathSeedsProjectDefaultIntoSavedConfig)
+{
+    constexpr std::string_view kRelative = "serialization-contract/SeededFromProject.json";
+    const auto projectPath = ProjectConfigPath(kRelative);
+    const auto savedPath = SavedConfigPath(kRelative);
+
+    test_support::RemovePathIfExists(projectPath);
+    test_support::RemovePathIfExists(savedPath);
+    ASSERT_TRUE(SaveToFile(std::string{"project"}, projectPath));
+
+    std::string value = "sentinel";
+    ASSERT_TRUE(LoadFromConfigPath(value, kRelative));
+    EXPECT_EQ(value, "project");
+    EXPECT_TRUE(std::filesystem::exists(savedPath));
+
+    test_support::RemovePathIfExists(projectPath);
+    test_support::RemovePathIfExists(savedPath);
+    test_support::RemoveDirectoryIfEmpty(projectPath.parent_path());
+    test_support::RemoveTreeIfExists(FileSystem::GetSavedDir() / "Config" / "serialization-contract");
+}
+
+TEST_F(SerializationFileIOContractTests, LoadFromConfigPathReturnsFalseWhenConfigIsMissing)
+{
+    constexpr std::string_view kRelative = "serialization-contract/Missing.json";
+    const auto projectPath = ProjectConfigPath(kRelative);
+    const auto savedPath = SavedConfigPath(kRelative);
+
+    test_support::RemovePathIfExists(projectPath);
+    test_support::RemovePathIfExists(savedPath);
+
+    std::string value = "sentinel";
+    EXPECT_FALSE(LoadFromConfigPath(value, kRelative));
+    EXPECT_EQ(value, "sentinel");
 }

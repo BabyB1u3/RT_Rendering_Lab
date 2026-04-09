@@ -7,15 +7,14 @@
 
 #include "Core/Resource/Cook/CookedCatalog.h"
 #include "Core/Resource/FileSystem.h"
+#include "Core/Resource/IO/PhysicalIO.h"
 #include "Core/Resource/Package/PakArchive.h"
 #include "Core/Resource/Catalog/SourceCatalog.h"
 #include "TestPaths.h"
 
 namespace
 {
-    constexpr const char *kExistingConfig = "input/DebugCameraControl.json";
     constexpr const char *kExistingAsset = "Config/input/DebugCameraControl.json";
-    constexpr const char *kTempConfig = "test-contract/AutoCopyConfig.json";
 
     std::string_view CurrentPlatformTag()
     {
@@ -42,6 +41,16 @@ namespace
     constexpr std::string_view CurrentProfileTag()
     {
         return "dev";
+    }
+
+    std::filesystem::path ProjectContentPath(std::string_view relativePath)
+    {
+        return FileSystem::GetRootPath() / "Content" / relativePath;
+    }
+
+    std::filesystem::path SavedConfigPath(std::string_view relativePath)
+    {
+        return FileSystem::GetSavedDir() / "Config" / relativePath;
     }
 
     class ScopedEnvVar
@@ -104,7 +113,7 @@ TEST(FileSystemContractTests, InitResolvesProjectRootAndCommonDirectories)
     EXPECT_TRUE(std::filesystem::exists(savedDir));
     EXPECT_TRUE(std::filesystem::exists(cacheDir));
     EXPECT_TRUE(std::filesystem::exists(savedDir / "Config"));
-    EXPECT_TRUE(std::filesystem::exists(FileSystem::GetAssetPath(kExistingAsset)));
+    EXPECT_TRUE(std::filesystem::exists(ProjectContentPath(kExistingAsset)));
 }
 
 TEST(FileSystemContractTests, ResolveReadPathMapsProjectConfigLogicalPathToContentConfigDirectory)
@@ -114,7 +123,7 @@ TEST(FileSystemContractTests, ResolveReadPathMapsProjectConfigLogicalPathToConte
     const auto resolved = FileSystem::ResolveReadPath("/Project/Config/input/DebugCameraControl.json");
 
     ASSERT_TRUE(resolved.has_value());
-    EXPECT_EQ(*resolved, FileSystem::GetAssetPath("Config/input/DebugCameraControl.json"));
+    EXPECT_EQ(*resolved, ProjectContentPath("Config/input/DebugCameraControl.json"));
     EXPECT_TRUE(std::filesystem::exists(*resolved));
 }
 
@@ -136,7 +145,7 @@ TEST(FileSystemContractTests, ResolveReadPathUsesCatalogForExtensionlessProjectA
     const auto resolved = FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square");
 
     ASSERT_TRUE(resolved.has_value());
-    EXPECT_EQ(*resolved, FileSystem::GetAssetPath("textures/Grassy_Square.jpg"));
+    EXPECT_EQ(*resolved, ProjectContentPath("textures/Grassy_Square.jpg"));
     EXPECT_TRUE(std::filesystem::exists(*resolved));
 }
 
@@ -146,7 +155,7 @@ TEST(FileSystemContractTests, ResolveReadPathCanSwitchBetweenSourceAndCookedProj
 
     const auto sourceResolved = FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square");
     ASSERT_TRUE(sourceResolved.has_value());
-    EXPECT_EQ(*sourceResolved, FileSystem::GetAssetPath("textures/Grassy_Square.jpg"));
+    EXPECT_EQ(*sourceResolved, ProjectContentPath("textures/Grassy_Square.jpg"));
 
     const auto cookedRoot = FileSystem::GetCacheDir() / "Cooked" / "Project";
     const auto cookedArtifactPath = cookedRoot / "Textures" / "Grassy_Square.rtrtex";
@@ -188,7 +197,7 @@ TEST(FileSystemContractTests, ResolveReadPathCanSwitchBetweenSourceAndCookedProj
     FileSystem::RefreshCatalogs();
     const auto revertedResolved = FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square");
     ASSERT_TRUE(revertedResolved.has_value());
-    EXPECT_EQ(*revertedResolved, FileSystem::GetAssetPath("textures/Grassy_Square.jpg"));
+    EXPECT_EQ(*revertedResolved, ProjectContentPath("textures/Grassy_Square.jpg"));
 
     test_support::RemoveTreeIfExists(FileSystem::GetCacheDir() / "Cooked");
 }
@@ -438,7 +447,7 @@ TEST(FileSystemContractTests, ResolveReadPathCanSwitchBetweenLooseAndPackagedArt
 
     const auto sourceProjectResolved = FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square");
     ASSERT_TRUE(sourceProjectResolved.has_value());
-    EXPECT_EQ(*sourceProjectResolved, FileSystem::GetAssetPath("textures/Grassy_Square.jpg"));
+    EXPECT_EQ(*sourceProjectResolved, ProjectContentPath("textures/Grassy_Square.jpg"));
 
     const auto sourceEngineResolved = FileSystem::ResolveReadPath("/Engine/Defaults/Materials/Phase13PackagedMaterial");
     ASSERT_TRUE(sourceEngineResolved.has_value());
@@ -469,14 +478,14 @@ TEST(FileSystemContractTests, ResolveReadPathCanSwitchBetweenLooseAndPackagedArt
         const auto packagedEngineResolved = FileSystem::ResolveReadPath("/Engine/Defaults/Materials/Phase13PackagedMaterial");
         ASSERT_TRUE(packagedEngineResolved.has_value());
         EXPECT_NE(packagedEngineResolved->string().find("PackagedExtracted"), std::string::npos);
-        const auto packagedEngineContents = FileSystem::ReadTextFile(*packagedEngineResolved);
+        const auto packagedEngineContents = Resource::ReadTextFile(*packagedEngineResolved);
         ASSERT_TRUE(packagedEngineContents.has_value());
         EXPECT_NE(packagedEngineContents->find("engine-packaged"), std::string::npos);
 
         const auto packagedPluginResolved = FileSystem::ResolveReadPath("/Plugins/Phase13PackagedPlugin/Materials/Checker");
         ASSERT_TRUE(packagedPluginResolved.has_value());
         EXPECT_NE(packagedPluginResolved->string().find("PackagedExtracted"), std::string::npos);
-        const auto packagedPluginContents = FileSystem::ReadTextFile(*packagedPluginResolved);
+        const auto packagedPluginContents = Resource::ReadTextFile(*packagedPluginResolved);
         ASSERT_TRUE(packagedPluginContents.has_value());
         EXPECT_NE(packagedPluginContents->find("plugin-packaged"), std::string::npos);
     }
@@ -658,21 +667,21 @@ TEST(FileSystemContractTests, ResolveReadPathPrefersOverlayMountsOverPackagedArt
         const auto packagedProjectResolved = FileSystem::ResolveReadPath("/Project/Materials/Phase13OverlayFallback");
         ASSERT_TRUE(packagedProjectResolved.has_value());
         EXPECT_NE(packagedProjectResolved->string().find("PackagedExtracted"), std::string::npos);
-        const auto packagedProjectContents = FileSystem::ReadTextFile(*packagedProjectResolved);
+        const auto packagedProjectContents = Resource::ReadTextFile(*packagedProjectResolved);
         ASSERT_TRUE(packagedProjectContents.has_value());
         EXPECT_NE(packagedProjectContents->find("project-packaged-fallback"), std::string::npos);
 
         const auto overlayEngineResolved = FileSystem::ResolveReadPath("/Engine/Defaults/Materials/Phase13OverlayMaterial");
         ASSERT_TRUE(overlayEngineResolved.has_value());
         EXPECT_EQ(*overlayEngineResolved, overlayEngineArtifactPath);
-        const auto overlayEngineContents = FileSystem::ReadTextFile(*overlayEngineResolved);
+        const auto overlayEngineContents = Resource::ReadTextFile(*overlayEngineResolved);
         ASSERT_TRUE(overlayEngineContents.has_value());
         EXPECT_NE(overlayEngineContents->find("engine-overlay"), std::string::npos);
 
         const auto overlayPluginResolved = FileSystem::ResolveReadPath("/Plugins/Phase13OverlayPlugin/Materials/Checker");
         ASSERT_TRUE(overlayPluginResolved.has_value());
         EXPECT_EQ(*overlayPluginResolved, overlayPluginArtifactPath);
-        const auto overlayPluginContents = FileSystem::ReadTextFile(*overlayPluginResolved);
+        const auto overlayPluginContents = Resource::ReadTextFile(*overlayPluginResolved);
         ASSERT_TRUE(overlayPluginContents.has_value());
         EXPECT_NE(overlayPluginContents->find("plugin-overlay"), std::string::npos);
     }
@@ -856,7 +865,7 @@ TEST(FileSystemContractTests, ResolveReadPathKeepsProjectAndPluginNamespacesSepa
 
     ASSERT_TRUE(projectResolved.has_value());
     ASSERT_TRUE(pluginResolved.has_value());
-    EXPECT_EQ(*projectResolved, FileSystem::GetAssetPath("textures/Grassy_Square.jpg"));
+    EXPECT_EQ(*projectResolved, ProjectContentPath("textures/Grassy_Square.jpg"));
     EXPECT_EQ(*pluginResolved, pluginArtifactPath);
 
     test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
@@ -981,7 +990,7 @@ TEST(FileSystemContractTests, ResolveWritePathMapsSavedConfigLogicalPathToSavedC
     const auto resolved = FileSystem::ResolveWritePath("/Saved/Config/test-contract/Phase12Config.json");
 
     ASSERT_TRUE(resolved.has_value());
-    EXPECT_EQ(*resolved, FileSystem::GetSavedConfigPath("test-contract/Phase12Config.json"));
+    EXPECT_EQ(*resolved, SavedConfigPath("test-contract/Phase12Config.json"));
     EXPECT_TRUE(std::filesystem::exists(resolved->parent_path()));
 
     test_support::RemoveTreeIfExists(FileSystem::GetSavedDir() / "Config" / "test-contract");
@@ -1043,7 +1052,7 @@ TEST(FileSystemContractTests, ResolveReadPathProjectCatalogStillWorksWhenAnother
     const auto resolved = FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square");
 
     ASSERT_TRUE(resolved.has_value());
-    EXPECT_EQ(*resolved, FileSystem::GetAssetPath("textures/Grassy_Square.jpg"));
+    EXPECT_EQ(*resolved, ProjectContentPath("textures/Grassy_Square.jpg"));
 
     test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
 }
@@ -1246,7 +1255,7 @@ TEST(FileSystemContractTests, WriteTextSupportsSavedLogicalPaths)
 
     constexpr std::string_view kVirtualPath = "/Saved/Config/test-contract/LogicalWriteText.json";
     constexpr std::string_view kExpectedContents = "{\n  \"path\": \"logical\"\n}\n";
-    const auto savedPath = FileSystem::GetSavedConfigPath("test-contract/LogicalWriteText.json");
+    const auto savedPath = SavedConfigPath("test-contract/LogicalWriteText.json");
 
     test_support::RemovePathIfExists(savedPath);
 
@@ -1287,111 +1296,20 @@ TEST(FileSystemContractTests, WriteHelpersRejectReadOnlyDomains)
     EXPECT_FALSE(FileSystem::WriteBinary("/Engine/Config/input/Nope.bin", std::vector<uint8_t>{1, 2, 3}));
 }
 
-TEST(FileSystemContractTests, ResolveConfigPathPrefersSavedConfigWhenPresent)
-{
-    FileSystem::Init();
-
-    const auto savedPath = FileSystem::GetSavedConfigPath(kExistingConfig);
-    test_support::RemovePathIfExists(savedPath);
-    ASSERT_TRUE(FileSystem::WriteText("/Saved/Config/input/DebugCameraControl.json", "{\n  \"source\": \"saved\"\n}\n"));
-
-    const auto resolved = FileSystem::ResolveConfigPath(kExistingConfig);
-
-    EXPECT_EQ(resolved, savedPath);
-    EXPECT_TRUE(std::filesystem::exists(resolved));
-
-    test_support::RemovePathIfExists(savedPath);
-    test_support::RemoveDirectoryIfEmpty(savedPath.parent_path());
-    test_support::RemoveDirectoryIfEmpty(savedPath.parent_path().parent_path());
-}
-
-TEST(FileSystemContractTests, ResolveConfigPathCopiesDefaultConfigIntoSavedDirectory)
-{
-    FileSystem::Init();
-
-    const auto assetPath = FileSystem::GetAssetPath("Config") / kTempConfig;
-    const auto savedPath = FileSystem::GetSavedConfigPath(kTempConfig);
-    const std::string expectedContents = "{\n  \"source\": \"contract-test\"\n}\n";
-
-    test_support::RemovePathIfExists(savedPath);
-    test_support::RemovePathIfExists(assetPath);
-    test_support::WriteTextFileOrFail(assetPath, expectedContents);
-
-    const auto resolved = FileSystem::ResolveConfigPath(kTempConfig);
-
-    EXPECT_EQ(resolved, savedPath);
-    ASSERT_TRUE(std::filesystem::exists(savedPath));
-    const auto contents = FileSystem::ReadTextFile(savedPath);
-    ASSERT_TRUE(contents.has_value());
-    EXPECT_EQ(*contents, expectedContents);
-
-    test_support::RemovePathIfExists(savedPath);
-    test_support::RemovePathIfExists(assetPath);
-    test_support::RemoveTreeIfExists(FileSystem::GetSavedDir() / "Config" / "test-contract");
-    test_support::RemoveDirectoryIfEmpty(assetPath.parent_path());
-}
-
-TEST(FileSystemContractTests, ResolveConfigPathReturnsEmptyWhenConfigIsMissing)
-{
-    FileSystem::Init();
-
-    const auto assetPath = FileSystem::GetAssetPath("Config") / "test-contract/MissingConfig.json";
-    const auto savedPath = FileSystem::GetSavedConfigPath("test-contract/MissingConfig.json");
-
-    test_support::RemovePathIfExists(savedPath);
-    test_support::RemovePathIfExists(assetPath);
-
-    const auto resolved = FileSystem::ResolveConfigPath("test-contract/MissingConfig.json");
-
-    EXPECT_TRUE(resolved.empty());
-
-    test_support::RemovePathIfExists(savedPath);
-    test_support::RemovePathIfExists(assetPath);
-    test_support::RemoveTreeIfExists(FileSystem::GetSavedDir() / "Config" / "test-contract");
-    test_support::RemoveDirectoryIfEmpty(assetPath.parent_path());
-}
-
-TEST(FileSystemContractTests, ResolveConfigPathFallsBackToEngineDefaultWhenProjectDefaultIsMissing)
-{
-    FileSystem::Init();
-
-    constexpr std::string_view kRelativePath = "input/DefaultBindings.json";
-    const auto projectPath = FileSystem::GetAssetPath("Config") / kRelativePath;
-    const auto savedPath = FileSystem::GetSavedConfigPath(kRelativePath);
-    const auto enginePath = FileSystem::GetRootPath() / "EngineContent" / "Config" / kRelativePath;
-
-    ASSERT_TRUE(std::filesystem::exists(enginePath));
-
-    test_support::RemovePathIfExists(savedPath);
-    test_support::RemovePathIfExists(projectPath);
-
-    const auto resolved = FileSystem::ResolveConfigPath(kRelativePath);
-
-    EXPECT_EQ(resolved, savedPath);
-    ASSERT_TRUE(std::filesystem::exists(savedPath));
-    const auto contents = FileSystem::ReadTextFile(savedPath);
-    ASSERT_TRUE(contents.has_value());
-    EXPECT_NE(contents->find("\"engine-default\""), std::string::npos);
-
-    test_support::RemovePathIfExists(savedPath);
-    test_support::RemoveDirectoryIfEmpty(savedPath.parent_path());
-    test_support::RemoveDirectoryIfEmpty(savedPath.parent_path().parent_path());
-}
-
 // --- Error path tests ---
 
-TEST(FileSystemContractTests, ReadTextFileReturnsNulloptOnMissingFile)
+TEST(FileSystemContractTests, PhysicalReadTextReturnsNulloptOnMissingFile)
 {
     FileSystem::Init();
 
-    const auto contents = FileSystem::ReadTextFile("definitely/missing/path.txt");
+    const auto contents = Resource::ReadTextFile("definitely/missing/path.txt");
     EXPECT_FALSE(contents.has_value());
 }
 
-TEST(FileSystemContractTests, ReadBinaryFileReturnsNulloptOnMissingFile)
+TEST(FileSystemContractTests, PhysicalReadBinaryReturnsNulloptOnMissingFile)
 {
     FileSystem::Init();
 
-    const auto data = FileSystem::ReadBinaryFile("definitely/missing/binary.bin");
+    const auto data = Resource::ReadBinaryFile("definitely/missing/binary.bin");
     EXPECT_FALSE(data.has_value());
 }

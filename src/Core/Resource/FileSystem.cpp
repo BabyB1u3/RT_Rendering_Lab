@@ -3,7 +3,6 @@
 #include "Core/Diagnostics/Logging/LogCategories.h"
 #include "Core/Diagnostics/Logging/LogMacros.h"
 #include "Core/Resource/Catalog/ResourceCatalog.h"
-#include "Core/Resource/Config/ConfigResolver.h"
 #include "Core/Resource/IO/PhysicalIO.h"
 #include "Core/Resource/Mount/MountBackend.h"
 #include "Core/Resource/Mount/MountResolver.h"
@@ -149,26 +148,6 @@ const std::filesystem::path &FileSystem::GetRootPath()
     return s_RootPath;
 }
 
-std::filesystem::path FileSystem::GetAssetPath(std::string_view relativePath)
-{
-    return s_RootPath / kProjectContentDirName / relativePath;
-}
-
-std::filesystem::path FileSystem::GetCompiledShaderDir()
-{
-    const auto assetDir = s_RootPath / kProjectContentDirName / "shaders" / "compiled";
-    if (std::filesystem::exists(assetDir))
-        return assetDir;
-
-#ifdef GLAB_SHADER_BUILD_DIR
-    std::filesystem::path buildDir(GLAB_SHADER_BUILD_DIR);
-    if (std::filesystem::exists(buildDir))
-        return buildDir;
-#endif
-
-    return assetDir;
-}
-
 void FileSystem::ResolveWritableDirs()
 {
     if (s_WritableDirsResolved)
@@ -193,51 +172,4 @@ const std::filesystem::path &FileSystem::GetCacheDir()
 {
     ResolveWritableDirs();
     return s_CacheDir;
-}
-
-std::filesystem::path FileSystem::GetSavedPath(std::string_view relativePath)
-{
-    std::string virtualPath = "/Saved";
-    if (!relativePath.empty())
-        virtualPath += "/" + std::string(relativePath);
-
-    if (const auto resolved = ResolveWritePath(virtualPath))
-        return *resolved;
-
-    return GetSavedDir() / relativePath;
-}
-
-std::filesystem::path FileSystem::GetSavedConfigPath(std::string_view relativePath)
-{
-    std::string virtualPath = "/Saved/Config";
-    if (!relativePath.empty())
-        virtualPath += "/" + std::string(relativePath);
-
-    if (const auto resolved = ResolveWritePath(virtualPath))
-        return *resolved;
-
-    return GetSavedDir() / "Config" / relativePath;
-}
-
-std::filesystem::path FileSystem::ResolveConfigPath(std::string_view relativePath)
-{
-    const std::string logicalConfigPath = relativePath.empty()
-                                              ? std::string{}
-                                              : "Config/" + std::string(relativePath);
-
-    return Resource::ResolveConfigPath(
-        relativePath,
-        GetSavedConfigPath(relativePath),
-        ResolveReadPath("/Project/" + logicalConfigPath),
-        ResolveReadPath("/Engine/" + logicalConfigPath));
-}
-
-std::optional<std::string> FileSystem::ReadTextFile(const std::filesystem::path &path)
-{
-    return Resource::ReadTextFile(path);
-}
-
-std::optional<std::vector<uint8_t>> FileSystem::ReadBinaryFile(const std::filesystem::path &path)
-{
-    return Resource::ReadBinaryFile(path);
 }
