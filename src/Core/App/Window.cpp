@@ -5,11 +5,11 @@
 #endif
 #include <GLFW/glfw3.h>
 
-#include "Core/Diagnostics/Assert.h"
+#include "Core/Diagnostics/Assert/Assert.h"
 #include "Core/Event/EventBus.h"
 #include "Core/Event/Events.h"
-#include "Core/Diagnostics/LogCategories.h"
-#include "Core/Diagnostics/LogMacros.h"
+#include "Core/Diagnostics/Logging/LogCategories.h"
+#include "Core/Diagnostics/Logging/LogMacros.h"
 #include "Core/Input/Input.h"
 
 namespace

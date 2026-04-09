@@ -9,6 +9,35 @@ It provides a lightweight framework where different rendering techniques can be 
 
 ---
 
+## Resource Paths First
+
+Runtime-facing content is identified by logical resource paths, not repository-relative
+filesystem joins.
+
+Examples:
+
+```text
+/Project/Textures/Grassy_Square
+/Engine/Defaults/Materials/ErrorMaterial
+/Plugins/ExamplePlugin/Materials/Checker
+/Saved/Config/Input/DebugCameraControl.json
+```
+
+In development, those logical paths currently resolve against loose `Content/`,
+`EngineContent/`, `Plugins/<Name>/Content/`, `Saved/`, and `Saved/Cache/` roots.
+In cooked runs, the same public logical paths can resolve from loose cooked outputs
+under `Saved/Cache/Cooked/`, `build/Cooked/`, or an explicit
+`RTRLAB_COOKED_ROOT` override. New runtime systems should prefer
+`FileSystem::ResolveReadPath()`, `ResolveWritePath()`, `ReadText()`, `ReadBinary()`,
+`WriteText()`, and `WriteBinary()` over physical-path helper wrappers.
+In packaged runs, the same logical paths can resolve from `.rtrpak` archives under
+`Saved/Cache/Packaged/`, `build/Packaged/`, or an explicit `RTRLAB_PACKAGE_ROOT`
+override. When an explicit loose override root is provided through
+`RTRLAB_OVERLAY_ROOT`, matching overlay catalogs take precedence over packaged
+artifacts without changing the public logical path.
+
+---
+
 ## Features
 
 - **Demo Framework** — modular architecture where each rendering technique lives as an independent, hot-switchable demo
@@ -52,8 +81,10 @@ RT_Rendering_Lab/
 │   ├── scene/          # Camera, DebugCameraController, Light, Transform, SceneData
 │   ├── demos/          # DemoBase, DemoRegistry, LabLayer, ShadowMapping/, MaterialPlayground/
 │   ├── gui/            # ImGuiLayer, DebugPanel, DemoSelectorPanel
+│   ├── Tools/          # Developer utilities such as source catalog indexing
 │   └── main.cpp
-├── assets/
+├── Content/
+│   ├── .rtr/           # Generated source catalogs for loose content mounts
 │   ├── shaders/        # GLSL source (.vert/.frag) + compiled SPIR-V (.spv)
 │   ├── models/
 │   ├── textures/
@@ -162,6 +193,35 @@ Test executables:
 - `rtrlab_contract_tests`
 - `rtrlab_contract_tests_opengl`
 - `rtrlab_integration_tests_opengl`
+
+Resource tooling:
+
+- `rtr_asset_index` generates `.rtr/catalog.json` for `Content/`,
+  `EngineContent/`, and `Plugins/*/Content/`
+- `rtr_asset_cook` writes loose cooked `.rtr/catalog.json` files under
+  `Saved/Cache/Cooked/` by default, or under `build/Cooked/` when invoked with
+  `--layout build`; texture assets currently decode to an RGBA8 bootstrap binary
+  at cooked `.rtrtex` artifact paths with explicit `rowPitch` / `mipLevelCount`
+  metadata in the v2 header, and the runtime can read metadata or full payload
+  through `Resource::ReadCookedTextureMetadata()` and `Resource::LoadCookedTexture()`
+- `rtr_asset_pack` packages cooked `Project`, `Engine`, and `Plugins/<Name>` mounts
+  into `.rtrpak` archives under `Saved/Cache/Packaged/` by default, or under
+  `build/Packaged/` with `--layout build`; packaged runs can resolve the same
+  public logical paths from those archives with `RTRLAB_RESOURCE_PROFILE=packaged`
+  and optionally `RTRLAB_PACKAGE_ROOT=<dir>`
+- `RTRLAB_OVERLAY_ROOT=<dir>` adds a loose override layer on top of packaged or
+  cooked content when that directory contains mount-scoped `.rtr/catalog.json`
+  files under `Project/`, `Engine/`, or `Plugins/<Name>/`
+- loose cooked catalogs now use a distinct versioned cooked JSON schema rather than
+  reusing the source catalog payload shape verbatim
+
+```bash
+./build/<config>/rtr_asset_index --root .
+./build/<config>/rtr_asset_cook --root .
+./build/<config>/rtr_asset_cook --root . --layout build
+./build/<config>/rtr_asset_pack --root .
+./build/<config>/rtr_asset_pack --root . --layout build
+```
 
 OpenGL contract and integration tests create a hidden OpenGL context — they require a GPU or software renderer.
 

@@ -7,41 +7,45 @@
 #include <vector>
 
 #include "Core/Base.h"
-#include "Core/Diagnostics/ImGuiConsoleSink.h"
-#include "Core/Diagnostics/Logger.h"
+#include "Core/Diagnostics/Logging/ImGuiConsoleSink.h"
+#include "Core/Diagnostics/Logging/Logger.h"
+#include "TestPaths.h"
 
 namespace DiagnosticsTestSupport
 {
     inline std::filesystem::path BaseRoot()
     {
-        return std::filesystem::current_path() / "test-output" / "diagnostics";
+        return test_support::CategoryRoot("diagnostics");
     }
 
     inline std::filesystem::path TestRoot()
     {
-        const auto *info = ::testing::UnitTest::GetInstance()->current_test_info();
-        return BaseRoot() / info->test_suite_name() / info->name();
+        return test_support::CurrentTestRoot("diagnostics");
     }
 
     inline std::filesystem::path TestPath(std::string_view relativePath)
     {
-        return TestRoot() / relativePath;
+        return test_support::CurrentTestPath("diagnostics", relativePath);
     }
 
     inline void RemovePathIfExists(const std::filesystem::path &path)
     {
-        std::error_code ec;
-        std::filesystem::remove(path, ec);
+        test_support::RemovePathIfExists(path);
+    }
+
+    inline void RemoveDirectoryIfEmpty(const std::filesystem::path &path)
+    {
+        test_support::RemoveDirectoryIfEmpty(path);
+    }
+
+    inline void RemoveTreeIfExists(const std::filesystem::path &path)
+    {
+        test_support::RemoveTreeIfExists(path);
     }
 
     inline void RemoveCurrentTestArtifacts()
     {
-        std::error_code ec;
-        std::filesystem::remove_all(TestRoot(), ec);
-        ec.clear();
-        std::filesystem::remove(BaseRoot().parent_path(), ec);
-        ec.clear();
-        std::filesystem::remove(BaseRoot(), ec);
+        test_support::RemoveCurrentTestArtifacts("diagnostics");
     }
 
     inline size_t CountEntriesWithMessage(const std::vector<Diagnostics::ConsoleLogEntry> &entries, const char *message)

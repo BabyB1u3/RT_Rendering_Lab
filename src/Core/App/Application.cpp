@@ -2,13 +2,13 @@
 
 #include <GLFW/glfw3.h>
 
-#include "Core/FileSystem.h"
-#include "Core/Diagnostics/Assert.h"
-#include "Core/Diagnostics/CrashHandler.h"
-#include "Core/Diagnostics/FrameFormatter.h"
-#include "Core/Diagnostics/LogCategories.h"
-#include "Core/Diagnostics/LogMacros.h"
-#include "Core/Diagnostics/Logger.h"
+#include "Core/Resource/FileSystem.h"
+#include "Core/Diagnostics/Assert/Assert.h"
+#include "Core/Diagnostics/Crash/CrashHandler.h"
+#include "Core/Diagnostics/Logging/FrameFormatter.h"
+#include "Core/Diagnostics/Logging/LogCategories.h"
+#include "Core/Diagnostics/Logging/LogMacros.h"
+#include "Core/Diagnostics/Logging/Logger.h"
 #include "Core/Event/Events.h"
 #include "Core/Input/Input.h"
 #include "Core/Time.h"
@@ -19,7 +19,7 @@ Application *Application::s_Instance = nullptr;
 Application::Application(const ApplicationSpecification &spec)
 {
     FileSystem::Init();
-    Diagnostics::Logger::Init(FileSystem::GetSavedPath("logs/RTRLab.log"));
+    Diagnostics::Logger::Init();
     Diagnostics::CrashHandler::Init();
     LOG_INFO_CAT(LogCategory::FileSystem, "FileSystem initialized - root: {}", FileSystem::GetRootPath().string());
     LOG_INFO_CAT(LogCategory::FileSystem, "Saved directory: {}", FileSystem::GetSavedDir().string());

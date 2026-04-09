@@ -9,7 +9,8 @@
 #endif
 
 #include "Core/App/Application.h"
-#include "Core/FileSystem.h"
+#include "Core/Diagnostics/Assert/Assert.h"
+#include "Core/Resource/FileSystem.h"
 #include "Core/Input/Input.h"
 
 ImGuiLayer::ImGuiLayer()
@@ -28,8 +29,11 @@ void ImGuiLayer::OnAttach()
 
     // Store imgui.ini in the user config directory (persistent static string
     // because ImGui holds a raw pointer to IniFilename).
-    static std::string iniPath = FileSystem::GetSavedConfigPath("imgui.ini").string();
-    io.IniFilename = iniPath.c_str();
+    const auto iniPath = FileSystem::ResolveWritePath("/Saved/Config/imgui.ini");
+    RTRLAB_ASSERT_MSG(iniPath.has_value(), "Failed to resolve /Saved/Config/imgui.ini");
+    static std::string s_IniPath;
+    s_IniPath = iniPath ? iniPath->string() : std::string{};
+    io.IniFilename = s_IniPath.empty() ? nullptr : s_IniPath.c_str();
 
     ImGui::StyleColorsDark();
 
@@ -70,7 +74,7 @@ void ImGuiLayer::Begin()
 
     // Forward ImGui's capture state to the Input polling layer so that
     // game/demo code does not respond to keys/mouse meant for UI widgets.
-    ImGuiIO& io = ImGui::GetIO();
+    ImGuiIO &io = ImGui::GetIO();
     Input::SetKeyboardCaptured(io.WantCaptureKeyboard);
     Input::SetMouseCaptured(io.WantCaptureMouse);
 }

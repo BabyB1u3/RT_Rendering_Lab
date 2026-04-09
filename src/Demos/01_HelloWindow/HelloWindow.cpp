@@ -2,8 +2,8 @@
 
 #include <imgui.h>
 
-#include "Core/Diagnostics/LogCategories.h"
-#include "Core/Diagnostics/LogMacros.h"
+#include "Core/Diagnostics/Logging/LogCategories.h"
+#include "Core/Diagnostics/Logging/LogMacros.h"
 
 HelloWindow::HelloWindow(uint32_t width, uint32_t height)
     : m_ViewportWidth(width),

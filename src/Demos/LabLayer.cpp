@@ -2,12 +2,12 @@
 
 #include <utility>
 
-#include "Core/Diagnostics/Assert.h"
-#include "Core/Diagnostics/LogCategories.h"
+#include "Core/Diagnostics/Assert/Assert.h"
+#include "Core/Diagnostics/Logging/LogCategories.h"
 #include "Core/App/Application.h"
 #include "Core/Event/Events.h"
 #include "Core/Input/Input.h"
-#include "Core/Diagnostics/LogMacros.h"
+#include "Core/Diagnostics/Logging/LogMacros.h"
 #include "DemoBase.h"
 #include "DemoRegistry.h"
 #include "Demos/01_HelloWindow/HelloWindow.h"

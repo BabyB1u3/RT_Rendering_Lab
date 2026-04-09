@@ -53,7 +53,7 @@ RT_Rendering_Lab/
 │   ├── demos/          # DemoBase、DemoRegistry、LabLayer、ShadowMapping/、MaterialPlayground/
 │   ├── gui/            # ImGui 层、调试面板、Demo 选择面板
 │   └── main.cpp
-├── assets/
+├── Content/
 │   ├── shaders/        # GLSL 源码（.vert/.frag）+ 编译后的 SPIR-V（.spv）
 │   ├── models/
 │   ├── textures/

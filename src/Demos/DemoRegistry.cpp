@@ -1,7 +1,7 @@
 #include "DemoRegistry.h"
 
 #include "DemoBase.h"
-#include "Core/Diagnostics/ErrorMacros.h"
+#include "Core/Diagnostics/Assert/ErrorMacros.h"
 
 // Function-local statics ensure the containers are initialized on first use,
 // avoiding the static initialization order fiasco (SIOF).
