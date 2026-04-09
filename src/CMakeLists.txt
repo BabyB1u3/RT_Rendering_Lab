@@ -60,6 +60,8 @@ set(GLAB_INPUT_SOURCES
     Core/Input/Device/InputDeviceManager.cpp
     Core/Input/Device/KeyboardDevice.cpp
     Core/Input/Device/MouseDevice.cpp
+    Core/Input/Replay/InputRecording.cpp
+    Core/Input/Replay/ReplayDevice.cpp
 )
 
 set(GLAB_INPUT_HEADERS
@@ -80,6 +82,8 @@ set(GLAB_INPUT_HEADERS
     Core/Input/Device/InputDeviceManager.h
     Core/Input/Device/KeyboardDevice.h
     Core/Input/Device/MouseDevice.h
+    Core/Input/Replay/InputRecording.h
+    Core/Input/Replay/ReplayDevice.h
 )
 
 set(GLAB_DIAGNOSTICS_SOURCES
