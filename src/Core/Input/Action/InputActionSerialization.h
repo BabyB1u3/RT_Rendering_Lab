@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 /// @file InputActionSerialization.h
 /// @brief Serialize/Deserialize traits for InputActionMap.
@@ -6,8 +6,13 @@
 /// Produces the same JSON structure as the old inline SaveToFile/LoadFromFile:
 ///
 ///   {
-///     "actions": { "Name": [ { "type": "Key", "code": "W" }, ... ] },
-///     "axes":    { "Name": { "kind": "KeyPair", "positive": "W", "negative": "S" } }
+///     "actions": {
+///       "Name": [
+///         { "type": "Key", "code": "W" },
+///         { "kind": "Chord", "sources": [ ... ] }
+///       ]
+///     },
+///     "axes": { "Name": { "kind": "KeyPair", "positive": "W", "negative": "S" } }
 ///   }
 ///
 /// InputSource::Type and MouseAxis use magic_enum for token conversion.
@@ -22,9 +27,9 @@
 namespace Serialization
 {
 
-    // ════════════════════════════════════════════════════════════════════�?
+    // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲锟?
     // InputSource
-    // ════════════════════════════════════════════════════════════════════�?
+    // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲锟?
 
     inline void Serialize(PropertyTree &tree, const InputSource &src)
     {
@@ -95,9 +100,44 @@ namespace Serialization
         return true;
     }
 
-    // ════════════════════════════════════════════════════════════════════�?
+    // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲锟?
+    // ChordBinding
+    inline void Serialize(PropertyTree &tree, const ChordBinding &binding)
+    {
+        tree = PropertyTree::Object{};
+        tree["kind"] = PropertyTree("Chord");
+
+        PropertyTree sourcesTree;
+        Serialize(sourcesTree, binding.Sources);
+        tree["sources"] = std::move(sourcesTree);
+    }
+
+    inline bool Deserialize(const PropertyTree &tree, ChordBinding &binding)
+    {
+        if (!tree.IsObject())
+            return false;
+
+        if (tree.Contains("kind"))
+        {
+            std::string kind;
+            Deserialize(tree["kind"], kind);
+            if (kind != "Chord")
+                return false;
+        }
+
+        if (!tree.Contains("sources"))
+            return false;
+
+        std::vector<InputSource> sources;
+        if (!Deserialize(tree["sources"], sources) || sources.empty())
+            return false;
+
+        binding.Sources = std::move(sources);
+        return true;
+    }
+
     // InputActionMap
-    // ════════════════════════════════════════════════════════════════════�?
+    // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲锟?
 
     inline void Serialize(PropertyTree &tree, const InputActionMap &map)
     {
@@ -110,6 +150,20 @@ namespace Serialization
             PropertyTree arr;
             Serialize(arr, sources); // std::vector<InputSource>
             actionsTree[name] = std::move(arr);
+        }
+
+        for (const auto &[name, chords] : map.GetChordActions())
+        {
+            if (!actionsTree.Contains(name))
+                actionsTree[name] = PropertyTree::Array{};
+
+            auto &arr = actionsTree[name].AsArray();
+            for (const auto &chord : chords)
+            {
+                PropertyTree chordTree;
+                Serialize(chordTree, chord);
+                arr.push_back(std::move(chordTree));
+            }
         }
         tree["actions"] = std::move(actionsTree);
 
@@ -163,6 +217,13 @@ namespace Serialization
 
                 for (const auto &srcTree : arr.AsArray())
                 {
+                    ChordBinding chord{};
+                    if (Deserialize(srcTree, chord))
+                    {
+                        temp.BindChordAction(name, chord.Sources);
+                        continue;
+                    }
+
                     InputSource src{};
                     if (!Deserialize(srcTree, src))
                     {
@@ -173,11 +234,19 @@ namespace Serialization
                         std::string typeName;
                         if (srcTree.IsObject() && srcTree.Contains("type"))
                             typeName = srcTree["type"].AsString();
+                        std::string kindName;
+                        if (srcTree.IsObject() && srcTree.Contains("kind"))
+                            kindName = srcTree["kind"].AsString();
 
                         if (!codeName.empty())
                         {
                             LOG_WARN_CAT(LogCategory::Input, "InputActionMap: unknown {} '{}' in action '{}'",
                                          typeName.empty() ? "key" : typeName, codeName, name);
+                        }
+                        else if (!kindName.empty())
+                        {
+                            LOG_WARN_CAT(LogCategory::Input, "InputActionMap: unsupported action binding kind '{}' in '{}'",
+                                         kindName, name);
                         }
                         continue;
                     }
@@ -252,3 +321,4 @@ namespace Serialization
     }
 
 } // namespace Serialization
+

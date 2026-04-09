@@ -3,28 +3,6 @@
 
 #include <algorithm>
 
-namespace
-{
-    template <typename Predicate>
-    const InputContext *FindFirstReachableContext(const std::vector<InputContext> &contexts,
-                                                  Predicate &&predicate)
-    {
-        for (const auto &ctx : contexts)
-        {
-            if (!ctx.Active || ctx.ActionMap == nullptr)
-                continue;
-
-            if (predicate(ctx))
-                return &ctx;
-
-            if (ctx.ConsumesInput)
-                break;
-        }
-
-        return nullptr;
-    }
-}
-
 // --- Lifecycle ---
 
 void InputContextStack::Push(const std::string &name, InputActionMap *map,
@@ -76,12 +54,15 @@ void InputContextStack::SetActive(const std::string &name, bool active)
 
 void InputContextStack::Update(float dt)
 {
+    std::vector<InputSource> blockedSources;
+
     for (auto &ctx : m_Contexts)
     {
         if (!ctx.Active || ctx.ActionMap == nullptr)
             continue;
 
-        ctx.ActionMap->Update(dt);
+        ctx.ActionMap->Update(dt, blockedSources);
+        ctx.ActionMap->AppendBlockingChordSources(blockedSources);
 
         if (ctx.ConsumesInput)
             break;
@@ -92,26 +73,61 @@ void InputContextStack::Update(float dt)
 
 bool InputContextStack::IsActionDown(const std::string &action) const
 {
-    const InputContext *ctx = FindFirstReachableContext(
-        m_Contexts, [&](const InputContext &candidate)
-        { return candidate.ActionMap->HasAction(action); });
-    return ctx != nullptr ? ctx->ActionMap->IsActionDown(action) : false;
+    std::vector<InputSource> blockedSources;
+
+    for (const auto &ctx : m_Contexts)
+    {
+        if (!ctx.Active || ctx.ActionMap == nullptr)
+            continue;
+
+        if (ctx.ActionMap->HasActionAvailable(action, blockedSources))
+            return ctx.ActionMap->IsActionDown(action, blockedSources);
+
+        ctx.ActionMap->AppendBlockingChordSources(blockedSources);
+
+        if (ctx.ConsumesInput)
+            break;
+    }
+
+    return false;
 }
 
 bool InputContextStack::WasActionTriggeredThisFrame(const std::string &action) const
 {
-    const InputContext *ctx = FindFirstReachableContext(
-        m_Contexts, [&](const InputContext &candidate)
-        { return candidate.ActionMap->HasAction(action); });
-    return ctx != nullptr ? ctx->ActionMap->WasActionTriggeredThisFrame(action) : false;
+    std::vector<InputSource> blockedSources;
+
+    for (const auto &ctx : m_Contexts)
+    {
+        if (!ctx.Active || ctx.ActionMap == nullptr)
+            continue;
+
+        if (ctx.ActionMap->HasActionAvailable(action, blockedSources))
+            return ctx.ActionMap->WasActionTriggeredThisFrame(action, blockedSources);
+
+        ctx.ActionMap->AppendBlockingChordSources(blockedSources);
+
+        if (ctx.ConsumesInput)
+            break;
+    }
+
+    return false;
 }
 
 float InputContextStack::GetAxis(const std::string &axis) const
 {
-    const InputContext *ctx = FindFirstReachableContext(
-        m_Contexts, [&](const InputContext &candidate)
-        { return candidate.ActionMap->HasAxis(axis); });
-    return ctx != nullptr ? ctx->ActionMap->GetAxis(axis) : 0.0f;
+    for (const auto &ctx : m_Contexts)
+    {
+        if (!ctx.Active || ctx.ActionMap == nullptr)
+            continue;
+
+        if (ctx.ActionMap->HasAxis(axis))
+            return ctx.ActionMap->GetAxis(axis);
+
+        if (ctx.ConsumesInput)
+            break;
+    }
+
+    return 0.0f;
 }
 
 // --- Utility ---
