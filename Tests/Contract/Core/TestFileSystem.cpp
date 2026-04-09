@@ -145,7 +145,7 @@ TEST(FileSystemContractTests, ResolveReadPathUsesCatalogForExtensionlessProjectA
     const auto resolved = FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square");
 
     ASSERT_TRUE(resolved.has_value());
-    EXPECT_EQ(*resolved, ProjectContentPath("textures/Grassy_Square.jpg"));
+    EXPECT_EQ(*resolved, ProjectContentPath("Textures/Grassy_Square.jpg"));
     EXPECT_TRUE(std::filesystem::exists(*resolved));
 }
 
@@ -155,7 +155,7 @@ TEST(FileSystemContractTests, ResolveReadPathCanSwitchBetweenSourceAndCookedProj
 
     const auto sourceResolved = FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square");
     ASSERT_TRUE(sourceResolved.has_value());
-    EXPECT_EQ(*sourceResolved, ProjectContentPath("textures/Grassy_Square.jpg"));
+    EXPECT_EQ(*sourceResolved, ProjectContentPath("Textures/Grassy_Square.jpg"));
 
     const auto cookedRoot = FileSystem::GetCacheDir() / "Cooked" / "Project";
     const auto cookedArtifactPath = cookedRoot / "Textures" / "Grassy_Square.rtrtex";
@@ -197,7 +197,7 @@ TEST(FileSystemContractTests, ResolveReadPathCanSwitchBetweenSourceAndCookedProj
     FileSystem::RefreshCatalogs();
     const auto revertedResolved = FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square");
     ASSERT_TRUE(revertedResolved.has_value());
-    EXPECT_EQ(*revertedResolved, ProjectContentPath("textures/Grassy_Square.jpg"));
+    EXPECT_EQ(*revertedResolved, ProjectContentPath("Textures/Grassy_Square.jpg"));
 
     test_support::RemoveTreeIfExists(FileSystem::GetCacheDir() / "Cooked");
 }
@@ -447,7 +447,7 @@ TEST(FileSystemContractTests, ResolveReadPathCanSwitchBetweenLooseAndPackagedArt
 
     const auto sourceProjectResolved = FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square");
     ASSERT_TRUE(sourceProjectResolved.has_value());
-    EXPECT_EQ(*sourceProjectResolved, ProjectContentPath("textures/Grassy_Square.jpg"));
+    EXPECT_EQ(*sourceProjectResolved, ProjectContentPath("Textures/Grassy_Square.jpg"));
 
     const auto sourceEngineResolved = FileSystem::ResolveReadPath("/Engine/Defaults/Materials/Phase13PackagedMaterial");
     ASSERT_TRUE(sourceEngineResolved.has_value());
@@ -865,7 +865,7 @@ TEST(FileSystemContractTests, ResolveReadPathKeepsProjectAndPluginNamespacesSepa
 
     ASSERT_TRUE(projectResolved.has_value());
     ASSERT_TRUE(pluginResolved.has_value());
-    EXPECT_EQ(*projectResolved, ProjectContentPath("textures/Grassy_Square.jpg"));
+    EXPECT_EQ(*projectResolved, ProjectContentPath("Textures/Grassy_Square.jpg"));
     EXPECT_EQ(*pluginResolved, pluginArtifactPath);
 
     test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
@@ -1052,7 +1052,7 @@ TEST(FileSystemContractTests, ResolveReadPathProjectCatalogStillWorksWhenAnother
     const auto resolved = FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square");
 
     ASSERT_TRUE(resolved.has_value());
-    EXPECT_EQ(*resolved, ProjectContentPath("textures/Grassy_Square.jpg"));
+    EXPECT_EQ(*resolved, ProjectContentPath("Textures/Grassy_Square.jpg"));
 
     test_support::RemoveTreeIfExists(pluginRoot.parent_path().parent_path());
 }
