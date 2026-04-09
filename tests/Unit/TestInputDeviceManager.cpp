@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "Core/Event/EventBus.h"
@@ -183,11 +184,18 @@ TEST(InputDeviceManagerTests, PollAllPublishesGamepadConnectionTransitions)
     EventBus bus;
     std::vector<uint8_t> connected;
     std::vector<uint8_t> disconnected;
+    std::vector<bool> connectionStates;
 
     auto connectedConnection = bus.Subscribe<GamepadConnectedEvent>(
         [&](const GamepadConnectedEvent &event) { connected.push_back(event.DeviceIndex); });
     auto disconnectedConnection = bus.Subscribe<GamepadDisconnectedEvent>(
         [&](const GamepadDisconnectedEvent &event) { disconnected.push_back(event.DeviceIndex); });
+    auto connectionChangedConnection = bus.Subscribe<DeviceConnectionChangedEvent>(
+        [&](const DeviceConnectionChangedEvent &event)
+        {
+            if (event.DeviceType == InputDevice::Type::Gamepad && event.DeviceIndex == 2)
+                connectionStates.push_back(event.Connected);
+        });
 
     auto *gamepad = new FakeDevice(InputDevice::Type::Gamepad, 2);
     manager.AddDevice(Scope<InputDevice>(gamepad));
@@ -201,12 +209,176 @@ TEST(InputDeviceManagerTests, PollAllPublishesGamepadConnectionTransitions)
     manager.PollAll();
     ASSERT_EQ(connected.size(), 1u);
     EXPECT_EQ(connected[0], 2);
+    ASSERT_EQ(connectionStates.size(), 1u);
+    EXPECT_TRUE(connectionStates[0]);
 
     gamepad->SetNextConnected(false);
     manager.PollAll();
     ASSERT_EQ(disconnected.size(), 1u);
     EXPECT_EQ(disconnected[0], 2);
+    ASSERT_EQ(connectionStates.size(), 2u);
+    EXPECT_FALSE(connectionStates[1]);
 
     (void) connectedConnection;
     (void) disconnectedConnection;
+    (void) connectionChangedConnection;
+}
+
+TEST(InputDeviceManagerTests, AddRemoveAndClearPublishDeviceLifecycleEvents)
+{
+    InputDeviceManager manager;
+    EventBus bus;
+    std::vector<std::string> events;
+
+    auto attachedConnection = bus.Subscribe<DeviceAttachedToSlotEvent>(
+        [&](const DeviceAttachedToSlotEvent &event)
+        {
+            events.push_back("attach:" + std::to_string(static_cast<int>(event.DeviceType)) + ":" + std::to_string(event.DeviceIndex));
+        });
+    auto detachedConnection = bus.Subscribe<DeviceDetachedFromSlotEvent>(
+        [&](const DeviceDetachedFromSlotEvent &event)
+        {
+            events.push_back("detach:" + std::to_string(static_cast<int>(event.DeviceType)) + ":" + std::to_string(event.DeviceIndex));
+        });
+    auto connectionChangedConnection = bus.Subscribe<DeviceConnectionChangedEvent>(
+        [&](const DeviceConnectionChangedEvent &event)
+        {
+            events.push_back("conn:" + std::to_string(static_cast<int>(event.DeviceType)) + ":" +
+                             std::to_string(event.DeviceIndex) + ":" + (event.Connected ? "1" : "0"));
+        });
+    auto gamepadConnectedConnection = bus.Subscribe<GamepadConnectedEvent>(
+        [&](const GamepadConnectedEvent &event)
+        {
+            events.push_back("gconn:" + std::to_string(event.DeviceIndex));
+        });
+    auto gamepadDisconnectedConnection = bus.Subscribe<GamepadDisconnectedEvent>(
+        [&](const GamepadDisconnectedEvent &event)
+        {
+            events.push_back("gdisc:" + std::to_string(event.DeviceIndex));
+        });
+
+    manager.SetEventBus(&bus);
+
+    auto *gamepad = new FakeDevice(InputDevice::Type::Gamepad, 1);
+    gamepad->SetNextConnected(true);
+    gamepad->Poll();
+    manager.AddDevice(Scope<InputDevice>(gamepad));
+
+    EXPECT_EQ(events, (std::vector<std::string>{
+                          "attach:2:1",
+                          "conn:2:1:1",
+                          "gconn:1"}));
+
+    events.clear();
+    auto *replacement = new FakeDevice(InputDevice::Type::Gamepad, 1);
+    replacement->SetNextConnected(true);
+    replacement->Poll();
+    manager.AddDevice(Scope<InputDevice>(replacement));
+
+    EXPECT_EQ(events, (std::vector<std::string>{
+                          "detach:2:1",
+                          "attach:2:1"}));
+
+    events.clear();
+    auto removed = manager.RemoveDevice(InputDevice::Type::Gamepad, 1);
+    ASSERT_NE(removed, nullptr);
+    EXPECT_EQ(events, (std::vector<std::string>{
+                          "detach:2:1",
+                          "conn:2:1:0",
+                          "gdisc:1"}));
+
+    events.clear();
+    auto *keyboard = new FakeDevice(InputDevice::Type::Keyboard, 0);
+    keyboard->SetNextConnected(true);
+    keyboard->Poll();
+    auto *mouse = new FakeDevice(InputDevice::Type::Mouse, 0);
+    mouse->SetNextConnected(true);
+    mouse->Poll();
+    manager.AddDevice(Scope<InputDevice>(keyboard));
+    manager.AddDevice(Scope<InputDevice>(mouse));
+    events.clear();
+
+    manager.Clear();
+
+    EXPECT_EQ(events, (std::vector<std::string>{
+                          "detach:0:0",
+                          "conn:0:0:0",
+                          "detach:1:0",
+                          "conn:1:0:0"}));
+
+    (void) attachedConnection;
+    (void) detachedConnection;
+    (void) connectionChangedConnection;
+    (void) gamepadConnectedConnection;
+    (void) gamepadDisconnectedConnection;
+}
+
+TEST(InputDeviceManagerTests, ReplacingDevicePublishesConnectionDeltaWhenSlotAvailabilityChanges)
+{
+    InputDeviceManager manager;
+    EventBus bus;
+    std::vector<std::string> events;
+
+    auto attachedConnection = bus.Subscribe<DeviceAttachedToSlotEvent>(
+        [&](const DeviceAttachedToSlotEvent &event)
+        {
+            if (event.DeviceType == InputDevice::Type::Gamepad && event.DeviceIndex == 3)
+                events.push_back("attach");
+        });
+    auto detachedConnection = bus.Subscribe<DeviceDetachedFromSlotEvent>(
+        [&](const DeviceDetachedFromSlotEvent &event)
+        {
+            if (event.DeviceType == InputDevice::Type::Gamepad && event.DeviceIndex == 3)
+                events.push_back("detach");
+        });
+    auto connectionChangedConnection = bus.Subscribe<DeviceConnectionChangedEvent>(
+        [&](const DeviceConnectionChangedEvent &event)
+        {
+            if (event.DeviceType == InputDevice::Type::Gamepad && event.DeviceIndex == 3)
+                events.push_back(event.Connected ? "conn1" : "conn0");
+        });
+    auto gamepadConnectedConnection = bus.Subscribe<GamepadConnectedEvent>(
+        [&](const GamepadConnectedEvent &event)
+        {
+            if (event.DeviceIndex == 3)
+                events.push_back("gconn");
+        });
+    auto gamepadDisconnectedConnection = bus.Subscribe<GamepadDisconnectedEvent>(
+        [&](const GamepadDisconnectedEvent &event)
+        {
+            if (event.DeviceIndex == 3)
+                events.push_back("gdisc");
+        });
+
+    manager.SetEventBus(&bus);
+
+    auto *disconnected = new FakeDevice(InputDevice::Type::Gamepad, 3);
+    manager.AddDevice(Scope<InputDevice>(disconnected));
+    EXPECT_EQ(events, (std::vector<std::string>{"attach"}));
+
+    events.clear();
+    auto *connected = new FakeDevice(InputDevice::Type::Gamepad, 3);
+    connected->SetNextConnected(true);
+    connected->Poll();
+    manager.AddDevice(Scope<InputDevice>(connected));
+    EXPECT_EQ(events, (std::vector<std::string>{
+                          "detach",
+                          "attach",
+                          "conn1",
+                          "gconn"}));
+
+    events.clear();
+    auto *replacementDisconnected = new FakeDevice(InputDevice::Type::Gamepad, 3);
+    manager.AddDevice(Scope<InputDevice>(replacementDisconnected));
+    EXPECT_EQ(events, (std::vector<std::string>{
+                          "detach",
+                          "attach",
+                          "conn0",
+                          "gdisc"}));
+
+    (void) attachedConnection;
+    (void) detachedConnection;
+    (void) connectionChangedConnection;
+    (void) gamepadConnectedConnection;
+    (void) gamepadDisconnectedConnection;
 }

@@ -1,13 +1,16 @@
 #include <gtest/gtest.h>
 
+#include "Core/Input/Input.h"
 #include "Core/Input/Action/InputContextStack.h"
 #include "Core/Input/Action/InputAction.h"
 #include "InputActionTestSupport.h"
+#include "InputTestAccess.h"
 
 namespace
 {
     using test_support::BindConstantAxis;
     using test_support::BindConstantTrigger;
+    using test_support::InputTestAccess;
 }
 
 // These tests verify the contract behavior of InputContextStack:
@@ -257,4 +260,58 @@ TEST(InputContextStackTests, UpdateOnEmptyStackIsNoOp)
 
     stack.Update(0.016f);
     EXPECT_EQ(stack.Size(), 0u);
+}
+
+TEST(InputContextStackTests, PendingHigherPriorityChordBlocksLowerSingleKeyAction)
+{
+    InputTestAccess::RestoreDefaultDevices();
+    Input::Initialize(nullptr);
+
+    InputContextStack stack;
+    InputActionMap highMap, lowMap;
+
+    highMap.BindChordAction("Save", {InputSource::FromKey(Key::LeftControl), InputSource::FromKey(Key::S)});
+    lowMap.BindAction("Crouch", Key::LeftControl);
+
+    stack.Push("Editor", &highMap, 100);
+    stack.Push("Gameplay", &lowMap, 0);
+
+    auto frame = InputTestAccess::MakeFrame();
+    InputTestAccess::SetKey(frame, Key::LeftControl, true);
+    InputTestAccess::ApplyFrame(frame);
+    stack.Update(0.016f);
+
+    EXPECT_FALSE(stack.WasActionTriggeredThisFrame("Crouch"));
+    EXPECT_FALSE(stack.IsActionDown("Crouch"));
+    EXPECT_FALSE(lowMap.WasActionTriggeredThisFrame("Crouch"));
+}
+
+TEST(InputContextStackTests, HigherPriorityChordDoesNotBlockUnrelatedLowerBinding)
+{
+    InputTestAccess::RestoreDefaultDevices();
+    Input::Initialize(nullptr);
+
+    InputContextStack stack;
+    InputActionMap highMap, lowMap;
+
+    highMap.BindChordAction("Save", {InputSource::FromKey(Key::LeftControl), InputSource::FromKey(Key::S)});
+    lowMap.BindAction("Confirm", Key::Enter);
+    lowMap.BindAction("Confirm", InputSource::FromMouseButton(Mouse::Left));
+
+    stack.Push("Editor", &highMap, 100);
+    stack.Push("Gameplay", &lowMap, 0);
+
+    auto chordFrame = InputTestAccess::MakeFrame();
+    InputTestAccess::SetKey(chordFrame, Key::LeftControl, true);
+    InputTestAccess::ApplyFrame(chordFrame);
+    stack.Update(0.016f);
+    EXPECT_FALSE(stack.WasActionTriggeredThisFrame("Confirm"));
+
+    auto clickFrame = InputTestAccess::MakeFrame();
+    InputTestAccess::SetKey(clickFrame, Key::LeftControl, true);
+    InputTestAccess::SetMouseButton(clickFrame, Mouse::Left, true);
+    InputTestAccess::ApplyFrame(clickFrame);
+    stack.Update(0.016f);
+
+    EXPECT_TRUE(stack.WasActionTriggeredThisFrame("Confirm"));
 }

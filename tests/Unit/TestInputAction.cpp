@@ -2,6 +2,7 @@
 
 #include "Core/Input/Input.h"
 #include "Core/Input/Action/InputAction.h"
+#include "Core/Input/Action/InputActionSerialization.h"
 #include "InputActionTestSupport.h"
 #include "InputTestAccess.h"
 
@@ -69,6 +70,17 @@ TEST_F(InputActionMapTest, BindActionMultipleTimesAccumulatesSources)
     ASSERT_EQ(map.GetActions().at("Confirm").size(), 2u);
     EXPECT_EQ(map.GetActions().at("Confirm")[1].SourceType, InputSource::Type::MouseButton);
     EXPECT_EQ(map.GetActions().at("Confirm")[1].Code, Mouse::Left);
+}
+
+TEST_F(InputActionMapTest, BindChordActionStoresChordBinding)
+{
+    map.BindChordAction("Save", {InputSource::FromKey(Key::LeftControl), InputSource::FromKey(Key::S)});
+
+    ASSERT_TRUE(map.GetChordActions().contains("Save"));
+    ASSERT_EQ(map.GetChordActions().at("Save").size(), 1u);
+    ASSERT_EQ(map.GetChordActions().at("Save")[0].Sources.size(), 2u);
+    EXPECT_EQ(map.GetChordActions().at("Save")[0].Sources[0].Code, Key::LeftControl);
+    EXPECT_EQ(map.GetChordActions().at("Save")[0].Sources[1].Code, Key::S);
 }
 
 TEST_F(InputActionMapTest, BindAxisSameNameOverwritesPreviousBinding)
@@ -422,6 +434,75 @@ TEST_F(InputActionMapTest, TapTriggerTriggersOnQuickRelease)
     UpdateWithFrame(MakeFrame(), 0.03f);
     EXPECT_TRUE(map.WasActionTriggeredThisFrame("Dash"));
     EXPECT_EQ(map.GetActionTriggerState("Dash"), TriggerState::Triggered);
+}
+
+TEST_F(InputActionMapTest, DoubleTapTriggerTriggersOnSecondPress)
+{
+    map.BindAction("Dash", Key::Space);
+    map.SetTrigger("Dash", std::make_unique<DoubleTapTrigger>(0.1f));
+
+    auto pressedFrame = MakeFrame();
+    InputTestAccess::SetKey(pressedFrame, Key::Space, true);
+
+    UpdateWithFrame(pressedFrame, 0.01f);
+    EXPECT_EQ(map.GetActionTriggerState("Dash"), TriggerState::Ongoing);
+
+    UpdateWithFrame(MakeFrame(), 0.03f);
+    EXPECT_EQ(map.GetActionTriggerState("Dash"), TriggerState::Ongoing);
+
+    ApplyFrame(MakeFrame());
+    UpdateWithFrame(pressedFrame, 0.03f);
+    EXPECT_TRUE(map.WasActionTriggeredThisFrame("Dash"));
+    EXPECT_EQ(map.GetActionTriggerState("Dash"), TriggerState::Triggered);
+}
+
+TEST_F(InputActionMapTest, ChordActionRequiresAllSourcesAndTracksEdges)
+{
+    map.BindChordAction("Save", {InputSource::FromKey(Key::LeftControl), InputSource::FromKey(Key::S)});
+
+    auto ctrlOnly = MakeFrame();
+    InputTestAccess::SetKey(ctrlOnly, Key::LeftControl, true);
+    ApplyFrame(ctrlOnly);
+    EXPECT_FALSE(map.IsActionDown("Save"));
+    EXPECT_FALSE(map.WasActionPressedThisFrame("Save"));
+
+    auto chordFrame = ctrlOnly;
+    InputTestAccess::SetKey(chordFrame, Key::S, true);
+    ApplyFrame(chordFrame);
+    EXPECT_TRUE(map.IsActionDown("Save"));
+    EXPECT_TRUE(map.WasActionPressedThisFrame("Save"));
+    EXPECT_FALSE(map.WasActionReleasedThisFrame("Save"));
+
+    ApplyFrame(chordFrame);
+    EXPECT_TRUE(map.IsActionDown("Save"));
+    EXPECT_FALSE(map.WasActionPressedThisFrame("Save"));
+
+    ApplyFrame(ctrlOnly);
+    EXPECT_FALSE(map.IsActionDown("Save"));
+    EXPECT_TRUE(map.WasActionReleasedThisFrame("Save"));
+}
+
+TEST_F(InputActionMapTest, SerializeAndDeserializeChordBindingsRemainCompatibleWithSingleSources)
+{
+    map.BindAction("Confirm", Key::Enter);
+    map.BindChordAction("Save", {InputSource::FromKey(Key::LeftControl), InputSource::FromKey(Key::S)});
+
+    Serialization::PropertyTree tree;
+    Serialization::Serialize(tree, map);
+
+    ASSERT_TRUE(tree.Contains("actions"));
+    ASSERT_TRUE(tree["actions"].Contains("Confirm"));
+    ASSERT_TRUE(tree["actions"].Contains("Save"));
+    ASSERT_EQ(tree["actions"]["Confirm"].AsArray().size(), 1u);
+    ASSERT_EQ(tree["actions"]["Save"].AsArray().size(), 1u);
+    EXPECT_EQ(tree["actions"]["Save"][0]["kind"].AsString(), "Chord");
+
+    InputActionMap roundTrip;
+    ASSERT_TRUE(Serialization::Deserialize(tree, roundTrip));
+    ASSERT_TRUE(roundTrip.GetActions().contains("Confirm"));
+    ASSERT_TRUE(roundTrip.GetChordActions().contains("Save"));
+    ASSERT_EQ(roundTrip.GetChordActions().at("Save").size(), 1u);
+    ASSERT_EQ(roundTrip.GetChordActions().at("Save")[0].Sources.size(), 2u);
 }
 
 TEST_F(InputActionMapTest, GamepadButtonActionTracksDownPressAndReleaseAcrossFrames)

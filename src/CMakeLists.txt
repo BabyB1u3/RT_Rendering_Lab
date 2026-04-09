@@ -53,6 +53,8 @@ set(GLAB_INPUT_SOURCES
     Core/Input/Input.cpp
     Core/Input/Action/InputAction.cpp
     Core/Input/Action/InputContextStack.cpp
+    Core/Input/Action/InputPatterns.cpp
+    Core/Input/Action/InputSource.cpp
     Core/Input/Code/InputNames.cpp
     Core/Input/Device/GamepadDevice.cpp
     Core/Input/Device/InputDeviceManager.cpp
@@ -66,6 +68,8 @@ set(GLAB_INPUT_HEADERS
     Core/Input/Action/InputActionSerialization.h
     Core/Input/Action/InputContextStack.h
     Core/Input/Action/InputModifier.h
+    Core/Input/Action/InputPatterns.h
+    Core/Input/Action/InputSource.h
     Core/Input/Action/InputTrigger.h
     Core/Input/Code/GamepadCode.h
     Core/Input/Code/InputNames.h

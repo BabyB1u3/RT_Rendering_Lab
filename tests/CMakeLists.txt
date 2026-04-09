@@ -72,6 +72,7 @@ glab_add_test_executable(rtrlab_unit_tests
     Unit/TestInputDeviceManager.cpp
     Unit/TestInputModifiers.cpp
     Unit/TestInputNames.cpp
+    Unit/TestInputPatterns.cpp
     Unit/TestInputTriggers.cpp
     Unit/TestJsonBackend.cpp
     Unit/TestLayerStack.cpp

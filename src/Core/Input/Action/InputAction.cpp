@@ -1,15 +1,14 @@
 #include "Core/Input/Action/InputAction.h"
-#include "Core/Input/Input.h"
+
 #include "Core/Input/Device/InputDeviceManager.h"
-#include "Core/Input/Device/MouseDevice.h"
+#include "Core/Input/Input.h"
 
 namespace
 {
-    constexpr float kAxisPressThreshold = 0.5f;
-
-    bool IsActive(float value)
+    const std::vector<InputSource> &NoBlockedSources()
     {
-        return value > kAxisPressThreshold || value < -kAxisPressThreshold;
+        static const std::vector<InputSource> sources;
+        return sources;
     }
 }
 
@@ -18,6 +17,19 @@ namespace
 void InputActionMap::BindAction(const std::string &name, InputSource source)
 {
     m_Actions[name].push_back(source);
+}
+
+void InputActionMap::BindChordAction(const std::string &name, std::vector<InputSource> sources)
+{
+    if (sources.empty())
+        return;
+
+    m_ChordActions[name].push_back({std::move(sources)});
+}
+
+void InputActionMap::BindChordAction(const std::string &name, std::initializer_list<InputSource> sources)
+{
+    BindChordAction(name, std::vector<InputSource>(sources));
 }
 
 void InputActionMap::BindAction(const std::string &name, Key::Code key)
@@ -54,26 +66,31 @@ void InputActionMap::BindAxis(const std::string &name, GamepadAxis::Code gamepad
 void InputActionMap::Unbind(const std::string &name)
 {
     m_Actions.erase(name);
+    m_ChordActions.erase(name);
     m_Axes.erase(name);
     m_Modifiers.erase(name);
     m_Triggers.erase(name);
     m_TriggerStates.erase(name);
     m_CachedAxisValues.erase(name);
+    m_CachedActionStates.erase(name);
 }
 
 void InputActionMap::Clear()
 {
     m_Actions.clear();
+    m_ChordActions.clear();
     m_Axes.clear();
     m_Modifiers.clear();
     m_Triggers.clear();
     m_TriggerStates.clear();
     m_CachedAxisValues.clear();
+    m_CachedActionStates.clear();
 }
 
 bool InputActionMap::HasAction(const std::string &name) const
 {
-    return m_Actions.find(name) != m_Actions.end();
+    return m_Actions.find(name) != m_Actions.end() ||
+           m_ChordActions.find(name) != m_ChordActions.end();
 }
 
 bool InputActionMap::HasAxis(const std::string &name) const
@@ -102,8 +119,14 @@ void InputActionMap::SetTrigger(const std::string &actionName, Scope<InputTrigge
 
 void InputActionMap::Update(float dt)
 {
+    Update(dt, NoBlockedSources());
+}
+
+void InputActionMap::Update(float dt, const std::vector<InputSource> &blockedSources)
+{
     // Evaluate axis modifiers and cache results.
     m_CachedAxisValues.clear();
+    m_CachedActionStates.clear();
     for (const auto &[name, entry] : m_Axes)
     {
         float value = ComputeRawAxis(entry);
@@ -118,30 +141,32 @@ void InputActionMap::Update(float dt)
         m_CachedAxisValues[name] = value;
     }
 
+    for (const auto &[name, sources] : m_Actions)
+    {
+        (void)sources;
+        m_CachedActionStates[name] = EvaluateActionState(name, blockedSources);
+    }
+
+    for (const auto &[name, chords] : m_ChordActions)
+    {
+        (void)chords;
+        if (!m_CachedActionStates.contains(name))
+            m_CachedActionStates[name] = EvaluateActionState(name, blockedSources);
+    }
+
     // Advance trigger state machines.
     for (auto &[name, trigger] : m_Triggers)
     {
-        auto actIt = m_Actions.find(name);
-        if (actIt == m_Actions.end())
+        const ActionState state = m_CachedActionStates.contains(name)
+                                      ? m_CachedActionStates.at(name)
+                                      : EvaluateActionState(name, blockedSources);
+        if (!state.HasAvailableBinding)
         {
             m_TriggerStates[name] = TriggerState::None;
             continue;
         }
 
-        bool down = false;
-        bool pressed = false;
-        bool released = false;
-        for (const auto &src : actIt->second)
-        {
-            if (IsSourceDown(src))
-                down = true;
-            if (WasSourcePressedThisFrame(src))
-                pressed = true;
-            if (WasSourceReleasedThisFrame(src))
-                released = true;
-        }
-
-        m_TriggerStates[name] = trigger->Evaluate(down, pressed, released, dt);
+        m_TriggerStates[name] = trigger->Evaluate(state.Down, state.Pressed, state.Released, dt);
     }
 }
 
@@ -149,44 +174,47 @@ void InputActionMap::Update(float dt)
 
 bool InputActionMap::IsActionDown(const std::string &name) const
 {
-    auto it = m_Actions.find(name);
-    if (it == m_Actions.end())
-        return false;
+    auto it = m_CachedActionStates.find(name);
+    if (it != m_CachedActionStates.end())
+        return it->second.HasAvailableBinding && it->second.Down;
 
-    for (const auto &src : it->second)
-    {
-        if (IsSourceDown(src))
-            return true;
-    }
-    return false;
+    return IsActionDown(name, NoBlockedSources());
+}
+
+bool InputActionMap::IsActionDown(const std::string &name, const std::vector<InputSource> &blockedSources) const
+{
+    const ActionState state = EvaluateActionState(name, blockedSources);
+    return state.HasAvailableBinding && state.Down;
 }
 
 bool InputActionMap::WasActionPressedThisFrame(const std::string &name) const
 {
-    auto it = m_Actions.find(name);
-    if (it == m_Actions.end())
-        return false;
+    auto it = m_CachedActionStates.find(name);
+    if (it != m_CachedActionStates.end())
+        return it->second.HasAvailableBinding && it->second.Pressed;
 
-    for (const auto &src : it->second)
-    {
-        if (WasSourcePressedThisFrame(src))
-            return true;
-    }
-    return false;
+    return WasActionPressedThisFrame(name, NoBlockedSources());
+}
+
+bool InputActionMap::WasActionPressedThisFrame(const std::string &name, const std::vector<InputSource> &blockedSources) const
+{
+    const ActionState state = EvaluateActionState(name, blockedSources);
+    return state.HasAvailableBinding && state.Pressed;
 }
 
 bool InputActionMap::WasActionReleasedThisFrame(const std::string &name) const
 {
-    auto it = m_Actions.find(name);
-    if (it == m_Actions.end())
-        return false;
+    auto it = m_CachedActionStates.find(name);
+    if (it != m_CachedActionStates.end())
+        return it->second.HasAvailableBinding && it->second.Released;
 
-    for (const auto &src : it->second)
-    {
-        if (WasSourceReleasedThisFrame(src))
-            return true;
-    }
-    return false;
+    return WasActionReleasedThisFrame(name, NoBlockedSources());
+}
+
+bool InputActionMap::WasActionReleasedThisFrame(const std::string &name, const std::vector<InputSource> &blockedSources) const
+{
+    const ActionState state = EvaluateActionState(name, blockedSources);
+    return state.HasAvailableBinding && state.Released;
 }
 
 float InputActionMap::GetAxis(const std::string &name) const
@@ -206,6 +234,25 @@ float InputActionMap::GetAxis(const std::string &name) const
 
 bool InputActionMap::WasActionTriggeredThisFrame(const std::string &name) const
 {
+    auto triggerIt = m_TriggerStates.find(name);
+    if (triggerIt != m_TriggerStates.end())
+        return triggerIt->second == TriggerState::Triggered;
+
+    if (m_Triggers.find(name) != m_Triggers.end())
+        return false;
+
+    auto actionIt = m_CachedActionStates.find(name);
+    if (actionIt != m_CachedActionStates.end())
+        return actionIt->second.HasAvailableBinding && actionIt->second.Pressed;
+
+    return WasActionTriggeredThisFrame(name, NoBlockedSources());
+}
+
+bool InputActionMap::WasActionTriggeredThisFrame(const std::string &name, const std::vector<InputSource> &blockedSources) const
+{
+    if (!HasActionAvailable(name, blockedSources))
+        return false;
+
     auto it = m_TriggerStates.find(name);
     if (it != m_TriggerStates.end())
         return it->second == TriggerState::Triggered;
@@ -214,7 +261,7 @@ bool InputActionMap::WasActionTriggeredThisFrame(const std::string &name) const
         return false;
 
     // No trigger set - fall back to default pressed behavior.
-    return WasActionPressedThisFrame(name);
+    return WasActionPressedThisFrame(name, blockedSources);
 }
 
 TriggerState InputActionMap::GetActionTriggerState(const std::string &name) const
@@ -233,6 +280,7 @@ TriggerState InputActionMap::GetActionTriggerState(const std::string &name) cons
 void InputActionMap::ResetRuntimeState()
 {
     m_CachedAxisValues.clear();
+    m_CachedActionStates.clear();
     m_TriggerStates.clear();
 
     for (auto &[name, trigger] : m_Triggers)
@@ -242,14 +290,35 @@ void InputActionMap::ResetRuntimeState()
     }
 }
 
+bool InputActionMap::HasActionAvailable(const std::string &name, const std::vector<InputSource> &blockedSources) const
+{
+    return EvaluateActionState(name, blockedSources).HasAvailableBinding;
+}
+
+void InputActionMap::AppendBlockingChordSources(std::vector<InputSource> &blockedSources) const
+{
+    for (const auto &[name, chords] : m_ChordActions)
+    {
+        (void)name;
+        for (const auto &chord : chords)
+        {
+            if (!IsChordBlocking(chord))
+                continue;
+
+            for (const auto &source : chord.Sources)
+                InputSourceState::AppendUnique(blockedSources, source);
+        }
+    }
+}
+
 float InputActionMap::ComputeRawAxis(const AxisEntry &entry) const
 {
     if (entry.kind == AxisEntry::Kind::KeyPair)
     {
         float value = 0.0f;
-        if (IsSourceDown(entry.keyPair.Positive))
+        if (InputSourceState::IsDown(entry.keyPair.Positive))
             value += 1.0f;
-        if (IsSourceDown(entry.keyPair.Negative))
+        if (InputSourceState::IsDown(entry.keyPair.Negative))
             value -= 1.0f;
         return value;
     }
@@ -275,121 +344,94 @@ float InputActionMap::ComputeRawAxis(const AxisEntry &entry) const
     return device ? device->GetAxis(entry.gamepadAxis).X : 0.0f;
 }
 
-// --- Source helpers ---
-
-bool InputActionMap::IsSourceDown(const InputSource &source)
+InputActionMap::ActionState InputActionMap::EvaluateActionState(const std::string &name,
+                                                                const std::vector<InputSource> &blockedSources) const
 {
-    const auto *manager = Input::TryGetDeviceManager();
-    if (!manager)
-        return false;
+    ActionState state{};
 
-    switch (source.SourceType)
+    auto actionIt = m_Actions.find(name);
+    if (actionIt != m_Actions.end())
     {
-    case InputSource::Type::Key:
+        for (const auto &source : actionIt->second)
+        {
+            if (InputSourceState::IsBlocked(source, blockedSources))
+                continue;
+
+            state.HasAvailableBinding = true;
+            state.Down = state.Down || InputSourceState::IsDown(source);
+            state.Pressed = state.Pressed || InputSourceState::WasPressedThisFrame(source);
+            state.Released = state.Released || InputSourceState::WasReleasedThisFrame(source);
+        }
+    }
+
+    auto chordIt = m_ChordActions.find(name);
+    if (chordIt != m_ChordActions.end())
     {
-        if (Input::IsKeyboardCaptured())
-            return false;
-        const auto *device = manager->GetDevice(InputDevice::Type::Keyboard);
-        return device && device->GetInput(source.Code).X > 0.5f;
+        for (const auto &binding : chordIt->second)
+        {
+            if (IsChordBlocked(binding, blockedSources))
+                continue;
+
+            state.HasAvailableBinding = true;
+
+            const bool down = IsChordDown(binding);
+            const bool wasDown = WasChordDown(binding);
+
+            state.Down = state.Down || down;
+            state.Pressed = state.Pressed || (down && !wasDown);
+            state.Released = state.Released || (!down && wasDown);
+        }
     }
-    case InputSource::Type::MouseButton:
-    {
-        if (Input::IsMouseCaptured())
-            return false;
-        const auto *device = manager->GetDevice(InputDevice::Type::Mouse);
-        return device && device->GetInput(source.Code).X > 0.5f;
-    }
-    case InputSource::Type::GamepadButton:
-    {
-        const auto *device = manager->GetDevice(InputDevice::Type::Gamepad, source.DeviceIndex);
-        return device && device->GetInput(source.Code).X > 0.5f;
-    }
-    case InputSource::Type::GamepadAxis:
-    {
-        const auto *device = manager->GetDevice(InputDevice::Type::Gamepad, source.DeviceIndex);
-        return device && IsActive(device->GetAxis(source.Code).X);
-    }
-    default:
-        return false;
-    }
+
+    return state;
 }
 
-bool InputActionMap::WasSourcePressedThisFrame(const InputSource &source)
+bool InputActionMap::IsChordDown(const ChordBinding &binding)
 {
-    const auto *manager = Input::TryGetDeviceManager();
-    if (!manager)
+    if (binding.Sources.empty())
         return false;
 
-    switch (source.SourceType)
+    for (const auto &source : binding.Sources)
     {
-    case InputSource::Type::Key:
-    {
-        if (Input::IsKeyboardCaptured())
+        if (!InputSourceState::IsDown(source))
             return false;
-        const auto *device = manager->GetDevice(InputDevice::Type::Keyboard);
-        return device && device->GetInput(source.Code).X > 0.5f && device->GetPreviousInput(source.Code).X <= 0.5f;
     }
-    case InputSource::Type::MouseButton:
-    {
-        if (Input::IsMouseCaptured())
-            return false;
-        const auto *device = manager->GetDevice(InputDevice::Type::Mouse);
-        return device && device->GetInput(source.Code).X > 0.5f && device->GetPreviousInput(source.Code).X <= 0.5f;
-    }
-    case InputSource::Type::GamepadButton:
-    {
-        const auto *device = manager->GetDevice(InputDevice::Type::Gamepad, source.DeviceIndex);
-        return device && device->GetInput(source.Code).X > 0.5f && device->GetPreviousInput(source.Code).X <= 0.5f;
-    }
-    case InputSource::Type::GamepadAxis:
-    {
-        const auto *device = manager->GetDevice(InputDevice::Type::Gamepad, source.DeviceIndex);
-        if (!device)
-            return false;
 
-        return IsActive(device->GetAxis(source.Code).X) && !IsActive(device->GetPreviousAxis(source.Code).X);
-    }
-    default:
-        return false;
-    }
+    return true;
 }
 
-bool InputActionMap::WasSourceReleasedThisFrame(const InputSource &source)
+bool InputActionMap::WasChordDown(const ChordBinding &binding)
 {
-    const auto *manager = Input::TryGetDeviceManager();
-    if (!manager)
+    if (binding.Sources.empty())
         return false;
 
-    switch (source.SourceType)
+    for (const auto &source : binding.Sources)
     {
-    case InputSource::Type::Key:
-    {
-        if (Input::IsKeyboardCaptured())
+        if (!InputSourceState::WasDown(source))
             return false;
-        const auto *device = manager->GetDevice(InputDevice::Type::Keyboard);
-        return device && device->GetInput(source.Code).X <= 0.5f && device->GetPreviousInput(source.Code).X > 0.5f;
     }
-    case InputSource::Type::MouseButton:
-    {
-        if (Input::IsMouseCaptured())
-            return false;
-        const auto *device = manager->GetDevice(InputDevice::Type::Mouse);
-        return device && device->GetInput(source.Code).X <= 0.5f && device->GetPreviousInput(source.Code).X > 0.5f;
-    }
-    case InputSource::Type::GamepadButton:
-    {
-        const auto *device = manager->GetDevice(InputDevice::Type::Gamepad, source.DeviceIndex);
-        return device && device->GetInput(source.Code).X <= 0.5f && device->GetPreviousInput(source.Code).X > 0.5f;
-    }
-    case InputSource::Type::GamepadAxis:
-    {
-        const auto *device = manager->GetDevice(InputDevice::Type::Gamepad, source.DeviceIndex);
-        if (!device)
-            return false;
 
-        return !IsActive(device->GetAxis(source.Code).X) && IsActive(device->GetPreviousAxis(source.Code).X);
+    return true;
+}
+
+bool InputActionMap::IsChordBlocking(const ChordBinding &binding)
+{
+    for (const auto &source : binding.Sources)
+    {
+        if (InputSourceState::IsDown(source))
+            return true;
     }
-    default:
-        return false;
+
+    return false;
+}
+
+bool InputActionMap::IsChordBlocked(const ChordBinding &binding, const std::vector<InputSource> &blockedSources)
+{
+    for (const auto &source : binding.Sources)
+    {
+        if (InputSourceState::IsBlocked(source, blockedSources))
+            return true;
     }
+
+    return false;
 }
