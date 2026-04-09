@@ -1,69 +1,39 @@
 # Real Time Rendering Lab
 
-A modern C++ / OpenGL graphics playground for experimenting with real-time rendering techniques and graphics algorithms.
+A modern C++ graphics engine built for experimenting with real-time rendering techniques. The long-term goal is a multi-backend renderer (Vulkan, Metal, OpenGL) driven by **Slang** shaders and a modern explicit RHI, paired with a suite of rendering demos covering PBR, shadows, screen-space effects, and beyond.
 
-This repository is designed as a long-term platform for graphics experiments, learning, and visualization.
-It provides a lightweight framework where different rendering techniques can be implemented and explored as independent demos.
-
-[中文文档](./docs/zh-CN/README.zh-CN.md)
+[中文文档](./Docs/ZH_CN/README.zh-CN.md)
 
 ---
 
-## Resource Paths First
+## Current Status
 
-Runtime-facing content is identified by logical resource paths, not repository-relative
-filesystem joins.
+The project is in a **major architectural refactor**. The render system is being redesigned from scratch; render-dependent code from the previous iteration has been moved to `Archive/`. Core engine systems are active and continue to receive work.
 
-Examples:
-
-```text
-/Project/Textures/Grassy_Square
-/Engine/Defaults/Materials/ErrorMaterial
-/Plugins/ExamplePlugin/Materials/Checker
-/Saved/Config/Input/DebugCameraControl.json
-```
-
-In development, those logical paths currently resolve against loose `Content/`,
-`EngineContent/`, `Plugins/<Name>/Content/`, `Saved/`, and `Saved/Cache/` roots.
-In cooked runs, the same public logical paths can resolve from loose cooked outputs
-under `Saved/Cache/Cooked/`, `build/Cooked/`, or an explicit
-`RTRLAB_COOKED_ROOT` override. New runtime systems should prefer
-`FileSystem::ResolveReadPath()`, `ResolveWritePath()`, `ReadText()`, `ReadBinary()`,
-`WriteText()`, and `WriteBinary()` over physical-path helper wrappers.
-In packaged runs, the same logical paths can resolve from `.rtrpak` archives under
-`Saved/Cache/Packaged/`, `build/Packaged/`, or an explicit `RTRLAB_PACKAGE_ROOT`
-override. When an explicit loose override root is provided through
-`RTRLAB_OVERLAY_ROOT`, matching overlay catalogs take precedence over packaged
-artifacts without changing the public logical path.
+| Area | Status |
+|------|--------|
+| Core — App, Layer, Event | Active |
+| Core — Input system | Active |
+| Core — Resource system | Active |
+| Core — Diagnostics, Serialization | Active |
+| Scene system | Active |
+| GUI / ImGui integration | Active |
+| **RenderSystem** | **Offline — full redesign in progress** |
 
 ---
 
-## Features
+## Architecture Direction
 
-- **Demo Framework** — modular architecture where each rendering technique lives as an independent, hot-switchable demo
-- **Multi-Backend Graphics Abstraction** — pure virtual interfaces (`IShader`, `ITexture2D`, `IFramebuffer`, etc.) with OpenGL backend; designed for Metal/Vulkan extension
-- **SPIR-V Shader Pipeline** — GLSL source → SPIR-V (glslang, build time) → backend GLSL (SPIRV-Cross, runtime); single source, multiple backends
-- **Forward Rendering Pipeline** — multi-pass renderer with shadow mapping support
-- **Blinn-Phong Shading** — ambient + diffuse + specular lighting with directional light
-- **Shadow Mapping** — directional light depth pass with front face culling, slope-scaled bias, and 3x3 PCF soft shadows
-- **Material System** — pass-centric materials with reflection-driven uniform packing and logical resource binding
-- **Procedural Meshes** — built-in cube, plane, fullscreen quad, and UV sphere generators
-- **ImGui Integration** — debug panels for framerate, memory, and demo selection
-- **First-Person Camera** — WASD + mouse look with scroll-wheel FOV control
-- **Framebuffer Abstraction** — off-screen rendering with multiple color/depth attachments and pixel read-back
-- **DSA OpenGL** — modern Direct State Access style for shaders, buffers, textures, and framebuffers
+The new render system is designed around a modern explicit RHI. Design documents live in [Docs/Modules/RenderSystem/Design/](./Docs/Modules/RenderSystem/Design/RHI.md).
 
----
+Key decisions:
 
-## Demo Gallery
+- **Slang** as the shader language — single source compiled per-backend, replacing the old GLSL → SPIR-V pipeline
+- **Three backends: Vulkan · Metal · OpenGL** — Vulkan and Metal are primary targets; OpenGL is a compatibility backend
+- **Vulkan-style public API** — explicit objects (`ShaderProgram`, `PipelineLayout`, `ResourceSet`, `GraphicsPipeline`, `CommandList`); no implicit global state
+- **Reflection-driven parameter binding** — Slang reflection is the single source of truth for all shader parameter layout; no hand-maintained binding tables in C++
 
-| Demo | Description |
-|------|-------------|
-| **[Shadow Mapping](./docs/en/demos/shadow-mapping.md)** | Blinn-Phong shading + directional light shadow mapping with 3x3 PCF, front face culling, and debug visualization |
-| **[Material Playground](./docs/en/demos/material-playground.md)** | 5 UV spheres with distinct Blinn-Phong presets, per-sphere albedo / specular / ambient editing via ImGui |
-
-![Shadow Mapping](./docs/screenshots/ShadowMapping.png)
-![Material Playground](./docs/screenshots/MaterialPlayground.png)
+Render demos will be added once the new system reaches a usable state.
 
 ---
 
@@ -71,31 +41,44 @@ artifacts without changing the public logical path.
 
 ```
 RT_Rendering_Lab/
-├── src/
-│   ├── core/           # Core runtime utilities and systems
-│   │   ├── app/        # Application, Window, Layer, LayerStack
-│   │   ├── event/      # EventBus, Events, ScopedConnection
-│   │   └── input/      # Input, InputAction, KeyCode, MouseCode
-│   ├── graphics/       # Abstract interfaces (interface/I*.h), OpenGL backend (opengl/GL*), Mesh, Material
-│   ├── renderer/       # SceneRenderer, ForwardPass, ShadowPass, TexturePreviewPass
-│   ├── scene/          # Camera, DebugCameraController, Light, Transform, SceneData
-│   ├── demos/          # DemoBase, DemoRegistry, LabLayer, ShadowMapping/, MaterialPlayground/
-│   ├── gui/            # ImGuiLayer, DebugPanel, DemoSelectorPanel
-│   ├── Tools/          # Developer utilities such as source catalog indexing
+├── Src/
+│   ├── Core/
+│   │   ├── App/            # Application, Window, Layer, LayerStack
+│   │   ├── Event/          # EventBus, Events, ScopedConnection
+│   │   ├── Input/          # InputAction, KeyCode, MouseCode, replay
+│   │   ├── Resource/       # Logical paths, catalog, cook, pack, mount, IO
+│   │   ├── Diagnostics/    # Logging, Assert, Crash
+│   │   └── Serialization/
+│   ├── GUI/
+│   │   ├── Backends/Metal/
+│   │   └── Panels/
+│   ├── Scene/              # Camera, Light, Transform, SceneData
+│   ├── Demos/
+│   │   └── 01_HelloWindow/
+│   ├── Tools/              # Asset indexing, cooking, packaging
 │   └── main.cpp
-├── Content/
-│   ├── .rtr/           # Generated source catalogs for loose content mounts
-│   ├── shaders/        # GLSL source (.vert/.frag) + compiled SPIR-V (.spv)
-│   ├── models/
-│   ├── textures/
-│   └── scenes/
-├── tests/
-│   ├── unit/           # Time, LayerStack, Transform, Camera, Buffers, CameraController
-│   ├── integration/    # Shader, Texture, Framebuffer, RenderTarget (require OpenGL context)
-│   └── support/        # GLTestContext, MathTestUtils, TestLayer
-├── docs/
-│   └── roadmap.md
-├── vendor/             # Third-party: GLFW, GLM, ImGui, glslang, SPIRV-Cross (submodules), Glad, STB
+│
+├── Archive/                # Retired code from the previous renderer iteration
+│   ├── graphics/           # Old IShader / ITexture2D / IFramebuffer + OpenGL backend
+│   ├── renderer/           # Old SceneRenderer, ForwardPass, ShadowPass
+│   └── shaders/            # Old GLSL source + SPIR-V
+│
+├── Docs/
+│   ├── Modules/
+│   │   ├── RenderSystem/Design/   # RHI.md, ShaderSystem.md, backend docs
+│   │   ├── ResourceSystem/
+│   │   ├── DiagnosticsSystem/
+│   │   ├── SerializationSystem/
+│   │   └── InputEventSystem/
+│   ├── EN/
+│   └── ZH_CN/
+│
+├── Content/                # Runtime assets (models, textures, scenes)
+├── Tests/
+│   ├── Unit/
+│   ├── Contract/
+│   └── Support/
+├── Vendor/                 # GLFW, GLM, ImGui, glslang, SPIRV-Cross, Glad, STB, spdlog
 └── CMakeLists.txt
 ```
 
@@ -107,9 +90,9 @@ RT_Rendering_Lab/
 
 - C++20 compatible compiler (MSVC, GCC, Clang)
 - CMake 3.20+
-- OpenGL 4.6 capable GPU & driver
+- OpenGL 4.6 capable GPU & driver (for OpenGL-dependent tests)
 
-All other dependencies are included in `vendor/` or fetched automatically by CMake.
+All other dependencies are included in `Vendor/` or fetched automatically by CMake.
 
 ### Clone
 
@@ -130,8 +113,6 @@ Current pinned submodule versions:
 
 ### Build with Presets
 
-The project ships with CMake presets for common configurations:
-
 ```bash
 # Visual Studio 2026 — Debug
 cmake --preset windows-vs-debug
@@ -145,19 +126,12 @@ cmake --build --preset build-windows-debug-fast --parallel
 cmake --preset ninja-release
 cmake --build build/ninja-release
 
-# Ninja — Fast debug iteration (requires Ninja installed)
+# Ninja — Fast debug iteration
 cmake --preset ninja-debug-fast
 cmake --build --preset build-ninja-debug-fast
 ```
 
-`windows-vs-debug-fast` and `ninja-debug-fast` are tuned for shorter edit-build-run loops:
-
-- tests disabled (`GLAB_BUILD_TESTS=OFF`)
-- unity build enabled (`GLAB_ENABLE_UNITY_BUILD=ON`)
-- precompiled headers enabled (`GLAB_ENABLE_PCH=ON`)
-- Dear ImGui demo translation unit skipped (`GLAB_BUILD_IMGUI_DEMO=OFF`)
-
-The unity build keeps OpenGL / GLFW-heavy translation units out of unity batches to avoid header-order conflicts while still speeding up most of the project.
+`windows-vs-debug-fast` and `ninja-debug-fast` disable tests, enable unity build and precompiled headers, and skip `imgui_demo.cpp` — tuned for shorter edit-build-run loops.
 
 ### Build Manually
 
@@ -169,7 +143,7 @@ cmake --build build
 ### Run
 
 ```bash
-./build/<config>/RTRLab      # main application
+./build/<config>/RTRLab
 ```
 
 ---
@@ -179,62 +153,23 @@ cmake --build build
 The project uses **Google Test** (fetched automatically via CMake FetchContent).
 
 ```bash
-# Build with tests (enabled by default)
 cmake --preset windows-vs-debug
 cmake --build build/windows-vs-debug
-
-# Run tests
 ctest --test-dir build/windows-vs-debug
 ```
 
-Test executables:
-
-- `rtrlab_unit_tests`
-- `rtrlab_contract_tests`
-- `rtrlab_contract_tests_opengl`
-- `rtrlab_integration_tests_opengl`
-
-Resource tooling:
-
-- `rtr_asset_index` generates `.rtr/catalog.json` for `Content/`,
-  `EngineContent/`, and `Plugins/*/Content/`
-- `rtr_asset_cook` writes loose cooked `.rtr/catalog.json` files under
-  `Saved/Cache/Cooked/` by default, or under `build/Cooked/` when invoked with
-  `--layout build`; texture assets currently decode to an RGBA8 bootstrap binary
-  at cooked `.rtrtex` artifact paths with explicit `rowPitch` / `mipLevelCount`
-  metadata in the v2 header, and the runtime can read metadata or full payload
-  through `Resource::ReadCookedTextureMetadata()` and `Resource::LoadCookedTexture()`
-- `rtr_asset_pack` packages cooked `Project`, `Engine`, and `Plugins/<Name>` mounts
-  into `.rtrpak` archives under `Saved/Cache/Packaged/` by default, or under
-  `build/Packaged/` with `--layout build`; packaged runs can resolve the same
-  public logical paths from those archives with `RTRLAB_RESOURCE_PROFILE=packaged`
-  and optionally `RTRLAB_PACKAGE_ROOT=<dir>`
-- `RTRLAB_OVERLAY_ROOT=<dir>` adds a loose override layer on top of packaged or
-  cooked content when that directory contains mount-scoped `.rtr/catalog.json`
-  files under `Project/`, `Engine/`, or `Plugins/<Name>/`
-- loose cooked catalogs now use a distinct versioned cooked JSON schema rather than
-  reusing the source catalog payload shape verbatim
-
-```bash
-./build/<config>/rtr_asset_index --root .
-./build/<config>/rtr_asset_cook --root .
-./build/<config>/rtr_asset_cook --root . --layout build
-./build/<config>/rtr_asset_pack --root .
-./build/<config>/rtr_asset_pack --root . --layout build
-```
-
-OpenGL contract and integration tests create a hidden OpenGL context — they require a GPU or software renderer.
+Test executables: `rtrlab_unit_tests`, `rtrlab_contract_tests`.
 
 ### CMake Options
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `GLAB_COMPILE_SHADERS` | `ON` | Compile GLSL shaders to SPIR-V at build time (requires glslang submodule) |
+| `GLAB_COMPILE_SHADERS` | `ON` | Compile GLSL shaders to SPIR-V at build time |
 | `GLAB_BUILD_TESTS` | `ON` | Build the test suite |
 | `GLAB_ENABLE_WARNINGS` | `ON` | Enable strict compiler warnings |
 | `GLAB_ENABLE_ASAN` | `OFF` | Enable AddressSanitizer (non-MSVC) |
-| `GLAB_ENABLE_PCH` | `ON` | Enable precompiled headers for local C++ targets |
-| `GLAB_ENABLE_UNITY_BUILD` | `OFF` | Merge selected `.cpp` files into unity batches for faster full builds |
+| `GLAB_ENABLE_PCH` | `ON` | Enable precompiled headers |
+| `GLAB_ENABLE_UNITY_BUILD` | `OFF` | Merge selected `.cpp` files into unity batches |
 | `GLAB_ENABLE_MSVC_MP` | `ON` | Enable MSVC multi-processor compilation (`/MP`) |
 | `GLAB_BUILD_IMGUI_DEMO` | `OFF` | Compile `imgui_demo.cpp` into the Dear ImGui static library |
 
@@ -244,27 +179,30 @@ OpenGL contract and integration tests create a hidden OpenGL context — they re
 
 | Library | Purpose | Source |
 |---------|---------|--------|
-| [GLFW](https://github.com/glfw/glfw) | Windowing & input | Git submodule (`vendor/glfw`, `3.4.0`) |
-| [GLM](https://github.com/g-truc/glm) | Linear algebra | Git submodule (`vendor/glm`, `1.0.3`) |
-| [Glad](https://glad.dav1d.de/) | OpenGL 4.6 loader | `vendor/glad/` |
-| [STB Image](https://github.com/nothings/stb) | Image loading | `vendor/stb/` |
-| [Dear ImGui](https://github.com/ocornut/imgui) | Debug GUI | Git submodule (`vendor/imgui`, `1.92.6`, `docking` branch) |
-| [glslang](https://github.com/KhronosGroup/glslang) | GLSL to SPIR-V compiler | Git submodule (`vendor/glslang`, `vulkan-sdk-1.4.304.1`) |
-| [SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross) | SPIR-V to GLSL transpiler | Git submodule (`vendor/spirv-cross`, `vulkan-sdk-1.4.304.1`) |
-| [spdlog](https://github.com/gabime/spdlog) | Logging | `vendor/spdlog/` |
+| [GLFW](https://github.com/glfw/glfw) | Windowing & input | Git submodule (`Vendor/glfw`, `3.4.0`) |
+| [GLM](https://github.com/g-truc/glm) | Linear algebra | Git submodule (`Vendor/glm`, `1.0.3`) |
+| [Glad](https://glad.dav1d.de/) | OpenGL 4.6 loader | `Vendor/glad/` |
+| [STB Image](https://github.com/nothings/stb) | Image loading | `Vendor/stb/` |
+| [Dear ImGui](https://github.com/ocornut/imgui) | Debug GUI | Git submodule (`Vendor/imgui`, `1.92.6`, `docking` branch) |
+| [glslang](https://github.com/KhronosGroup/glslang) | GLSL to SPIR-V compiler | Git submodule (`Vendor/glslang`, `vulkan-sdk-1.4.304.1`) |
+| [SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross) | SPIR-V to GLSL transpiler | Git submodule (`Vendor/spirv-cross`, `vulkan-sdk-1.4.304.1`) |
+| [spdlog](https://github.com/gabime/spdlog) | Logging | `Vendor/spdlog/` |
 | [Google Test](https://github.com/google/googletest) | Testing framework | CMake FetchContent |
+| Slang | Shader language & compiler | Planned |
 
 ---
 
 ## Long-Term Direction
 
-The project will gradually explore topics including:
+The immediate priority is completing the new RenderSystem — RHI layer, Slang integration, and at least one backend (Metal or Vulkan) to a point where render demos can run again.
 
-- Modern real-time rendering (deferred, HDR, tone mapping)
+Beyond that, the project will explore:
+
 - Physically based shading (Cook-Torrance, IBL)
+- Modern real-time rendering (deferred, HDR, tone mapping)
 - Screen-space techniques (SSAO, SSR, motion blur)
 - GPU-driven rendering (compute shaders, indirect draw)
 - Procedural generation (terrain, voxels)
 - Ray tracing experiments (path tracing, hybrid rendering)
 
-See [docs/en/roadmap.md](./docs/en/roadmap.md) for the full development plan.
+See [Docs/EN/roadmap.md](./Docs/EN/roadmap.md) for the full development plan.
