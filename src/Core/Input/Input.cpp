@@ -44,12 +44,12 @@ void Input::SetEventBus(EventBus *bus)
         s_DeviceManager->SetEventBus(bus);
 }
 
-void Input::BeginFrame()
+void Input::BeginFrame(float dt)
 {
     if (!s_DeviceManager)
         EnsureDevices(s_Window);
 
-    s_DeviceManager->PollAll();
+    s_DeviceManager->PollAll(dt);
 }
 
 void Input::RegisterDevice(Scope<InputDevice> device)

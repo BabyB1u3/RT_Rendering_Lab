@@ -74,7 +74,7 @@ public:
     static void SetEventBus(EventBus *bus);
     /// Must be called ONCE per frame, BEFORE any layer's OnUpdate().
     /// Polls all registered devices and advances their current/previous state.
-    static void BeginFrame();
+    static void BeginFrame(float dt = 0.0f);
     /// Register or replace a device in its logical type/index slot.
     static void RegisterDevice(Scope<InputDevice> device);
     /// Restore the default live device layout exactly (keyboard, mouse, four gamepads).

@@ -47,6 +47,41 @@ namespace
         bool m_ConnectionChanged = false;
         bool m_HasPolled = false;
     };
+
+    class PollObserver final : public InputDeviceManagerObserver
+    {
+    public:
+        void OnBeforePollAll(InputDeviceManager &, float dt) override
+        {
+            Events.push_back("before:" + std::to_string(dt));
+        }
+
+        void OnAfterPollAll(const InputDeviceManager &, float dt) override
+        {
+            Events.push_back("after:" + std::to_string(dt));
+        }
+
+        std::vector<std::string> Events;
+    };
+
+    class TracedDevice final : public InputDevice
+    {
+    public:
+        explicit TracedDevice(std::vector<std::string> &events)
+            : m_Events(events) {}
+
+        Type GetType() const override { return Type::Keyboard; }
+
+        void Poll() override
+        {
+            m_Events.push_back("poll");
+        }
+
+        InputValue GetInput(uint16_t) const override { return {}; }
+
+    private:
+        std::vector<std::string> &m_Events;
+    };
 }
 
 TEST(InputDeviceManagerTests, GetDeviceReturnsLogicalSlotRegardlessOfInsertionOrder)
@@ -109,6 +144,22 @@ TEST(InputDeviceManagerTests, PollAllPollsEveryRegisteredDevice)
     EXPECT_EQ(keyboard->PollCount, 1);
     EXPECT_EQ(mouse->PollCount, 1);
     EXPECT_EQ(gamepad->PollCount, 1);
+}
+
+TEST(InputDeviceManagerTests, PollObserversWrapDevicePollingInOrder)
+{
+    InputDeviceManager manager;
+    PollObserver observer;
+
+    manager.AddObserver(&observer);
+    manager.AddDevice(Scope<InputDevice>(new TracedDevice(observer.Events)));
+
+    manager.PollAll(0.25f);
+
+    EXPECT_EQ(observer.Events, (std::vector<std::string>{
+                                  "before:0.250000",
+                                  "poll",
+                                  "after:0.250000"}));
 }
 
 TEST(InputDeviceManagerTests, ResetAllResetsEveryRegisteredDevice)

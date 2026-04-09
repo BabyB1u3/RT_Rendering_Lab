@@ -44,6 +44,18 @@ namespace
                 bus->Publish(GamepadDisconnectedEvent{index});
         }
     }
+
+    template <typename T>
+    void AppendUnique(std::vector<T> &items, T value)
+    {
+        for (const auto &item : items)
+        {
+            if (item == value)
+                return;
+        }
+
+        items.push_back(value);
+    }
 }
 
 void InputDeviceManager::AddDevice(Scope<InputDevice> device)
@@ -87,10 +99,23 @@ void InputDeviceManager::Clear()
     m_Devices.clear();
 }
 
-void InputDeviceManager::PollAll()
+void InputDeviceManager::PollAll(float dt)
 {
+    const auto observers = m_Observers;
+    for (auto *observer : observers)
+    {
+        if (observer)
+            observer->OnBeforePollAll(*this, dt);
+    }
+
     for (const auto &device : m_Devices)
         device->Poll();
+
+    for (auto *observer : observers)
+    {
+        if (observer)
+            observer->OnAfterPollAll(*this, dt);
+    }
 
     if (!m_EventBus)
         return;
@@ -110,6 +135,26 @@ void InputDeviceManager::ResetAll()
         device->Reset();
 }
 
+void InputDeviceManager::AddObserver(InputDeviceManagerObserver *observer)
+{
+    if (!observer)
+        return;
+
+    AppendUnique(m_Observers, observer);
+}
+
+void InputDeviceManager::RemoveObserver(InputDeviceManagerObserver *observer)
+{
+    for (auto it = m_Observers.begin(); it != m_Observers.end(); ++it)
+    {
+        if (*it == observer)
+        {
+            m_Observers.erase(it);
+            return;
+        }
+    }
+}
+
 InputDevice *InputDeviceManager::GetDevice(InputDevice::Type type, uint8_t index) const
 {
     const auto it = FindDeviceBySlot(m_Devices.begin(), m_Devices.end(), type, index);
@@ -126,6 +171,20 @@ std::size_t InputDeviceManager::GetDeviceCount(InputDevice::Type type) const
     }
 
     return count;
+}
+
+std::vector<const InputDevice *> InputDeviceManager::GetDevices(InputDevice::Type type) const
+{
+    std::vector<const InputDevice *> devices;
+    devices.reserve(m_Devices.size());
+
+    for (const auto &device : m_Devices)
+    {
+        if (device->GetType() == type)
+            devices.push_back(device.get());
+    }
+
+    return devices;
 }
 
 Scope<InputDevice> InputDeviceManager::RemoveDevice(InputDevice::Type type, uint8_t index)
