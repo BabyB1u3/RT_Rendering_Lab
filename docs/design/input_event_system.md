@@ -86,7 +86,7 @@ a window resizes (happens), a key is held down (is).
 
 ```text
 Layer 10  Input Recording & Replay         (injectable input source)             planned
-Layer 9   Chord / Combo / Gesture          (state machines on top of actions)    planned
+Layer 9   Chord / Combo / Gesture          (state machines on top of actions)    implemented
 Layer 8   ImGui Input Routing              (capture flags block polling)         partial
 Layer 7   Window Event Production          (GLFW callbacks -> EventBus)          implemented
 Layer 6   Event Bus (Signal/Slot)          (type-safe pub/sub, RAII connections) implemented
@@ -99,7 +99,8 @@ Layer 0   Key & Mouse Codes                (typed constants, no GLFW dependency)
 ```
 
 Layers 0-7 form the current implemented core, with the capture-flag portion of Layer 8
-bridging ImGui focus into the polling path. Layers 9 and 10 remain planned extensions.
+bridging ImGui focus into the polling path. Layer 9 now extends the stack with chords,
+combos, and double-tap gestures; Layer 10 remains the planned recording/replay extension.
 Each layer depends only on layers below it.
 
 **Serialization**: `InputActionMap` bindings persist through the shared serialization
@@ -514,9 +515,10 @@ highest-priority consuming context and the separate flag mechanism retired.
 
 ## 11. Layer 9 - Chord, Combo & Gesture Recognition
 
-**Planned extension.** Layer 9 adds multi-key combinations, sequential inputs, and
-time-sensitive gestures as first-class action bindings. All are built on top of the
-existing `InputActionMap` + `InputTrigger` infrastructure - no separate system needed.
+**Implemented.** Layer 9 adds multi-key combinations, sequential inputs, and
+time-sensitive gestures as first-class action bindings. It reuses the existing
+`InputActionMap` + `InputTrigger` infrastructure and the shared `InputSource` evaluator,
+so higher-level patterns do not duplicate key / mouse / gamepad source resolution.
 
 ### Chord (simultaneous keys)
 
@@ -526,19 +528,13 @@ A chord is "all of these keys must be held at the same time":
 struct ChordBinding
 {
     std::vector<InputSource> Sources;   // ALL must be active simultaneously
-
-    bool IsActive() const
-    {
-        return std::all_of(Sources.begin(), Sources.end(),
-            [](const InputSource& s) { return IsSourceDown(s); });
-    }
 };
 ```
 
-**Key subtlety**: When `Ctrl+S` is bound as a chord, pressing `Ctrl` alone should NOT
-trigger any action bound to just `Ctrl`. This requires the context stack to check "is
-this key part of a pending chord?" before firing single-key actions. Unreal handles this
-with **implicit chord blocking**.
+`InputActionMap` now supports dedicated chord bindings, and `InputContextStack::Update()`
+collects blocking sources from higher-priority engaged chords before evaluating lower
+contexts. That preserves **implicit chord blocking** semantics: when `Ctrl+S` is pending
+in a higher-priority context, a lower-priority action bound only to `Ctrl` will not fire.
 
 ### Combo (sequential inputs)
 
@@ -557,12 +553,18 @@ public:
     void SetCombo(const ComboBinding& combo);
     bool Update(float dt);   // Returns true on the frame the full combo completes.
     void Reset();
+    size_t GetCurrentStep() const;
+    bool IsIdle() const;
 private:
     ComboBinding m_Combo;
     size_t m_CurrentStep = 0;
     float  m_StepTimer = 0.0f;
 };
 ```
+
+`ComboTracker` advances on `InputSourceState::WasPressedThisFrame()` and enforces a
+per-step timeout. The implementation resets cleanly after timeout so the sequence can
+restart on the next valid press.
 
 ### Double-tap
 
@@ -580,7 +582,11 @@ private:
 };
 ```
 
-**Dependency**: Requires Phase E (triggers) and Phase F (context stack for chord blocking).
+`DoubleTapTrigger` is integrated directly into the Layer 3 trigger pipeline, so action
+bindings can opt into double-tap behavior without a separate gesture subsystem.
+
+**Dependency**: Built on top of Phase E (triggers), Phase F (context stack), and
+Phase G (device-backed `InputSource` evaluation).
 
 ---
 
@@ -692,10 +698,11 @@ Modifiers & Triggers (Layer 3)|
   v                           |
 InputContextStack (Layer 4) <-> ImGui capture flags (Layer 8, partial)
   v
+InputPatterns (Layer 9)
+  v
 Game / Demo code
 
 Planned sidecars after Layer 5:
-- Layer 9: chord / combo / gesture recognition
 - Layer 10: input recording + replay via synthetic InputDevice implementations
 ```
 
@@ -715,8 +722,10 @@ src/
 |   |   |-- Action/
 |   |   |   |-- InputAction.h / .cpp               # Layer 2    implemented
 |   |   |   |-- InputActionSerialization.h         # Layer 2    implemented
+|   |   |   |-- InputSource.h / .cpp               # Layer 2/5  implemented
 |   |   |   |-- InputModifier.h                    # Layer 3    implemented
-|   |   |   |-- InputTrigger.h                     # Layer 3    implemented
+|   |   |   |-- InputTrigger.h                     # Layer 3/9  implemented
+|   |   |   |-- InputPatterns.h / .cpp             # Layer 9    implemented
 |   |   |   `-- InputContextStack.h / .cpp         # Layer 4    implemented
 |   |   |-- Code/
 |   |   |   |-- KeyCode.h                          # Layer 0    implemented
@@ -751,6 +760,7 @@ tests/
 |   |-- TestInputModifiers.cpp                     # Layer 3
 |   |-- TestInputTriggers.cpp                      # Layer 3
 |   |-- TestInputContextStack.cpp                  # Layer 4
+|   |-- TestInputPatterns.cpp                      # Layer 9
 |   `-- TestInputDeviceManager.cpp                 # Layer 5 lifecycle + events
 `-- Contract/
     `-- Core/TestEventBus.cpp                      # Layer 6
@@ -760,7 +770,7 @@ tests/
 
 ## 15. Phased Implementation Plan
 
-Phases A through G are complete. Phases H-I remain in dependency order.
+Phases A through H are complete. Phase I remains.
 
 ### Phase A - Foundation
 
@@ -867,17 +877,20 @@ Remaining follow-up work for this area lives in Phase I:
 
 ### Phase H - Advanced input patterns
 
-**Not started.** Implement when game mechanics demand chord shortcuts, sequential combos,
-or double-tap gestures.
+Implemented. Layer 9 is now part of the shipping input stack, including reusable
+source evaluation, chord bindings, combo tracking, double-tap triggers, and
+context-stack chord blocking.
 
-| Step | Layer | Description |
-|------|-------|-------------|
-| 1. `ChordBinding` | 9 | All sources must be active simultaneously |
-| 2. Chord blocking in context stack | 9+4 | Suppress single-key actions while chord is pending |
-| 3. `ComboTracker` | 9 | State machine for sequential input patterns |
-| 4. `DoubleTapTrigger` | 9+3 | Fires on second press within time window |
+| Step | Layer | Description | Status |
+|------|-------|-------------|--------|
+| 1. `InputSource` extraction | 2+5 | Shared evaluator for key / mouse / gamepad source queries | Done |
+| 2. `ChordBinding` | 9 | All sources must be active simultaneously | Done |
+| 3. Chord blocking in context stack | 9+4 | Suppress lower-priority actions while a higher-priority chord is pending | Done |
+| 4. `ComboTracker` | 9 | State machine for sequential input patterns | Done |
+| 5. `DoubleTapTrigger` | 9+3 | Fires on second press within time window | Done |
+| 6. Serialization + tests | 2+9 | Preserve single-source config compatibility and cover advanced patterns | Done |
 
-**Dependency**: Phase E (triggers) and Phase F (context stack for chord blocking).
+**Dependency**: Completed on top of Phases E, F, and G.
 
 ### Phase I - Recording & replay
 
@@ -903,11 +916,11 @@ Phase D  Resize unification         Done
 Phase E  Modifiers & Triggers       Done (camera migration deferred)
 Phase F  Context Stack              Done (ImGui-as-context deferred)
 Phase G  Device Abstraction         Done
-Phase H  Advanced Patterns          -> after F + G
+Phase H  Advanced Patterns          Done
 Phase I  Recording & Replay         -> after G
 ```
 
-Phases H-I form the remaining dependency chain.
+Phase I is the remaining dependency-driven extension.
 
 ---
 
@@ -964,6 +977,5 @@ Phases H-I form the remaining dependency chain.
 | `_input(event)` / `_unhandled_input(event)` | Event propagation through scene tree | `EventBus` + context stack |
 | `InputEventAction` | Action-level event | `Subscribe<ActionTriggeredEvent>` (future) |
 | Dead zone | Per-action configurable | `DeadZone` modifier |
-
 
 
