@@ -50,7 +50,6 @@ install-relative filesystem paths.
     - [Why config files are mounted documents, not extensionless assets](#why-config-files-are-mounted-documents-not-extensionless-assets)
     - [Why source and cooked catalogs are separate schemas](#why-source-and-cooked-catalogs-are-separate-schemas)
     - [Why packaged archives materialize into cache-backed files today](#why-packaged-archives-materialize-into-cache-backed-files-today)
-    - [Why compatibility wrappers still exist](#why-compatibility-wrappers-still-exist)
 
 ---
 
@@ -391,17 +390,16 @@ Key public responsibilities:
   and `WriteBinary`
 - refresh the catalog registry when mount state changes
 
-The current facade intentionally retains a narrow compatibility bridge:
+The facade is now fully logical-path-first. Runtime systems are expected to use:
 
-- `GetAssetPath()`
-- `GetSavedPath()`
-- `GetSavedConfigPath()`
-- `ResolveConfigPath()`
-- `ReadTextFile()`
-- `ReadBinaryFile()`
+- `ResolveReadPath()` / `ResolveWritePath()`
+- `Exists()`
+- `ReadText()` / `ReadBinary()`
+- `WriteText()` / `WriteBinary()`
 
-Those helpers still exist for tests, bootstrap code, and a few low-level compatibility
-paths, but they are no longer the preferred runtime-facing API.
+Low-level physical I/O still exists in `Resource::ReadTextFile()` and
+`Resource::ReadBinaryFile()`, but those helpers live in the `IO` layer rather than on
+the public `FileSystem` facade.
 
 ---
 
@@ -423,8 +421,8 @@ Current config locations:
 | `/Engine/Config/...` | `EngineContent/Config/...` |
 | `/Saved/Config/...` | `Saved/Config/...` |
 
-The current `ResolveConfigPath()` bridge and `Serialization::LoadFromConfigPath()` both
-sit on top of that logical model.
+`Serialization::LoadFromConfigPath()` and `SaveToConfigPath()` sit on top of that
+logical model and are the intended high-level entry points for config consumers.
 
 ---
 
@@ -547,7 +545,7 @@ active engine subsystem with the following implemented behavior:
 - logical path parsing and classification are implemented
 - read/write domain enforcement is implemented
 - `/Project/`, `/Engine/`, `/Plugins/<Name>/`, `/Saved/`, and `/Cache/` are active
-- config fallback resolution is implemented
+- config fallback resolution is implemented through serialization-facing helpers
 - logical-path-based file I/O is implemented
 - source catalogs are generated and consumed
 - loose cooked catalogs are generated and consumed
@@ -641,17 +639,23 @@ Near-term plan:
 ```
 src/Core/Resource/
     FileSystem.h / .cpp         - Public facade and logical-path I/O entry points
-    PathTypes.h                 - Path domain and parsed virtual-path types
-    PathParser.h / .cpp         - Logical path validation and normalization
-    MountResolver.h / .cpp      - Writable-root policy and direct mounted path joins
-    MountBackend.h / .cpp       - Readable/writable backend abstraction layer
-    ResourceCatalog.h / .cpp    - Catalog registry, merge logic, artifact selection
-    SourceCatalog.h / .cpp      - Source catalog indexing and generation
-    CookedCatalog.h / .cpp      - Loose cook output + `.rtrtex` helpers
-    PakArchive.h / .cpp         - `.rtrpak` archive read/write helpers
-    ConfigResolver.h / .cpp     - Config fallback and auto-seed behavior
-    PhysicalIO.h / .cpp         - Low-level text/binary filesystem I/O
-    RootDiscovery.h / .cpp      - Repository/install root discovery
+    Path/
+        PathTypes.h             - Path domain and parsed virtual-path types
+        PathParser.h / .cpp     - Logical path validation and normalization
+    Mount/
+        MountResolver.h / .cpp  - Writable-root policy and direct mounted path joins
+        MountBackend.h / .cpp   - Readable/writable backend abstraction layer
+        RootDiscovery.h / .cpp  - Repository/install root discovery
+    Catalog/
+        AssetPath.h             - Validated serialized asset reference type
+        ResourceCatalog.h / .cpp - Catalog registry, merge logic, artifact selection
+        SourceCatalog.h / .cpp  - Source catalog indexing and generation
+    Cook/
+        CookedCatalog.h / .cpp  - Loose cook output + `.rtrtex` helpers
+    Package/
+        PakArchive.h / .cpp     - `.rtrpak` archive read/write helpers
+    IO/
+        PhysicalIO.h / .cpp     - Low-level text/binary filesystem I/O
 
 src/Tools/
     AssetIndexMain.cpp          - `rtr_asset_index`
@@ -705,9 +709,3 @@ authoring-only details and makes the transition to richer cooked metadata cleane
 Most of the current runtime still wants a physical file path after resource resolution.
 Materializing pak entries into cache-backed files lets packaged mounts participate in
 the same path-based consumers without forcing a larger streaming/IO API redesign first.
-
-### Why compatibility wrappers still exist
-
-They still serve tests, bootstrap code, and a few narrow migration bridges. Keeping
-them documented but scoped is lower risk than deleting them prematurely while the rest
-of the engine is still catching up to the resource model.
