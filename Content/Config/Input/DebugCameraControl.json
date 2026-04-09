@@ -1,0 +1,15 @@
+{
+  "actions": {
+    "ToggleLookMode": [
+      { "type": "MouseButton", "code": "Right" }
+    ]
+  },
+  "axes": {
+    "LookX": { "kind": "MouseAxis", "mouseAxis": "X" },
+    "LookY": { "kind": "MouseAxis", "mouseAxis": "Y" },
+    "MoveForward": { "kind": "KeyPair", "positive": "W", "negative": "S" },
+    "MoveRight": { "kind": "KeyPair", "positive": "D", "negative": "A" },
+    "MoveUp": { "kind": "KeyPair", "positive": "E", "negative": "Q" },
+    "Zoom": { "kind": "MouseAxis", "mouseAxis": "ScrollY" }
+  }
+}

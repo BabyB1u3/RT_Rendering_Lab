@@ -1,0 +1,317 @@
+#include <gtest/gtest.h>
+
+#include "Core/Input/Input.h"
+#include "Core/Input/Action/InputContextStack.h"
+#include "Core/Input/Action/InputAction.h"
+#include "InputActionTestSupport.h"
+#include "InputTestAccess.h"
+
+namespace
+{
+    using test_support::BindConstantAxis;
+    using test_support::BindConstantTrigger;
+    using test_support::InputTestAccess;
+}
+
+// These tests verify the contract behavior of InputContextStack:
+// priority ordering, highest-priority ownership, consumption blocking,
+// active/inactive logic, and runtime-state reset on deactivate.
+
+// --- Push / Pop / HasContext ---
+
+TEST(InputContextStackTests, PushAddsContext)
+{
+    InputContextStack stack;
+    InputActionMap map;
+
+    stack.Push("Gameplay", &map);
+    EXPECT_EQ(stack.Size(), 1u);
+    EXPECT_TRUE(stack.HasContext("Gameplay"));
+}
+
+TEST(InputContextStackTests, PushSortsByPriorityDescending)
+{
+    InputContextStack stack;
+    InputActionMap mapLow, mapMid, mapHigh;
+
+    BindConstantAxis(mapLow, "MoveX", 1.0f);
+    BindConstantAxis(mapMid, "MoveX", 2.0f);
+    BindConstantAxis(mapHigh, "MoveX", 3.0f);
+
+    stack.Push("Low", &mapLow, 0);
+    stack.Push("High", &mapHigh, 100);
+    stack.Push("Mid", &mapMid, 50);
+    stack.Update(0.016f);
+
+    EXPECT_EQ(stack.Size(), 3u);
+    EXPECT_FLOAT_EQ(stack.GetAxis("MoveX"), 3.0f);
+}
+
+TEST(InputContextStackTests, PopRemovesContextByName)
+{
+    InputContextStack stack;
+    InputActionMap mapA, mapB;
+
+    stack.Push("A", &mapA);
+    stack.Push("B", &mapB);
+    EXPECT_EQ(stack.Size(), 2u);
+
+    stack.Pop("A");
+    EXPECT_EQ(stack.Size(), 1u);
+    EXPECT_FALSE(stack.HasContext("A"));
+    EXPECT_TRUE(stack.HasContext("B"));
+}
+
+TEST(InputContextStackTests, PopResetsRuntimeStateBeforeRemovingContext)
+{
+    InputContextStack stack;
+    InputActionMap map;
+    int resetCount = 0;
+
+    BindConstantTrigger(map, "Confirm", TriggerState::Triggered, &resetCount);
+    stack.Push("Menu", &map, 100);
+    stack.Update(0.016f);
+
+    ASSERT_TRUE(map.WasActionTriggeredThisFrame("Confirm"));
+
+    stack.Pop("Menu");
+
+    EXPECT_EQ(resetCount, 1);
+    EXPECT_FALSE(map.WasActionTriggeredThisFrame("Confirm"));
+    EXPECT_EQ(map.GetActionTriggerState("Confirm"), TriggerState::None);
+    EXPECT_FALSE(stack.HasContext("Menu"));
+}
+
+TEST(InputContextStackTests, PopNonexistentNameIsNoOp)
+{
+    InputContextStack stack;
+    InputActionMap map;
+
+    stack.Push("A", &map);
+    stack.Pop("DoesNotExist");
+    EXPECT_EQ(stack.Size(), 1u);
+}
+
+TEST(InputContextStackTests, DuplicateNameReplacesExisting)
+{
+    InputContextStack stack;
+    InputActionMap map1, map2;
+
+    BindConstantAxis(map1, "MoveX", 1.0f);
+    BindConstantAxis(map2, "MoveX", 5.0f);
+
+    stack.Push("Gameplay", &map1, 0);
+    stack.Push("Gameplay", &map2, 50);
+    stack.Update(0.016f);
+
+    EXPECT_EQ(stack.Size(), 1u);
+    EXPECT_TRUE(stack.HasContext("Gameplay"));
+    EXPECT_FLOAT_EQ(stack.GetAxis("MoveX"), 5.0f);
+}
+
+// --- SetActive ---
+
+TEST(InputContextStackTests, SetActiveDisablesContext)
+{
+    InputContextStack stack;
+    InputActionMap highMap, lowMap;
+
+    BindConstantAxis(highMap, "MoveX", 4.0f);
+    BindConstantAxis(lowMap, "MoveX", 1.0f);
+
+    stack.Push("Gameplay", &lowMap, 0);
+    stack.Push("Overlay", &highMap, 100);
+    stack.SetActive("Overlay", false);
+    stack.Update(0.016f);
+
+    EXPECT_FLOAT_EQ(stack.GetAxis("MoveX"), 1.0f);
+}
+
+TEST(InputContextStackTests, SetActiveReenablesContext)
+{
+    InputContextStack stack;
+    InputActionMap highMap, lowMap;
+
+    BindConstantAxis(highMap, "MoveX", 4.0f);
+    BindConstantAxis(lowMap, "MoveX", 1.0f);
+
+    stack.Push("Gameplay", &lowMap, 0);
+    stack.Push("Overlay", &highMap, 100);
+    stack.SetActive("Overlay", false);
+    stack.SetActive("Overlay", true);
+    stack.Update(0.016f);
+
+    EXPECT_FLOAT_EQ(stack.GetAxis("MoveX"), 4.0f);
+}
+
+TEST(InputContextStackTests, DeactivatingContextResetsRuntimeState)
+{
+    InputContextStack stack;
+    InputActionMap map;
+    int resetCount = 0;
+
+    BindConstantTrigger(map, "Confirm", TriggerState::Triggered, &resetCount);
+    stack.Push("Menu", &map, 100);
+    stack.Update(0.016f);
+
+    ASSERT_TRUE(map.WasActionTriggeredThisFrame("Confirm"));
+
+    stack.SetActive("Menu", false);
+
+    EXPECT_EQ(resetCount, 1);
+    EXPECT_FALSE(map.WasActionTriggeredThisFrame("Confirm"));
+    EXPECT_EQ(map.GetActionTriggerState("Confirm"), TriggerState::None);
+}
+
+// --- Consumption blocking ---
+
+TEST(InputContextStackTests, ConsumingContextBlocksLowerPriorityUpdate)
+{
+    InputContextStack stack;
+    InputActionMap highMap, lowMap;
+
+    BindConstantTrigger(lowMap, "GameplayOnly", TriggerState::Triggered);
+    BindConstantTrigger(highMap, "Pause", TriggerState::None);
+
+    stack.Push("Menu", &highMap, 100, /*consumesInput=*/true);
+    stack.Push("Gameplay", &lowMap, 0);
+    stack.Update(0.016f);
+
+    EXPECT_FALSE(lowMap.WasActionTriggeredThisFrame("GameplayOnly"));
+    EXPECT_FALSE(stack.WasActionTriggeredThisFrame("GameplayOnly"));
+}
+
+TEST(InputContextStackTests, InactiveConsumingContextDoesNotBlock)
+{
+    InputContextStack stack;
+    InputActionMap highMap, lowMap;
+
+    BindConstantTrigger(lowMap, "GameplayOnly", TriggerState::Triggered);
+    BindConstantTrigger(highMap, "Pause", TriggerState::None);
+
+    stack.Push("Menu", &highMap, 100, /*consumesInput=*/true);
+    stack.Push("Gameplay", &lowMap, 0);
+    stack.SetActive("Menu", false);
+    stack.Update(0.016f);
+
+    EXPECT_TRUE(lowMap.WasActionTriggeredThisFrame("GameplayOnly"));
+    EXPECT_TRUE(stack.WasActionTriggeredThisFrame("GameplayOnly"));
+}
+
+// --- Cross-context queries ---
+
+TEST(InputContextStackTests, WasActionTriggeredUsesHighestPriorityContextThatDefinesAction)
+{
+    InputContextStack stack;
+    InputActionMap highMap, lowMap;
+
+    BindConstantTrigger(highMap, "Confirm", TriggerState::None);
+    BindConstantTrigger(lowMap, "Confirm", TriggerState::Triggered);
+
+    stack.Push("Gameplay", &lowMap, 0);
+    stack.Push("Menu", &highMap, 100);
+    stack.Update(0.016f);
+
+    EXPECT_FALSE(stack.WasActionTriggeredThisFrame("Confirm"));
+}
+
+TEST(InputContextStackTests, WasActionTriggeredFallsBackWhenHigherPriorityDoesNotDefineAction)
+{
+    InputContextStack stack;
+    InputActionMap highMap, lowMap;
+
+    BindConstantTrigger(highMap, "Pause", TriggerState::None);
+    BindConstantTrigger(lowMap, "Confirm", TriggerState::Triggered);
+
+    stack.Push("Gameplay", &lowMap, 0);
+    stack.Push("Menu", &highMap, 100);
+    stack.Update(0.016f);
+
+    EXPECT_TRUE(stack.WasActionTriggeredThisFrame("Confirm"));
+}
+
+TEST(InputContextStackTests, GetAxisUsesHighestPriorityContextThatDefinesAxisEvenWhenValueIsZero)
+{
+    InputContextStack stack;
+    InputActionMap highMap, lowMap;
+
+    BindConstantAxis(highMap, "MoveX", 0.0f);
+    BindConstantAxis(lowMap, "MoveX", 5.0f);
+
+    stack.Push("Gameplay", &lowMap, 0);
+    stack.Push("Menu", &highMap, 100);
+    stack.Update(0.016f);
+
+    EXPECT_FLOAT_EQ(stack.GetAxis("MoveX"), 0.0f);
+}
+
+TEST(InputContextStackTests, EmptyStackQueriesReturnDefaults)
+{
+    InputContextStack stack;
+
+    EXPECT_FALSE(stack.IsActionDown("Jump"));
+    EXPECT_FALSE(stack.WasActionTriggeredThisFrame("Jump"));
+    EXPECT_FLOAT_EQ(stack.GetAxis("MoveX"), 0.0f);
+}
+
+TEST(InputContextStackTests, UpdateOnEmptyStackIsNoOp)
+{
+    InputContextStack stack;
+
+    stack.Update(0.016f);
+    EXPECT_EQ(stack.Size(), 0u);
+}
+
+TEST(InputContextStackTests, PendingHigherPriorityChordBlocksLowerSingleKeyAction)
+{
+    InputTestAccess::RestoreDefaultDevices();
+    Input::Initialize(nullptr);
+
+    InputContextStack stack;
+    InputActionMap highMap, lowMap;
+
+    highMap.BindChordAction("Save", {InputSource::FromKey(Key::LeftControl), InputSource::FromKey(Key::S)});
+    lowMap.BindAction("Crouch", Key::LeftControl);
+
+    stack.Push("Editor", &highMap, 100);
+    stack.Push("Gameplay", &lowMap, 0);
+
+    auto frame = InputTestAccess::MakeFrame();
+    InputTestAccess::SetKey(frame, Key::LeftControl, true);
+    InputTestAccess::ApplyFrame(frame);
+    stack.Update(0.016f);
+
+    EXPECT_FALSE(stack.WasActionTriggeredThisFrame("Crouch"));
+    EXPECT_FALSE(stack.IsActionDown("Crouch"));
+    EXPECT_FALSE(lowMap.WasActionTriggeredThisFrame("Crouch"));
+}
+
+TEST(InputContextStackTests, HigherPriorityChordDoesNotBlockUnrelatedLowerBinding)
+{
+    InputTestAccess::RestoreDefaultDevices();
+    Input::Initialize(nullptr);
+
+    InputContextStack stack;
+    InputActionMap highMap, lowMap;
+
+    highMap.BindChordAction("Save", {InputSource::FromKey(Key::LeftControl), InputSource::FromKey(Key::S)});
+    lowMap.BindAction("Confirm", Key::Enter);
+    lowMap.BindAction("Confirm", InputSource::FromMouseButton(Mouse::Left));
+
+    stack.Push("Editor", &highMap, 100);
+    stack.Push("Gameplay", &lowMap, 0);
+
+    auto chordFrame = InputTestAccess::MakeFrame();
+    InputTestAccess::SetKey(chordFrame, Key::LeftControl, true);
+    InputTestAccess::ApplyFrame(chordFrame);
+    stack.Update(0.016f);
+    EXPECT_FALSE(stack.WasActionTriggeredThisFrame("Confirm"));
+
+    auto clickFrame = InputTestAccess::MakeFrame();
+    InputTestAccess::SetKey(clickFrame, Key::LeftControl, true);
+    InputTestAccess::SetMouseButton(clickFrame, Mouse::Left, true);
+    InputTestAccess::ApplyFrame(clickFrame);
+    stack.Update(0.016f);
+
+    EXPECT_TRUE(stack.WasActionTriggeredThisFrame("Confirm"));
+}
