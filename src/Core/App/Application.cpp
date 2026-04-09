@@ -104,10 +104,10 @@ void Application::Run()
     while (m_Running && !m_Window->ShouldClose())
     {
         m_Window->PollEvents();
-        Input::BeginFrame();
 
         const double currentTime = glfwGetTime();
         Time::Update(currentTime);
+        Input::BeginFrame(Time::GetDeltaTime());
 
         // Skip all layer processing while minimized - no visible surface to render to,
         // and some drivers return a 0x0 framebuffer which would cause GL errors.
