@@ -24,6 +24,9 @@ implementation as of 2026-04-09.
   - [8. Robustness: getenv Return Value Held as string\_view](#8-robustness-getenv-return-value-held-as-string_view)
   - [9. Redundancy: Unused GetMountRoot Call in ResolvePath](#9-redundancy-unused-getmountroot-call-in-resolvepath)
   - [10. DRY: Catalog JSON Parsing Duplicated Between Runtime and Cook](#10-dry-catalog-json-parsing-duplicated-between-runtime-and-cook)
+  - [11. Security: Catalog Artifact Paths Are Not Validated as Safe Relative Paths](#11-security-catalog-artifact-paths-are-not-validated-as-safe-relative-paths)
+  - [12. Robustness: PakArchive Does Not Validate Index/Data Ranges Against File Size](#12-robustness-pakarchive-does-not-validate-indexdata-ranges-against-file-size)
+  - [13. Correctness: Source Catalog Physical Path Casing Can Drift from the Real Filesystem](#13-correctness-source-catalog-physical-path-casing-can-drift-from-the-real-filesystem)
 
 ---
 
@@ -35,6 +38,8 @@ implementation as of 2026-04-09.
 | Performance (optimizable, non-blocking) | 3 |
 | Thread safety (constraint needs documenting) | 1 |
 | DRY / maintainability | 3 |
+| Security / robustness | 3 |
+| Correctness | 1 |
 | Style / defensive redundancy | 2 |
 
 The core architecture (logical path model, mount precedence, catalog merge, artifact
@@ -231,3 +236,133 @@ the JSON field names and parsing rules must be kept in sync across both implemen
 **Recommendation**: consider extracting the shared parsing logic into a common helper.
 The cook-side could call the shared parser with a version filter, or the shared parser
 could accept a mode flag to skip cooked-only validation.
+
+---
+
+## 11. Security: Catalog Artifact Paths Are Not Validated as Safe Relative Paths
+
+**Files**:
+
+- `src/Core/Resource/Catalog/ResourceCatalog.cpp:56-79`
+- `src/Core/Resource/Mount/MountBackend.cpp:395-405`
+- `src/Core/Resource/Cook/CookedCatalog.cpp:453-562`
+
+`ParseArtifactRecord()` accepts any string as `artifact.relativePath` and does not check
+that it is a safe mount-relative path. That becomes a correctness and security issue
+because directory-backed mounts later trust the string and join it directly:
+
+```cpp
+case MountBackendKind::Directory:
+    return mount.mountRoot / artifact.relativePath;
+```
+
+The cook path has the same problem:
+
+```cpp
+const auto sourcePath = sourceMountRoot / sourceArtifact.relativePath;
+```
+
+As a result, a malformed or hand-edited catalog could reference `../...` or an absolute
+filesystem path and escape the mount root. For loose source/cooked/overlay mounts this
+can turn catalog resolution into arbitrary file reads outside the intended resource
+domain. For cooking, it can also copy files from outside the source mount into cooked
+output.
+
+This is notably different from `.rtrpak` handling, where archive entry paths are checked
+with `IsSafeRelativePath()` before use.
+
+**Recommendation**: add a shared validation helper for catalog artifact/source-relative
+paths and apply it in both runtime and cook parsing. The helper should reject:
+
+- absolute paths
+- `.` / `..` segments
+- empty paths
+- any path that does not remain strictly mount-relative after normalization
+
+---
+
+## 12. Robustness: PakArchive Does Not Validate Index/Data Ranges Against File Size
+
+**Files**:
+
+- `src/Core/Resource/Package/PakArchive.cpp:60-139`
+- `src/Core/Resource/Package/PakArchive.cpp:311-345`
+
+`LoadPakIndex()` validates the pak magic/version and checks that entry paths are safe,
+but it does not validate the structural ranges in the archive against the actual file
+size.
+
+Examples of unchecked fields:
+
+- `header.indexOffset`
+- `header.indexSize`
+- `header.entryCount`
+- per-entry `dataOffset`
+- per-entry `dataSize`
+- per-entry `pathLength`
+
+`ReadPakEntry()` then trusts the parsed `dataSize` and allocates a buffer of that size
+before reading the payload. A corrupted or malicious pak can therefore trigger huge
+allocations, invalid seeks, or repeated parse failures deep into the read path instead of
+being rejected at archive validation time.
+
+The current code does detect some truncation when the final read fails, but that happens
+too late. The archive format already stores enough metadata to reject impossible ranges
+up front.
+
+**Recommendation**: validate pak structure against the physical file size during index
+load:
+
+- ensure `indexOffset <= fileSize`
+- ensure `indexOffset + indexSize <= fileSize`
+- ensure each index record stays within the declared index range
+- ensure each payload range `dataOffset + dataSize` stays within the file
+- guard all additions against integer overflow before comparing ranges
+
+That keeps packaged mounts robust even when the input archive is damaged or externally
+supplied.
+
+---
+
+## 13. Correctness: Source Catalog Physical Path Casing Can Drift from the Real Filesystem
+
+**Files**:
+
+- `src/Core/Resource/Catalog/SourceCatalog.cpp:44-89`
+- `src/Core/Resource/Catalog/SourceCatalog.cpp:197-233`
+
+The design document explicitly states that public logical paths are case-sensitive across
+all platforms. The implementation mostly follows that rule for logical paths, but the
+physical path strings stored in source catalogs (`sourceRelativePath` and artifact
+`relativePath`) can drift from the real on-disk casing.
+
+The key asymmetry is:
+
+- logical path generation canonicalizes known directory names such as
+  `textures -> Textures`
+- physical relative paths are emitted using the raw scanned relative path text
+
+That means the same catalog entry can encode:
+
+- logical path: `/Project/Textures/Grassy_Square`
+- physical artifact path: `textures/Grassy_Square.jpg`
+
+while the real file on disk is `Content/Textures/Grassy_Square.jpg`.
+
+On Windows this often still "works" because the filesystem is case-insensitive, so the
+mismatch can stay hidden. On case-sensitive filesystems, or in tests that compare exact
+resolved physical paths, the inconsistency becomes observable. In practice this already
+shows up as contract-test failures when the runtime content tree uses `Textures/` but the
+checked-in/generated catalog still references `textures/`.
+
+This is not just a test nuisance. It weakens the design goal that logical identity and
+resolved storage should behave consistently across platforms.
+
+**Recommendation**: tighten the physical-path casing policy. Good options are:
+
+- always regenerate catalogs from the current filesystem and avoid relying on stale
+  checked-in catalog casing
+- add validation that catalog physical paths match the real filesystem casing exactly
+- if canonical directory casing is part of the contract, normalize physical artifact
+  paths to that same casing during indexing/cooking instead of only normalizing the
+  logical path
