@@ -23,12 +23,12 @@ jobs:
     name: Windows MSVC
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
       - name: Cache build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: build/ci-windows
           key: ci-windows-${{ hashFiles('CMakeLists.txt', 'Src/CMakeLists.txt', 'Vendor/CMakeLists.txt', 'Tests/CMakeLists.txt') }}
@@ -47,7 +47,7 @@ jobs:
     name: Linux GCC
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -59,7 +59,7 @@ jobs:
             libxkbcommon-dev libwayland-dev
 
       - name: Cache build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: build/ci-linux
           key: ci-linux-${{ hashFiles('CMakeLists.txt', 'Src/CMakeLists.txt', 'Vendor/CMakeLists.txt', 'Tests/CMakeLists.txt') }}
@@ -78,7 +78,7 @@ jobs:
     name: macOS Clang
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -86,7 +86,7 @@ jobs:
         run: brew install ninja
 
       - name: Cache build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: build/ci-macos
           key: ci-macos-${{ hashFiles('CMakeLists.txt', 'Src/CMakeLists.txt', 'Vendor/CMakeLists.txt', 'Tests/CMakeLists.txt') }}
