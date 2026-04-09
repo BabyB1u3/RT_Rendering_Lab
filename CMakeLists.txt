@@ -123,9 +123,9 @@ endif()
 # include(cmake/SetupSlang.cmake)
 # include(cmake/CompileShaders.cmake)
 
-add_subdirectory(vendor)
+add_subdirectory(Vendor)
 # glab_compile_shaders()
-add_subdirectory(src)
+add_subdirectory(Src)
 
 # -----------------------------------------------------------------------------
 # Tests
@@ -147,5 +147,5 @@ if(GLAB_BUILD_TESTS)
 
     FetchContent_MakeAvailable(googletest)
 
-    add_subdirectory(tests)
+    add_subdirectory(Tests)
 endif()
