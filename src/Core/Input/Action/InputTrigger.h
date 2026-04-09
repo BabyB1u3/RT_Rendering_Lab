@@ -7,7 +7,8 @@
 /// PressedTrigger behavior). Triggers add conditions like "hold for 0.5s" or
 /// "tap and release within 0.2s".
 ///
-/// Built-in triggers: PressedTrigger, HoldTrigger, TapTrigger, ReleasedTrigger.
+/// Built-in triggers: PressedTrigger, HoldTrigger, TapTrigger, DoubleTapTrigger,
+/// ReleasedTrigger.
 
 #include <cstdint>
 
@@ -143,4 +144,49 @@ public:
     {
         return released ? TriggerState::Triggered : TriggerState::None;
     }
+};
+
+/// Triggers on the second press within `maxGap` seconds.
+class DoubleTapTrigger : public InputTrigger
+{
+public:
+    explicit DoubleTapTrigger(float maxGap = 0.3f) : m_MaxGap(maxGap) {}
+
+    TriggerState Evaluate(bool /*down*/, bool pressed, bool /*released*/, float dt) override
+    {
+        if (m_WaitingForSecond)
+        {
+            m_GapTimer += dt;
+            if (m_GapTimer > m_MaxGap)
+            {
+                m_WaitingForSecond = false;
+                m_GapTimer = 0.0f;
+            }
+        }
+
+        if (!pressed)
+            return m_WaitingForSecond ? TriggerState::Ongoing : TriggerState::None;
+
+        if (m_WaitingForSecond)
+        {
+            m_WaitingForSecond = false;
+            m_GapTimer = 0.0f;
+            return TriggerState::Triggered;
+        }
+
+        m_WaitingForSecond = true;
+        m_GapTimer = 0.0f;
+        return TriggerState::Ongoing;
+    }
+
+    void Reset() override
+    {
+        m_GapTimer = 0.0f;
+        m_WaitingForSecond = false;
+    }
+
+private:
+    float m_MaxGap = 0.3f;
+    float m_GapTimer = 0.0f;
+    bool m_WaitingForSecond = false;
 };

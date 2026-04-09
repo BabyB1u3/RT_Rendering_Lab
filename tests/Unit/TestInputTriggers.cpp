@@ -169,6 +169,33 @@ TEST(InputTriggerTests, TapTriggerCanTriggerAgainOnSecondQuickTap)
     EXPECT_EQ(trigger.Evaluate(false, false, true, 0.05f), TriggerState::Triggered);
 }
 
+TEST(InputTriggerTests, DoubleTapTriggerFiresOnSecondPressWithinWindow)
+{
+    DoubleTapTrigger trigger(0.2f);
+
+    EXPECT_EQ(trigger.Evaluate(true, true, false, 0.016f), TriggerState::Ongoing);
+    EXPECT_EQ(trigger.Evaluate(false, false, true, 0.05f), TriggerState::Ongoing);
+    EXPECT_EQ(trigger.Evaluate(true, true, false, 0.05f), TriggerState::Triggered);
+}
+
+TEST(InputTriggerTests, DoubleTapTriggerTimesOutAndStartsNewSequence)
+{
+    DoubleTapTrigger trigger(0.2f);
+
+    EXPECT_EQ(trigger.Evaluate(true, true, false, 0.016f), TriggerState::Ongoing);
+    EXPECT_EQ(trigger.Evaluate(false, false, true, 0.25f), TriggerState::None);
+    EXPECT_EQ(trigger.Evaluate(true, true, false, 0.0f), TriggerState::Ongoing);
+}
+
+TEST(InputTriggerTests, DoubleTapTriggerResetClearsPendingTap)
+{
+    DoubleTapTrigger trigger(0.2f);
+
+    EXPECT_EQ(trigger.Evaluate(true, true, false, 0.016f), TriggerState::Ongoing);
+    trigger.Reset();
+    EXPECT_EQ(trigger.Evaluate(false, false, false, 0.016f), TriggerState::None);
+}
+
 // --- Reset ---
 
 TEST(InputTriggerTests, HoldTriggerResetClearsState)
