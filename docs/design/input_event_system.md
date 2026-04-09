@@ -37,7 +37,7 @@ key and mouse code constants but serve fundamentally different consumers.
     - [Double-tap](#double-tap)
   - [12. Layer 10 - Input Recording \& Replay](#12-layer-10---input-recording--replay)
     - [Architecture](#architecture)
-    - [Planned interfaces](#planned-interfaces-1)
+    - [Planned interfaces](#planned-interfaces)
     - [Determinism requirements](#determinism-requirements)
   - [13. Data Flow Diagram](#13-data-flow-diagram)
     - [Core flow (implemented layers)](#core-flow-implemented-layers)
@@ -176,12 +176,9 @@ abstractions:
 
 Each demo/layer owns its own `InputActionMap` instance. The `ShadowMapping` and
 `MaterialPlayground` demos each load bindings from `Content/Config/input/*.json` and
-fall back to hardcoded defaults saved to `Saved/Config/`. Gamepad source types are
-present in `InputSource::Type` but `IsSourceDown()` only handles keyboard and mouse
-until Layer 5 is built.
-`MaterialPlayground` demos each load bindings from `assets/configs/input/*.json` and
-fall back to hardcoded defaults saved to `saved/configs/`. `InputSource::Type` includes
-gamepad button and gamepad axis values, and `IsSourceDown()` / edge queries now resolve
+fall back to hardcoded defaults saved to `Saved/Config/`.
+`InputSource::Type` includes gamepad button and gamepad axis values, 
+and `IsSourceDown()` / edge queries now resolve
 them through `InputDeviceManager`.
 
 **Typical usage**:
