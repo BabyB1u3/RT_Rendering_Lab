@@ -337,7 +337,7 @@ target_compile_definitions(RTRLabCore PUBLIC
     $<$<CONFIG:Debug>:RTRLAB_CONFIG_DEBUG>
     $<$<CONFIG:RelWithDebInfo>:RTRLAB_CONFIG_RELWITHDEBINFO>
     $<$<CONFIG:Release>:RTRLAB_CONFIG_RELEASE>
-    $<$<CONFIG:Debug>:GLAB_ROOT_DIR="${CMAKE_SOURCE_DIR}">
+    $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:GLAB_ROOT_DIR="${CMAKE_SOURCE_DIR}">
     $<$<CONFIG:Debug>:RTRLAB_LOG_MIN_LEVEL=0>
     $<$<CONFIG:RelWithDebInfo>:RTRLAB_LOG_MIN_LEVEL=1>
     $<$<CONFIG:Release>:RTRLAB_LOG_MIN_LEVEL=2>
