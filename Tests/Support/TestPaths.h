@@ -94,6 +94,11 @@ namespace test_support
         ASSERT_TRUE(out.good());
     }
 
+    inline void WriteProjectMarkerOrFail(const std::filesystem::path &rootPath)
+    {
+        WriteTextFileOrFail(rootPath / ".rtrproject", "\n");
+    }
+
     inline void ResetCurrentTestRoot(std::string_view category)
     {
         std::error_code ec;

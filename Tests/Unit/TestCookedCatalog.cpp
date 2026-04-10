@@ -60,6 +60,7 @@ namespace
 TEST_F(CookedCatalogTests, CookRepositoryCatalogsCopiesArtifactsAndWritesCookedCatalog)
 {
     const auto repoRoot = TestRoot() / "Repo";
+    test_support::WriteProjectMarkerOrFail(repoRoot);
     test_support::WriteBinaryFileOrFail(repoRoot / "Content" / "textures" / "Grassy_Square.png", kOnePixelPng);
 
     std::string errorMessage;
@@ -111,6 +112,7 @@ TEST_F(CookedCatalogTests, CookRepositoryCatalogsCopiesArtifactsAndWritesCookedC
 TEST_F(CookedCatalogTests, CookRepositoryCatalogsPreservesLogicalPathsAcrossMounts)
 {
     const auto repoRoot = TestRoot() / "Repo";
+    test_support::WriteProjectMarkerOrFail(repoRoot);
     test_support::WriteBinaryFileOrFail(repoRoot / "Content" / "textures" / "Grassy_Square.png", kOnePixelPng);
     test_support::WriteTextFileOrFail(
         repoRoot / "EngineContent" / "Defaults" / "Materials" / "ErrorMaterial.json",

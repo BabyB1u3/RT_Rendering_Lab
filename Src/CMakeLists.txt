@@ -335,6 +335,7 @@ endif()
 target_compile_definitions(RTRLabCore PUBLIC
     GLM_ENABLE_EXPERIMENTAL
     $<$<CONFIG:Debug>:GLAB_ROOT_DIR="${CMAKE_SOURCE_DIR}">
+    $<$<NOT:$<CONFIG:Debug>>:RTRL_SHIPPING>
     $<$<CONFIG:Debug>:RTRLAB_LOG_MIN_LEVEL=0>
     $<$<CONFIG:RelWithDebInfo>:RTRLAB_LOG_MIN_LEVEL=1>
     $<$<CONFIG:Release>:RTRLAB_LOG_MIN_LEVEL=2>

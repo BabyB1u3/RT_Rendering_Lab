@@ -25,7 +25,7 @@ namespace
 
 void FileSystem::Init()
 {
-    s_RootPath = Resource::DiscoverRootPath(kProjectContentDirName);
+    s_RootPath = Resource::DiscoverRootPath();
     s_EngineDir = s_RootPath / "EngineContent";
     s_CatalogRegistry.Reset();
     s_Initialized = true;

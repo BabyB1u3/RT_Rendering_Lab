@@ -110,6 +110,7 @@ TEST_F(SourceCatalogTests, BuildSourceCatalogRejectsDuplicateLogicalPaths)
 TEST_F(SourceCatalogTests, IndexRepositorySourceCatalogsWritesProjectEngineAndPluginCatalogs)
 {
     const auto repoRoot = TestRoot() / "Repo";
+    test_support::WriteProjectMarkerOrFail(repoRoot);
     test_support::WriteTextFileOrFail(repoRoot / "Content" / "Textures" / "Grassy_Square.jpg", "jpg");
     test_support::WriteTextFileOrFail(repoRoot / "EngineContent" / "Defaults" / "Materials" / "ErrorMaterial.json", "{\n}\n");
     test_support::WriteTextFileOrFail(repoRoot / "Plugins" / "ExamplePlugin" / "Content" / "Materials" / "Checker.json", "{\n}\n");
@@ -144,6 +145,7 @@ TEST_F(SourceCatalogTests, IndexRepositorySourceCatalogsWritesProjectEngineAndPl
 TEST_F(SourceCatalogTests, IndexRepositorySourceCatalogsSkipsPluginsWithInvalidMountNames)
 {
     const auto repoRoot = TestRoot() / "Repo";
+    test_support::WriteProjectMarkerOrFail(repoRoot);
     test_support::WriteTextFileOrFail(repoRoot / "Plugins" / "ValidPlugin" / "Content" / "Materials" / "Checker.json", "{\n}\n");
     test_support::WriteTextFileOrFail(repoRoot / "Plugins" / "Bad-Plugin" / "Content" / "Materials" / "Ignored.json", "{\n}\n");
 
