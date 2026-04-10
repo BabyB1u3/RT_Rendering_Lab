@@ -5,5 +5,5 @@
 
 namespace Resource
 {
-    std::filesystem::path DiscoverRootPath(std::string_view assetDirName);
+    std::filesystem::path DiscoverRootPath();
 } // namespace Resource

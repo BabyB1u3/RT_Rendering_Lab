@@ -68,7 +68,7 @@ namespace
 
 namespace Resource
 {
-    std::filesystem::path DiscoverRootPath(std::string_view assetDirName)
+    std::filesystem::path DiscoverRootPath()
     {
         if (const char *envRoot = std::getenv("RTRL_ROOT"))
         {
