@@ -30,12 +30,12 @@ jobs:
       - name: Cache build
         uses: actions/cache@v5
         with:
-          path: build/ci-windows
+          path: build/ci-windows-vs
           key: ci-windows-${{ hashFiles('CMakeLists.txt', 'Src/CMakeLists.txt', 'Vendor/CMakeLists.txt', 'Tests/CMakeLists.txt') }}
           restore-keys: ci-windows-
 
       - name: Configure
-        run: cmake --preset ci-windows-vs-release
+        run: cmake --preset ci-windows-vs
 
       - name: Build
         run: cmake --build --preset build-ci-windows-vs-release --parallel
@@ -61,7 +61,7 @@ jobs:
       - name: Cache build
         uses: actions/cache@v5
         with:
-          path: build/ci-linux
+          path: build/ci-linux-ninja-release
           key: ci-linux-${{ hashFiles('CMakeLists.txt', 'Src/CMakeLists.txt', 'Vendor/CMakeLists.txt', 'Tests/CMakeLists.txt') }}
           restore-keys: ci-linux-
 
@@ -88,7 +88,7 @@ jobs:
       - name: Cache build
         uses: actions/cache@v5
         with:
-          path: build/ci-macos
+          path: build/ci-macos-ninja-release
           key: ci-macos-${{ hashFiles('CMakeLists.txt', 'Src/CMakeLists.txt', 'Vendor/CMakeLists.txt', 'Tests/CMakeLists.txt') }}
           restore-keys: ci-macos-
 

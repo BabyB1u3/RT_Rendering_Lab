@@ -2,7 +2,7 @@
 
 A modern C++ graphics engine built for experimenting with real-time rendering techniques. The long-term goal is a multi-backend renderer (Vulkan, Metal, OpenGL) driven by **Slang** shaders and a modern explicit RHI, paired with a suite of rendering demos covering PBR, shadows, screen-space effects, and beyond.
 
-[中文文档](./Docs/ZH_CN/README.zh-CN.md)
+[中文文档](./Docs/ZH_CN/README.ZH_CN.md)
 
 ---
 
@@ -112,16 +112,24 @@ Current pinned submodule versions:
 
 ```bash
 # Visual Studio 2026 - Debug
-cmake --preset windows-vs-debug
+cmake --preset windows-vs
 cmake --build --preset build-windows-vs-debug
 
-# Visual Studio 2026 - Fast debug iteration
-cmake --preset windows-vs-debug-fast
-cmake --build --preset build-windows-vs-debug-fast --parallel
+# Visual Studio 2026 - RelWithDebInfo
+cmake --preset windows-vs
+cmake --build --preset build-windows-vs-relwithdebinfo
+
+# Visual Studio 2026 - Fast debug iteration without tests
+cmake --preset windows-vs-fast
+cmake --build --preset build-windows-vs-fast-debug --parallel
 
 # Ninja - Release
 cmake --preset linux-ninja-release
 cmake --build --preset build-linux-ninja-release
+
+# Ninja - RelWithDebInfo
+cmake --preset linux-ninja-relwithdebinfo
+cmake --build --preset build-linux-ninja-relwithdebinfo
 
 # Ninja - Fast debug iteration
 cmake --preset linux-ninja-debug-fast
@@ -131,12 +139,18 @@ cmake --build --preset build-linux-ninja-debug-fast
 cmake --preset macos-ninja-release
 cmake --build --preset build-macos-ninja-release
 
+# macOS Ninja - RelWithDebInfo
+cmake --preset macos-ninja-relwithdebinfo
+cmake --build --preset build-macos-ninja-relwithdebinfo
+
 # macOS Ninja - Fast debug iteration
 cmake --preset macos-ninja-debug-fast
 cmake --build --preset build-macos-ninja-debug-fast
 ```
 
-`windows-vs-debug-fast`, `linux-ninja-debug-fast`, and `macos-ninja-debug-fast` disable tests, enable unity build and precompiled headers, and skip `imgui_demo.cpp` - tuned for shorter edit-build-run loops.
+On Windows, the `windows-vs` configure preset is a shared multi-config build tree; choose `Debug`, `RelWithDebInfo`, or `Release` through the matching build or test preset.
+
+`windows-vs-fast`, `linux-ninja-debug-fast`, and `macos-ninja-debug-fast` disable tests and enable unity build - tuned for shorter edit-build-run loops.
 
 ### Build Manually
 
@@ -158,7 +172,7 @@ cmake --build build
 The project uses **Google Test** (fetched automatically via CMake FetchContent).
 
 ```bash
-cmake --preset windows-vs-debug
+cmake --preset windows-vs
 cmake --build --preset build-windows-vs-debug
 ctest --preset test-windows-vs-debug
 ```
@@ -167,16 +181,17 @@ Test executables: `rtrlab_unit_tests`, `rtrlab_integration_tests`.
 
 ### CMake Options
 
-| Option                    | Default | Description                                                 |
-| ------------------------- | ------- | ----------------------------------------------------------- |
-| `GLAB_COMPILE_SHADERS`    | `ON`    | Compile GLSL shaders to SPIR-V at build time                |
-| `GLAB_BUILD_TESTS`        | `ON`    | Build the test suite                                        |
-| `GLAB_ENABLE_WARNINGS`    | `ON`    | Enable strict compiler warnings                             |
-| `GLAB_ENABLE_ASAN`        | `OFF`   | Enable AddressSanitizer (non-MSVC)                          |
-| `GLAB_ENABLE_PCH`         | `ON`    | Enable precompiled headers                                  |
-| `GLAB_ENABLE_UNITY_BUILD` | `OFF`   | Merge selected `.cpp` files into unity batches              |
-| `GLAB_ENABLE_MSVC_MP`     | `ON`    | Enable MSVC multi-processor compilation (`/MP`)             |
-| `GLAB_BUILD_IMGUI_DEMO`   | `OFF`   | Compile `imgui_demo.cpp` into the Dear ImGui static library |
+| Option                        | Default | Description                                                 |
+| ----------------------------- | ------- | ----------------------------------------------------------- |
+| `GLAB_COMPILE_SHADERS`        | `ON`    | Compile GLSL shaders to SPIR-V at build time                |
+| `GLAB_BUILD_TESTS`            | `ON`    | Build the test suite                                        |
+| `GLAB_ENABLE_WARNINGS`        | `ON`    | Enable strict compiler warnings                             |
+| `GLAB_ENABLE_ASAN`            | `OFF`   | Enable AddressSanitizer (non-MSVC)                          |
+| `GLAB_ENABLE_PCH`             | `ON`    | Enable precompiled headers                                  |
+| `GLAB_ENABLE_UNITY_BUILD`     | `OFF`   | Merge selected `.cpp` files into unity batches              |
+| `GLAB_ENABLE_MSVC_MP`         | `ON`    | Enable MSVC multi-processor compilation (`/MP`)             |
+| `GLAB_ENABLE_RELEASE_SYMBOLS` | `OFF`   | Emit MSVC debug symbols for `Release` builds                |
+| `GLAB_BUILD_IMGUI_DEMO`       | `OFF`   | Compile `imgui_demo.cpp` into the Dear ImGui static library |
 
 ---
 
@@ -211,4 +226,3 @@ Beyond that, the project will explore:
 - Ray tracing experiments (path tracing, hybrid rendering)
 
 See [Docs/EN/roadmap.md](./Docs/EN/roadmap.md) for the full development plan.
-
