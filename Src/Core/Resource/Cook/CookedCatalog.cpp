@@ -253,112 +253,6 @@ namespace
         return mounts;
     }
 
-    bool LoadCatalogEntries(const std::filesystem::path &catalogPath,
-                            std::vector<Resource::ResourceCatalogEntry> &entries,
-                            std::string *errorMessage)
-    {
-        std::ifstream in(catalogPath, std::ios::in | std::ios::binary);
-        if (!in.is_open())
-        {
-            if (errorMessage != nullptr)
-                *errorMessage = "failed to open source catalog: " + catalogPath.string();
-            return false;
-        }
-
-        Json rootJson;
-        try
-        {
-            in >> rootJson;
-        }
-        catch (const std::exception &e)
-        {
-            if (errorMessage != nullptr)
-                *errorMessage = "failed to parse source catalog '" + catalogPath.string() + "': " + e.what();
-            return false;
-        }
-
-        const auto versionIt = rootJson.find("version");
-        if (versionIt == rootJson.end() || !versionIt->is_number_integer() || versionIt->get<int>() != 1)
-        {
-            if (errorMessage != nullptr)
-                *errorMessage = "unsupported source catalog version in " + catalogPath.string();
-            return false;
-        }
-
-        const auto entriesIt = rootJson.find("entries");
-        if (entriesIt == rootJson.end() || !entriesIt->is_array())
-        {
-            if (errorMessage != nullptr)
-                *errorMessage = "source catalog missing entries array: " + catalogPath.string();
-            return false;
-        }
-
-        entries.clear();
-
-        for (const auto &entryJson : *entriesIt)
-        {
-            if (!entryJson.is_object())
-            {
-                if (errorMessage != nullptr)
-                    *errorMessage = "source catalog contains a non-object entry: " + catalogPath.string();
-                return false;
-            }
-
-            const auto logicalPathIt = entryJson.find("logicalPath");
-            const auto sourceRelativePathIt = entryJson.find("sourceRelativePath");
-            const auto artifactsIt = entryJson.find("artifacts");
-            if (logicalPathIt == entryJson.end() || !logicalPathIt->is_string() ||
-                sourceRelativePathIt == entryJson.end() || !sourceRelativePathIt->is_string() ||
-                artifactsIt == entryJson.end() || !artifactsIt->is_array())
-            {
-                if (errorMessage != nullptr)
-                    *errorMessage = "source catalog entry is missing required fields: " + catalogPath.string();
-                return false;
-            }
-
-            Resource::ResourceCatalogEntry entry;
-            entry.logicalPath = logicalPathIt->get<std::string>();
-            entry.sourceRelativePath = sourceRelativePathIt->get<std::string>();
-
-            for (const auto &artifactJson : *artifactsIt)
-            {
-                if (!artifactJson.is_object())
-                {
-                    if (errorMessage != nullptr)
-                        *errorMessage = "source catalog entry contains a non-object artifact: " + catalogPath.string();
-                    return false;
-                }
-
-                const auto relativePathIt = artifactJson.find("relativePath");
-                if (relativePathIt == artifactJson.end() || !relativePathIt->is_string())
-                {
-                    if (errorMessage != nullptr)
-                        *errorMessage = "source catalog artifact is missing relativePath: " + catalogPath.string();
-                    return false;
-                }
-
-                Resource::ArtifactRecord artifact;
-                artifact.relativePath = relativePathIt->get<std::string>();
-                if (const auto it = artifactJson.find("format"); it != artifactJson.end() && it->is_string())
-                    artifact.format = it->get<std::string>();
-                if (const auto it = artifactJson.find("platformTag"); it != artifactJson.end() && it->is_string())
-                    artifact.platformTag = it->get<std::string>();
-                if (const auto it = artifactJson.find("backendTag"); it != artifactJson.end() && it->is_string())
-                    artifact.backendTag = it->get<std::string>();
-                if (const auto it = artifactJson.find("profileTag"); it != artifactJson.end() && it->is_string())
-                    artifact.profileTag = it->get<std::string>();
-                if (const auto it = artifactJson.find("contentHash"); it != artifactJson.end() && it->is_number_unsigned())
-                    artifact.contentHash = it->get<uint64_t>();
-
-                entry.artifacts.push_back(std::move(artifact));
-            }
-
-            entries.push_back(std::move(entry));
-        }
-
-        return true;
-    }
-
     bool WriteCookedCatalogJson(const std::filesystem::path &catalogPath,
                                 const std::vector<Resource::ResourceCatalogEntry> &entries,
                                 std::string *errorMessage)
@@ -616,16 +510,8 @@ namespace Resource
     {
         for (const auto &mount : DiscoverReadableSourceMounts(rootPath, cookedRootPath, projectContentDirName))
         {
-            const auto sourceCatalogPath = mount.sourceRoot / ".rtr" / "catalog.json";
-            if (!std::filesystem::exists(sourceCatalogPath))
-            {
-                if (errorMessage != nullptr)
-                    *errorMessage = "missing source catalog for mount root: " + mount.sourceRoot.string();
-                return false;
-            }
-
             std::vector<ResourceCatalogEntry> sourceEntries;
-            if (!LoadCatalogEntries(sourceCatalogPath, sourceEntries, errorMessage))
+            if (!BuildSourceCatalogEntries(mount.sourceRoot, mount.mountPath, sourceEntries, errorMessage))
                 return false;
 
             std::vector<ResourceCatalogEntry> cookedEntries;

@@ -78,8 +78,8 @@ Offline phase (build time)                Runtime phase
 - Entry: `src/Tools/AssetIndexMain.cpp` -> `Resource::IndexRepositorySourceCatalogs()`
 - Implementation: `src/Core/Resource/Catalog/SourceCatalog.cpp`
 
-**What it does**: recursively scans mount roots and generates a `.rtr/catalog.json` per
-mount.
+**What it does**: recursively scans mount roots and can generate a `.rtr/catalog.json`
+per mount.
 
 **Steps** (`SourceCatalog.cpp:304-319`):
 
@@ -132,7 +132,7 @@ mount.
 - Entry: `src/Tools/AssetCookMain.cpp` -> `Resource::CookRepositoryCatalogs()`
 - Implementation: `src/Core/Resource/Cook/CookedCatalog.cpp`
 
-**What it does**: reads each mount's source catalog, converts source files to
+**What it does**: scans each source mount in memory, converts source files to
 runtime-ready artifacts, and writes them to a cooked output directory.
 
 **Steps** (`CookedCatalog.cpp:644-703`):
@@ -140,7 +140,7 @@ runtime-ready artifacts, and writes them to a cooked output directory.
 1. Discover all source mounts and determine the corresponding cooked output directory
    (e.g. `Saved/Cache/Cooked/Project/`).
 
-2. Read each mount's `.rtr/catalog.json`.
+2. Build source catalog entries in memory for each mount.
 
 3. For each source artifact, call `CopySourceArtifact`:
    - **Image files** (logical path starts with `Textures/`, format is jpg/png): decode
@@ -290,8 +290,10 @@ merging, and artifact selection.
    Overlay mounts are discovered from `Saved/Overrides/` or the `RTRLAB_OVERLAY_ROOT`
    environment variable.
 
-2. For each discovered mount, read its catalog:
-   - Directory backend: read `{mountRoot}/.rtr/catalog.json` from disk.
+2. For each discovered mount, acquire its catalog:
+   - Dev source directory backend (`Project/` or `Engine/`, source priority): build the
+     source catalog in memory from the source tree.
+   - Other directory backends: read `{mountRoot}/.rtr/catalog.json` from disk.
    - PakArchive backend: extract `.rtr/catalog.json` from inside the `.rtrpak` file.
 
 3. Parse the catalog JSON, validate version (v1 = source, v2 = cooked), and verify that
