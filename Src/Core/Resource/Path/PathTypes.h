@@ -9,7 +9,6 @@ namespace Resource
     {
         Project,
         Engine,
-        Plugin,
         Saved,
         Cache,
     };
