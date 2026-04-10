@@ -232,15 +232,6 @@ function(glab_copy_runtime_content target_name)
         )
     endif()
 
-    if(TARGET CompileShaders)
-        add_custom_command(TARGET ${target_name} POST_BUILD
-            # Merge compiled shaders into Content/shaders/compiled/ only when
-            # the shader build target is enabled and produces this directory.
-            COMMAND ${CMAKE_COMMAND} -E copy_directory
-                    ${CMAKE_BINARY_DIR}/shaders
-                    $<TARGET_FILE_DIR:${target_name}>/Content/shaders/compiled
-        )
-    endif()
 endfunction()
 
 function(glab_add_tool_target target_name source_file)
@@ -377,10 +368,6 @@ if(GLAB_ENABLE_PCH)
     target_precompile_headers(RTRLab REUSE_FROM RTRLabCore)
 endif()
 
-if(TARGET CompileShaders)
-    add_dependencies(RTRLab CompileShaders)
-endif()
-
 glab_copy_runtime_content(RTRLab)
 glab_configure_local_target(RTRLab)
 
@@ -418,9 +405,4 @@ install(DIRECTORY ${CMAKE_SOURCE_DIR}/Content/
 if(EXISTS ${CMAKE_SOURCE_DIR}/EngineContent)
     install(DIRECTORY ${CMAKE_SOURCE_DIR}/EngineContent/
             DESTINATION EngineContent)
-endif()
-
-if(TARGET CompileShaders)
-    install(DIRECTORY ${CMAKE_BINARY_DIR}/shaders/
-            DESTINATION Content/shaders/compiled)
 endif()

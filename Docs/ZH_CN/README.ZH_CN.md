@@ -64,7 +64,7 @@ RT_Rendering_Lab/
 │  ├─ Unit/
 │  ├─ Integration/
 │  └─ Support/
-├─ Vendor/               # GLFW、GLM、ImGui、glslang、SPIRV-Cross、Glad、STB、spdlog
+├─ Vendor/               # GLFW、GLM、ImGui、Glad、STB、spdlog
 └─ CMakeLists.txt
 ```
 
@@ -98,8 +98,6 @@ git submodule update --init --recursive
 - `GLFW`: `3.4.0`
 - `GLM`: `1.0.3`
 - `Dear ImGui`: `1.92.6`（`docking` 分支）
-- `glslang`: `vulkan-sdk-1.4.304.1`
-- `SPIRV-Cross`: `vulkan-sdk-1.4.304.1`
 
 ### 使用 Presets 构建
 
@@ -176,7 +174,6 @@ ctest --preset test-windows-vs-debug
 
 | 选项 | 默认值 | 说明 |
 | --- | --- | --- |
-| `GLAB_COMPILE_SHADERS` | `ON` | 在构建阶段将 GLSL 着色器编译为 SPIR-V |
 | `GLAB_BUILD_TESTS` | `ON` | 构建测试套件 |
 | `GLAB_ENABLE_WARNINGS` | `ON` | 启用严格编译警告 |
 | `GLAB_ENABLE_ASAN` | `OFF` | 启用 AddressSanitizer（非 MSVC） |
@@ -197,8 +194,6 @@ ctest --preset test-windows-vs-debug
 | [Glad](https://glad.dav1d.de/) | OpenGL 4.6 加载器 | `Vendor/glad/` |
 | [STB Image](https://github.com/nothings/stb) | 图像加载 | `Vendor/stb/` |
 | [Dear ImGui](https://github.com/ocornut/imgui) | 调试 GUI | Git 子模块（`Vendor/imgui`，`1.92.6`，`docking` 分支） |
-| [glslang](https://github.com/KhronosGroup/glslang) | GLSL 到 SPIR-V 编译器 | Git 子模块（`Vendor/glslang`，`vulkan-sdk-1.4.304.1`） |
-| [SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross) | SPIR-V 到 GLSL 转换器 | Git 子模块（`Vendor/spirv-cross`，`vulkan-sdk-1.4.304.1`） |
 | [spdlog](https://github.com/gabime/spdlog) | 日志系统 | `Vendor/spdlog/` |
 | [Google Test](https://github.com/google/googletest) | 测试框架 | CMake FetchContent |
 | Slang | 着色语言与编译器 | 规划中 |

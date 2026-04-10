@@ -75,7 +75,7 @@ RT_Rendering_Lab/
 |  ├── Unit/
 |  ├── Integration/
 |  └── Support/
-├── Vendor/                 # GLFW, GLM, ImGui, glslang, SPIRV-Cross, Glad, STB, spdlog
+├── Vendor/                 # GLFW, GLM, ImGui, Glad, STB, spdlog
 └── CMakeLists.txt
 ```
 
@@ -105,8 +105,6 @@ Current pinned submodule versions:
 - `GLFW`: `3.4.0`
 - `GLM`: `1.0.3`
 - `Dear ImGui`: `1.92.6` (`docking` branch)
-- `glslang`: `vulkan-sdk-1.4.304.1`
-- `SPIRV-Cross`: `vulkan-sdk-1.4.304.1`
 
 ### Build with Presets
 
@@ -183,7 +181,6 @@ Test executables: `rtrlab_unit_tests`, `rtrlab_integration_tests`.
 
 | Option                        | Default | Description                                                 |
 | ----------------------------- | ------- | ----------------------------------------------------------- |
-| `GLAB_COMPILE_SHADERS`        | `ON`    | Compile GLSL shaders to SPIR-V at build time                |
 | `GLAB_BUILD_TESTS`            | `ON`    | Build the test suite                                        |
 | `GLAB_ENABLE_WARNINGS`        | `ON`    | Enable strict compiler warnings                             |
 | `GLAB_ENABLE_ASAN`            | `OFF`   | Enable AddressSanitizer (non-MSVC)                          |
@@ -204,8 +201,6 @@ Test executables: `rtrlab_unit_tests`, `rtrlab_integration_tests`.
 | [Glad](https://glad.dav1d.de/)                             | OpenGL 4.6 loader          | `Vendor/glad/`                                               |
 | [STB Image](https://github.com/nothings/stb)               | Image loading              | `Vendor/stb/`                                                |
 | [Dear ImGui](https://github.com/ocornut/imgui)             | Debug GUI                  | Git submodule (`Vendor/imgui`, `1.92.6`, `docking` branch)   |
-| [glslang](https://github.com/KhronosGroup/glslang)         | GLSL to SPIR-V compiler    | Git submodule (`Vendor/glslang`, `vulkan-sdk-1.4.304.1`)     |
-| [SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross) | SPIR-V to GLSL transpiler  | Git submodule (`Vendor/spirv-cross`, `vulkan-sdk-1.4.304.1`) |
 | [spdlog](https://github.com/gabime/spdlog)                 | Logging                    | `Vendor/spdlog/`                                             |
 | [Google Test](https://github.com/google/googletest)        | Testing framework          | CMake FetchContent                                           |
 | Slang                                                      | Shader language & compiler | Planned                                                      |

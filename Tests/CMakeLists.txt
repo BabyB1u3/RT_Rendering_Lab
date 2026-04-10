@@ -103,7 +103,4 @@ if(GLAB_BACKEND_OPENGL)
     #     Support/GLTestContext.cpp
     # )
 
-    # if(TARGET CompileShaders)
-    #     add_dependencies(rtrlab_integration_tests_opengl CompileShaders)
-    # endif()
 endif()

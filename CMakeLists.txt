@@ -156,12 +156,7 @@ if(GLAB_BACKEND_OPENGL)
     find_package(OpenGL REQUIRED)
 endif()
 
-# Optional shader pipeline integration.
-# include(cmake/SetupSlang.cmake)
-# include(cmake/CompileShaders.cmake)
-
 add_subdirectory(Vendor)
-# glab_compile_shaders()
 add_subdirectory(Src)
 
 # -----------------------------------------------------------------------------
