@@ -31,11 +31,6 @@ namespace test_support
         return repoRoot / "Engine";
     }
 
-    inline std::filesystem::path PluginContentRoot(const std::filesystem::path &repoRoot, std::string_view pluginName)
-    {
-        return repoRoot / "Plugins" / std::filesystem::path(std::string(pluginName)) / "Content";
-    }
-
     inline std::filesystem::path MountCatalogPath(const std::filesystem::path &mountRoot)
     {
         return mountRoot / ".rtr" / "catalog.json";
@@ -73,15 +68,6 @@ namespace test_support
         WriteTextFileOrFail(EngineRoot(repoRoot) / relativePath, contents);
     }
 
-    inline void WritePluginFileOrFail(
-        const std::filesystem::path &repoRoot,
-        std::string_view pluginName,
-        const std::filesystem::path &relativePath,
-        std::string_view contents)
-    {
-        WriteTextFileOrFail(PluginContentRoot(repoRoot, pluginName) / relativePath, contents);
-    }
-
     inline std::filesystem::path ProjectSourceCatalogPath(const std::filesystem::path &repoRoot)
     {
         return ProjectContentRoot(repoRoot) / ".rtr" / "catalog.json";
@@ -90,13 +76,6 @@ namespace test_support
     inline std::filesystem::path EngineSourceCatalogPath(const std::filesystem::path &repoRoot)
     {
         return EngineRoot(repoRoot) / ".rtr" / "catalog.json";
-    }
-
-    inline std::filesystem::path PluginSourceCatalogPath(
-        const std::filesystem::path &repoRoot,
-        std::string_view pluginName)
-    {
-        return PluginContentRoot(repoRoot, pluginName) / ".rtr" / "catalog.json";
     }
 
     inline std::filesystem::path CookedRoot(const std::filesystem::path &repoRoot)
@@ -119,11 +98,6 @@ namespace test_support
         return cookedRoot / "Engine";
     }
 
-    inline std::filesystem::path PluginCookedRoot(const std::filesystem::path &cookedRoot, std::string_view pluginName)
-    {
-        return cookedRoot / "Plugins" / std::filesystem::path(std::string(pluginName));
-    }
-
     inline std::filesystem::path ProjectCookedCatalogPath(const std::filesystem::path &cookedRoot)
     {
         return ProjectCookedRoot(cookedRoot) / ".rtr" / "catalog.json";
@@ -132,13 +106,6 @@ namespace test_support
     inline std::filesystem::path EngineCookedCatalogPath(const std::filesystem::path &cookedRoot)
     {
         return EngineCookedRoot(cookedRoot) / ".rtr" / "catalog.json";
-    }
-
-    inline std::filesystem::path PluginCookedCatalogPath(
-        const std::filesystem::path &cookedRoot,
-        std::string_view pluginName)
-    {
-        return PluginCookedRoot(cookedRoot, pluginName) / ".rtr" / "catalog.json";
     }
 
     inline void WriteProjectCookedFileOrFail(
@@ -157,15 +124,6 @@ namespace test_support
         WriteTextFileOrFail(EngineCookedRoot(cookedRoot) / relativePath, contents);
     }
 
-    inline void WritePluginCookedFileOrFail(
-        const std::filesystem::path &cookedRoot,
-        std::string_view pluginName,
-        const std::filesystem::path &relativePath,
-        std::string_view contents)
-    {
-        WriteTextFileOrFail(PluginCookedRoot(cookedRoot, pluginName) / relativePath, contents);
-    }
-
     inline std::filesystem::path ProjectMaterializedRoot(const std::filesystem::path &extractedRoot)
     {
         return extractedRoot / "Project";
@@ -181,10 +139,4 @@ namespace test_support
         return packagedRoot / "Engine.rtrpak";
     }
 
-    inline std::filesystem::path PluginPackagedArchivePath(
-        const std::filesystem::path &packagedRoot,
-        std::string_view pluginName)
-    {
-        return packagedRoot / "Plugins" / std::filesystem::path(std::string(pluginName) + ".rtrpak");
-    }
 } // namespace test_support

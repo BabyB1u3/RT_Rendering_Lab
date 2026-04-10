@@ -62,7 +62,7 @@ TEST_F(PakArchiveTests, BuildPakArchiveCanReadAndMaterializeEntries)
     EXPECT_EQ(materializedText, "checker");
 }
 
-TEST_F(PakArchiveTests, PackageCookedRepositoryCatalogsWritesProjectEngineAndPluginArchives)
+TEST_F(PakArchiveTests, PackageCookedRepositoryCatalogsWritesProjectAndEngineArchives)
 {
     const auto cookedRoot = TestRoot() / "Cooked";
     const auto packagedRoot = TestRoot() / "Packaged";
@@ -77,23 +77,15 @@ TEST_F(PakArchiveTests, PackageCookedRepositoryCatalogsWritesProjectEngineAndPlu
         "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": []\n}\n");
     test_support::WriteEngineCookedFileOrFail(cookedRoot, "Defaults/Materials/ErrorMaterial.json", "engine");
 
-    test_support::WriteTextFileOrFail(
-        test_support::PluginCookedCatalogPath(cookedRoot, "ExamplePlugin"),
-        "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": []\n}\n");
-    test_support::WritePluginCookedFileOrFail(cookedRoot, "ExamplePlugin", "Materials/Checker.json", "plugin");
-
     std::string errorMessage;
     ASSERT_TRUE(Resource::PackageCookedRepositoryCatalogs(cookedRoot, packagedRoot, &errorMessage)) << errorMessage;
 
     const auto projectPak = test_support::ProjectPackagedArchivePath(packagedRoot);
     const auto enginePak = test_support::EnginePackagedArchivePath(packagedRoot);
-    const auto pluginPak = test_support::PluginPackagedArchivePath(packagedRoot, "ExamplePlugin");
 
     EXPECT_TRUE(std::filesystem::exists(projectPak));
     EXPECT_TRUE(std::filesystem::exists(enginePak));
-    EXPECT_TRUE(std::filesystem::exists(pluginPak));
 
     EXPECT_TRUE(Resource::PakEntryExists(projectPak, ".rtr/catalog.json", &errorMessage)) << errorMessage;
     EXPECT_TRUE(Resource::PakEntryExists(enginePak, ".rtr/catalog.json", &errorMessage)) << errorMessage;
-    EXPECT_TRUE(Resource::PakEntryExists(pluginPak, ".rtr/catalog.json", &errorMessage)) << errorMessage;
 }
