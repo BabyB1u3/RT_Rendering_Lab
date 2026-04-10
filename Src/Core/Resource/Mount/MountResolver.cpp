@@ -80,8 +80,6 @@ namespace Resource
             return rootPath / assetDirName;
         case PathDomain::Engine:
             return engineDir;
-        case PathDomain::Plugin:
-            return rootPath / "Plugins" / virtualPath.mountName.value_or(std::string{}) / "Content";
         case PathDomain::Saved:
             return savedDir;
         case PathDomain::Cache:

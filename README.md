@@ -70,7 +70,7 @@ RT_Rendering_Lab/
 |  |  └── InputEventSystem/
 |  ├── EN/
 |  └── ZH_CN/
-|  ├── Content/                # Runtime assets (models, textures, scenes)
+|  ├── Project/                # Runtime assets (models, textures, scenes)
 ├── Tests/
 |  ├── Unit/
 |  ├── Integration/

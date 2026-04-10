@@ -219,16 +219,16 @@ function(glab_copy_runtime_content target_name)
     add_custom_command(TARGET ${target_name} POST_BUILD
         # Copy source content (textures, config defaults, etc.)
         COMMAND ${CMAKE_COMMAND} -E copy_directory
-                ${CMAKE_SOURCE_DIR}/Content
-                $<TARGET_FILE_DIR:${target_name}>/Content
+                ${CMAKE_SOURCE_DIR}/Project
+                $<TARGET_FILE_DIR:${target_name}>/Project
     )
 
-    if(EXISTS ${CMAKE_SOURCE_DIR}/EngineContent)
+    if(EXISTS ${CMAKE_SOURCE_DIR}/Engine)
         add_custom_command(TARGET ${target_name} POST_BUILD
             # Copy engine-shipped defaults and shared resources.
             COMMAND ${CMAKE_COMMAND} -E copy_directory
-                    ${CMAKE_SOURCE_DIR}/EngineContent
-                    $<TARGET_FILE_DIR:${target_name}>/EngineContent
+                    ${CMAKE_SOURCE_DIR}/Engine
+                    $<TARGET_FILE_DIR:${target_name}>/Engine
         )
     endif()
 
@@ -408,11 +408,11 @@ install(TARGETS rtr_asset_index RUNTIME DESTINATION tools)
 install(TARGETS rtr_asset_cook RUNTIME DESTINATION tools)
 install(TARGETS rtr_asset_pack RUNTIME DESTINATION tools)
 
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/Content/
-        DESTINATION Content
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/Project/
+        DESTINATION Project
         PATTERN "*.slang" EXCLUDE)
 
-if(EXISTS ${CMAKE_SOURCE_DIR}/EngineContent)
-    install(DIRECTORY ${CMAKE_SOURCE_DIR}/EngineContent/
-            DESTINATION EngineContent)
+if(EXISTS ${CMAKE_SOURCE_DIR}/Engine)
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/Engine/
+            DESTINATION Engine)
 endif()

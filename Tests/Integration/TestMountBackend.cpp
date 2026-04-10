@@ -58,13 +58,12 @@ TEST_F(MountBackendTests, DiscoverReadableMountBackendsFindsSourceDirectoryMount
     test_support::WriteProjectMarkerOrFail(repoRoot);
 
     test_support::EnsureDirectories(test_support::ProjectContentRoot(repoRoot));
-    test_support::EnsureDirectories(test_support::EngineContentRoot(repoRoot));
-    test_support::EnsureDirectories(test_support::PluginContentRoot(repoRoot, "ExamplePlugin"));
+    test_support::EnsureDirectories(test_support::EngineRoot(repoRoot));
 
     const auto mounts = Resource::DiscoverReadableMountBackends(
-        repoRoot, test_support::EngineContentRoot(repoRoot), test_support::CookedRoot(repoRoot), "Content", "dev");
+        repoRoot, test_support::EngineRoot(repoRoot), test_support::CookedRoot(repoRoot), "Project", "dev");
 
-    ASSERT_EQ(mounts.size(), 3u);
+    ASSERT_EQ(mounts.size(), 2u);
     EXPECT_EQ(mounts[0].sourceKey, "Project");
     EXPECT_EQ(mounts[0].priority, Resource::MountPriority::Source);
     EXPECT_EQ(mounts[0].backend, Resource::MountBackendKind::Directory);
@@ -72,10 +71,6 @@ TEST_F(MountBackendTests, DiscoverReadableMountBackendsFindsSourceDirectoryMount
     EXPECT_EQ(mounts[1].sourceKey, "Engine");
     EXPECT_EQ(mounts[1].priority, Resource::MountPriority::Source);
     EXPECT_EQ(mounts[1].backend, Resource::MountBackendKind::Directory);
-
-    EXPECT_EQ(mounts[2].sourceKey, "Plugin:ExamplePlugin");
-    EXPECT_EQ(mounts[2].priority, Resource::MountPriority::Source);
-    EXPECT_EQ(mounts[2].backend, Resource::MountBackendKind::Directory);
 }
 
 TEST_F(MountBackendTests, ResolveReadableMountArtifactMaterializesPakArchiveEntries)

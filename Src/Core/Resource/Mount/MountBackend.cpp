@@ -8,7 +8,6 @@
 #include <cstdlib>
 #include <fstream>
 #include <iterator>
-#include <unordered_set>
 
 namespace
 {
@@ -255,90 +254,6 @@ namespace Resource
             "Engine",
             std::filesystem::path(std::string("Engine") + std::string(kPakArchiveExtension)));
 
-        const auto pluginsRoot = rootPath / "Plugins";
-        std::unordered_set<std::string> pluginNames;
-
-        if (std::filesystem::exists(pluginsRoot))
-        {
-            for (const auto &entry : std::filesystem::directory_iterator(pluginsRoot))
-            {
-                if (!entry.is_directory())
-                    continue;
-
-                const auto pluginName = entry.path().filename().string();
-                if (IsValidPluginMountName(pluginName))
-                    pluginNames.insert(std::move(pluginName));
-            }
-        }
-
-        for (const auto &cookedRoot : cookedRootSearchOrder)
-        {
-            const auto cookedPluginsRoot = cookedRoot / "Plugins";
-            if (!std::filesystem::exists(cookedPluginsRoot))
-                continue;
-
-            for (const auto &entry : std::filesystem::directory_iterator(cookedPluginsRoot))
-            {
-                if (!entry.is_directory())
-                    continue;
-
-                const auto pluginName = entry.path().filename().string();
-                if (IsValidPluginMountName(pluginName))
-                    pluginNames.insert(std::move(pluginName));
-            }
-        }
-
-        for (const auto &packagedRoot : packagedRootSearchOrder)
-        {
-            const auto packagedPluginsRoot = packagedRoot / "Plugins";
-            if (!std::filesystem::exists(packagedPluginsRoot))
-                continue;
-
-            for (const auto &entry : std::filesystem::directory_iterator(packagedPluginsRoot))
-            {
-                if (!entry.is_regular_file())
-                    continue;
-
-                const auto path = entry.path();
-                if (path.extension().string() != kPakArchiveExtension)
-                    continue;
-
-                const auto pluginName = path.stem().string();
-                if (IsValidPluginMountName(pluginName))
-                    pluginNames.insert(std::move(pluginName));
-            }
-        }
-
-        for (const auto &overlayRoot : overlayRootSearchOrder)
-        {
-            const auto overlayPluginsRoot = overlayRoot / "Plugins";
-            if (!std::filesystem::exists(overlayPluginsRoot))
-                continue;
-
-            for (const auto &entry : std::filesystem::directory_iterator(overlayPluginsRoot))
-            {
-                if (!entry.is_directory())
-                    continue;
-
-                const auto pluginName = entry.path().filename().string();
-                if (IsValidPluginMountName(pluginName))
-                    pluginNames.insert(std::move(pluginName));
-            }
-        }
-
-        std::vector<std::string> sortedPluginNames(pluginNames.begin(), pluginNames.end());
-        std::sort(sortedPluginNames.begin(), sortedPluginNames.end());
-
-        for (const auto &pluginName : sortedPluginNames)
-        {
-            addReadableMount(
-                "Plugin:" + pluginName,
-                VirtualPath{PathDomain::Plugin, pluginName, {}},
-                pluginsRoot / pluginName / "Content",
-                std::filesystem::path("Plugins") / pluginName,
-                std::filesystem::path("Plugins") / (pluginName + std::string(kPakArchiveExtension)));
-        }
-
         return mounts;
     }
 
@@ -419,7 +334,6 @@ namespace Resource
             return WritableMount{domain, cacheDir};
         case PathDomain::Project:
         case PathDomain::Engine:
-        case PathDomain::Plugin:
             return std::nullopt;
         }
 

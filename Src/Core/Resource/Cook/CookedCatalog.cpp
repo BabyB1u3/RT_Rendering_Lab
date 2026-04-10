@@ -240,7 +240,7 @@ namespace
             });
         }
 
-        const auto engineRoot = rootPath / "EngineContent";
+        const auto engineRoot = rootPath / "Engine";
         if (std::filesystem::exists(engineRoot))
         {
             mounts.push_back(SourceMountDescriptor{
@@ -248,38 +248,6 @@ namespace
                 engineRoot,
                 cookedRootPath / "Engine",
             });
-        }
-
-        const auto pluginsRoot = rootPath / "Plugins";
-        if (std::filesystem::exists(pluginsRoot))
-        {
-            std::vector<std::filesystem::directory_entry> pluginDirs;
-            for (const auto &entry : std::filesystem::directory_iterator(pluginsRoot))
-            {
-                if (entry.is_directory())
-                    pluginDirs.push_back(entry);
-            }
-
-            std::sort(pluginDirs.begin(), pluginDirs.end(), [](const auto &lhs, const auto &rhs) {
-                return lhs.path().filename().string() < rhs.path().filename().string();
-            });
-
-            for (const auto &pluginDir : pluginDirs)
-            {
-                const auto pluginName = pluginDir.path().filename().string();
-                if (!Resource::IsValidPluginMountName(pluginName))
-                    continue;
-
-                const auto contentRoot = pluginDir.path() / "Content";
-                if (!std::filesystem::exists(contentRoot))
-                    continue;
-
-                mounts.push_back(SourceMountDescriptor{
-                    Resource::VirtualPath{Resource::PathDomain::Plugin, pluginName, {}},
-                    contentRoot,
-                    cookedRootPath / "Plugins" / pluginName,
-                });
-            }
         }
 
         return mounts;

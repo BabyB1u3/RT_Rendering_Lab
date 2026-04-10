@@ -63,10 +63,10 @@ TEST_F(CookedCatalogTests, CookRepositoryCatalogsCopiesArtifactsAndWritesCookedC
     test_support::WriteProjectBinaryFileOrFail(repoRoot, "textures/Grassy_Square.png", kOnePixelPng);
 
     std::string errorMessage;
-    ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(repoRoot, "Content", &errorMessage)) << errorMessage;
+    ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(repoRoot, "Project", &errorMessage)) << errorMessage;
 
     const auto cookedRoot = test_support::CookedRoot(repoRoot);
-    ASSERT_TRUE(Resource::CookRepositoryCatalogs(repoRoot, cookedRoot, "Content", &errorMessage)) << errorMessage;
+    ASSERT_TRUE(Resource::CookRepositoryCatalogs(repoRoot, cookedRoot, "Project", &errorMessage)) << errorMessage;
 
     const auto cookedCatalogPath = test_support::ProjectCookedCatalogPath(cookedRoot);
     const auto cookedArtifactPath = test_support::ProjectCookedRoot(cookedRoot) / "Textures" / "Grassy_Square.rtrtex";
@@ -108,7 +108,7 @@ TEST_F(CookedCatalogTests, CookRepositoryCatalogsCopiesArtifactsAndWritesCookedC
     EXPECT_EQ(cookedTexture->pixelData.size(), 4u);
 }
 
-TEST_F(CookedCatalogTests, CookRepositoryCatalogsPreservesLogicalPathsAcrossMounts)
+TEST_F(CookedCatalogTests, CookRepositoryCatalogsPreservesLogicalPathsAcrossProjectAndEngineMounts)
 {
     const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
     test_support::WriteProjectBinaryFileOrFail(repoRoot, "textures/Grassy_Square.png", kOnePixelPng);
@@ -116,17 +116,12 @@ TEST_F(CookedCatalogTests, CookRepositoryCatalogsPreservesLogicalPathsAcrossMoun
         repoRoot,
         "Defaults/Materials/ErrorMaterial.json",
         "{\n  \"name\": \"error-material\"\n}\n");
-    test_support::WritePluginFileOrFail(
-        repoRoot,
-        "ExamplePlugin",
-        "Materials/Checker.json",
-        "{\n  \"name\": \"checker\"\n}\n");
 
     std::string errorMessage;
-    ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(repoRoot, "Content", &errorMessage)) << errorMessage;
+    ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(repoRoot, "Project", &errorMessage)) << errorMessage;
 
     const auto cookedRoot = test_support::CookedRoot(repoRoot);
-    ASSERT_TRUE(Resource::CookRepositoryCatalogs(repoRoot, cookedRoot, "Content", &errorMessage)) << errorMessage;
+    ASSERT_TRUE(Resource::CookRepositoryCatalogs(repoRoot, cookedRoot, "Project", &errorMessage)) << errorMessage;
 
     const auto readFile = [](const std::filesystem::path &path) {
         std::ifstream in(path);
@@ -136,22 +131,17 @@ TEST_F(CookedCatalogTests, CookRepositoryCatalogsPreservesLogicalPathsAcrossMoun
 
     const auto projectSourceCatalog = readFile(test_support::ProjectSourceCatalogPath(repoRoot));
     const auto engineSourceCatalog = readFile(test_support::EngineSourceCatalogPath(repoRoot));
-    const auto pluginSourceCatalog = readFile(test_support::PluginSourceCatalogPath(repoRoot, "ExamplePlugin"));
 
     const auto projectCookedCatalog = readFile(test_support::ProjectCookedCatalogPath(cookedRoot));
     const auto engineCookedCatalog = readFile(test_support::EngineCookedCatalogPath(cookedRoot));
-    const auto pluginCookedCatalog = readFile(test_support::PluginCookedCatalogPath(cookedRoot, "ExamplePlugin"));
 
     EXPECT_NE(projectSourceCatalog.find("/Project/Textures/Grassy_Square"), std::string::npos);
     EXPECT_NE(projectCookedCatalog.find("/Project/Textures/Grassy_Square"), std::string::npos);
     EXPECT_NE(engineSourceCatalog.find("/Engine/Defaults/Materials/ErrorMaterial"), std::string::npos);
     EXPECT_NE(engineCookedCatalog.find("/Engine/Defaults/Materials/ErrorMaterial"), std::string::npos);
-    EXPECT_NE(pluginSourceCatalog.find("/Plugins/ExamplePlugin/Materials/Checker"), std::string::npos);
-    EXPECT_NE(pluginCookedCatalog.find("/Plugins/ExamplePlugin/Materials/Checker"), std::string::npos);
 
     EXPECT_TRUE(std::filesystem::exists(test_support::ProjectCookedRoot(cookedRoot) / "Textures" / "Grassy_Square.rtrtex"));
     EXPECT_TRUE(std::filesystem::exists(test_support::EngineCookedRoot(cookedRoot) / "Defaults" / "Materials" / "ErrorMaterial.json"));
-    EXPECT_TRUE(std::filesystem::exists(test_support::PluginCookedRoot(cookedRoot, "ExamplePlugin") / "Materials" / "Checker.json"));
 }
 
 TEST_F(CookedCatalogTests, LoadCookedTextureRejectsInvalidMagic)

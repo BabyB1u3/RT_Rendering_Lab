@@ -19,14 +19,14 @@ bool FileSystem::s_WritableDirsResolved = false;
 
 namespace
 {
-    static constexpr std::string_view kProjectContentDirName = "Content";
+    static constexpr std::string_view kProjectContentDirName = "Project";
     static constexpr const char *kAppName = "RTRLab";
 } // namespace
 
 void FileSystem::Init()
 {
     s_RootPath = Resource::DiscoverRootPath();
-    s_EngineDir = s_RootPath / "EngineContent";
+    s_EngineDir = s_RootPath / "Engine";
     s_CatalogRegistry.Reset();
     s_Initialized = true;
 }

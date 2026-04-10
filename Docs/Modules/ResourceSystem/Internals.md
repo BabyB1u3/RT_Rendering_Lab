@@ -83,8 +83,8 @@ mount.
 
 **Steps** (`SourceCatalog.cpp:304-319`):
 
-1. **Discover mounts**: scan for `Content/`, `EngineContent/`, `Plugins/*/Content/` and
-   collect each existing directory as a source mount.
+1. **Discover mounts**: scan for `Project/` and `Engine/` and collect each existing
+   directory as a source mount.
 
 2. **Scan files** (`SourceCatalog.cpp:167-191`): for each mount root, run a
    `recursive_directory_iterator`. Skip the `.rtr/` metadata directory and any top-level
@@ -95,7 +95,7 @@ mount.
    - normalize known directory names to canonical casing (`textures` -> `Textures`,
      `shaders` -> `Shaders`, etc.)
    - prepend the domain prefix:
-     `Content/Textures/Grassy_Square.jpg` -> `/Project/Textures/Grassy_Square`
+     `Project/Textures/Grassy_Square.jpg` -> `/Project/Textures/Grassy_Square`
 
 4. **Enforce uniqueness**: if two source files generate the same logical path (e.g.
    `foo.jpg` and `foo.png` in the same directory), the indexer rejects the catalog with
@@ -106,7 +106,7 @@ mount.
    `artifacts` array (default tags: `profileTag="dev"`, `backendTag="any"`,
    `platformTag="any"`).
 
-**Example output** (`Content/.rtr/catalog.json`):
+**Example output** (`Project/.rtr/catalog.json`):
 
 ```json
 {
@@ -192,8 +192,7 @@ single `.rtrpak` binary archive.
 +------------------------+
 ```
 
-**Output**: `Saved/Cache/Packaged/Project.rtrpak`, `Engine.rtrpak`,
-`Plugins/XYZ.rtrpak`.
+**Output**: `Saved/Cache/Packaged/Project.rtrpak`, `Engine.rtrpak`.
 
 ---
 
@@ -206,7 +205,7 @@ The public entry point is always a static method on the `FileSystem` class.
 `FileSystem::Init()` (`FileSystem.cpp:26-32`):
 
 1. Calls `Resource::DiscoverRootPath()` to locate the project root.
-2. Sets `s_EngineDir = rootPath / "EngineContent"`.
+2. Sets `s_EngineDir = rootPath / "Engine"`.
 3. Resets the catalog registry.
 
 `DiscoverRootPath()` now has two compile-time strategies:
@@ -238,16 +237,13 @@ When `ResolveReadPath("/Project/Textures/Grassy_Square")` is called:
 - Validate: must start with `/`, must not contain `\`, must not contain `.` or `..`
   segments.
 - Split into segments, collapse consecutive `/`.
-- Determine domain from the first segment: `Project` / `Engine` / `Saved` / `Cache` /
-  `Plugins`.
-- For `Plugins`: the second segment is the mount name, validated as a legal identifier.
+- Determine domain from the first segment: `Project` / `Engine` / `Saved` / `Cache`.
 
 Result: `VirtualPath { domain=Project, mountName=nullopt, relativePath="Textures/Grassy_Square" }`
 
 **Step 2: Classify as document or catalog-backed** (`PathParser.cpp:142-167`)
 - `Saved` / `Cache` domain: never catalog-backed.
-- `Project` / `Engine` / `Plugin` domain: check whether the relative path has a file
-  extension.
+- `Project` / `Engine` domain: check whether the relative path has a file extension.
   - Has extension (e.g. `.json`): document path, resolved via direct physical join.
   - No extension: catalog-backed, resolved through catalog lookup.
 
@@ -260,10 +256,9 @@ This implements the design contract: **extensionless = asset, has extension = do
 Direct domain-to-directory mapping:
 
 ```
-/Project/Config/input/Foo.json  ->  {root}/Content/Config/input/Foo.json
-/Engine/Config/Foo.json         ->  {root}/EngineContent/Config/Foo.json
+/Project/Config/input/Foo.json  ->  {root}/Project/Config/input/Foo.json
+/Engine/Config/Foo.json         ->  {root}/Engine/Config/Foo.json
 /Saved/Config/imgui.ini         ->  {savedDir}/Config/imgui.ini
-/Plugins/MyPlugin/X.json        ->  {root}/Plugins/MyPlugin/Content/X.json
 ```
 
 #### 3.4 Catalog-Backed Path Resolution
@@ -285,8 +280,8 @@ merging, and artifact selection.
    - `"cooked"` profile: prefer cooked, then source.
    - `"packaged"` / `"shipping"` profile: prefer packaged, then cooked, then source.
 
-   For each domain (Project / Engine / each Plugin), register mounts according to the
-   profile strategy, assigning priorities:
+   For each domain (Project / Engine), register mounts according to the profile
+   strategy, assigning priorities:
 
    ```
    Overlay  (300)  >  Packaged (200)  >  Cooked (100)  >  Source (0)
@@ -366,7 +361,7 @@ User calls: FileSystem::ReadBinary("/Project/Textures/Grassy_Square")
   +- CatalogRegistry::ResolvePath
        |
        +- [first call] DiscoverReadableMountBackends
-       |    +- Content/ exists           -> register Source:Project    (priority=0)
+       |    +- Project/ exists           -> register Source:Project    (priority=0)
        |    +- Cooked/Project/ has cat   -> register Cooked:Project   (priority=100)
        |    +- Packaged/Project.rtrpak   -> register Packaged:Project (priority=200)
        |    +- Overrides/Project/ has cat-> register Overlay:Project  (priority=300)
@@ -504,7 +499,7 @@ more flexible conflict policy as overlay/mod scenarios grow more complex.
 
 | Dimension | RTRLab | Unreal Engine | Unity | id Tech / Source |
 |-----------|--------|---------------|-------|------------------|
-| Mount hierarchy | Project > Engine > Plugins > Saved > Cache | /Game, /Engine, /Plugin, /Temp | No hierarchy concept | Search-path-based pak stack |
+| Mount hierarchy | Project > Engine > Saved > Cache | /Game, /Engine, /Plugin, /Temp | No hierarchy concept | Search-path-based pak stack |
 | Override mechanism | 4-level priority (Overlay > Packaged > Cooked > Source) | Pak priority + patch pak | AssetBundle variants | Later-mounted pak overrides earlier |
 | Runtime dynamic mount | **Not supported** | Supported (`MountPak` / `UnmountPak`) | Supported (`LoadAssetBundle`) | Supported |
 | Write domain isolation | Hard-coded: only Saved/Cache writable | Similar (Saved/ writable) | `Application.persistentDataPath` | Dedicated write path |
@@ -512,8 +507,8 @@ more flexible conflict policy as overlay/mod scenarios grow more complex.
 **Analysis**:
 
 RTRLab's mount model is very similar to Unreal's: a fixed set of domains
-(Project/Engine/Plugin), strict separation of read-only content and writable user data.
-The overlay mechanism is equivalent to Unreal's patch pak.
+(Project/Engine plus writable Saved/Cache), strict separation of read-only content and
+writable user data. The overlay mechanism is equivalent to Unreal's patch pak.
 
 **Key gap: no runtime dynamic mounting.** `CatalogRegistry`'s global table is built once
 on the first `ResolvePath` call and does not change afterwards (`RefreshCatalogs` can

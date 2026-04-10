@@ -415,32 +415,6 @@ namespace Resource
                                    packagedRootPath / (std::string("Engine") + std::string(kPakArchiveExtension))))
             return false;
 
-        const auto pluginsRoot = cookedRootPath / "Plugins";
-        if (std::filesystem::exists(pluginsRoot))
-        {
-            std::vector<std::filesystem::directory_entry> pluginDirs;
-            for (const auto &entry : std::filesystem::directory_iterator(pluginsRoot))
-            {
-                if (entry.is_directory())
-                    pluginDirs.push_back(entry);
-            }
-
-            std::sort(pluginDirs.begin(), pluginDirs.end(), [](const auto &lhs, const auto &rhs) {
-                return lhs.path().filename().string() < rhs.path().filename().string();
-            });
-
-            for (const auto &pluginDir : pluginDirs)
-            {
-                const auto pluginName = pluginDir.path().filename().string();
-                if (!IsValidPluginMountName(pluginName))
-                    continue;
-
-                const auto pakPath = packagedRootPath / "Plugins" / (pluginName + std::string(kPakArchiveExtension));
-                if (!packageMountIfPresent(pluginDir.path(), pakPath))
-                    return false;
-            }
-        }
-
         return true;
     }
 } // namespace Resource
