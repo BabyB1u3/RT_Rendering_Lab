@@ -1,6 +1,6 @@
 #include "Core/App/Window.h"
 
-#ifndef GLAB_BACKEND_METAL
+#if defined(GLAB_BACKEND_OPENGL)
 #include <glad/glad.h>
 #endif
 #include <GLFW/glfw3.h>
@@ -48,13 +48,15 @@ void Window::Init(const WindowProps &props)
         s_GLFWInitialized = true;
     }
 
-#ifdef GLAB_BACKEND_METAL
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-#else
+#if defined(GLAB_BACKEND_OPENGL)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
+#elif defined(GLAB_BACKEND_METAL) || defined(GLAB_BACKEND_VULKAN)
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+#else
+#error Unsupported graphics backend
 #endif
 
     m_Handle = glfwCreateWindow(
@@ -78,7 +80,7 @@ void Window::Init(const WindowProps &props)
                  "Window created: {}x{} (framebuffer {}x{}) \"{}\"",
                  props.Width, props.Height, m_Width, m_Height, props.Title);
 
-#ifndef GLAB_BACKEND_METAL
+#if defined(GLAB_BACKEND_OPENGL)
     glfwMakeContextCurrent(m_Handle);
 
     RTRLAB_ASSERT_MSG(gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress)),
@@ -135,7 +137,7 @@ void Window::Init(const WindowProps &props)
 
     SetVSync(props.VSync);
 
-#ifndef GLAB_BACKEND_METAL
+#if defined(GLAB_BACKEND_OPENGL)
     LOG_INFO_CAT(LogCategory::Window, "OpenGL Vendor   : {}", reinterpret_cast<const char *>(glGetString(GL_VENDOR)));
     LOG_INFO_CAT(LogCategory::Window, "OpenGL Renderer : {}", reinterpret_cast<const char *>(glGetString(GL_RENDERER)));
     LOG_INFO_CAT(LogCategory::Window, "OpenGL Version  : {}", reinterpret_cast<const char *>(glGetString(GL_VERSION)));
@@ -158,7 +160,7 @@ void Window::PollEvents()
 
 void Window::SwapBuffers()
 {
-#ifndef GLAB_BACKEND_METAL
+#if defined(GLAB_BACKEND_OPENGL)
     glfwSwapBuffers(m_Handle);
 #endif
 }
@@ -170,7 +172,7 @@ bool Window::ShouldClose() const
 
 void Window::SetVSync(bool enabled)
 {
-#ifndef GLAB_BACKEND_METAL
+#if defined(GLAB_BACKEND_OPENGL)
     glfwSwapInterval(enabled ? 1 : 0);
 #endif
     m_VSync = enabled;

@@ -75,12 +75,44 @@ option(GLAB_BUILD_IMGUI_DEMO "Build Dear ImGui demo translation unit" OFF)
 # -----------------------------------------------------------------------------
 # Backend selection
 # -----------------------------------------------------------------------------
+set(GLAB_SUPPORTED_BACKENDS
+    OpenGL
+    Metal
+    Vulkan
+)
+
 if(APPLE)
-    set(GLAB_BACKEND_METAL ON)
-    set(GLAB_BACKEND_OPENGL OFF)
+    set(GLAB_DEFAULT_BACKEND Metal)
 else()
-    set(GLAB_BACKEND_METAL OFF)
+    set(GLAB_DEFAULT_BACKEND OpenGL)
+endif()
+
+set(GLAB_GRAPHICS_BACKEND "${GLAB_DEFAULT_BACKEND}" CACHE STRING
+    "Graphics backend selection"
+)
+set_property(CACHE GLAB_GRAPHICS_BACKEND PROPERTY STRINGS ${GLAB_SUPPORTED_BACKENDS})
+
+if(NOT GLAB_GRAPHICS_BACKEND IN_LIST GLAB_SUPPORTED_BACKENDS)
+    list(JOIN GLAB_SUPPORTED_BACKENDS ", " GLAB_SUPPORTED_BACKENDS_TEXT)
+    message(FATAL_ERROR
+        "Unsupported GLAB_GRAPHICS_BACKEND='${GLAB_GRAPHICS_BACKEND}'. "
+        "Supported values: ${GLAB_SUPPORTED_BACKENDS_TEXT}"
+    )
+endif()
+
+set(GLAB_BACKEND_OPENGL OFF)
+set(GLAB_BACKEND_METAL OFF)
+set(GLAB_BACKEND_VULKAN OFF)
+
+if(GLAB_GRAPHICS_BACKEND STREQUAL "OpenGL")
     set(GLAB_BACKEND_OPENGL ON)
+elseif(GLAB_GRAPHICS_BACKEND STREQUAL "Metal")
+    if(NOT APPLE)
+        message(FATAL_ERROR "GLAB_GRAPHICS_BACKEND=Metal is only supported on Apple platforms")
+    endif()
+    set(GLAB_BACKEND_METAL ON)
+elseif(GLAB_GRAPHICS_BACKEND STREQUAL "Vulkan")
+    set(GLAB_BACKEND_VULKAN ON)
 endif()
 
 # -----------------------------------------------------------------------------

@@ -251,10 +251,14 @@ namespace
 
     std::string_view GetCurrentBackendTag()
     {
-#if defined(GLAB_BACKEND_METAL)
-        return "metal";
-#else
+#if defined(GLAB_BACKEND_OPENGL)
         return "opengl";
+#elif defined(GLAB_BACKEND_METAL)
+        return "metal";
+#elif defined(GLAB_BACKEND_VULKAN)
+        return "vulkan";
+#else
+        return "unknown";
 #endif
     }
 

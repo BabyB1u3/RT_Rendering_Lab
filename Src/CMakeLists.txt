@@ -294,6 +294,10 @@ if(GLAB_BACKEND_OPENGL)
         OpenGL::GL
     )
 
+    target_compile_definitions(RTRLabCore PUBLIC
+        GLAB_BACKEND_OPENGL
+    )
+
     set_source_files_properties(
         ${CMAKE_CURRENT_SOURCE_DIR}/Core/App/Application.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Core/App/Window.cpp
@@ -320,6 +324,12 @@ if(GLAB_BACKEND_METAL)
 
     target_compile_definitions(RTRLabCore PUBLIC
         GLAB_BACKEND_METAL
+    )
+endif()
+
+if(GLAB_BACKEND_VULKAN)
+    target_compile_definitions(RTRLabCore PUBLIC
+        GLAB_BACKEND_VULKAN
     )
 endif()
 
