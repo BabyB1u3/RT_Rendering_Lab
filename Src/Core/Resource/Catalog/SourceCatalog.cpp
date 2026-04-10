@@ -102,16 +102,16 @@ namespace
 
         return mounts;
     }
-} // namespace
 
-namespace Resource
-{
-    bool BuildSourceCatalogEntries(const std::filesystem::path &mountRoot,
-                                   const VirtualPath &mountPath,
-                                   std::vector<ResourceCatalogEntry> &entries,
-                                   std::string *errorMessage)
+    bool BuildSourceCatalogEntriesInternal(const std::filesystem::path &mountRoot,
+                                           const Resource::VirtualPath &mountPath,
+                                           std::vector<Resource::ResourceCatalogEntry> &entries,
+                                           std::unordered_map<std::string, Resource::ResourceCatalogEntry> *entryMap,
+                                           std::string *errorMessage)
     {
         entries.clear();
+        if (entryMap != nullptr)
+            entryMap->clear();
 
         std::unordered_map<std::string, size_t> entryIndexByLogicalPath;
         std::error_code ec;
@@ -176,10 +176,10 @@ namespace Resource
                 return false;
             }
 
-            ResourceCatalogEntry catalogEntry;
+            Resource::ResourceCatalogEntry catalogEntry;
             catalogEntry.logicalPath = logicalPath;
             catalogEntry.sourceRelativePath = CatalogPathToGenericString(relativePath);
-            catalogEntry.artifacts.push_back(ArtifactRecord{
+            catalogEntry.artifacts.push_back(Resource::ArtifactRecord{
                 .relativePath = CatalogPathToGenericString(relativePath),
                 .format = DetectFormat(relativePath),
                 .platformTag = "any",
@@ -189,10 +189,32 @@ namespace Resource
             });
 
             entryIndexByLogicalPath.emplace(logicalPath, entries.size());
-            entries.push_back(std::move(catalogEntry));
+            entries.push_back(catalogEntry);
+            if (entryMap != nullptr)
+                entryMap->emplace(logicalPath, std::move(catalogEntry));
         }
 
         return true;
+    }
+} // namespace
+
+namespace Resource
+{
+    bool BuildSourceCatalogMap(const std::filesystem::path &mountRoot,
+                               const VirtualPath &mountPath,
+                               std::unordered_map<std::string, ResourceCatalogEntry> &entries,
+                               std::string *errorMessage)
+    {
+        std::vector<ResourceCatalogEntry> orderedEntries;
+        return BuildSourceCatalogEntriesInternal(mountRoot, mountPath, orderedEntries, &entries, errorMessage);
+    }
+
+    bool BuildSourceCatalogEntries(const std::filesystem::path &mountRoot,
+                                   const VirtualPath &mountPath,
+                                   std::vector<ResourceCatalogEntry> &entries,
+                                   std::string *errorMessage)
+    {
+        return BuildSourceCatalogEntriesInternal(mountRoot, mountPath, entries, nullptr, errorMessage);
     }
 
     bool WriteSourceCatalogJson(const std::filesystem::path &catalogPath,
