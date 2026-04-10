@@ -34,7 +34,7 @@ endfunction()
 # -----------------------------------------------------------------------------
 # Unit tests
 # -----------------------------------------------------------------------------
-glab_add_test_executable(rtrlab_unit_tests
+set(GLAB_UNIT_TEST_SOURCES
     Unit/TestBuiltinTraits.cpp
     Unit/TestCamera.cpp
     Unit/TestCookedCatalog.cpp
@@ -51,7 +51,6 @@ glab_add_test_executable(rtrlab_unit_tests
     Unit/TestInputTriggers.cpp
     Unit/TestJsonBackend.cpp
     Unit/TestLayerStack.cpp
-    Unit/TestMountBackend.cpp
     Unit/TestPakArchive.cpp
     Unit/TestPropertyTree.cpp
     Unit/TestSourceCatalog.cpp
@@ -60,8 +59,29 @@ glab_add_test_executable(rtrlab_unit_tests
     Unit/TestTransform.cpp
 )
 
+glab_add_test_executable(rtrlab_unit_tests
+    ${GLAB_UNIT_TEST_SOURCES}
+)
+
 # -----------------------------------------------------------------------------
-# Contract tests
+# Integration tests
+# -----------------------------------------------------------------------------
+set(GLAB_INTEGRATION_TEST_SOURCES
+    Integration/TestMountBackend.cpp
+    Integration/TestRootDiscovery.cpp
+)
+
+glab_add_test_executable(rtrlab_integration_tests
+    ${GLAB_INTEGRATION_TEST_SOURCES}
+)
+
+# -----------------------------------------------------------------------------
+# Smoke tests
+# -----------------------------------------------------------------------------
+# Add Smoke/*.cpp here once the first smoke tests are migrated.
+
+# -----------------------------------------------------------------------------
+# Legacy contract tests
 # -----------------------------------------------------------------------------
 glab_add_test_executable(rtrlab_contract_tests
     # Contract/Core/TestDiagnosticsCore.cpp
