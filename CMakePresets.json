@@ -51,6 +51,42 @@
       }
     },
     {
+      "name": "ci-windows",
+      "displayName": "CI — Windows VS2022 Release",
+      "generator": "Visual Studio 17 2022",
+      "architecture": { "value": "x64", "strategy": "set" },
+      "binaryDir": "${sourceDir}/build/ci-windows",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-windows",
+        "GLAB_BUILD_TESTS": "ON",
+        "GLAB_ENABLE_WARNINGS": "ON"
+      }
+    },
+    {
+      "name": "ci-linux",
+      "displayName": "CI — Linux Ninja Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/ci-linux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-linux",
+        "GLAB_BUILD_TESTS": "ON",
+        "GLAB_ENABLE_WARNINGS": "ON"
+      }
+    },
+    {
+      "name": "ci-macos",
+      "displayName": "CI — macOS Ninja Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/ci-macos",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-macos",
+        "GLAB_BUILD_TESTS": "ON",
+        "GLAB_ENABLE_WARNINGS": "ON"
+      }
+    },
+    {
       "name": "ninja-debug",
       "displayName": "Ninja Debug",
       "generator": "Ninja",
@@ -121,6 +157,19 @@
       "configuration": "Release"
     },
     {
+      "name": "build-ci-windows",
+      "configurePreset": "ci-windows",
+      "configuration": "Release"
+    },
+    {
+      "name": "build-ci-linux",
+      "configurePreset": "ci-linux"
+    },
+    {
+      "name": "build-ci-macos",
+      "configurePreset": "ci-macos"
+    },
+    {
       "name": "build-ninja-debug",
       "configurePreset": "ninja-debug"
     },
@@ -138,6 +187,22 @@
     }
   ],
   "testPresets": [
+    {
+      "name": "test-ci-windows",
+      "configurePreset": "ci-windows",
+      "configuration": "Release",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "test-ci-linux",
+      "configurePreset": "ci-linux",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "test-ci-macos",
+      "configurePreset": "ci-macos",
+      "output": { "outputOnFailure": true }
+    },
     {
       "name": "test-windows-debug",
       "configurePreset": "windows-vs-debug",
