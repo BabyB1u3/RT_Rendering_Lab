@@ -33,6 +33,10 @@
       "configurePreset": "linux-ninja-release-fast"
     },
     {
+      "name": "build-ci-linux-ninja-debug",
+      "configurePreset": "ci-linux-ninja-debug"
+    },
+    {
       "name": "build-ci-linux-ninja-release",
       "configurePreset": "ci-linux-ninja-release"
     }

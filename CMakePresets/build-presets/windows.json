@@ -50,8 +50,13 @@
       "configuration": "Release"
     },
     {
+      "name": "build-ci-windows-vs-debug",
+      "configurePreset": "ci-windows-vs-debug",
+      "configuration": "Debug"
+    },
+    {
       "name": "build-ci-windows-vs-release",
-      "configurePreset": "ci-windows-vs",
+      "configurePreset": "ci-windows-vs-release",
       "configuration": "Release"
     }
   ]

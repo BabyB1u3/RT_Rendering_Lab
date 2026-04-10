@@ -24,8 +24,19 @@
       "configurePreset": "macos-ninja-release-tests"
     },
     {
+      "name": "test-ci-macos-ninja-debug",
+      "inherits": [
+        "test-base",
+        "test-label-debug-matrix"
+      ],
+      "configurePreset": "ci-macos-ninja-debug"
+    },
+    {
       "name": "test-ci-macos-ninja-release",
-      "inherits": "test-base",
+      "inherits": [
+        "test-base",
+        "test-label-release-matrix"
+      ],
       "configurePreset": "ci-macos-ninja-release"
     },
     {

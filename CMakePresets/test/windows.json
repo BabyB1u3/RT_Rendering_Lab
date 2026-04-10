@@ -27,9 +27,21 @@
       "configuration": "Release"
     },
     {
+      "name": "test-ci-windows-vs-debug",
+      "inherits": [
+        "test-base",
+        "test-label-debug-matrix"
+      ],
+      "configurePreset": "ci-windows-vs-debug",
+      "configuration": "Debug"
+    },
+    {
       "name": "test-ci-windows-vs-release",
-      "inherits": "test-base",
-      "configurePreset": "ci-windows-vs",
+      "inherits": [
+        "test-base",
+        "test-label-release-matrix"
+      ],
+      "configurePreset": "ci-windows-vs-release",
       "configuration": "Release"
     },
     {
