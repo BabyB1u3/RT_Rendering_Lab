@@ -22,15 +22,30 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # -----------------------------------------------------------------------------
 # Global output layout
 # -----------------------------------------------------------------------------
+set(GLAB_SUPPORTED_CONFIGURATIONS
+    Debug
+    RelWithDebInfo
+    Release
+)
+
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
+endif()
+
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS ${GLAB_SUPPORTED_CONFIGURATIONS})
+
+if(CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_CONFIGURATION_TYPES "${GLAB_SUPPORTED_CONFIGURATIONS}" CACHE STRING
+        "Semicolon-separated list of supported build configurations"
+        FORCE
+    )
 endif()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-foreach(OUTPUTCONFIG Debug Release RelWithDebInfo MinSizeRel)
+foreach(OUTPUTCONFIG IN LISTS GLAB_SUPPORTED_CONFIGURATIONS)
     string(TOUPPER ${OUTPUTCONFIG} OUTPUTCONFIG_UPPER)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${OUTPUTCONFIG_UPPER} ${CMAKE_BINARY_DIR}/bin/${OUTPUTCONFIG})
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${OUTPUTCONFIG_UPPER} ${CMAKE_BINARY_DIR}/lib/${OUTPUTCONFIG})
