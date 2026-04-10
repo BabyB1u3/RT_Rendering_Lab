@@ -39,6 +39,14 @@ if(CMAKE_CONFIGURATION_TYPES)
     )
 else()
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS ${GLAB_SUPPORTED_CONFIGURATIONS})
+
+    if(NOT CMAKE_BUILD_TYPE IN_LIST GLAB_SUPPORTED_CONFIGURATIONS)
+        list(JOIN GLAB_SUPPORTED_CONFIGURATIONS ", " GLAB_SUPPORTED_CONFIGURATIONS_TEXT)
+        message(FATAL_ERROR
+            "Unsupported CMAKE_BUILD_TYPE='${CMAKE_BUILD_TYPE}'. "
+            "Supported values: ${GLAB_SUPPORTED_CONFIGURATIONS_TEXT}"
+        )
+    endif()
 endif()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -63,13 +71,6 @@ option(GLAB_ENABLE_UNITY_BUILD "Enable unity builds for local C++ targets" OFF)
 option(GLAB_ENABLE_MSVC_MP "Enable MSVC multi-processor compilation (/MP)" ON)
 option(GLAB_ENABLE_RELEASE_SYMBOLS "Emit debug symbols for MSVC Release builds" OFF)
 option(GLAB_BUILD_IMGUI_DEMO "Build Dear ImGui demo translation unit" OFF)
-
-if(MSVC AND GLAB_ENABLE_RELEASE_SYMBOLS)
-    string(APPEND CMAKE_C_FLAGS_RELEASE " /Zi")
-    string(APPEND CMAKE_CXX_FLAGS_RELEASE " /Zi")
-    string(APPEND CMAKE_EXE_LINKER_FLAGS_RELEASE " /DEBUG")
-    string(APPEND CMAKE_SHARED_LINKER_FLAGS_RELEASE " /DEBUG")
-endif()
 
 # -----------------------------------------------------------------------------
 # Backend selection
@@ -108,6 +109,25 @@ function(glab_enable_parallel_compilation target_name)
     endif()
 endfunction()
 
+function(glab_enable_release_symbols target_name)
+    if(NOT MSVC OR NOT GLAB_ENABLE_RELEASE_SYMBOLS)
+        return()
+    endif()
+
+    target_compile_options(${target_name} PRIVATE
+        $<$<CONFIG:Release>:/Zi>
+    )
+
+    get_target_property(target_type ${target_name} TYPE)
+    if(target_type STREQUAL "EXECUTABLE" OR
+       target_type STREQUAL "SHARED_LIBRARY" OR
+       target_type STREQUAL "MODULE_LIBRARY")
+        target_link_options(${target_name} PRIVATE
+            $<$<CONFIG:Release>:/DEBUG>
+        )
+    endif()
+endfunction()
+
 function(glab_enable_build_speedups target_name)
     glab_enable_parallel_compilation(${target_name})
 
@@ -120,6 +140,7 @@ function(glab_enable_build_speedups target_name)
 endfunction()
 
 function(glab_configure_local_target target_name)
+    glab_enable_release_symbols(${target_name})
     glab_enable_build_speedups(${target_name})
 
     if(GLAB_ENABLE_WARNINGS)
