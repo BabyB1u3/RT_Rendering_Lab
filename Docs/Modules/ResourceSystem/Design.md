@@ -1,9 +1,9 @@
 # Resource System
 
 The resource system gives RTRLab a stable, engine-owned way to talk about content.
-Runtime code refers to resources through logical paths such as `/Project/...`,
-`/Engine/...`, and `/Plugins/<Name>/...` rather than by concatenating repository or
-install-relative filesystem paths.
+Runtime code refers to resources through logical paths such as `/Project/...` and
+`/Engine/...` rather than by concatenating repository or install-relative filesystem
+paths.
 
 > **Design Philosophy**: Public resource identity is logical, not physical. The same
 > logical path should work across loose source content, loose cooked output, packaged
@@ -132,18 +132,17 @@ At a high level, the system has four cooperating pieces:
 
 ### 3.1 Public Mount Roots
 
-The resource system defines five public logical roots:
+The resource system defines four public logical roots:
 
 | Mount | Purpose | Writable | Typical Examples |
 |------|---------|----------|------------------|
 | `/Project/` | Project-authored runtime content | No | textures, materials, shaders, scenes, config defaults |
 | `/Engine/` | Engine-shipped built-in content | No | fallback materials, shared defaults, editor/support assets |
-| `/Plugins/<Name>/` | Plugin-owned content | No | plugin materials, plugin defaults, plugin-specific assets |
 | `/Saved/` | User and runtime-generated data | Yes | config overrides, logs, save data |
 | `/Cache/` | Disposable derived data | Yes | shader cache, cooked intermediates, extracted packaged artifacts |
 
-`/Project/`, `/Engine/`, and `/Plugins/<Name>/` are read domains. `/Saved/` and
-`/Cache/` are write domains.
+`/Project/` and `/Engine/` are read domains. `/Saved/` and `/Cache/` are write
+domains.
 
 ### 3.2 Path Categories
 
@@ -155,7 +154,6 @@ physical source extensions:
 ```text
 /Project/Textures/Grassy_Square
 /Engine/Defaults/Materials/ErrorMaterial
-/Plugins/ExamplePlugin/Materials/Checker
 ```
 
 These resolve through a resource catalog rather than by probing the filesystem.
@@ -182,11 +180,9 @@ Logical paths are part of RTRLab's serialized contract and follow strict rules:
 - repeated `/` segments are normalized
 - `.` and `..` segments are rejected
 - public logical paths are case-sensitive on all platforms
-- `/Plugins/<Name>/...` mount names must be valid identifiers:
-  non-empty, ASCII letter first, then ASCII letters, digits, or `_`
 
 The parser accepts no raw OS path syntax. Strings like
-`C:\Project\Content\Textures\X.png` are not resource paths.
+`C:\RTRLab\Project\Textures\X.png` are not resource paths.
 
 ---
 
@@ -213,9 +209,8 @@ In the current repository layout:
 
 | Logical Root | Development Backing |
 |-------------|---------------------|
-| `/Project/` | `Content/` |
-| `/Engine/` | `EngineContent/` |
-| `/Plugins/<Name>/` | `Plugins/<Name>/Content/` |
+| `/Project/` | `Project/` |
+| `/Engine/` | `Engine/` |
 | `/Saved/` | `Saved/` in debug/development, platform user-data in shipping-style builds |
 | `/Cache/` | `Saved/Cache/` in debug/development, platform cache/user-data in shipping-style builds |
 
@@ -258,9 +253,6 @@ the order is:
 2. packaged mounts
 3. loose cooked mounts
 4. loose source mounts
-
-This precedence applies within the same logical namespace. Plugin content does not
-implicitly override `/Project/...`; it only affects `/Plugins/<Name>/...`.
 
 If an overlay supplies `/Project/Textures/Grassy_Square`, it overrides lower-priority
 project mounts for that logical path. Unrelated project entries still fall back to the
@@ -423,8 +415,8 @@ Current config locations:
 
 | Logical Path | Physical Development Backing |
 |-------------|------------------------------|
-| `/Project/Config/...` | `Content/Config/...` |
-| `/Engine/Config/...` | `EngineContent/Config/...` |
+| `/Project/Config/...` | `Project/Config/...` |
+| `/Engine/Config/...` | `Engine/Config/...` |
 | `/Saved/Config/...` | `Saved/Config/...` |
 
 `Serialization::LoadFromConfigPath()` and `SaveToConfigPath()` sit on top of that
@@ -457,7 +449,7 @@ Not like this:
 
 ```json
 {
-  "albedo": "Content/textures/Grassy_Square.jpg"
+  "albedo": "Project/textures/Grassy_Square.jpg"
 }
 ```
 
@@ -465,7 +457,7 @@ or this:
 
 ```json
 {
-  "albedo": "C:/Users/name/dev/RTRLab/Content/textures/Grassy_Square.jpg"
+  "albedo": "C:/Users/name/dev/RTRLab/Project/textures/Grassy_Square.jpg"
 }
 ```
 
@@ -477,9 +469,8 @@ or this:
 
 `rtr_asset_index` scans readable loose content roots and generates source catalogs for:
 
-- `Content/`
-- `EngineContent/`
-- `Plugins/<Name>/Content/`
+- `Project/`
+- `Engine/`
 
 It skips document-style config subtrees for extensionless asset indexing and enforces
 logical-path uniqueness.
@@ -513,7 +504,6 @@ The current packaged convention is:
 
 - `Project.rtrpak`
 - `Engine.rtrpak`
-- `Plugins/<Name>.rtrpak`
 
 Each archive contains the cooked catalog for that mount plus the cooked artifacts it
 references.
@@ -550,7 +540,7 @@ active engine subsystem with the following implemented behavior:
 - `FileSystem` is the public facade
 - logical path parsing and classification are implemented
 - read/write domain enforcement is implemented
-- `/Project/`, `/Engine/`, `/Plugins/<Name>/`, `/Saved/`, and `/Cache/` are active
+- `/Project/`, `/Engine/`, `/Saved/`, and `/Cache/` are active
 - config fallback resolution is implemented through serialization-facing helpers
 - logical-path-based file I/O is implemented
 - source catalogs are generated and consumed
@@ -560,7 +550,7 @@ active engine subsystem with the following implemented behavior:
 - mount handling now goes through a backend layer rather than being inlined inside the
   catalog resolver
 - development root discovery uses a repo-root `.rtrproject` marker instead of
-  searching for `Content/`
+  searching for `Project/`
 - shipping builds use the executable directory as the install root via
   `RTRL_SHIPPING`
 
@@ -614,8 +604,8 @@ Near-term plan:
 
 - keep the logical path contract stable
 - integrate actual runtime resource consumers when the rendering/material path is ready
-- prefer connecting future loaders to `/Project/...`, `/Engine/...`, and
-  `/Plugins/<Name>/...` directly rather than introducing new physical-path shortcuts
+- prefer connecting future loaders to `/Project/...` and `/Engine/...` directly rather
+  than introducing new physical-path shortcuts
 
 ### 12.4 Overlay and packaging policy depth
 
@@ -674,14 +664,11 @@ src/Tools/
 
 .rtrproject                    - Development-time project root marker
 
-Content/
+Project/
     .rtr/catalog.json           - Generated project source catalog
 
-EngineContent/
+Engine/
     .rtr/catalog.json           - Generated engine source catalog
-
-Plugins/<Name>/Content/
-    .rtr/catalog.json           - Generated plugin source catalog
 
 Saved/Cache/Cooked/
     ...                         - Loose cooked output
