@@ -1,0 +1,38 @@
+{
+  "version": 6,
+  "include": [
+    "../configure/windows.json"
+  ],
+  "buildPresets": [
+    {
+      "name": "build-windows-vs-debug",
+      "configurePreset": "windows-vs-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "build-windows-vs-release",
+      "configurePreset": "windows-vs-release",
+      "configuration": "Release"
+    },
+    {
+      "name": "build-windows-vs-release-tests",
+      "configurePreset": "windows-vs-release-tests",
+      "configuration": "Release"
+    },
+    {
+      "name": "build-windows-vs-debug-fast",
+      "configurePreset": "windows-vs-debug-fast",
+      "configuration": "Debug"
+    },
+    {
+      "name": "build-windows-vs-release-fast",
+      "configurePreset": "windows-vs-release-fast",
+      "configuration": "Release"
+    },
+    {
+      "name": "build-ci-windows-vs-release",
+      "configurePreset": "ci-windows-vs-release",
+      "configuration": "Release"
+    }
+  ]
+}

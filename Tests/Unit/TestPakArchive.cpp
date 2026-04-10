@@ -5,7 +5,7 @@
 #include <string>
 
 #include "Core/Resource/Package/PakArchive.h"
-#include "TestPaths.h"
+#include "ResourceTestSupport.h"
 
 namespace
 {
@@ -36,9 +36,11 @@ namespace
 TEST_F(PakArchiveTests, BuildPakArchiveCanReadAndMaterializeEntries)
 {
     const auto sourceRoot = TestRoot() / "Mount";
-    const auto pakPath = TestRoot() / "out" / "Project.rtrpak";
-    test_support::WriteTextFileOrFail(sourceRoot / ".rtr" / "catalog.json", "{\n  \"version\": 2\n}\n");
-    test_support::WriteTextFileOrFail(sourceRoot / "Textures" / "Checker.txt", "checker");
+    const auto packagedRoot = TestRoot() / "out";
+    const auto pakPath = test_support::ProjectPackagedArchivePath(packagedRoot);
+    const auto extractedRoot = TestRoot() / "extracted";
+    test_support::WriteTextFileOrFail(test_support::MountCatalogPath(sourceRoot), "{\n  \"version\": 2\n}\n");
+    test_support::WriteMountFileOrFail(sourceRoot, "Textures/Checker.txt", "checker");
 
     std::string errorMessage;
     ASSERT_TRUE(Resource::BuildPakArchive(sourceRoot, pakPath, &errorMessage)) << errorMessage;
@@ -51,7 +53,7 @@ TEST_F(PakArchiveTests, BuildPakArchiveCanReadAndMaterializeEntries)
     EXPECT_EQ(text, "checker");
 
     const auto materialized = Resource::MaterializePakEntry(
-        pakPath, "Textures/Checker.txt", TestRoot() / "extracted" / "Project", &errorMessage);
+        pakPath, "Textures/Checker.txt", test_support::ProjectMaterializedRoot(extractedRoot), &errorMessage);
     ASSERT_TRUE(materialized.has_value()) << errorMessage;
 
     std::ifstream in(*materialized);
@@ -66,26 +68,26 @@ TEST_F(PakArchiveTests, PackageCookedRepositoryCatalogsWritesProjectEngineAndPlu
     const auto packagedRoot = TestRoot() / "Packaged";
 
     test_support::WriteTextFileOrFail(
-        cookedRoot / "Project" / ".rtr" / "catalog.json",
+        test_support::ProjectCookedCatalogPath(cookedRoot),
         "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": []\n}\n");
-    test_support::WriteTextFileOrFail(cookedRoot / "Project" / "Textures" / "Grassy_Square.rtrtex", "project");
+    test_support::WriteProjectCookedFileOrFail(cookedRoot, "Textures/Grassy_Square.rtrtex", "project");
 
     test_support::WriteTextFileOrFail(
-        cookedRoot / "Engine" / ".rtr" / "catalog.json",
+        test_support::EngineCookedCatalogPath(cookedRoot),
         "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": []\n}\n");
-    test_support::WriteTextFileOrFail(cookedRoot / "Engine" / "Defaults" / "Materials" / "ErrorMaterial.json", "engine");
+    test_support::WriteEngineCookedFileOrFail(cookedRoot, "Defaults/Materials/ErrorMaterial.json", "engine");
 
     test_support::WriteTextFileOrFail(
-        cookedRoot / "Plugins" / "ExamplePlugin" / ".rtr" / "catalog.json",
+        test_support::PluginCookedCatalogPath(cookedRoot, "ExamplePlugin"),
         "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": []\n}\n");
-    test_support::WriteTextFileOrFail(cookedRoot / "Plugins" / "ExamplePlugin" / "Materials" / "Checker.json", "plugin");
+    test_support::WritePluginCookedFileOrFail(cookedRoot, "ExamplePlugin", "Materials/Checker.json", "plugin");
 
     std::string errorMessage;
     ASSERT_TRUE(Resource::PackageCookedRepositoryCatalogs(cookedRoot, packagedRoot, &errorMessage)) << errorMessage;
 
-    const auto projectPak = packagedRoot / "Project.rtrpak";
-    const auto enginePak = packagedRoot / "Engine.rtrpak";
-    const auto pluginPak = packagedRoot / "Plugins" / "ExamplePlugin.rtrpak";
+    const auto projectPak = test_support::ProjectPackagedArchivePath(packagedRoot);
+    const auto enginePak = test_support::EnginePackagedArchivePath(packagedRoot);
+    const auto pluginPak = test_support::PluginPackagedArchivePath(packagedRoot, "ExamplePlugin");
 
     EXPECT_TRUE(std::filesystem::exists(projectPak));
     EXPECT_TRUE(std::filesystem::exists(enginePak));

@@ -3,7 +3,8 @@
 Code review findings for the Diagnostics module, organized by severity.
 
 **Review scope**: All files under `Src/Core/Diagnostics/`, `Src/GUI/Panels/ConsolePanel.*`,
-`Tests/Contract/Core/TestDiagnostics*.cpp`, and `Tests/Support/DiagnosticsTestSupport.h`.
+`Tests/Unit/TestImGuiConsoleSink.cpp`, `Tests/Integration/TestLoggerConsoleSink.cpp`, and
+`Tests/Support/DiagnosticsTestSupport.h`.
 
 ---
 

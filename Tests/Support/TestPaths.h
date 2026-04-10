@@ -51,24 +51,6 @@ namespace test_support
         return CurrentTestRoot(category) / relativePath;
     }
 
-    inline void RemovePathIfExists(const std::filesystem::path &path)
-    {
-        std::error_code ec;
-        std::filesystem::remove(path, ec);
-    }
-
-    inline void RemoveDirectoryIfEmpty(const std::filesystem::path &path)
-    {
-        std::error_code ec;
-        std::filesystem::remove(path, ec);
-    }
-
-    inline void RemoveTreeIfExists(const std::filesystem::path &path)
-    {
-        std::error_code ec;
-        std::filesystem::remove_all(path, ec);
-    }
-
     inline void EnsureDirectories(const std::filesystem::path &path)
     {
         std::error_code ec;
@@ -92,11 +74,6 @@ namespace test_support
         ASSERT_TRUE(out.is_open());
         out.write(reinterpret_cast<const char *>(contents.data()), static_cast<std::streamsize>(contents.size()));
         ASSERT_TRUE(out.good());
-    }
-
-    inline void WriteProjectMarkerOrFail(const std::filesystem::path &rootPath)
-    {
-        WriteTextFileOrFail(rootPath / ".rtrproject", "\n");
     }
 
     inline void ResetCurrentTestRoot(std::string_view category)

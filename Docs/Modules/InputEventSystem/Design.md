@@ -659,13 +659,14 @@ tests/
 |   |-- TestInputAction.cpp
 |   |-- TestInputContextStack.cpp
 |   |-- TestInputDeviceManager.cpp
+|   |-- TestEventBus.cpp
 |   |-- TestInputModifiers.cpp
 |   |-- TestInputNames.cpp
 |   |-- TestInputPatterns.cpp
 |   |-- TestInputRecording.cpp
 |   `-- TestInputTriggers.cpp
-`-- Contract/
-    `-- Core/TestEventBus.cpp
+`-- Integration/
+    `-- TestInputRecordingIO.cpp
 ```
 
 The input and event modules live under `Core/` because they are engine infrastructure

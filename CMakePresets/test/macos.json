@@ -1,0 +1,62 @@
+{
+  "version": 6,
+  "include": [
+    "../configure/macos.json",
+    "common.json"
+  ],
+  "testPresets": [
+    {
+      "name": "test-macos-ninja-debug-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "macos-ninja-debug"
+    },
+    {
+      "name": "test-macos-ninja-release-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "macos-ninja-release-tests"
+    },
+    {
+      "name": "test-ci-macos-ninja-release",
+      "inherits": "test-base",
+      "configurePreset": "ci-macos-ninja-release"
+    },
+    {
+      "name": "test-macos-ninja-debug",
+      "inherits": "test-macos-ninja-debug-base"
+    },
+    {
+      "name": "test-macos-ninja-release",
+      "inherits": "test-macos-ninja-release-base"
+    },
+    {
+      "name": "test-macos-ninja-debug-unit",
+      "inherits": [
+        "test-macos-ninja-debug-base",
+        "test-label-unit"
+      ]
+    },
+    {
+      "name": "test-macos-ninja-release-unit",
+      "inherits": [
+        "test-macos-ninja-release-base",
+        "test-label-unit"
+      ]
+    },
+    {
+      "name": "test-macos-ninja-debug-integration",
+      "inherits": [
+        "test-macos-ninja-debug-base",
+        "test-label-integration"
+      ]
+    },
+    {
+      "name": "test-macos-ninja-release-integration",
+      "inherits": [
+        "test-macos-ninja-release-base",
+        "test-label-integration"
+      ]
+    }
+  ]
+}

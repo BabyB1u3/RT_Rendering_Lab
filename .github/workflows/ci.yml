@@ -35,13 +35,13 @@ jobs:
           restore-keys: ci-windows-
 
       - name: Configure
-        run: cmake --preset ci-windows
+        run: cmake --preset ci-windows-vs-release
 
       - name: Build
-        run: cmake --build --preset build-ci-windows --parallel
+        run: cmake --build --preset build-ci-windows-vs-release --parallel
 
       - name: Test
-        run: ctest --preset test-ci-windows
+        run: ctest --preset test-ci-windows-vs-release
 
   linux:
     name: Linux GCC
@@ -66,13 +66,13 @@ jobs:
           restore-keys: ci-linux-
 
       - name: Configure
-        run: cmake --preset ci-linux
+        run: cmake --preset ci-linux-ninja-release
 
       - name: Build
-        run: cmake --build --preset build-ci-linux --parallel
+        run: cmake --build --preset build-ci-linux-ninja-release --parallel
 
       - name: Test
-        run: ctest --preset test-ci-linux
+        run: ctest --preset test-ci-linux-ninja-release
 
   macos:
     name: macOS Clang
@@ -93,10 +93,10 @@ jobs:
           restore-keys: ci-macos-
 
       - name: Configure
-        run: cmake --preset ci-macos
+        run: cmake --preset ci-macos-ninja-release
 
       - name: Build
-        run: cmake --build --preset build-ci-macos --parallel
+        run: cmake --build --preset build-ci-macos-ninja-release --parallel
 
       - name: Test
-        run: ctest --preset test-ci-macos
+        run: ctest --preset test-ci-macos-ninja-release

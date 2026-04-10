@@ -6,9 +6,6 @@
 #include <spdlog/logger.h>
 
 #include "Core/Diagnostics/Logging/ImGuiConsoleSink.h"
-#include "Core/Diagnostics/Logging/Logger.h"
-
-#include "DiagnosticsTestSupport.h"
 
 class ImGuiConsoleSinkTests : public ::testing::Test
 {
@@ -75,16 +72,4 @@ TEST_F(ImGuiConsoleSinkTests, MultipleCategoriesAreCaptured)
     ASSERT_EQ(entries.size(), 2u);
     EXPECT_EQ(entries[0].Category, "Shader");
     EXPECT_EQ(entries[1].Category, "Window");
-}
-
-TEST_F(ImGuiConsoleSinkTests, ConsoleSinkIsRegisteredByLogger)
-{
-    const auto logPath = DiagnosticsTestSupport::TestPath("diagnostics-contract.log");
-    Diagnostics::Logger::Init(logPath);
-
-    const auto sink = Diagnostics::Logger::GetConsoleSink();
-    EXPECT_NE(sink, nullptr);
-
-    Diagnostics::Logger::Shutdown();
-    DiagnosticsTestSupport::RemoveCurrentTestArtifacts();
 }

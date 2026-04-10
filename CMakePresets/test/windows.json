@@ -1,0 +1,65 @@
+{
+  "version": 6,
+  "include": [
+    "../configure/windows.json",
+    "common.json"
+  ],
+  "testPresets": [
+    {
+      "name": "test-windows-vs-debug-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "windows-vs-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "test-windows-vs-release-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "windows-vs-release-tests",
+      "configuration": "Release"
+    },
+    {
+      "name": "test-ci-windows-vs-release",
+      "inherits": "test-base",
+      "configurePreset": "ci-windows-vs-release",
+      "configuration": "Release"
+    },
+    {
+      "name": "test-windows-vs-debug",
+      "inherits": "test-windows-vs-debug-base"
+    },
+    {
+      "name": "test-windows-vs-release",
+      "inherits": "test-windows-vs-release-base"
+    },
+    {
+      "name": "test-windows-vs-debug-unit",
+      "inherits": [
+        "test-windows-vs-debug-base",
+        "test-label-unit"
+      ]
+    },
+    {
+      "name": "test-windows-vs-release-unit",
+      "inherits": [
+        "test-windows-vs-release-base",
+        "test-label-unit"
+      ]
+    },
+    {
+      "name": "test-windows-vs-debug-integration",
+      "inherits": [
+        "test-windows-vs-debug-base",
+        "test-label-integration"
+      ]
+    },
+    {
+      "name": "test-windows-vs-release-integration",
+      "inherits": [
+        "test-windows-vs-release-base",
+        "test-label-integration"
+      ]
+    }
+  ]
+}

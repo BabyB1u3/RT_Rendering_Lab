@@ -1,0 +1,30 @@
+{
+  "version": 6,
+  "testPresets": [
+    {
+      "name": "test-base",
+      "hidden": true,
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "test-label-unit",
+      "hidden": true,
+      "filter": {
+        "include": {
+          "label": "unit"
+        }
+      }
+    },
+    {
+      "name": "test-label-integration",
+      "hidden": true,
+      "filter": {
+        "include": {
+          "label": "integration"
+        }
+      }
+    }
+  ]
+}
