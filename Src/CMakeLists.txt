@@ -223,12 +223,12 @@ function(glab_copy_runtime_content target_name)
                 $<TARGET_FILE_DIR:${target_name}>/Content
     )
 
-    if(EXISTS ${CMAKE_SOURCE_DIR}/EngineContent)
+    if(EXISTS ${CMAKE_SOURCE_DIR}/Engine)
         add_custom_command(TARGET ${target_name} POST_BUILD
             # Copy engine-shipped defaults and shared resources.
             COMMAND ${CMAKE_COMMAND} -E copy_directory
-                    ${CMAKE_SOURCE_DIR}/EngineContent
-                    $<TARGET_FILE_DIR:${target_name}>/EngineContent
+                    ${CMAKE_SOURCE_DIR}/Engine
+                    $<TARGET_FILE_DIR:${target_name}>/Engine
         )
     endif()
 
@@ -412,7 +412,7 @@ install(DIRECTORY ${CMAKE_SOURCE_DIR}/Content/
         DESTINATION Content
         PATTERN "*.slang" EXCLUDE)
 
-if(EXISTS ${CMAKE_SOURCE_DIR}/EngineContent)
-    install(DIRECTORY ${CMAKE_SOURCE_DIR}/EngineContent/
-            DESTINATION EngineContent)
+if(EXISTS ${CMAKE_SOURCE_DIR}/Engine)
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/Engine/
+            DESTINATION Engine)
 endif()

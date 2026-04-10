@@ -96,7 +96,7 @@ namespace
         if (std::filesystem::exists(projectRoot))
             mounts.emplace_back(Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, {}}, projectRoot);
 
-        const auto engineRoot = rootPath / "EngineContent";
+        const auto engineRoot = rootPath / "Engine";
         if (std::filesystem::exists(engineRoot))
             mounts.emplace_back(Resource::VirtualPath{Resource::PathDomain::Engine, std::nullopt, {}}, engineRoot);
 

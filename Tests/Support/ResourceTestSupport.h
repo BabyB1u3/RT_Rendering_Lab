@@ -26,9 +26,9 @@ namespace test_support
         return repoRoot / "Content";
     }
 
-    inline std::filesystem::path EngineContentRoot(const std::filesystem::path &repoRoot)
+    inline std::filesystem::path EngineRoot(const std::filesystem::path &repoRoot)
     {
-        return repoRoot / "EngineContent";
+        return repoRoot / "Engine";
     }
 
     inline std::filesystem::path PluginContentRoot(const std::filesystem::path &repoRoot, std::string_view pluginName)
@@ -70,7 +70,7 @@ namespace test_support
         const std::filesystem::path &relativePath,
         std::string_view contents)
     {
-        WriteTextFileOrFail(EngineContentRoot(repoRoot) / relativePath, contents);
+        WriteTextFileOrFail(EngineRoot(repoRoot) / relativePath, contents);
     }
 
     inline void WritePluginFileOrFail(
@@ -89,7 +89,7 @@ namespace test_support
 
     inline std::filesystem::path EngineSourceCatalogPath(const std::filesystem::path &repoRoot)
     {
-        return EngineContentRoot(repoRoot) / ".rtr" / "catalog.json";
+        return EngineRoot(repoRoot) / ".rtr" / "catalog.json";
     }
 
     inline std::filesystem::path PluginSourceCatalogPath(

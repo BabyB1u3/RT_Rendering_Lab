@@ -240,7 +240,7 @@ namespace
             });
         }
 
-        const auto engineRoot = rootPath / "EngineContent";
+        const auto engineRoot = rootPath / "Engine";
         if (std::filesystem::exists(engineRoot))
         {
             mounts.push_back(SourceMountDescriptor{

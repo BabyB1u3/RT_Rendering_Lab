@@ -58,11 +58,11 @@ TEST_F(MountBackendTests, DiscoverReadableMountBackendsFindsSourceDirectoryMount
     test_support::WriteProjectMarkerOrFail(repoRoot);
 
     test_support::EnsureDirectories(test_support::ProjectContentRoot(repoRoot));
-    test_support::EnsureDirectories(test_support::EngineContentRoot(repoRoot));
+    test_support::EnsureDirectories(test_support::EngineRoot(repoRoot));
     test_support::EnsureDirectories(test_support::PluginContentRoot(repoRoot, "ExamplePlugin"));
 
     const auto mounts = Resource::DiscoverReadableMountBackends(
-        repoRoot, test_support::EngineContentRoot(repoRoot), test_support::CookedRoot(repoRoot), "Content", "dev");
+        repoRoot, test_support::EngineRoot(repoRoot), test_support::CookedRoot(repoRoot), "Content", "dev");
 
     ASSERT_EQ(mounts.size(), 3u);
     EXPECT_EQ(mounts[0].sourceKey, "Project");
