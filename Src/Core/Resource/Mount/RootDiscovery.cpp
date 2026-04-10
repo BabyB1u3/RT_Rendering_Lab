@@ -78,7 +78,7 @@ namespace Resource
 {
     std::filesystem::path DiscoverRootPath()
     {
-#ifdef RTRL_SHIPPING
+#ifdef RTRLAB_CONFIG_RELEASE
         if (const auto exeDir = GetExecutableDirectory(); !exeDir.empty())
             return std::filesystem::canonical(exeDir);
 
