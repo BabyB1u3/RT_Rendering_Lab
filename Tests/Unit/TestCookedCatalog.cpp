@@ -63,10 +63,10 @@ TEST_F(CookedCatalogTests, CookRepositoryCatalogsCopiesArtifactsAndWritesCookedC
     test_support::WriteProjectBinaryFileOrFail(repoRoot, "textures/Grassy_Square.png", kOnePixelPng);
 
     std::string errorMessage;
-    ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(repoRoot, "Content", &errorMessage)) << errorMessage;
+    ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(repoRoot, "Project", &errorMessage)) << errorMessage;
 
     const auto cookedRoot = test_support::CookedRoot(repoRoot);
-    ASSERT_TRUE(Resource::CookRepositoryCatalogs(repoRoot, cookedRoot, "Content", &errorMessage)) << errorMessage;
+    ASSERT_TRUE(Resource::CookRepositoryCatalogs(repoRoot, cookedRoot, "Project", &errorMessage)) << errorMessage;
 
     const auto cookedCatalogPath = test_support::ProjectCookedCatalogPath(cookedRoot);
     const auto cookedArtifactPath = test_support::ProjectCookedRoot(cookedRoot) / "Textures" / "Grassy_Square.rtrtex";
@@ -123,10 +123,10 @@ TEST_F(CookedCatalogTests, CookRepositoryCatalogsPreservesLogicalPathsAcrossMoun
         "{\n  \"name\": \"checker\"\n}\n");
 
     std::string errorMessage;
-    ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(repoRoot, "Content", &errorMessage)) << errorMessage;
+    ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(repoRoot, "Project", &errorMessage)) << errorMessage;
 
     const auto cookedRoot = test_support::CookedRoot(repoRoot);
-    ASSERT_TRUE(Resource::CookRepositoryCatalogs(repoRoot, cookedRoot, "Content", &errorMessage)) << errorMessage;
+    ASSERT_TRUE(Resource::CookRepositoryCatalogs(repoRoot, cookedRoot, "Project", &errorMessage)) << errorMessage;
 
     const auto readFile = [](const std::filesystem::path &path) {
         std::ifstream in(path);

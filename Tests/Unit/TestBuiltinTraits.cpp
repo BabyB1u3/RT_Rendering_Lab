@@ -148,7 +148,7 @@ TEST(BuiltinTraitsTests, AssetPathDeserializeRejectsAbsoluteFilesystemPathAndLea
     ASSERT_TRUE(original.has_value());
     Resource::AssetPath output = *original;
 
-    EXPECT_FALSE(Deserialize(PropertyTree("C:/Users/name/dev/RTRLab/Content/textures/Grassy_Square.jpg"), output));
+    EXPECT_FALSE(Deserialize(PropertyTree("C:/Users/name/dev/RTRLab/Project/textures/Grassy_Square.jpg"), output));
     EXPECT_EQ(output, *original);
 }
 

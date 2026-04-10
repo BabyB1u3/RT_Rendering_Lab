@@ -23,7 +23,7 @@ namespace test_support
 
     inline std::filesystem::path ProjectContentRoot(const std::filesystem::path &repoRoot)
     {
-        return repoRoot / "Content";
+        return repoRoot / "Project";
     }
 
     inline std::filesystem::path EngineRoot(const std::filesystem::path &repoRoot)

@@ -6,7 +6,7 @@
 
 namespace
 {
-    constexpr std::string_view kProjectContentDirName = "Content";
+    constexpr std::string_view kProjectContentDirName = "Project";
 
     void PrintUsage()
     {

@@ -19,7 +19,7 @@ bool FileSystem::s_WritableDirsResolved = false;
 
 namespace
 {
-    static constexpr std::string_view kProjectContentDirName = "Content";
+    static constexpr std::string_view kProjectContentDirName = "Project";
     static constexpr const char *kAppName = "RTRLab";
 } // namespace
 

@@ -115,7 +115,7 @@ TEST_F(SourceCatalogTests, IndexRepositorySourceCatalogsWritesProjectEngineAndPl
     test_support::WritePluginFileOrFail(repoRoot, "ExamplePlugin", "Materials/Checker.json", "{\n}\n");
 
     std::string errorMessage;
-    ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(repoRoot, "Content", &errorMessage)) << errorMessage;
+    ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(repoRoot, "Project", &errorMessage)) << errorMessage;
 
     const auto projectCatalogPath = test_support::ProjectSourceCatalogPath(repoRoot);
     const auto engineCatalogPath = test_support::EngineSourceCatalogPath(repoRoot);
@@ -148,7 +148,7 @@ TEST_F(SourceCatalogTests, IndexRepositorySourceCatalogsSkipsPluginsWithInvalidM
     test_support::WritePluginFileOrFail(repoRoot, "Bad-Plugin", "Materials/Ignored.json", "{\n}\n");
 
     std::string errorMessage;
-    ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(repoRoot, "Content", &errorMessage)) << errorMessage;
+    ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(repoRoot, "Project", &errorMessage)) << errorMessage;
 
     const auto validCatalogPath = test_support::PluginSourceCatalogPath(repoRoot, "ValidPlugin");
     const auto invalidCatalogPath = test_support::PluginSourceCatalogPath(repoRoot, "Bad-Plugin");
