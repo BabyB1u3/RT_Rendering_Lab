@@ -57,12 +57,12 @@ TEST_F(MountBackendTests, DiscoverReadableMountBackendsFindsSourceDirectoryMount
     const auto repoRoot = TestRoot() / "repo";
     test_support::WriteProjectMarkerOrFail(repoRoot);
 
-    test_support::EnsureDirectories(repoRoot / "Content");
-    test_support::EnsureDirectories(repoRoot / "EngineContent");
-    test_support::EnsureDirectories(repoRoot / "Plugins" / "ExamplePlugin" / "Content");
+    test_support::EnsureDirectories(test_support::ProjectContentRoot(repoRoot));
+    test_support::EnsureDirectories(test_support::EngineContentRoot(repoRoot));
+    test_support::EnsureDirectories(test_support::PluginContentRoot(repoRoot, "ExamplePlugin"));
 
     const auto mounts = Resource::DiscoverReadableMountBackends(
-        repoRoot, repoRoot / "EngineContent", repoRoot / "Saved" / "Cache", "Content", "dev");
+        repoRoot, test_support::EngineContentRoot(repoRoot), test_support::CookedRoot(repoRoot), "Content", "dev");
 
     ASSERT_EQ(mounts.size(), 3u);
     EXPECT_EQ(mounts[0].sourceKey, "Project");
@@ -81,11 +81,13 @@ TEST_F(MountBackendTests, DiscoverReadableMountBackendsFindsSourceDirectoryMount
 TEST_F(MountBackendTests, ResolveReadableMountArtifactMaterializesPakArchiveEntries)
 {
     const auto sourceRoot = TestRoot() / "pak-source";
-    const auto pakPath = TestRoot() / "out" / "Project.rtrpak";
-    const auto materializedRoot = TestRoot() / "materialized";
+    const auto packagedRoot = TestRoot() / "out";
+    const auto pakPath = test_support::ProjectPackagedArchivePath(packagedRoot);
+    const auto extractedRoot = TestRoot() / "materialized";
+    const auto materializedRoot = test_support::ProjectMaterializedRoot(extractedRoot);
 
-    test_support::WriteTextFileOrFail(sourceRoot / ".rtr" / "catalog.json", "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": []\n}\n");
-    test_support::WriteTextFileOrFail(sourceRoot / "Materials" / "Checker.json", "{\n  \"name\": \"pak\"\n}\n");
+    test_support::WriteTextFileOrFail(test_support::MountCatalogPath(sourceRoot), "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": []\n}\n");
+    test_support::WriteMountFileOrFail(sourceRoot, "Materials/Checker.json", "{\n  \"name\": \"pak\"\n}\n");
 
     std::string errorMessage;
     ASSERT_TRUE(Resource::BuildPakArchive(sourceRoot, pakPath, &errorMessage)) << errorMessage;
