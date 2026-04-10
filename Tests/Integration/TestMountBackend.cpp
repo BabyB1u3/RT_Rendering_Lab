@@ -6,7 +6,7 @@
 
 #include "Core/Resource/Mount/MountBackend.h"
 #include "Core/Resource/Package/PakArchive.h"
-#include "TestPaths.h"
+#include "ResourceTestSupport.h"
 
 namespace
 {
@@ -41,7 +41,6 @@ TEST_F(MountBackendTests, ResolveWritableMountReturnsSavedAndCacheRoots)
 TEST_F(MountBackendTests, DiscoverReadableMountBackendsFindsSourceDirectoryMounts)
 {
     const auto repoRoot = TestRoot() / "repo";
-    test_support::RemoveTreeIfExists(repoRoot);
     test_support::WriteProjectMarkerOrFail(repoRoot);
 
     test_support::EnsureDirectories(repoRoot / "Content");
@@ -70,10 +69,6 @@ TEST_F(MountBackendTests, ResolveReadableMountArtifactMaterializesPakArchiveEntr
     const auto sourceRoot = TestRoot() / "pak-source";
     const auto pakPath = TestRoot() / "out" / "Project.rtrpak";
     const auto materializedRoot = TestRoot() / "materialized";
-
-    test_support::RemoveTreeIfExists(sourceRoot);
-    test_support::RemoveTreeIfExists(pakPath.parent_path());
-    test_support::RemoveTreeIfExists(materializedRoot);
 
     test_support::WriteTextFileOrFail(sourceRoot / ".rtr" / "catalog.json", "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": []\n}\n");
     test_support::WriteTextFileOrFail(sourceRoot / "Materials" / "Checker.json", "{\n  \"name\": \"pak\"\n}\n");

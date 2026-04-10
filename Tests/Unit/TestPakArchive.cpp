@@ -5,7 +5,7 @@
 #include <string>
 
 #include "Core/Resource/Package/PakArchive.h"
-#include "TestPaths.h"
+#include "ResourceTestSupport.h"
 
 namespace
 {
@@ -83,9 +83,9 @@ TEST_F(PakArchiveTests, PackageCookedRepositoryCatalogsWritesProjectEngineAndPlu
     std::string errorMessage;
     ASSERT_TRUE(Resource::PackageCookedRepositoryCatalogs(cookedRoot, packagedRoot, &errorMessage)) << errorMessage;
 
-    const auto projectPak = packagedRoot / "Project.rtrpak";
-    const auto enginePak = packagedRoot / "Engine.rtrpak";
-    const auto pluginPak = packagedRoot / "Plugins" / "ExamplePlugin.rtrpak";
+    const auto projectPak = test_support::ProjectPackagedArchivePath(packagedRoot);
+    const auto enginePak = test_support::EnginePackagedArchivePath(packagedRoot);
+    const auto pluginPak = test_support::PluginPackagedArchivePath(packagedRoot, "ExamplePlugin");
 
     EXPECT_TRUE(std::filesystem::exists(projectPak));
     EXPECT_TRUE(std::filesystem::exists(enginePak));

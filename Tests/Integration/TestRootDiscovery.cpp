@@ -7,7 +7,7 @@
 #include <string_view>
 
 #include "Core/Resource/Mount/RootDiscovery.h"
-#include "TestPaths.h"
+#include "ResourceTestSupport.h"
 
 namespace
 {

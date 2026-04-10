@@ -5,7 +5,7 @@
 #include <string>
 
 #include "Core/Resource/Catalog/SourceCatalog.h"
-#include "TestPaths.h"
+#include "ResourceTestSupport.h"
 
 namespace
 {
@@ -109,18 +109,17 @@ TEST_F(SourceCatalogTests, BuildSourceCatalogRejectsDuplicateLogicalPaths)
 
 TEST_F(SourceCatalogTests, IndexRepositorySourceCatalogsWritesProjectEngineAndPluginCatalogs)
 {
-    const auto repoRoot = TestRoot() / "Repo";
-    test_support::WriteProjectMarkerOrFail(repoRoot);
-    test_support::WriteTextFileOrFail(repoRoot / "Content" / "Textures" / "Grassy_Square.jpg", "jpg");
-    test_support::WriteTextFileOrFail(repoRoot / "EngineContent" / "Defaults" / "Materials" / "ErrorMaterial.json", "{\n}\n");
-    test_support::WriteTextFileOrFail(repoRoot / "Plugins" / "ExamplePlugin" / "Content" / "Materials" / "Checker.json", "{\n}\n");
+    const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
+    test_support::WriteProjectFileOrFail(repoRoot, "Textures/Grassy_Square.jpg", "jpg");
+    test_support::WriteEngineFileOrFail(repoRoot, "Defaults/Materials/ErrorMaterial.json", "{\n}\n");
+    test_support::WritePluginFileOrFail(repoRoot, "ExamplePlugin", "Materials/Checker.json", "{\n}\n");
 
     std::string errorMessage;
     ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(repoRoot, "Content", &errorMessage)) << errorMessage;
 
-    const auto projectCatalogPath = repoRoot / "Content" / ".rtr" / "catalog.json";
-    const auto engineCatalogPath = repoRoot / "EngineContent" / ".rtr" / "catalog.json";
-    const auto pluginCatalogPath = repoRoot / "Plugins" / "ExamplePlugin" / "Content" / ".rtr" / "catalog.json";
+    const auto projectCatalogPath = test_support::ProjectSourceCatalogPath(repoRoot);
+    const auto engineCatalogPath = test_support::EngineSourceCatalogPath(repoRoot);
+    const auto pluginCatalogPath = test_support::PluginSourceCatalogPath(repoRoot, "ExamplePlugin");
 
     EXPECT_TRUE(std::filesystem::exists(projectCatalogPath));
     EXPECT_TRUE(std::filesystem::exists(engineCatalogPath));
@@ -144,16 +143,15 @@ TEST_F(SourceCatalogTests, IndexRepositorySourceCatalogsWritesProjectEngineAndPl
 
 TEST_F(SourceCatalogTests, IndexRepositorySourceCatalogsSkipsPluginsWithInvalidMountNames)
 {
-    const auto repoRoot = TestRoot() / "Repo";
-    test_support::WriteProjectMarkerOrFail(repoRoot);
-    test_support::WriteTextFileOrFail(repoRoot / "Plugins" / "ValidPlugin" / "Content" / "Materials" / "Checker.json", "{\n}\n");
-    test_support::WriteTextFileOrFail(repoRoot / "Plugins" / "Bad-Plugin" / "Content" / "Materials" / "Ignored.json", "{\n}\n");
+    const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
+    test_support::WritePluginFileOrFail(repoRoot, "ValidPlugin", "Materials/Checker.json", "{\n}\n");
+    test_support::WritePluginFileOrFail(repoRoot, "Bad-Plugin", "Materials/Ignored.json", "{\n}\n");
 
     std::string errorMessage;
     ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(repoRoot, "Content", &errorMessage)) << errorMessage;
 
-    const auto validCatalogPath = repoRoot / "Plugins" / "ValidPlugin" / "Content" / ".rtr" / "catalog.json";
-    const auto invalidCatalogPath = repoRoot / "Plugins" / "Bad-Plugin" / "Content" / ".rtr" / "catalog.json";
+    const auto validCatalogPath = test_support::PluginSourceCatalogPath(repoRoot, "ValidPlugin");
+    const auto invalidCatalogPath = test_support::PluginSourceCatalogPath(repoRoot, "Bad-Plugin");
 
     EXPECT_TRUE(std::filesystem::exists(validCatalogPath));
     EXPECT_FALSE(std::filesystem::exists(invalidCatalogPath));

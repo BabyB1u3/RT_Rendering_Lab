@@ -28,21 +28,6 @@ namespace DiagnosticsTestSupport
         return test_support::CurrentTestPath("diagnostics", relativePath);
     }
 
-    inline void RemovePathIfExists(const std::filesystem::path &path)
-    {
-        test_support::RemovePathIfExists(path);
-    }
-
-    inline void RemoveDirectoryIfEmpty(const std::filesystem::path &path)
-    {
-        test_support::RemoveDirectoryIfEmpty(path);
-    }
-
-    inline void RemoveTreeIfExists(const std::filesystem::path &path)
-    {
-        test_support::RemoveTreeIfExists(path);
-    }
-
     inline void RemoveCurrentTestArtifacts()
     {
         test_support::RemoveCurrentTestArtifacts("diagnostics");
