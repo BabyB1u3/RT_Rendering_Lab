@@ -13,10 +13,24 @@ namespace
     class MountBackendTests : public ::testing::Test
     {
     protected:
+        void SetUp() override
+        {
+            m_TestRoot = test_support::CurrentTestRoot("mount-backend");
+            test_support::ResetCurrentTestRoot("mount-backend");
+        }
+
+        void TearDown() override
+        {
+            test_support::RemoveCurrentTestArtifacts("mount-backend");
+        }
+
         std::filesystem::path TestRoot() const
         {
-            return test_support::CurrentTestRoot("mount-backend");
+            return m_TestRoot;
         }
+
+    private:
+        std::filesystem::path m_TestRoot;
     };
 } // namespace
 
