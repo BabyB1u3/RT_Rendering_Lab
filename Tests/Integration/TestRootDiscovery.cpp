@@ -9,8 +9,47 @@
 #include "Core/Resource/Mount/RootDiscovery.h"
 #include "ResourceTestSupport.h"
 
+#ifdef _WIN32
+#include <Windows.h>
+#elif defined(__APPLE__)
+#include <mach-o/dyld.h>
+#elif defined(__linux__)
+#include <unistd.h>
+#include <climits>
+#endif
+
 namespace
 {
+    std::filesystem::path GetExecutableDirectoryForTest()
+    {
+        std::filesystem::path exePath;
+
+#ifdef _WIN32
+        wchar_t buf[MAX_PATH];
+        DWORD len = GetModuleFileNameW(nullptr, buf, MAX_PATH);
+        if (len > 0 && len < MAX_PATH)
+            exePath = std::filesystem::path(buf);
+#elif defined(__APPLE__)
+        char buf[PATH_MAX];
+        uint32_t size = sizeof(buf);
+        if (_NSGetExecutablePath(buf, &size) == 0)
+            exePath = std::filesystem::canonical(buf);
+#elif defined(__linux__)
+        char buf[PATH_MAX];
+        ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+        if (len > 0)
+        {
+            buf[len] = '\0';
+            exePath = std::filesystem::path(buf);
+        }
+#endif
+
+        if (exePath.empty())
+            return {};
+
+        return exePath.parent_path();
+    }
+
     class ScopedEnvVar
     {
     public:
@@ -90,5 +129,11 @@ TEST_F(RootDiscoveryTests, DiscoverRootPathUsesEnvOverrideOnlyWhenProjectMarkerE
     const ScopedEnvVar rootOverride("RTRL_ROOT", repoRoot.string());
     const auto discoveredRoot = Resource::DiscoverRootPath();
 
+#ifdef RTRL_SHIPPING
+    const auto executableDirectory = GetExecutableDirectoryForTest();
+    ASSERT_FALSE(executableDirectory.empty());
+    EXPECT_EQ(discoveredRoot, std::filesystem::canonical(executableDirectory));
+#else
     EXPECT_EQ(discoveredRoot, std::filesystem::canonical(repoRoot));
+#endif
 }
