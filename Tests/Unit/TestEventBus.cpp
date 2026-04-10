@@ -18,7 +18,7 @@ namespace
     };
 }
 
-TEST(EventBusContractTests, PublishCallsSubscribersInSubscriptionOrder)
+TEST(EventBusTests, PublishCallsSubscribersInSubscriptionOrder)
 {
     EventBus bus;
     std::vector<int> calls;
@@ -38,7 +38,7 @@ TEST(EventBusContractTests, PublishCallsSubscribersInSubscriptionOrder)
     (void)second;
 }
 
-TEST(EventBusContractTests, ScopedConnectionDestructorUnsubscribesHandler)
+TEST(EventBusTests, ScopedConnectionDestructorUnsubscribesHandler)
 {
     EventBus bus;
     int callCount = 0;
@@ -54,7 +54,7 @@ TEST(EventBusContractTests, ScopedConnectionDestructorUnsubscribesHandler)
     EXPECT_EQ(callCount, 1);
 }
 
-TEST(EventBusContractTests, DisconnectDuringDispatchDefersRemovalSafely)
+TEST(EventBusTests, DisconnectDuringDispatchDefersRemovalSafely)
 {
     EventBus bus;
     std::vector<int> calls;
@@ -77,7 +77,7 @@ TEST(EventBusContractTests, DisconnectDuringDispatchDefersRemovalSafely)
     (void)firstConnection;
 }
 
-TEST(EventBusContractTests, NestedPublishKeepsSubscriberListsStable)
+TEST(EventBusTests, NestedPublishKeepsSubscriberListsStable)
 {
     EventBus bus;
     std::vector<std::string> calls;

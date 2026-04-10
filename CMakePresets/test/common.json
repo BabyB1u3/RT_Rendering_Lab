@@ -25,15 +25,6 @@
           "label": "integration"
         }
       }
-    },
-    {
-      "name": "test-label-contract",
-      "hidden": true,
-      "filter": {
-        "include": {
-          "label": "contract"
-        }
-      }
     }
   ]
 }

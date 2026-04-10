@@ -57,20 +57,6 @@
         "test-macos-ninja-release-base",
         "test-label-integration"
       ]
-    },
-    {
-      "name": "test-macos-ninja-debug-contract",
-      "inherits": [
-        "test-macos-ninja-debug-base",
-        "test-label-contract"
-      ]
-    },
-    {
-      "name": "test-macos-ninja-release-contract",
-      "inherits": [
-        "test-macos-ninja-release-base",
-        "test-label-contract"
-      ]
     }
   ]
 }

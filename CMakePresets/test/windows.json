@@ -60,20 +60,6 @@
         "test-windows-vs-release-base",
         "test-label-integration"
       ]
-    },
-    {
-      "name": "test-windows-vs-debug-contract",
-      "inherits": [
-        "test-windows-vs-debug-base",
-        "test-label-contract"
-      ]
-    },
-    {
-      "name": "test-windows-vs-release-contract",
-      "inherits": [
-        "test-windows-vs-release-base",
-        "test-label-contract"
-      ]
     }
   ]
 }

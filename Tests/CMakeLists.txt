@@ -43,7 +43,9 @@ set(GLAB_UNIT_TEST_SOURCES
     Unit/TestCamera.cpp
     Unit/TestCookedCatalog.cpp
     Unit/TestDefaultCameraController.cpp
+    Unit/TestEventBus.cpp
     Unit/TestFileSystemVirtualPaths.cpp
+    Unit/TestImGuiConsoleSink.cpp
     Unit/TestInput.cpp
     Unit/TestInputAction.cpp
     Unit/TestInputContextStack.cpp
@@ -54,7 +56,9 @@ set(GLAB_UNIT_TEST_SOURCES
     Unit/TestInputRecording.cpp
     Unit/TestInputTriggers.cpp
     Unit/TestJsonBackend.cpp
+    Unit/TestLayerStackLifecycle.cpp
     Unit/TestLayerStack.cpp
+    Unit/TestLogCategories.cpp
     Unit/TestPakArchive.cpp
     Unit/TestPropertyTree.cpp
     Unit/TestSourceCatalog.cpp
@@ -71,6 +75,7 @@ glab_add_test_executable(rtrlab_unit_tests "Unit." "unit"
 # Integration tests
 # -----------------------------------------------------------------------------
 set(GLAB_INTEGRATION_TEST_SOURCES
+    Integration/TestLoggerConsoleSink.cpp
     Integration/TestMountBackend.cpp
     Integration/TestRootDiscovery.cpp
 )
@@ -84,40 +89,11 @@ glab_add_test_executable(rtrlab_integration_tests "Integration." "integration"
 # -----------------------------------------------------------------------------
 # Add Smoke/*.cpp here once the first smoke tests are migrated.
 
-# -----------------------------------------------------------------------------
-# Legacy contract tests
-# -----------------------------------------------------------------------------
-glab_add_test_executable(rtrlab_contract_tests "Contract." "contract"
-    # Contract/Core/TestDiagnosticsCore.cpp
-    Contract/Core/TestEventBus.cpp
-    # Contract/Core/TestFileSystem.cpp
-    Contract/Core/TestImGuiConsoleSink.cpp
-    Contract/Core/TestLayerStackLifecycle.cpp
-    Contract/Core/TestLogCategories.cpp
-    # Contract/Core/TestLogger.cpp
-    # Contract/Core/TestSerializationFileIO.cpp
-)
-
-# glab_add_test_executable(rtrlab_contract_tests_log_min_level
-#     Contract/Core/TestDiagnosticsMinLevel.cpp
-# )
-
 if(GLAB_BACKEND_OPENGL)
     # set_source_files_properties(
     #     ${CMAKE_CURRENT_SOURCE_DIR}/Support/GLTestContext.cpp
     #     PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON
     # )
-
-    # glab_add_test_executable(rtrlab_contract_tests_opengl
-    #     Contract/opengl/TestFramebuffer.cpp
-    #     Contract/opengl/TestRenderPasses.cpp
-    #     Contract/opengl/TestRenderTarget.cpp
-    #     Support/GLTestContext.cpp
-    # )
-
-    # if(TARGET CompileShaders)
-    #     add_dependencies(rtrlab_contract_tests_opengl CompileShaders)
-    # endif()
 
     # glab_add_test_executable(rtrlab_integration_tests_opengl
     #     integration/opengl/TestRenderResults.cpp
