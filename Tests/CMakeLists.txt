@@ -10,7 +10,6 @@ function(glab_configure_test_target target_name test_prefix test_label)
     target_include_directories(${target_name}
         PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}/Support
-            ${CMAKE_SOURCE_DIR}/src
     )
 
     if(GLAB_ENABLE_PCH)
@@ -104,7 +103,4 @@ if(GLAB_BACKEND_OPENGL)
     #     Support/GLTestContext.cpp
     # )
 
-    # if(TARGET CompileShaders)
-    #     add_dependencies(rtrlab_integration_tests_opengl CompileShaders)
-    # endif()
 endif()

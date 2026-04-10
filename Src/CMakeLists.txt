@@ -232,15 +232,6 @@ function(glab_copy_runtime_content target_name)
         )
     endif()
 
-    if(TARGET CompileShaders)
-        add_custom_command(TARGET ${target_name} POST_BUILD
-            # Merge compiled shaders into Content/shaders/compiled/ only when
-            # the shader build target is enabled and produces this directory.
-            COMMAND ${CMAKE_COMMAND} -E copy_directory
-                    ${CMAKE_BINARY_DIR}/shaders
-                    $<TARGET_FILE_DIR:${target_name}>/Content/shaders/compiled
-        )
-    endif()
 endfunction()
 
 function(glab_add_tool_target target_name source_file)
@@ -303,6 +294,10 @@ if(GLAB_BACKEND_OPENGL)
         OpenGL::GL
     )
 
+    target_compile_definitions(RTRLabCore PUBLIC
+        GLAB_BACKEND_OPENGL
+    )
+
     set_source_files_properties(
         ${CMAKE_CURRENT_SOURCE_DIR}/Core/App/Application.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Core/App/Window.cpp
@@ -332,10 +327,18 @@ if(GLAB_BACKEND_METAL)
     )
 endif()
 
+if(GLAB_BACKEND_VULKAN)
+    target_compile_definitions(RTRLabCore PUBLIC
+        GLAB_BACKEND_VULKAN
+    )
+endif()
+
 target_compile_definitions(RTRLabCore PUBLIC
     GLM_ENABLE_EXPERIMENTAL
-    $<$<CONFIG:Debug>:GLAB_ROOT_DIR="${CMAKE_SOURCE_DIR}">
-    $<$<NOT:$<CONFIG:Debug>>:RTRL_SHIPPING>
+    $<$<CONFIG:Debug>:RTRLAB_CONFIG_DEBUG>
+    $<$<CONFIG:RelWithDebInfo>:RTRLAB_CONFIG_RELWITHDEBINFO>
+    $<$<CONFIG:Release>:RTRLAB_CONFIG_RELEASE>
+    $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:GLAB_ROOT_DIR="${CMAKE_SOURCE_DIR}">
     $<$<CONFIG:Debug>:RTRLAB_LOG_MIN_LEVEL=0>
     $<$<CONFIG:RelWithDebInfo>:RTRLAB_LOG_MIN_LEVEL=1>
     $<$<CONFIG:Release>:RTRLAB_LOG_MIN_LEVEL=2>
@@ -375,10 +378,6 @@ if(GLAB_ENABLE_PCH)
     target_precompile_headers(RTRLab REUSE_FROM RTRLabCore)
 endif()
 
-if(TARGET CompileShaders)
-    add_dependencies(RTRLab CompileShaders)
-endif()
-
 glab_copy_runtime_content(RTRLab)
 glab_configure_local_target(RTRLab)
 
@@ -416,9 +415,4 @@ install(DIRECTORY ${CMAKE_SOURCE_DIR}/Content/
 if(EXISTS ${CMAKE_SOURCE_DIR}/EngineContent)
     install(DIRECTORY ${CMAKE_SOURCE_DIR}/EngineContent/
             DESTINATION EngineContent)
-endif()
-
-if(TARGET CompileShaders)
-    install(DIRECTORY ${CMAKE_BINARY_DIR}/shaders/
-            DESTINATION Content/shaders/compiled)
 endif()

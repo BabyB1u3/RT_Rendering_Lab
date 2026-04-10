@@ -6,32 +6,52 @@
   "buildPresets": [
     {
       "name": "build-windows-vs-debug",
-      "configurePreset": "windows-vs-debug",
+      "configurePreset": "windows-vs",
       "configuration": "Debug"
+    },
+    {
+      "name": "build-windows-vs-relwithdebinfo",
+      "configurePreset": "windows-vs",
+      "configuration": "RelWithDebInfo"
     },
     {
       "name": "build-windows-vs-release",
-      "configurePreset": "windows-vs-release",
+      "configurePreset": "windows-vs",
       "configuration": "Release"
     },
     {
-      "name": "build-windows-vs-release-tests",
-      "configurePreset": "windows-vs-release-tests",
-      "configuration": "Release"
-    },
-    {
-      "name": "build-windows-vs-debug-fast",
-      "configurePreset": "windows-vs-debug-fast",
+      "name": "build-windows-vs-notests-debug",
+      "configurePreset": "windows-vs-notests",
       "configuration": "Debug"
     },
     {
-      "name": "build-windows-vs-release-fast",
-      "configurePreset": "windows-vs-release-fast",
+      "name": "build-windows-vs-notests-relwithdebinfo",
+      "configurePreset": "windows-vs-notests",
+      "configuration": "RelWithDebInfo"
+    },
+    {
+      "name": "build-windows-vs-notests-release",
+      "configurePreset": "windows-vs-notests",
+      "configuration": "Release"
+    },
+    {
+      "name": "build-windows-vs-fast-debug",
+      "configurePreset": "windows-vs-fast",
+      "configuration": "Debug"
+    },
+    {
+      "name": "build-windows-vs-fast-relwithdebinfo",
+      "configurePreset": "windows-vs-fast",
+      "configuration": "RelWithDebInfo"
+    },
+    {
+      "name": "build-windows-vs-fast-release",
+      "configurePreset": "windows-vs-fast",
       "configuration": "Release"
     },
     {
       "name": "build-ci-windows-vs-release",
-      "configurePreset": "ci-windows-vs-release",
+      "configurePreset": "ci-windows-vs",
       "configuration": "Release"
     }
   ]

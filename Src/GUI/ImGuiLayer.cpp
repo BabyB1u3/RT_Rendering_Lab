@@ -2,10 +2,14 @@
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
-#ifndef GLAB_BACKEND_METAL
+#if defined(GLAB_BACKEND_OPENGL)
 #include <imgui_impl_opengl3.h>
-#else
+#elif defined(GLAB_BACKEND_METAL)
 // #include "GUI/Backends/Metal/MetalImGuiBridge.h"
+#elif defined(GLAB_BACKEND_VULKAN)
+// Vulkan renderer backend integration will be wired in once the RHI path lands.
+#else
+#error Unsupported graphics backend
 #endif
 
 #include "Core/App/Application.h"
@@ -39,23 +43,27 @@ void ImGuiLayer::OnAttach()
 
     // install_callbacks = true lets ImGui intercept GLFW input events.
     GLFWwindow *window = Application::Get().GetWindow().GetNativeHandle();
-#ifdef GLAB_BACKEND_METAL
-    ImGui_ImplGlfw_InitForOther(window, true);
-    // auto *metalDevice = static_cast<MetalGraphicsDevice *>(GetDevice().get());
-    // MetalImGuiBridge::Init(metalDevice->GetMTLDevice());
-#else
+#if defined(GLAB_BACKEND_OPENGL)
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     // GLSL 460 matches the OpenGL 4.6 core context created in Window.
     ImGui_ImplOpenGL3_Init("#version 460");
+#elif defined(GLAB_BACKEND_METAL)
+    ImGui_ImplGlfw_InitForOther(window, true);
+    // auto *metalDevice = static_cast<MetalGraphicsDevice *>(GetDevice().get());
+    // MetalImGuiBridge::Init(metalDevice->GetMTLDevice());
+#elif defined(GLAB_BACKEND_VULKAN)
+    ImGui_ImplGlfw_InitForOther(window, true);
 #endif
 }
 
 void ImGuiLayer::OnDetach()
 {
-#ifndef GLAB_BACKEND_METAL
+#if defined(GLAB_BACKEND_OPENGL)
     ImGui_ImplOpenGL3_Shutdown();
-#else
+#elif defined(GLAB_BACKEND_METAL)
     // MetalImGuiBridge::Shutdown();
+#elif defined(GLAB_BACKEND_VULKAN)
+    // Vulkan renderer backend shutdown will be added with the Vulkan renderer path.
 #endif
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
@@ -63,11 +71,13 @@ void ImGuiLayer::OnDetach()
 
 void ImGuiLayer::Begin()
 {
-#ifndef GLAB_BACKEND_METAL
+#if defined(GLAB_BACKEND_OPENGL)
     ImGui_ImplOpenGL3_NewFrame();
-#else
+#elif defined(GLAB_BACKEND_METAL)
     // auto *metalDevice = static_cast<MetalGraphicsDevice *>(GetDevice().get());
     // metalDevice->GetMetalRenderCommand()->BeginImGuiFrame();
+#elif defined(GLAB_BACKEND_VULKAN)
+    // Vulkan renderer backend frame setup will be added with the Vulkan renderer path.
 #endif
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
@@ -82,10 +92,12 @@ void ImGuiLayer::Begin()
 void ImGuiLayer::End()
 {
     ImGui::Render();
-#ifndef GLAB_BACKEND_METAL
+#if defined(GLAB_BACKEND_OPENGL)
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-#else
+#elif defined(GLAB_BACKEND_METAL)
     // auto *metalDevice = static_cast<MetalGraphicsDevice *>(GetDevice().get());
     // metalDevice->GetMetalRenderCommand()->RenderImGui(ImGui::GetDrawData());
+#elif defined(GLAB_BACKEND_VULKAN)
+    // Vulkan renderer backend draw submission will be added with the Vulkan renderer path.
 #endif
 }

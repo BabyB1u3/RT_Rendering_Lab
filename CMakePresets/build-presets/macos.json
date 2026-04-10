@@ -9,6 +9,10 @@
       "configurePreset": "macos-ninja-debug"
     },
     {
+      "name": "build-macos-ninja-relwithdebinfo",
+      "configurePreset": "macos-ninja-relwithdebinfo"
+    },
+    {
       "name": "build-macos-ninja-release",
       "configurePreset": "macos-ninja-release"
     },
@@ -19,6 +23,10 @@
     {
       "name": "build-macos-ninja-debug-fast",
       "configurePreset": "macos-ninja-debug-fast"
+    },
+    {
+      "name": "build-macos-ninja-relwithdebinfo-fast",
+      "configurePreset": "macos-ninja-relwithdebinfo-fast"
     },
     {
       "name": "build-macos-ninja-release-fast",

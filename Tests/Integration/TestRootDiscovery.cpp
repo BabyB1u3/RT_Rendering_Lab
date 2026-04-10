@@ -129,7 +129,7 @@ TEST_F(RootDiscoveryTests, DiscoverRootPathUsesEnvOverrideOnlyWhenProjectMarkerE
     const ScopedEnvVar rootOverride("RTRL_ROOT", repoRoot.string());
     const auto discoveredRoot = Resource::DiscoverRootPath();
 
-#ifdef RTRL_SHIPPING
+#ifdef RTRLAB_CONFIG_RELEASE
     const auto executableDirectory = GetExecutableDirectoryForTest();
     ASSERT_FALSE(executableDirectory.empty());
     EXPECT_EQ(discoveredRoot, std::filesystem::canonical(executableDirectory));
