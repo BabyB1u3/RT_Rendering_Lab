@@ -32,8 +32,6 @@ namespace
             return rootPath / projectContentDirName;
         case Resource::PathDomain::Engine:
             return engineDir;
-        case Resource::PathDomain::Plugin:
-            return rootPath / "Plugins" / virtualPath.mountName.value_or(std::string{}) / "Content";
         case Resource::PathDomain::Saved:
         case Resource::PathDomain::Cache:
             return {};
@@ -44,13 +42,7 @@ namespace
 
     bool DomainMatchesMount(const Resource::VirtualPath &catalogPath, const Resource::VirtualPath &requestedPath)
     {
-        if (catalogPath.domain != requestedPath.domain)
-            return false;
-
-        if (catalogPath.domain == Resource::PathDomain::Plugin)
-            return catalogPath.mountName == requestedPath.mountName;
-
-        return true;
+        return catalogPath.domain == requestedPath.domain;
     }
 
     std::optional<Resource::ArtifactRecord> ParseArtifactRecord(const Json &artifactJson)
