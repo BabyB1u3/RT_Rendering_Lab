@@ -42,6 +42,7 @@ TEST_F(MountBackendTests, DiscoverReadableMountBackendsFindsSourceDirectoryMount
 {
     const auto repoRoot = TestRoot() / "repo";
     test_support::RemoveTreeIfExists(repoRoot);
+    test_support::WriteProjectMarkerOrFail(repoRoot);
 
     test_support::EnsureDirectories(repoRoot / "Content");
     test_support::EnsureDirectories(repoRoot / "EngineContent");
