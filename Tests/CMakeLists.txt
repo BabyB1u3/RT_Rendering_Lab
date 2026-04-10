@@ -1,30 +1,5 @@
 include(GoogleTest)
 
-function(glab_add_test_runtime_content_dependency target_name)
-    set(runtime_content_target ${target_name}_runtime_content)
-
-    if(EXISTS ${CMAKE_SOURCE_DIR}/EngineContent)
-        add_custom_target(${runtime_content_target}
-            COMMAND ${CMAKE_COMMAND} -E copy_directory
-                    ${CMAKE_SOURCE_DIR}/Content
-                    $<TARGET_FILE_DIR:${target_name}>/Content
-            COMMAND ${CMAKE_COMMAND} -E copy_directory
-                    ${CMAKE_SOURCE_DIR}/EngineContent
-                    $<TARGET_FILE_DIR:${target_name}>/EngineContent
-            COMMENT "Copying runtime Content for ${target_name}"
-        )
-    else()
-        add_custom_target(${runtime_content_target}
-            COMMAND ${CMAKE_COMMAND} -E copy_directory
-                    ${CMAKE_SOURCE_DIR}/Content
-                    $<TARGET_FILE_DIR:${target_name}>/Content
-            COMMENT "Copying runtime Content for ${target_name}"
-        )
-    endif()
-
-    add_dependencies(${target_name} ${runtime_content_target})
-endfunction()
-
 function(glab_configure_test_target target_name)
     target_link_libraries(${target_name}
         PRIVATE
@@ -44,7 +19,6 @@ function(glab_configure_test_target target_name)
         )
     endif()
 
-    glab_add_test_runtime_content_dependency(${target_name})
     glab_configure_local_target(${target_name})
     gtest_discover_tests(${target_name})
 endfunction()
