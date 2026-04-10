@@ -34,9 +34,9 @@ namespace
 
 TEST_F(SourceCatalogTests, BuildProjectSourceCatalogSkipsConfigAndCatalogArtifacts)
 {
-    test_support::WriteTextFileOrFail(TestRoot() / "textures" / "Grassy_Square.jpg", "jpg");
-    test_support::WriteTextFileOrFail(TestRoot() / "Config" / "input" / "DebugCameraControl.json", "{}");
-    test_support::WriteTextFileOrFail(TestRoot() / ".rtr" / "catalog.json", "{}");
+    test_support::WriteMountFileOrFail(TestRoot(), "textures/Grassy_Square.jpg", "jpg");
+    test_support::WriteMountFileOrFail(TestRoot(), "Config/input/DebugCameraControl.json", "{}");
+    test_support::WriteTextFileOrFail(test_support::MountCatalogPath(TestRoot()), "{}");
 
     std::vector<Resource::ResourceCatalogEntry> entries;
     std::string errorMessage;
@@ -60,7 +60,7 @@ TEST_F(SourceCatalogTests, BuildProjectSourceCatalogSkipsConfigAndCatalogArtifac
 
 TEST_F(SourceCatalogTests, BuildPluginSourceCatalogUsesPluginNamespace)
 {
-    test_support::WriteTextFileOrFail(TestRoot() / "Materials" / "Checker.json", "{\n}\n");
+    test_support::WriteMountFileOrFail(TestRoot(), "Materials/Checker.json", "{\n}\n");
 
     std::vector<Resource::ResourceCatalogEntry> entries;
     std::string errorMessage;
@@ -78,7 +78,7 @@ TEST_F(SourceCatalogTests, BuildPluginSourceCatalogUsesPluginNamespace)
 
 TEST_F(SourceCatalogTests, BuildPluginSourceCatalogRejectsInvalidMountName)
 {
-    test_support::WriteTextFileOrFail(TestRoot() / "Materials" / "Checker.json", "{\n}\n");
+    test_support::WriteMountFileOrFail(TestRoot(), "Materials/Checker.json", "{\n}\n");
 
     std::vector<Resource::ResourceCatalogEntry> entries;
     std::string errorMessage;
@@ -93,8 +93,8 @@ TEST_F(SourceCatalogTests, BuildPluginSourceCatalogRejectsInvalidMountName)
 
 TEST_F(SourceCatalogTests, BuildSourceCatalogRejectsDuplicateLogicalPaths)
 {
-    test_support::WriteTextFileOrFail(TestRoot() / "Textures" / "Grassy_Square.jpg", "jpg");
-    test_support::WriteTextFileOrFail(TestRoot() / "Textures" / "Grassy_Square.png", "png");
+    test_support::WriteMountFileOrFail(TestRoot(), "Textures/Grassy_Square.jpg", "jpg");
+    test_support::WriteMountFileOrFail(TestRoot(), "Textures/Grassy_Square.png", "png");
 
     std::vector<Resource::ResourceCatalogEntry> entries;
     std::string errorMessage;
@@ -174,6 +174,6 @@ TEST_F(SourceCatalogTests, WriteSourceCatalogJsonRejectsEntriesWithoutSourceRela
     };
 
     std::string errorMessage;
-    EXPECT_FALSE(Resource::WriteSourceCatalogJson(TestRoot() / ".rtr" / "catalog.json", entries, &errorMessage));
+    EXPECT_FALSE(Resource::WriteSourceCatalogJson(test_support::MountCatalogPath(TestRoot()), entries, &errorMessage));
     EXPECT_NE(errorMessage.find("missing sourceRelativePath"), std::string::npos);
 }

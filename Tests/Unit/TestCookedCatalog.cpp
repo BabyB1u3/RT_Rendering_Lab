@@ -180,9 +180,9 @@ TEST_F(CookedCatalogTests, GetCookOutputRootSupportsCacheAndBuildLayouts)
     const auto repoRoot = TestRoot() / "Repo";
 
     EXPECT_EQ(Resource::GetCookOutputRoot(repoRoot, Resource::CookOutputLayout::Cache),
-              repoRoot / "Saved" / "Cache" / "Cooked");
+              test_support::CookedRoot(repoRoot));
     EXPECT_EQ(Resource::GetCookOutputRoot(repoRoot, Resource::CookOutputLayout::Build),
-              repoRoot / "build" / "Cooked");
+              test_support::BuildCookedRoot(repoRoot));
 }
 
 TEST_F(CookedCatalogTests, LoadCookedTextureSupportsLegacyVersion1Artifacts)

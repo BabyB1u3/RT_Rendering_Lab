@@ -36,6 +36,19 @@ namespace test_support
         return repoRoot / "Plugins" / std::filesystem::path(std::string(pluginName)) / "Content";
     }
 
+    inline std::filesystem::path MountCatalogPath(const std::filesystem::path &mountRoot)
+    {
+        return mountRoot / ".rtr" / "catalog.json";
+    }
+
+    inline void WriteMountFileOrFail(
+        const std::filesystem::path &mountRoot,
+        const std::filesystem::path &relativePath,
+        std::string_view contents)
+    {
+        WriteTextFileOrFail(mountRoot / relativePath, contents);
+    }
+
     inline void WriteProjectFileOrFail(
         const std::filesystem::path &repoRoot,
         const std::filesystem::path &relativePath,
@@ -91,6 +104,11 @@ namespace test_support
         return repoRoot / "Saved" / "Cache" / "Cooked";
     }
 
+    inline std::filesystem::path BuildCookedRoot(const std::filesystem::path &repoRoot)
+    {
+        return repoRoot / "build" / "Cooked";
+    }
+
     inline std::filesystem::path ProjectCookedRoot(const std::filesystem::path &cookedRoot)
     {
         return cookedRoot / "Project";
@@ -121,6 +139,36 @@ namespace test_support
         std::string_view pluginName)
     {
         return PluginCookedRoot(cookedRoot, pluginName) / ".rtr" / "catalog.json";
+    }
+
+    inline void WriteProjectCookedFileOrFail(
+        const std::filesystem::path &cookedRoot,
+        const std::filesystem::path &relativePath,
+        std::string_view contents)
+    {
+        WriteTextFileOrFail(ProjectCookedRoot(cookedRoot) / relativePath, contents);
+    }
+
+    inline void WriteEngineCookedFileOrFail(
+        const std::filesystem::path &cookedRoot,
+        const std::filesystem::path &relativePath,
+        std::string_view contents)
+    {
+        WriteTextFileOrFail(EngineCookedRoot(cookedRoot) / relativePath, contents);
+    }
+
+    inline void WritePluginCookedFileOrFail(
+        const std::filesystem::path &cookedRoot,
+        std::string_view pluginName,
+        const std::filesystem::path &relativePath,
+        std::string_view contents)
+    {
+        WriteTextFileOrFail(PluginCookedRoot(cookedRoot, pluginName) / relativePath, contents);
+    }
+
+    inline std::filesystem::path ProjectMaterializedRoot(const std::filesystem::path &extractedRoot)
+    {
+        return extractedRoot / "Project";
     }
 
     inline std::filesystem::path ProjectPackagedArchivePath(const std::filesystem::path &packagedRoot)
