@@ -1,6 +1,6 @@
 include(GoogleTest)
 
-function(glab_configure_test_target target_name)
+function(glab_configure_test_target target_name test_prefix test_label)
     target_link_libraries(${target_name}
         PRIVATE
             RTRLabCore
@@ -20,15 +20,19 @@ function(glab_configure_test_target target_name)
     endif()
 
     glab_configure_local_target(${target_name})
-    gtest_discover_tests(${target_name})
+    gtest_discover_tests(${target_name}
+        TEST_PREFIX "${test_prefix}"
+        PROPERTIES
+            LABELS "${test_label}"
+    )
 endfunction()
 
-function(glab_add_test_executable target_name)
+function(glab_add_test_executable target_name test_prefix test_label)
     add_executable(${target_name}
         ${ARGN}
     )
 
-    glab_configure_test_target(${target_name})
+    glab_configure_test_target(${target_name} "${test_prefix}" "${test_label}")
 endfunction()
 
 # -----------------------------------------------------------------------------
@@ -59,7 +63,7 @@ set(GLAB_UNIT_TEST_SOURCES
     Unit/TestTransform.cpp
 )
 
-glab_add_test_executable(rtrlab_unit_tests
+glab_add_test_executable(rtrlab_unit_tests "Unit." "unit"
     ${GLAB_UNIT_TEST_SOURCES}
 )
 
@@ -71,7 +75,7 @@ set(GLAB_INTEGRATION_TEST_SOURCES
     Integration/TestRootDiscovery.cpp
 )
 
-glab_add_test_executable(rtrlab_integration_tests
+glab_add_test_executable(rtrlab_integration_tests "Integration." "integration"
     ${GLAB_INTEGRATION_TEST_SOURCES}
 )
 
@@ -83,7 +87,7 @@ glab_add_test_executable(rtrlab_integration_tests
 # -----------------------------------------------------------------------------
 # Legacy contract tests
 # -----------------------------------------------------------------------------
-glab_add_test_executable(rtrlab_contract_tests
+glab_add_test_executable(rtrlab_contract_tests "Contract." "contract"
     # Contract/Core/TestDiagnosticsCore.cpp
     Contract/Core/TestEventBus.cpp
     # Contract/Core/TestFileSystem.cpp

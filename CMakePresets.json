@@ -210,8 +210,47 @@
       "output": { "outputOnFailure": true }
     },
     {
+      "name": "test-windows-debug-unit",
+      "configurePreset": "windows-vs-debug",
+      "configuration": "Debug",
+      "filter": { "include": { "label": "unit" } },
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "test-windows-debug-integration",
+      "configurePreset": "windows-vs-debug",
+      "configuration": "Debug",
+      "filter": { "include": { "label": "integration" } },
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "test-windows-debug-contract",
+      "configurePreset": "windows-vs-debug",
+      "configuration": "Debug",
+      "filter": { "include": { "label": "contract" } },
+      "output": { "outputOnFailure": true }
+    },
+    {
       "name": "test-ninja-debug",
       "configurePreset": "ninja-debug",
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "test-ninja-debug-unit",
+      "configurePreset": "ninja-debug",
+      "filter": { "include": { "label": "unit" } },
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "test-ninja-debug-integration",
+      "configurePreset": "ninja-debug",
+      "filter": { "include": { "label": "integration" } },
+      "output": { "outputOnFailure": true }
+    },
+    {
+      "name": "test-ninja-debug-contract",
+      "configurePreset": "ninja-debug",
+      "filter": { "include": { "label": "contract" } },
       "output": { "outputOnFailure": true }
     }
   ]
