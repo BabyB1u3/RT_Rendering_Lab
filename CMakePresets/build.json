@@ -1,0 +1,66 @@
+{
+  "version": 6,
+  "include": [
+    "configure.json"
+  ],
+  "buildPresets": [
+    {
+      "name": "build-windows-vs-debug",
+      "configurePreset": "windows-vs-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "build-windows-vs-release",
+      "configurePreset": "windows-vs-release",
+      "configuration": "Release"
+    },
+    {
+      "name": "build-windows-vs-release-tests",
+      "configurePreset": "windows-vs-release-tests",
+      "configuration": "Release"
+    },
+    {
+      "name": "build-windows-vs-debug-fast",
+      "configurePreset": "windows-vs-debug-fast",
+      "configuration": "Debug"
+    },
+    {
+      "name": "build-windows-vs-release-fast",
+      "configurePreset": "windows-vs-release-fast",
+      "configuration": "Release"
+    },
+    {
+      "name": "build-windows-ninja-debug",
+      "configurePreset": "windows-ninja-debug"
+    },
+    {
+      "name": "build-windows-ninja-release",
+      "configurePreset": "windows-ninja-release"
+    },
+    {
+      "name": "build-windows-ninja-release-tests",
+      "configurePreset": "windows-ninja-release-tests"
+    },
+    {
+      "name": "build-windows-ninja-debug-fast",
+      "configurePreset": "windows-ninja-debug-fast"
+    },
+    {
+      "name": "build-windows-ninja-release-fast",
+      "configurePreset": "windows-ninja-release-fast"
+    },
+    {
+      "name": "build-ci-windows-vs-release",
+      "configurePreset": "ci-windows-vs-release",
+      "configuration": "Release"
+    },
+    {
+      "name": "build-ci-linux-ninja-release",
+      "configurePreset": "ci-linux-ninja-release"
+    },
+    {
+      "name": "build-ci-macos-ninja-release",
+      "configurePreset": "ci-macos-ninja-release"
+    }
+  ]
+}

@@ -1,0 +1,184 @@
+{
+  "version": 6,
+  "include": [
+    "configure.json"
+  ],
+  "testPresets": [
+    {
+      "name": "test-base",
+      "hidden": true,
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "test-label-unit",
+      "hidden": true,
+      "filter": {
+        "include": {
+          "label": "unit"
+        }
+      }
+    },
+    {
+      "name": "test-label-integration",
+      "hidden": true,
+      "filter": {
+        "include": {
+          "label": "integration"
+        }
+      }
+    },
+    {
+      "name": "test-label-contract",
+      "hidden": true,
+      "filter": {
+        "include": {
+          "label": "contract"
+        }
+      }
+    },
+    {
+      "name": "test-windows-vs-debug-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "windows-vs-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "test-windows-vs-release-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "windows-vs-release-tests",
+      "configuration": "Release"
+    },
+    {
+      "name": "test-windows-ninja-debug-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "windows-ninja-debug"
+    },
+    {
+      "name": "test-windows-ninja-release-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "windows-ninja-release-tests"
+    },
+    {
+      "name": "test-ci-windows-vs-release",
+      "inherits": "test-base",
+      "configurePreset": "ci-windows-vs-release",
+      "configuration": "Release"
+    },
+    {
+      "name": "test-ci-linux-ninja-release",
+      "inherits": "test-base",
+      "configurePreset": "ci-linux-ninja-release"
+    },
+    {
+      "name": "test-ci-macos-ninja-release",
+      "inherits": "test-base",
+      "configurePreset": "ci-macos-ninja-release"
+    },
+    {
+      "name": "test-windows-vs-debug",
+      "inherits": "test-windows-vs-debug-base"
+    },
+    {
+      "name": "test-windows-vs-release",
+      "inherits": "test-windows-vs-release-base"
+    },
+    {
+      "name": "test-windows-vs-debug-unit",
+      "inherits": [
+        "test-windows-vs-debug-base",
+        "test-label-unit"
+      ]
+    },
+    {
+      "name": "test-windows-vs-release-unit",
+      "inherits": [
+        "test-windows-vs-release-base",
+        "test-label-unit"
+      ]
+    },
+    {
+      "name": "test-windows-vs-debug-integration",
+      "inherits": [
+        "test-windows-vs-debug-base",
+        "test-label-integration"
+      ]
+    },
+    {
+      "name": "test-windows-vs-release-integration",
+      "inherits": [
+        "test-windows-vs-release-base",
+        "test-label-integration"
+      ]
+    },
+    {
+      "name": "test-windows-vs-debug-contract",
+      "inherits": [
+        "test-windows-vs-debug-base",
+        "test-label-contract"
+      ]
+    },
+    {
+      "name": "test-windows-vs-release-contract",
+      "inherits": [
+        "test-windows-vs-release-base",
+        "test-label-contract"
+      ]
+    },
+    {
+      "name": "test-windows-ninja-debug",
+      "inherits": "test-windows-ninja-debug-base"
+    },
+    {
+      "name": "test-windows-ninja-release",
+      "inherits": "test-windows-ninja-release-base"
+    },
+    {
+      "name": "test-windows-ninja-debug-unit",
+      "inherits": [
+        "test-windows-ninja-debug-base",
+        "test-label-unit"
+      ]
+    },
+    {
+      "name": "test-windows-ninja-release-unit",
+      "inherits": [
+        "test-windows-ninja-release-base",
+        "test-label-unit"
+      ]
+    },
+    {
+      "name": "test-windows-ninja-debug-integration",
+      "inherits": [
+        "test-windows-ninja-debug-base",
+        "test-label-integration"
+      ]
+    },
+    {
+      "name": "test-windows-ninja-release-integration",
+      "inherits": [
+        "test-windows-ninja-release-base",
+        "test-label-integration"
+      ]
+    },
+    {
+      "name": "test-windows-ninja-debug-contract",
+      "inherits": [
+        "test-windows-ninja-debug-base",
+        "test-label-contract"
+      ]
+    },
+    {
+      "name": "test-windows-ninja-release-contract",
+      "inherits": [
+        "test-windows-ninja-release-base",
+        "test-label-contract"
+      ]
+    }
+  ]
+}
