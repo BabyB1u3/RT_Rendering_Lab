@@ -77,6 +77,7 @@ glab_add_test_executable(rtrlab_unit_tests "Unit." "unit"
 set(GLAB_INTEGRATION_TEST_SOURCES
     Integration/TestLoggerConsoleSink.cpp
     Integration/TestMountBackend.cpp
+    Integration/TestInputRecordingIO.cpp
     Integration/TestRootDiscovery.cpp
 )
 
