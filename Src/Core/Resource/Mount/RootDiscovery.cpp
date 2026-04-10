@@ -16,7 +16,14 @@
 
 namespace
 {
-    std::filesystem::path FindRootFromExecutable(std::string_view assetDirName)
+    constexpr std::string_view kProjectMarkerFileName = ".rtrproject";
+
+    bool HasProjectMarker(const std::filesystem::path &directory)
+    {
+        return std::filesystem::exists(directory / kProjectMarkerFileName);
+    }
+
+    std::filesystem::path FindRootFromExecutable()
     {
         std::filesystem::path exePath;
 
@@ -47,7 +54,7 @@ namespace
         constexpr int kMaxDepth = 5;
         for (int i = 0; i < kMaxDepth; ++i)
         {
-            if (std::filesystem::exists(dir / assetDirName))
+            if (HasProjectMarker(dir))
                 return dir;
             const auto parent = dir.parent_path();
             if (parent == dir)
@@ -66,14 +73,14 @@ namespace Resource
         if (const char *envRoot = std::getenv("RTRL_ROOT"))
         {
             std::filesystem::path path(envRoot);
-            if (std::filesystem::exists(path / assetDirName))
+            if (HasProjectMarker(path))
                 return std::filesystem::canonical(path);
-            LOG_WARN_CAT(LogCategory::FileSystem, "RTRL_ROOT is set to '{}' but no '{}' directory found there",
-                         envRoot, assetDirName);
+            LOG_WARN_CAT(LogCategory::FileSystem, "RTRL_ROOT is set to '{}' but no '{}' marker file found there",
+                         envRoot, kProjectMarkerFileName);
         }
 
         {
-            const auto root = FindRootFromExecutable(assetDirName);
+            const auto root = FindRootFromExecutable();
             if (!root.empty())
                 return std::filesystem::canonical(root);
         }
@@ -81,21 +88,21 @@ namespace Resource
 #ifdef GLAB_ROOT_DIR
         {
             std::filesystem::path path(GLAB_ROOT_DIR);
-            if (std::filesystem::exists(path / assetDirName))
+            if (HasProjectMarker(path))
                 return std::filesystem::canonical(path);
             LOG_WARN_CAT(LogCategory::FileSystem, "GLAB_ROOT_DIR='{}' does not contain '{}'",
-                         GLAB_ROOT_DIR, assetDirName);
+                         GLAB_ROOT_DIR, kProjectMarkerFileName);
         }
 #endif
 
         {
             const auto cwd = std::filesystem::current_path();
-            if (std::filesystem::exists(cwd / assetDirName))
+            if (HasProjectMarker(cwd))
                 return cwd;
         }
 
-        LOG_ERROR_CAT(LogCategory::FileSystem, "FileSystem: could not locate '{}' directory from any known root",
-                      assetDirName);
+        LOG_ERROR_CAT(LogCategory::FileSystem, "FileSystem: could not locate '{}' from any known root",
+                      kProjectMarkerFileName);
         return std::filesystem::current_path();
     }
 } // namespace Resource
