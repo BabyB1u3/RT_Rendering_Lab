@@ -1,0 +1,76 @@
+{
+  "version": 6,
+  "include": [
+    "../configure/linux.json",
+    "common.json"
+  ],
+  "testPresets": [
+    {
+      "name": "test-linux-ninja-debug-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "linux-ninja-debug"
+    },
+    {
+      "name": "test-linux-ninja-release-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "linux-ninja-release-tests"
+    },
+    {
+      "name": "test-ci-linux-ninja-release",
+      "inherits": "test-base",
+      "configurePreset": "ci-linux-ninja-release"
+    },
+    {
+      "name": "test-linux-ninja-debug",
+      "inherits": "test-linux-ninja-debug-base"
+    },
+    {
+      "name": "test-linux-ninja-release",
+      "inherits": "test-linux-ninja-release-base"
+    },
+    {
+      "name": "test-linux-ninja-debug-unit",
+      "inherits": [
+        "test-linux-ninja-debug-base",
+        "test-label-unit"
+      ]
+    },
+    {
+      "name": "test-linux-ninja-release-unit",
+      "inherits": [
+        "test-linux-ninja-release-base",
+        "test-label-unit"
+      ]
+    },
+    {
+      "name": "test-linux-ninja-debug-integration",
+      "inherits": [
+        "test-linux-ninja-debug-base",
+        "test-label-integration"
+      ]
+    },
+    {
+      "name": "test-linux-ninja-release-integration",
+      "inherits": [
+        "test-linux-ninja-release-base",
+        "test-label-integration"
+      ]
+    },
+    {
+      "name": "test-linux-ninja-debug-contract",
+      "inherits": [
+        "test-linux-ninja-debug-base",
+        "test-label-contract"
+      ]
+    },
+    {
+      "name": "test-linux-ninja-release-contract",
+      "inherits": [
+        "test-linux-ninja-release-base",
+        "test-label-contract"
+      ]
+    }
+  ]
+}

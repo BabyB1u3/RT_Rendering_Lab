@@ -6,8 +6,14 @@
     "patch": 0
   },
   "include": [
-    "CMakePresets/configure.json",
-    "CMakePresets/build.json",
-    "CMakePresets/test.json"
+    "CMakePresets/configure/windows.json",
+    "CMakePresets/configure/linux.json",
+    "CMakePresets/configure/macos.json",
+    "CMakePresets/build-presets/windows.json",
+    "CMakePresets/build-presets/linux.json",
+    "CMakePresets/build-presets/macos.json",
+    "CMakePresets/test/windows.json",
+    "CMakePresets/test/linux.json",
+    "CMakePresets/test/macos.json"
   ]
 }

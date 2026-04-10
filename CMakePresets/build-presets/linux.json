@@ -1,0 +1,32 @@
+{
+  "version": 6,
+  "include": [
+    "../configure/linux.json"
+  ],
+  "buildPresets": [
+    {
+      "name": "build-linux-ninja-debug",
+      "configurePreset": "linux-ninja-debug"
+    },
+    {
+      "name": "build-linux-ninja-release",
+      "configurePreset": "linux-ninja-release"
+    },
+    {
+      "name": "build-linux-ninja-release-tests",
+      "configurePreset": "linux-ninja-release-tests"
+    },
+    {
+      "name": "build-linux-ninja-debug-fast",
+      "configurePreset": "linux-ninja-debug-fast"
+    },
+    {
+      "name": "build-linux-ninja-release-fast",
+      "configurePreset": "linux-ninja-release-fast"
+    },
+    {
+      "name": "build-ci-linux-ninja-release",
+      "configurePreset": "ci-linux-ninja-release"
+    }
+  ]
+}

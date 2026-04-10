@@ -1,0 +1,77 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "macos-ninja-debug",
+      "displayName": "macOS Ninja Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/macos-ninja-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-ninja-debug"
+      }
+    },
+    {
+      "name": "macos-ninja-release",
+      "displayName": "macOS Ninja Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/macos-ninja-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-ninja-release",
+        "GLAB_BUILD_TESTS": "OFF",
+        "GLAB_BUILD_IMGUI_DEMO": "OFF"
+      }
+    },
+    {
+      "name": "macos-ninja-release-tests",
+      "displayName": "macOS Ninja Release Tests",
+      "inherits": "macos-ninja-release",
+      "binaryDir": "${sourceDir}/build/macos-ninja-release-tests",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-ninja-release-tests",
+        "GLAB_BUILD_TESTS": "ON",
+        "GLAB_BUILD_IMGUI_DEMO": "OFF"
+      }
+    },
+    {
+      "name": "macos-ninja-debug-fast",
+      "displayName": "macOS Ninja Debug Fast",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/macos-ninja-debug-fast",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-ninja-debug-fast",
+        "GLAB_BUILD_TESTS": "OFF",
+        "GLAB_ENABLE_UNITY_BUILD": "ON",
+        "GLAB_BUILD_IMGUI_DEMO": "OFF"
+      }
+    },
+    {
+      "name": "macos-ninja-release-fast",
+      "displayName": "macOS Ninja Release Fast",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/macos-ninja-release-fast",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-ninja-release-fast",
+        "GLAB_BUILD_TESTS": "OFF",
+        "GLAB_ENABLE_UNITY_BUILD": "ON",
+        "GLAB_BUILD_IMGUI_DEMO": "OFF"
+      }
+    },
+    {
+      "name": "ci-macos-ninja-release",
+      "displayName": "CI macOS Ninja Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/ci-macos-ninja-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-macos-ninja-release",
+        "GLAB_BUILD_TESTS": "ON",
+        "GLAB_ENABLE_WARNINGS": "ON"
+      }
+    }
+  ]
+}
