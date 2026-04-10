@@ -377,6 +377,12 @@ A phase should be landable as its own PR.
 
 **Scope**: replace `Content/`-based discovery with `.rtrproject` marker.
 
+**Status (2026-04-10)**: completed in the current codebase. `.rtrproject` now
+exists at the repo root, development discovery uses the marker, the obsolete
+`assetDirName` parameter has been removed, `RTRL_SHIPPING` switches shipping
+builds to executable-directory roots, and temporary test repo fixtures now create
+their own `.rtrproject` marker.
+
 - Add `.rtrproject` file at repo root (empty or minimal JSON with project name).
 - Update `RootDiscovery::DiscoverRootPath` to search for `.rtrproject` instead of
   `assetDirName`.

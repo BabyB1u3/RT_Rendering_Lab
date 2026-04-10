@@ -390,6 +390,12 @@ Key public responsibilities:
   and `WriteBinary`
 - refresh the catalog registry when mount state changes
 
+Current root discovery behavior is now:
+
+- development builds locate the repo root through a `.rtrproject` marker file
+- shipping builds treat the executable directory as the install root
+- `GLAB_ROOT_DIR` remains a development-only compile-time fallback
+
 The facade is now fully logical-path-first. Runtime systems are expected to use:
 
 - `ResolveReadPath()` / `ResolveWritePath()`
@@ -537,7 +543,7 @@ is not yet a fully evolved long-term texture container.
 
 ## 11. Current Implementation Status
 
-As of 2026-04-08, the resource system is no longer a speculative design. It is an
+As of 2026-04-10, the resource system is no longer a speculative design. It is an
 active engine subsystem with the following implemented behavior:
 
 - `src/Core/Resource/` is the home of the module
@@ -553,6 +559,10 @@ active engine subsystem with the following implemented behavior:
 - overlay precedence over packaged/cooked/source mounts is implemented
 - mount handling now goes through a backend layer rather than being inlined inside the
   catalog resolver
+- development root discovery uses a repo-root `.rtrproject` marker instead of
+  searching for `Content/`
+- shipping builds use the executable directory as the install root via
+  `RTRL_SHIPPING`
 
 The core path and mount architecture is in place, but the system is not "fully done" in
 the sense of having every long-term artifact format, mount policy, and runtime consumer
@@ -661,6 +671,8 @@ src/Tools/
     AssetIndexMain.cpp          - `rtr_asset_index`
     AssetCookMain.cpp           - `rtr_asset_cook`
     AssetPackMain.cpp           - `rtr_asset_pack`
+
+.rtrproject                    - Development-time project root marker
 
 Content/
     .rtr/catalog.json           - Generated project source catalog

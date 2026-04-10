@@ -8,7 +8,7 @@ It is intended as a companion to the main
 contract and design rationale. This document focuses on implementation mechanics and
 industry context.
 
-> **Snapshot date**: 2026-04-09
+> **Snapshot date**: 2026-04-10
 
 ---
 
@@ -205,14 +205,22 @@ The public entry point is always a static method on the `FileSystem` class.
 
 `FileSystem::Init()` (`FileSystem.cpp:26-32`):
 
-1. Calls `Resource::DiscoverRootPath("Content")` to locate the project root.
-   Discovery order:
-   - `RTRL_ROOT` environment variable
-   - walk up from executable location (max 5 levels) looking for a `Content/` directory
-   - `GLAB_ROOT_DIR` compile-time macro
-   - current working directory
+1. Calls `Resource::DiscoverRootPath()` to locate the project root.
 2. Sets `s_EngineDir = rootPath / "EngineContent"`.
 3. Resets the catalog registry.
+
+`DiscoverRootPath()` now has two compile-time strategies:
+
+- **Development builds**:
+  - `RTRL_ROOT` environment variable, but only if that directory contains a
+    `.rtrproject` marker
+  - walk up from the executable location (max 5 levels) looking for `.rtrproject`
+  - `GLAB_ROOT_DIR` compile-time fallback, again requiring `.rtrproject`
+  - current working directory, if it contains `.rtrproject`
+  - otherwise log loudly and fall back to `current_path()`
+- **Shipping builds** (`RTRL_SHIPPING`):
+  - treat the executable directory as the install root
+  - skip marker search and path override logic entirely
 
 Writable directories (`s_SavedDir`, `s_CacheDir`) are **lazily initialized** on first
 access via `GetSavedDir()` / `GetCacheDir()`. In development mode (`GLAB_ROOT_DIR`
@@ -391,7 +399,8 @@ User calls: FileSystem::ReadBinary("/Project/Textures/Grassy_Square")
 | Pak entries materialize to cache | `MaterializePakEntry` | Runtime still works with physical file paths, avoiding consumer changes |
 | Profile determines mount registration order | `DiscoverReadableMountBackends` | `dev` prefers source; `shipping` prefers packaged |
 | Writable dirs are lazily resolved | `FileSystem::ResolveWritableDirs` | First call to `GetSavedDir()` / `GetCacheDir()` triggers resolution |
-| Root discovery walks up from executable | `FindRootFromExecutable` | Up to 5 parent directories, looking for the asset directory |
+| Dev root discovery walks up from executable | `FindRootFromExecutable` | Up to 5 parent directories, looking for `.rtrproject` |
+| Shipping root discovery uses install dir | `DiscoverRootPath` under `RTRL_SHIPPING` | Executable directory is treated as the root |
 
 ---
 
