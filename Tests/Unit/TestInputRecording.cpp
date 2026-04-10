@@ -33,29 +33,25 @@ namespace
 
         InputValue GetInput(uint16_t code) const override
         {
-            return {code < m_Current.size() && m_Current[code] != 0 ? 1.0f : 0.0f, 0.0f};
+            const auto index = static_cast<std::size_t>(code);
+            if (index >= m_Current.size())
+                return {};
+
+            return {m_Current[index] != 0 ? 1.0f : 0.0f, 0.0f};
         }
 
         InputValue GetPreviousInput(uint16_t code) const override
         {
-            return {code < m_Previous.size() && m_Previous[code] != 0 ? 1.0f : 0.0f, 0.0f};
+            const auto index = static_cast<std::size_t>(code);
+            if (index >= m_Previous.size())
+                return {};
+
+            return {m_Previous[index] != 0 ? 1.0f : 0.0f, 0.0f};
         }
 
         void PushFrame(const Frame &frame)
         {
             m_Frames.push_back(frame);
-        }
-
-        static Frame MakeFrame(std::initializer_list<Key::Code> keys)
-        {
-            Frame frame{};
-            for (const auto key : keys)
-            {
-                if (key < frame.size())
-                    frame[key] = 1;
-            }
-
-            return frame;
         }
 
     private:
@@ -90,12 +86,20 @@ namespace
 
         InputValue GetInput(uint16_t code) const override
         {
-            return {code < m_Current.Buttons.size() && m_Current.Buttons[code] != 0 ? 1.0f : 0.0f, 0.0f};
+            const auto index = static_cast<std::size_t>(code);
+            if (index >= m_Current.Buttons.size())
+                return {};
+
+            return {m_Current.Buttons[index] != 0 ? 1.0f : 0.0f, 0.0f};
         }
 
         InputValue GetPreviousInput(uint16_t code) const override
         {
-            return {code < m_Previous.Buttons.size() && m_Previous.Buttons[code] != 0 ? 1.0f : 0.0f, 0.0f};
+            const auto index = static_cast<std::size_t>(code);
+            if (index >= m_Previous.Buttons.size())
+                return {};
+
+            return {m_Previous.Buttons[index] != 0 ? 1.0f : 0.0f, 0.0f};
         }
 
         InputValue GetAxis(uint16_t axisId) const override
@@ -171,22 +175,38 @@ namespace
 
         InputValue GetInput(uint16_t code) const override
         {
-            return {code < m_Current.Buttons.size() && m_Current.Buttons[code] != 0 ? 1.0f : 0.0f, 0.0f};
+            const auto index = static_cast<std::size_t>(code);
+            if (index >= m_Current.Buttons.size())
+                return {};
+
+            return {m_Current.Buttons[index] != 0 ? 1.0f : 0.0f, 0.0f};
         }
 
         InputValue GetPreviousInput(uint16_t code) const override
         {
-            return {code < m_Previous.Buttons.size() && m_Previous.Buttons[code] != 0 ? 1.0f : 0.0f, 0.0f};
+            const auto index = static_cast<std::size_t>(code);
+            if (index >= m_Previous.Buttons.size())
+                return {};
+
+            return {m_Previous.Buttons[index] != 0 ? 1.0f : 0.0f, 0.0f};
         }
 
         InputValue GetAxis(uint16_t axisId) const override
         {
-            return {axisId < m_Current.Axes.size() ? m_Current.Axes[axisId] : 0.0f, 0.0f};
+            const auto index = static_cast<std::size_t>(axisId);
+            if (index >= m_Current.Axes.size())
+                return {};
+
+            return {m_Current.Axes[index], 0.0f};
         }
 
         InputValue GetPreviousAxis(uint16_t axisId) const override
         {
-            return {axisId < m_Previous.Axes.size() ? m_Previous.Axes[axisId] : 0.0f, 0.0f};
+            const auto index = static_cast<std::size_t>(axisId);
+            if (index >= m_Previous.Axes.size())
+                return {};
+
+            return {m_Previous.Axes[index], 0.0f};
         }
 
         bool IsConnected() const override { return m_Current.Connected; }
@@ -227,8 +247,13 @@ TEST_F(InputRecordingTests, RecorderCapturesPolledFramesAcrossDefaultDeviceTypes
     InputRecorder recorder;
 
     auto *keyboard = new ScriptedKeyboardDevice();
-    keyboard->PushFrame(ScriptedKeyboardDevice::MakeFrame({Key::W}));
-    keyboard->PushFrame(ScriptedKeyboardDevice::MakeFrame({Key::Space}));
+    ScriptedKeyboardDevice::Frame keyboardFrame0{};
+    keyboardFrame0[static_cast<std::size_t>(Key::W)] = 1u;
+    keyboard->PushFrame(keyboardFrame0);
+
+    ScriptedKeyboardDevice::Frame keyboardFrame1{};
+    keyboardFrame1[static_cast<std::size_t>(Key::Space)] = 1u;
+    keyboard->PushFrame(keyboardFrame1);
 
     auto *mouse = new ScriptedMouseDevice();
     ScriptedMouseDevice::Frame mouseFrame0;
