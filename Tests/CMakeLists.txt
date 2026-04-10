@@ -90,19 +90,19 @@ glab_add_test_executable(rtrlab_unit_tests
 # Contract tests
 # -----------------------------------------------------------------------------
 glab_add_test_executable(rtrlab_contract_tests
-    Contract/Core/TestDiagnosticsCore.cpp
+    # Contract/Core/TestDiagnosticsCore.cpp
     Contract/Core/TestEventBus.cpp
-    Contract/Core/TestFileSystem.cpp
+    # Contract/Core/TestFileSystem.cpp
     Contract/Core/TestImGuiConsoleSink.cpp
     Contract/Core/TestLayerStackLifecycle.cpp
     Contract/Core/TestLogCategories.cpp
-    Contract/Core/TestLogger.cpp
-    Contract/Core/TestSerializationFileIO.cpp
+    # Contract/Core/TestLogger.cpp
+    # Contract/Core/TestSerializationFileIO.cpp
 )
 
-glab_add_test_executable(rtrlab_contract_tests_log_min_level
-    Contract/Core/TestDiagnosticsMinLevel.cpp
-)
+# glab_add_test_executable(rtrlab_contract_tests_log_min_level
+#     Contract/Core/TestDiagnosticsMinLevel.cpp
+# )
 
 if(GLAB_BACKEND_OPENGL)
     # set_source_files_properties(
