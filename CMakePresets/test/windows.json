@@ -9,25 +9,36 @@
       "name": "test-windows-vs-debug-base",
       "hidden": true,
       "inherits": "test-base",
-      "configurePreset": "windows-vs-debug",
+      "configurePreset": "windows-vs",
       "configuration": "Debug"
+    },
+    {
+      "name": "test-windows-vs-relwithdebinfo-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "windows-vs",
+      "configuration": "RelWithDebInfo"
     },
     {
       "name": "test-windows-vs-release-base",
       "hidden": true,
       "inherits": "test-base",
-      "configurePreset": "windows-vs-release-tests",
+      "configurePreset": "windows-vs",
       "configuration": "Release"
     },
     {
       "name": "test-ci-windows-vs-release",
       "inherits": "test-base",
-      "configurePreset": "ci-windows-vs-release",
+      "configurePreset": "ci-windows-vs",
       "configuration": "Release"
     },
     {
       "name": "test-windows-vs-debug",
       "inherits": "test-windows-vs-debug-base"
+    },
+    {
+      "name": "test-windows-vs-relwithdebinfo",
+      "inherits": "test-windows-vs-relwithdebinfo-base"
     },
     {
       "name": "test-windows-vs-release",
@@ -37,6 +48,13 @@
       "name": "test-windows-vs-debug-unit",
       "inherits": [
         "test-windows-vs-debug-base",
+        "test-label-unit"
+      ]
+    },
+    {
+      "name": "test-windows-vs-relwithdebinfo-unit",
+      "inherits": [
+        "test-windows-vs-relwithdebinfo-base",
         "test-label-unit"
       ]
     },
@@ -51,6 +69,13 @@
       "name": "test-windows-vs-debug-integration",
       "inherits": [
         "test-windows-vs-debug-base",
+        "test-label-integration"
+      ]
+    },
+    {
+      "name": "test-windows-vs-relwithdebinfo-integration",
+      "inherits": [
+        "test-windows-vs-relwithdebinfo-base",
         "test-label-integration"
       ]
     },

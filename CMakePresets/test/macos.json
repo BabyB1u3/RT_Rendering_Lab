@@ -12,6 +12,12 @@
       "configurePreset": "macos-ninja-debug"
     },
     {
+      "name": "test-macos-ninja-relwithdebinfo-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "macos-ninja-relwithdebinfo"
+    },
+    {
       "name": "test-macos-ninja-release-base",
       "hidden": true,
       "inherits": "test-base",
@@ -27,6 +33,10 @@
       "inherits": "test-macos-ninja-debug-base"
     },
     {
+      "name": "test-macos-ninja-relwithdebinfo",
+      "inherits": "test-macos-ninja-relwithdebinfo-base"
+    },
+    {
       "name": "test-macos-ninja-release",
       "inherits": "test-macos-ninja-release-base"
     },
@@ -34,6 +44,13 @@
       "name": "test-macos-ninja-debug-unit",
       "inherits": [
         "test-macos-ninja-debug-base",
+        "test-label-unit"
+      ]
+    },
+    {
+      "name": "test-macos-ninja-relwithdebinfo-unit",
+      "inherits": [
+        "test-macos-ninja-relwithdebinfo-base",
         "test-label-unit"
       ]
     },
@@ -48,6 +65,13 @@
       "name": "test-macos-ninja-debug-integration",
       "inherits": [
         "test-macos-ninja-debug-base",
+        "test-label-integration"
+      ]
+    },
+    {
+      "name": "test-macos-ninja-relwithdebinfo-integration",
+      "inherits": [
+        "test-macos-ninja-relwithdebinfo-base",
         "test-label-integration"
       ]
     },
