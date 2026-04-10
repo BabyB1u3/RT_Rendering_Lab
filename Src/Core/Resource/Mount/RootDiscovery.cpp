@@ -18,12 +18,7 @@ namespace
 {
     constexpr std::string_view kProjectMarkerFileName = ".rtrproject";
 
-    bool HasProjectMarker(const std::filesystem::path &directory)
-    {
-        return std::filesystem::exists(directory / kProjectMarkerFileName);
-    }
-
-    std::filesystem::path FindRootFromExecutable()
+    std::filesystem::path GetExecutableDirectory()
     {
         std::filesystem::path exePath;
 
@@ -50,7 +45,20 @@ namespace
         if (exePath.empty())
             return {};
 
-        std::filesystem::path dir = exePath.parent_path();
+        return exePath.parent_path();
+    }
+
+    bool HasProjectMarker(const std::filesystem::path &directory)
+    {
+        return std::filesystem::exists(directory / kProjectMarkerFileName);
+    }
+
+    std::filesystem::path FindRootFromExecutable()
+    {
+        std::filesystem::path dir = GetExecutableDirectory();
+        if (dir.empty())
+            return {};
+
         constexpr int kMaxDepth = 5;
         for (int i = 0; i < kMaxDepth; ++i)
         {
@@ -70,6 +78,13 @@ namespace Resource
 {
     std::filesystem::path DiscoverRootPath()
     {
+#ifdef RTRL_SHIPPING
+        if (const auto exeDir = GetExecutableDirectory(); !exeDir.empty())
+            return std::filesystem::canonical(exeDir);
+
+        LOG_ERROR_CAT(LogCategory::FileSystem, "FileSystem: shipping build could not resolve executable directory");
+        return std::filesystem::current_path();
+#else
         if (const char *envRoot = std::getenv("RTRL_ROOT"))
         {
             std::filesystem::path path(envRoot);
@@ -104,5 +119,6 @@ namespace Resource
         LOG_ERROR_CAT(LogCategory::FileSystem, "FileSystem: could not locate '{}' from any known root",
                       kProjectMarkerFileName);
         return std::filesystem::current_path();
+#endif
     }
 } // namespace Resource
