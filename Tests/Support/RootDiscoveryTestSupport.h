@@ -1,3 +1,5 @@
+#pragma once
+
 #include <gtest/gtest.h>
 
 #include <cstdlib>
@@ -6,7 +8,6 @@
 #include <string>
 #include <string_view>
 
-#include "Core/Resource/Mount/RootDiscovery.h"
 #include "ResourceTestSupport.h"
 
 #ifdef _WIN32
@@ -18,9 +19,9 @@
 #include <climits>
 #endif
 
-namespace
+namespace test_support
 {
-    std::filesystem::path GetExecutableDirectoryForTest()
+    inline std::filesystem::path GetExecutableDirectoryForTest()
     {
         std::filesystem::path exePath;
 
@@ -97,18 +98,18 @@ namespace
         bool m_HadPreviousValue = false;
     };
 
-    class RootDiscoveryTests : public ::testing::Test
+    class RootDiscoveryTestsBase : public ::testing::Test
     {
     protected:
         void SetUp() override
         {
-            m_TestRoot = test_support::CurrentTestRoot("root-discovery");
-            test_support::ResetCurrentTestRoot("root-discovery");
+            m_TestRoot = CurrentTestRoot("root-discovery");
+            ResetCurrentTestRoot("root-discovery");
         }
 
         void TearDown() override
         {
-            test_support::RemoveCurrentTestArtifacts("root-discovery");
+            RemoveCurrentTestArtifacts("root-discovery");
         }
 
         std::filesystem::path TestRoot() const
@@ -119,21 +120,4 @@ namespace
     private:
         std::filesystem::path m_TestRoot;
     };
-} // namespace
-
-TEST_F(RootDiscoveryTests, DiscoverRootPathUsesEnvOverrideOnlyWhenProjectMarkerExists)
-{
-    const auto repoRoot = TestRoot() / "Repo";
-    test_support::WriteProjectMarkerOrFail(repoRoot);
-
-    const ScopedEnvVar rootOverride("RTRL_ROOT", repoRoot.string());
-    const auto discoveredRoot = Resource::DiscoverRootPath();
-
-#ifdef RTRLAB_CONFIG_RELEASE
-    const auto executableDirectory = GetExecutableDirectoryForTest();
-    ASSERT_FALSE(executableDirectory.empty());
-    EXPECT_EQ(discoveredRoot, std::filesystem::canonical(executableDirectory));
-#else
-    EXPECT_EQ(discoveredRoot, std::filesystem::canonical(repoRoot));
-#endif
-}
+} // namespace test_support

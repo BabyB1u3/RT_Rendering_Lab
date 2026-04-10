@@ -77,11 +77,26 @@ set(GLAB_INTEGRATION_TEST_SOURCES
     Integration/TestLoggerConsoleSink.cpp
     Integration/TestMountBackend.cpp
     Integration/TestInputRecordingIO.cpp
-    Integration/TestRootDiscovery.cpp
 )
 
 glab_add_test_executable(rtrlab_integration_tests "Integration." "integration;common"
     ${GLAB_INTEGRATION_TEST_SOURCES}
+)
+
+set(GLAB_DEV_PROFILE_TEST_SOURCES
+    Integration/TestRootDiscoveryDev.cpp
+)
+
+glab_add_test_executable(rtrlab_dev_profile_tests "DevProfile." "integration;dev-profile"
+    ${GLAB_DEV_PROFILE_TEST_SOURCES}
+)
+
+set(GLAB_SHIPPING_PROFILE_TEST_SOURCES
+    Integration/TestRootDiscoveryShipping.cpp
+)
+
+glab_add_test_executable(rtrlab_shipping_profile_tests "ShippingProfile." "integration;shipping-profile"
+    ${GLAB_SHIPPING_PROFILE_TEST_SOURCES}
 )
 
 # -----------------------------------------------------------------------------
