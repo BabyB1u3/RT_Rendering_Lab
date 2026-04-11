@@ -3,11 +3,9 @@
 #include "Core/Resource/IO/PhysicalIO.h"
 #include "Core/Resource/Package/PakArchive.h"
 #include "Core/Resource/Path/PathParser.h"
-#include "Core/Util/CommandLine.h"
 
 #include <algorithm>
 #include <cctype>
-#include <cstdlib>
 #include <fstream>
 #include <iterator>
 #include <sstream>
@@ -16,32 +14,6 @@ namespace Resource
 {
     namespace
     {
-        std::optional<std::filesystem::path> GetDevelopmentOverridePath(std::string_view optionName, const char *envVarName)
-        {
-#ifdef RTRLAB_CONFIG_RELEASE
-            (void)envVarName;
-            if (!Util::ProcessHasOption("dev-mode"))
-                return std::nullopt;
-
-            if (const auto cliOverride = Util::GetProcessOptionValue(optionName); cliOverride.has_value() && !cliOverride->empty())
-                return std::filesystem::path(std::string(*cliOverride));
-
-            return std::nullopt;
-#else
-            if (const auto cliOverride = Util::GetProcessOptionValue(optionName); cliOverride.has_value() && !cliOverride->empty())
-                return std::filesystem::path(std::string(*cliOverride));
-
-            if (const char *overrideValue = std::getenv(envVarName))
-            {
-                const std::filesystem::path overrideRoot = overrideValue;
-                if (!overrideRoot.empty())
-                    return overrideRoot;
-            }
-
-            return std::nullopt;
-#endif
-        }
-
         std::filesystem::path GetPackagedArchiveSearchPath(const std::filesystem::path &packagedRoot,
                                                            std::string_view currentProfile,
                                                            const std::filesystem::path &legacyArchiveRelativePath)
@@ -89,11 +61,6 @@ namespace Resource
         const bool preferPackagedArtifacts = currentProfile == "packaged" || currentProfile == "shipping";
         std::vector<std::filesystem::path> cookedRootSearchOrder;
         std::vector<std::filesystem::path> packagedRootSearchOrder;
-
-        if (const auto cookedOverride = GetDevelopmentOverridePath("cooked-root", "RTRLAB_COOKED_ROOT"))
-            cookedRootSearchOrder.push_back(*cookedOverride);
-        if (const auto packagedOverride = GetDevelopmentOverridePath("package-root", "RTRLAB_PACKAGE_ROOT"))
-            packagedRootSearchOrder.push_back(*packagedOverride);
 
         if (currentProfile == "shipping")
             packagedRootSearchOrder.push_back(rootPath);

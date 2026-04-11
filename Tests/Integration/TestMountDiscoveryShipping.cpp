@@ -9,7 +9,6 @@
 #include "Core/Resource/Catalog/ResourceCatalog.h"
 #include "Core/Resource/Mount/MountBackend.h"
 #include "Core/Resource/Package/PakArchive.h"
-#include "Core/Util/CommandLine.h"
 #include "RootDiscoveryTestSupport.h"
 #include "ResourceTestSupport.h"
 
@@ -332,90 +331,3 @@ TEST_F(MountDiscoveryShippingTests, CatalogRegistryResolvesProjectAndEngineEntri
     EXPECT_EQ(*engineText, "engine");
 }
 
-TEST_F(MountDiscoveryShippingTests, DiscoverReadableMountBackendsIgnoresCliPackageRootWithoutDevModeInShipping)
-{
-    const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
-    const auto overrideRoot = TestRoot() / "OverridePackaged";
-    BuildSharedGameArchiveFixture(repoRoot);
-    BuildSharedGameArchiveFixture(overrideRoot);
-
-    Util::ParsedCommandLine commandLine;
-    commandLine.options.emplace("package-root", std::string(overrideRoot.string()));
-    Util::SetProcessCommandLine(commandLine);
-
-    const auto mounts = Resource::DiscoverReadableMountBackends(
-        repoRoot, test_support::EngineRoot(repoRoot), repoRoot / "Saved" / "Cache", "Project", "shipping");
-
-    ASSERT_FALSE(mounts.empty());
-    EXPECT_EQ(mounts[0].mountRoot, test_support::GamePackagedArchivePath(repoRoot));
-}
-
-TEST_F(MountDiscoveryShippingTests, DiscoverReadableMountBackendsUsesCliPackageRootWhenDevModeEnabledInShipping)
-{
-    const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
-    const auto overrideRoot = TestRoot() / "OverridePackaged";
-    BuildSharedGameArchiveFixture(repoRoot);
-    BuildSharedGameArchiveFixture(overrideRoot);
-
-    Util::ParsedCommandLine commandLine;
-    commandLine.options.emplace("dev-mode", std::nullopt);
-    commandLine.options.emplace("package-root", std::string(overrideRoot.string()));
-    Util::SetProcessCommandLine(commandLine);
-
-    const auto mounts = Resource::DiscoverReadableMountBackends(
-        repoRoot, test_support::EngineRoot(repoRoot), repoRoot / "Saved" / "Cache", "Project", "shipping");
-
-    ASSERT_FALSE(mounts.empty());
-    EXPECT_EQ(mounts[0].mountRoot, test_support::GamePackagedArchivePath(overrideRoot));
-}
-
-TEST_F(MountDiscoveryShippingTests, CatalogRegistryIgnoresResourceProfileEnvOverrideInShipping)
-{
-    const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
-    BuildSharedGameArchiveFixture(repoRoot);
-    test_support::WriteProjectFileOrFail(repoRoot, "Textures/Grassy_Square.jpg", "source");
-
-    const test_support::ScopedEnvVar profileOverride("RTRLAB_RESOURCE_PROFILE", "dev");
-    Resource::CatalogRegistry registry;
-
-    const auto projectVirtualPath = Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, "Textures/Grassy_Square"};
-    const auto projectResolved = registry.ResolveArtifact(
-        repoRoot,
-        test_support::EngineRoot(repoRoot),
-        repoRoot / "Saved" / "Cache",
-        projectVirtualPath,
-        "/Project/Textures/Grassy_Square",
-        "Project");
-
-    ASSERT_TRUE(projectResolved.has_value());
-    EXPECT_EQ(projectResolved->backend, Resource::MountBackendKind::PakArchive);
-    EXPECT_EQ(projectResolved->mountRoot, test_support::GamePackagedArchivePath(repoRoot));
-}
-
-TEST_F(MountDiscoveryShippingTests, CatalogRegistryUsesCliResourceProfileOverrideWhenDevModeEnabledInShipping)
-{
-    const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
-    BuildSharedGameArchiveFixture(repoRoot);
-    test_support::WriteProjectFileOrFail(repoRoot, "Textures/Grassy_Square.jpg", "source");
-
-    Util::ParsedCommandLine commandLine;
-    commandLine.options.emplace("dev-mode", std::nullopt);
-    commandLine.options.emplace("resource-profile", std::string("dev"));
-    Util::SetProcessCommandLine(commandLine);
-
-    Resource::CatalogRegistry registry;
-
-    const auto projectVirtualPath = Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, "Textures/Grassy_Square"};
-    const auto projectResolved = registry.ResolveArtifact(
-        repoRoot,
-        test_support::EngineRoot(repoRoot),
-        repoRoot / "Saved" / "Cache",
-        projectVirtualPath,
-        "/Project/Textures/Grassy_Square",
-        "Project");
-
-    ASSERT_TRUE(projectResolved.has_value());
-    EXPECT_EQ(projectResolved->backend, Resource::MountBackendKind::Directory);
-    EXPECT_EQ(projectResolved->mountRoot, test_support::ProjectContentRoot(repoRoot));
-    EXPECT_EQ(projectResolved->relativePath, std::filesystem::path("Textures/Grassy_Square.jpg"));
-}

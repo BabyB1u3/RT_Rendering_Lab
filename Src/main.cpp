@@ -23,12 +23,6 @@ namespace
             .AddFlag("fullscreen", std::nullopt, "Request fullscreen mode.")
             .AddFlag("dev-mode", std::nullopt, "Enable development-only command-line overrides in shipping builds.")
             .AddValueOption("root", std::nullopt, "path", "Development-only root override.",
-                            Util::CommandLineOptionVisibility::DevelopmentOnly)
-            .AddValueOption("cooked-root", std::nullopt, "path", "Development-only cooked root override.",
-                            Util::CommandLineOptionVisibility::DevelopmentOnly)
-            .AddValueOption("package-root", std::nullopt, "path", "Development-only packaged root override.",
-                            Util::CommandLineOptionVisibility::DevelopmentOnly)
-            .AddValueOption("resource-profile", std::nullopt, "name", "Development-only resource profile override.",
                             Util::CommandLineOptionVisibility::DevelopmentOnly);
         return spec;
     }
