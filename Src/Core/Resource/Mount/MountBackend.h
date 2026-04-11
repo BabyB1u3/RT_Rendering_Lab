@@ -20,7 +20,6 @@ namespace Resource
         MountPriority priority = MountPriority::Source;
         MountBackendKind backend = MountBackendKind::Directory;
         std::filesystem::path mountRoot;
-        std::filesystem::path materializedRoot;
     };
 
     struct WritableMount
@@ -44,9 +43,6 @@ namespace Resource
     std::optional<ResolvedReadableArtifact> ResolveReadableMountArtifact(const ReadableMount &mount,
                                                                          const ArtifactRecord &artifact,
                                                                          std::string *errorMessage = nullptr);
-
-    std::optional<std::filesystem::path> MaterializeReadableArtifact(const ResolvedReadableArtifact &artifact,
-                                                                     std::string *errorMessage = nullptr);
 
     std::optional<std::string> ReadReadableArtifactText(const ResolvedReadableArtifact &artifact,
                                                         std::string *errorMessage = nullptr);

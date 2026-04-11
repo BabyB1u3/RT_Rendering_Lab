@@ -11,23 +11,6 @@
 #include <iterator>
 #include <sstream>
 
-namespace
-{
-    std::string SanitizeMountKeyForPath(std::string_view key)
-    {
-        std::string sanitized;
-        sanitized.reserve(key.size());
-        for (const char c : key)
-        {
-            if (std::isalnum(static_cast<unsigned char>(c)) || c == '_' || c == '-')
-                sanitized.push_back(c);
-            else
-                sanitized.push_back('_');
-        }
-        return sanitized;
-    }
-} // namespace
-
 namespace Resource
 {
     std::vector<ReadableMount> DiscoverReadableMountBackends(const std::filesystem::path &rootPath,
@@ -68,7 +51,8 @@ namespace Resource
         packagedRootSearchOrder.push_back(rootPath / "build" / "Packaged");
         overlayRootSearchOrder.push_back(rootPath / "Saved" / "Overrides");
 
-        auto findCookedMountRoot = [&](const std::filesystem::path &mountRelativePath) -> std::filesystem::path {
+        auto findCookedMountRoot = [&](const std::filesystem::path &mountRelativePath) -> std::filesystem::path
+        {
             for (const auto &cookedRoot : cookedRootSearchOrder)
             {
                 const auto candidate = cookedRoot / mountRelativePath;
@@ -79,7 +63,8 @@ namespace Resource
             return {};
         };
 
-        auto findPackagedMountArchive = [&](const std::filesystem::path &archiveRelativePath) -> std::filesystem::path {
+        auto findPackagedMountArchive = [&](const std::filesystem::path &archiveRelativePath) -> std::filesystem::path
+        {
             for (const auto &packagedRoot : packagedRootSearchOrder)
             {
                 const auto candidate = packagedRoot / archiveRelativePath;
@@ -91,7 +76,8 @@ namespace Resource
             return {};
         };
 
-        auto findOverlayMountRoot = [&](const std::filesystem::path &mountRelativePath) -> std::filesystem::path {
+        auto findOverlayMountRoot = [&](const std::filesystem::path &mountRelativePath) -> std::filesystem::path
+        {
             for (const auto &overlayRoot : overlayRootSearchOrder)
             {
                 const auto candidate = overlayRoot / mountRelativePath;
@@ -107,8 +93,8 @@ namespace Resource
                                              const VirtualPath &mountPath,
                                              const MountPriority priority,
                                              const MountBackendKind backend,
-                                             const std::filesystem::path &mountRoot,
-                                             const std::filesystem::path &materializedRoot) {
+                                             const std::filesystem::path &mountRoot)
+        {
             if (mountRoot.empty())
                 return;
 
@@ -119,7 +105,6 @@ namespace Resource
                 priority,
                 backend,
                 mountRoot,
-                materializedRoot,
             });
         };
 
@@ -127,7 +112,8 @@ namespace Resource
                                           const VirtualPath &mountPath,
                                           const std::filesystem::path &sourceRoot,
                                           const std::filesystem::path &cookedMountRelativePath,
-                                          const std::filesystem::path &packagedArchiveRelativePath) {
+                                          const std::filesystem::path &packagedArchiveRelativePath)
+        {
             const auto overlayRoot = findOverlayMountRoot(cookedMountRelativePath);
             const auto cookedRoot = findCookedMountRoot(cookedMountRelativePath);
             const auto packagedArchive = findPackagedMountArchive(packagedArchiveRelativePath);
@@ -135,7 +121,6 @@ namespace Resource
             const bool hasCookedCatalog = !cookedRoot.empty();
             const bool hasPackagedCatalog = !packagedArchive.empty();
             const bool hasSourceRoot = std::filesystem::exists(sourceRoot);
-            const auto materializedRoot = cacheDir / "PackagedExtracted" / SanitizeMountKeyForPath(sourceKey);
 
             if (hasOverlayCatalog)
             {
@@ -144,8 +129,7 @@ namespace Resource
                                     mountPath,
                                     MountPriority::Overlay,
                                     MountBackendKind::Directory,
-                                    overlayRoot,
-                                    {});
+                                    overlayRoot);
             }
 
             if (preferPackagedArtifacts)
@@ -157,8 +141,7 @@ namespace Resource
                                         mountPath,
                                         MountPriority::Packaged,
                                         MountBackendKind::PakArchive,
-                                        packagedArchive,
-                                        materializedRoot);
+                                        packagedArchive);
                 }
                 if (hasCookedCatalog)
                 {
@@ -167,8 +150,7 @@ namespace Resource
                                         mountPath,
                                         MountPriority::Cooked,
                                         MountBackendKind::Directory,
-                                        cookedRoot,
-                                        {});
+                                        cookedRoot);
                 }
                 if (hasSourceRoot)
                 {
@@ -177,8 +159,7 @@ namespace Resource
                                         mountPath,
                                         MountPriority::Source,
                                         MountBackendKind::Directory,
-                                        sourceRoot,
-                                        {});
+                                        sourceRoot);
                 }
                 return;
             }
@@ -192,8 +173,7 @@ namespace Resource
                                         mountPath,
                                         MountPriority::Cooked,
                                         MountBackendKind::Directory,
-                                        cookedRoot,
-                                        {});
+                                        cookedRoot);
                 }
                 if (hasSourceRoot)
                 {
@@ -202,8 +182,7 @@ namespace Resource
                                         mountPath,
                                         MountPriority::Source,
                                         MountBackendKind::Directory,
-                                        sourceRoot,
-                                        {});
+                                        sourceRoot);
                 }
                 return;
             }
@@ -215,8 +194,7 @@ namespace Resource
                                     mountPath,
                                     MountPriority::Source,
                                     MountBackendKind::Directory,
-                                    sourceRoot,
-                                    {});
+                                    sourceRoot);
                 return;
             }
 
@@ -227,8 +205,7 @@ namespace Resource
                                     mountPath,
                                     MountPriority::Packaged,
                                     MountBackendKind::PakArchive,
-                                    packagedArchive,
-                                    materializedRoot);
+                                    packagedArchive);
             }
             if (hasCookedCatalog)
             {
@@ -237,8 +214,7 @@ namespace Resource
                                     mountPath,
                                     MountPriority::Cooked,
                                     MountBackendKind::Directory,
-                                    cookedRoot,
-                                    {});
+                                    cookedRoot);
             }
         };
 
@@ -322,29 +298,13 @@ namespace Resource
                 .backend = mount.backend,
                 .mountRoot = mount.mountRoot,
                 .relativePath = artifact.relativePath,
-                .materializedRoot = {},
             };
         case MountBackendKind::PakArchive:
             return ResolvedReadableArtifact{
                 .backend = mount.backend,
                 .mountRoot = mount.mountRoot,
                 .relativePath = artifact.relativePath,
-                .materializedRoot = mount.materializedRoot,
             };
-        }
-
-        return std::nullopt;
-    }
-
-    std::optional<std::filesystem::path> MaterializeReadableArtifact(const ResolvedReadableArtifact &artifact,
-                                                                     std::string *errorMessage)
-    {
-        switch (artifact.backend)
-        {
-        case MountBackendKind::Directory:
-            return artifact.mountRoot / artifact.relativePath;
-        case MountBackendKind::PakArchive:
-            return MaterializePakEntry(artifact.mountRoot, artifact.relativePath, artifact.materializedRoot, errorMessage);
         }
 
         return std::nullopt;

@@ -38,7 +38,7 @@ TEST_F(SourceCatalogDevTests, CatalogRegistryBuildsProjectSourceCatalogInMemoryD
 
     Resource::CatalogRegistry registry;
     const auto virtualPath = Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, "Textures/Grassy_Square"};
-    const auto resolved = registry.ResolvePath(
+    const auto resolved = registry.ResolveArtifact(
         repoRoot,
         test_support::EngineRoot(repoRoot),
         repoRoot / "Saved" / "Cache",
@@ -47,7 +47,9 @@ TEST_F(SourceCatalogDevTests, CatalogRegistryBuildsProjectSourceCatalogInMemoryD
         "Project");
 
     ASSERT_TRUE(resolved.has_value());
-    EXPECT_EQ(*resolved, test_support::ProjectContentRoot(repoRoot) / "Textures" / "Grassy_Square.jpg");
+    EXPECT_EQ(resolved->backend, Resource::MountBackendKind::Directory);
+    EXPECT_EQ(resolved->mountRoot, test_support::ProjectContentRoot(repoRoot));
+    EXPECT_EQ(resolved->relativePath, std::filesystem::path("Textures/Grassy_Square.jpg"));
 }
 
 TEST_F(SourceCatalogDevTests, CatalogRegistryCanReturnReadableArtifactDescriptorWithoutMaterializedPath)
@@ -78,7 +80,7 @@ TEST_F(SourceCatalogDevTests, CatalogRegistryBuildsProjectConfigDocumentEntriesI
 
     Resource::CatalogRegistry registry;
     const auto virtualPath = Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, "Config/Graphics.json"};
-    const auto resolved = registry.ResolvePath(
+    const auto resolved = registry.ResolveArtifact(
         repoRoot,
         test_support::EngineRoot(repoRoot),
         repoRoot / "Saved" / "Cache",
@@ -87,7 +89,9 @@ TEST_F(SourceCatalogDevTests, CatalogRegistryBuildsProjectConfigDocumentEntriesI
         "Project");
 
     ASSERT_TRUE(resolved.has_value());
-    EXPECT_EQ(*resolved, test_support::ProjectContentRoot(repoRoot) / "Config" / "Graphics.json");
+    EXPECT_EQ(resolved->backend, Resource::MountBackendKind::Directory);
+    EXPECT_EQ(resolved->mountRoot, test_support::ProjectContentRoot(repoRoot));
+    EXPECT_EQ(resolved->relativePath, std::filesystem::path("Config/Graphics.json"));
 }
 
 TEST_F(SourceCatalogDevTests, CatalogRegistryBuildsEngineSourceCatalogInMemoryDuringDevResolution)
@@ -97,7 +101,7 @@ TEST_F(SourceCatalogDevTests, CatalogRegistryBuildsEngineSourceCatalogInMemoryDu
 
     Resource::CatalogRegistry registry;
     const auto virtualPath = Resource::VirtualPath{Resource::PathDomain::Engine, std::nullopt, "Defaults/Materials/ErrorMaterial"};
-    const auto resolved = registry.ResolvePath(
+    const auto resolved = registry.ResolveArtifact(
         repoRoot,
         test_support::EngineRoot(repoRoot),
         repoRoot / "Saved" / "Cache",
@@ -106,5 +110,7 @@ TEST_F(SourceCatalogDevTests, CatalogRegistryBuildsEngineSourceCatalogInMemoryDu
         "Project");
 
     ASSERT_TRUE(resolved.has_value());
-    EXPECT_EQ(*resolved, test_support::EngineRoot(repoRoot) / "Defaults" / "Materials" / "ErrorMaterial.json");
+    EXPECT_EQ(resolved->backend, Resource::MountBackendKind::Directory);
+    EXPECT_EQ(resolved->mountRoot, test_support::EngineRoot(repoRoot));
+    EXPECT_EQ(resolved->relativePath, std::filesystem::path("Defaults/Materials/ErrorMaterial.json"));
 }

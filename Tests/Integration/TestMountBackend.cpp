@@ -52,13 +52,11 @@ TEST_F(MountBackendTests, ResolveWritableMountReturnsSavedAndCacheRoots)
     EXPECT_FALSE(Resource::ResolveWritableMount(Resource::PathDomain::Project, savedDir, cacheDir).has_value());
 }
 
-TEST_F(MountBackendTests, ResolveReadableMountArtifactMaterializesPakArchiveEntries)
+TEST_F(MountBackendTests, ResolveReadableMountArtifactReturnsPakBackedDescriptor)
 {
     const auto sourceRoot = TestRoot() / "pak-source";
     const auto packagedRoot = TestRoot() / "out";
     const auto pakPath = test_support::ProjectPackagedArchivePath(packagedRoot);
-    const auto extractedRoot = TestRoot() / "materialized";
-    const auto materializedRoot = test_support::ProjectMaterializedRoot(extractedRoot);
 
     test_support::WriteTextFileOrFail(test_support::MountCatalogPath(sourceRoot), "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": []\n}\n");
     test_support::WriteMountFileOrFail(sourceRoot, "Materials/Checker.json", "{\n  \"name\": \"pak\"\n}\n");
@@ -73,7 +71,6 @@ TEST_F(MountBackendTests, ResolveReadableMountArtifactMaterializesPakArchiveEntr
         .priority = Resource::MountPriority::Packaged,
         .backend = Resource::MountBackendKind::PakArchive,
         .mountRoot = pakPath,
-        .materializedRoot = materializedRoot,
     };
     const Resource::ArtifactRecord artifact{
         .relativePath = "Materials/Checker.json",
@@ -85,8 +82,6 @@ TEST_F(MountBackendTests, ResolveReadableMountArtifactMaterializesPakArchiveEntr
     EXPECT_EQ(resolved->backend, Resource::MountBackendKind::PakArchive);
     EXPECT_EQ(resolved->mountRoot, pakPath);
     EXPECT_EQ(resolved->relativePath, std::filesystem::path("Materials/Checker.json"));
-    EXPECT_EQ(resolved->materializedRoot, materializedRoot);
-    EXPECT_FALSE(std::filesystem::exists(materializedRoot / "Materials" / "Checker.json"));
 
     const auto bytes = Resource::ReadReadableArtifactBinary(*resolved, &errorMessage);
     ASSERT_TRUE(bytes.has_value()) << errorMessage;
@@ -97,10 +92,6 @@ TEST_F(MountBackendTests, ResolveReadableMountArtifactMaterializesPakArchiveEntr
     ASSERT_NE(stream, nullptr) << errorMessage;
     const std::string streamedContents((std::istreambuf_iterator<char>(*stream)), std::istreambuf_iterator<char>());
     EXPECT_EQ(streamedContents, contents);
-
-    const auto materializedPath = Resource::MaterializeReadableArtifact(*resolved, &errorMessage);
-    ASSERT_TRUE(materializedPath.has_value()) << errorMessage;
-    EXPECT_EQ(*materializedPath, materializedRoot / "Materials" / "Checker.json");
 }
 
 TEST_F(MountBackendTests, ResolveReadableMountArtifactReturnsDirectoryBackedDescriptor)
@@ -115,7 +106,6 @@ TEST_F(MountBackendTests, ResolveReadableMountArtifactReturnsDirectoryBackedDesc
         .priority = Resource::MountPriority::Source,
         .backend = Resource::MountBackendKind::Directory,
         .mountRoot = mountRoot,
-        .materializedRoot = {},
     };
     const Resource::ArtifactRecord artifact{
         .relativePath = "Docs/Readme.txt",
@@ -137,8 +127,4 @@ TEST_F(MountBackendTests, ResolveReadableMountArtifactReturnsDirectoryBackedDesc
     ASSERT_NE(stream, nullptr) << errorMessage;
     const std::string streamedContents((std::istreambuf_iterator<char>(*stream)), std::istreambuf_iterator<char>());
     EXPECT_EQ(streamedContents, "hello");
-
-    const auto physicalPath = Resource::MaterializeReadableArtifact(*resolved, &errorMessage);
-    ASSERT_TRUE(physicalPath.has_value()) << errorMessage;
-    EXPECT_EQ(*physicalPath, mountRoot / "Docs" / "Readme.txt");
 }

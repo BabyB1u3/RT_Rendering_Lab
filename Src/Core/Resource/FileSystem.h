@@ -29,7 +29,6 @@ public:
     static bool IsVirtualPath(std::string_view path);
     static std::optional<VirtualPath> ParseVirtualPath(std::string_view path);
 
-    static std::optional<std::filesystem::path> ResolveReadPath(std::string_view virtualPath);
     static std::optional<std::filesystem::path> ResolveWritePath(std::string_view virtualPath);
     static bool Exists(std::string_view virtualPath);
     static std::optional<std::string> ReadText(std::string_view virtualPath);
@@ -53,5 +52,6 @@ private:
     static bool s_WritableDirsResolved;
 
     static std::optional<Resource::ResolvedReadableArtifact> ResolveCatalogArtifact(std::string_view virtualPath);
+    static std::optional<std::filesystem::path> ResolveWritableReadPath(std::string_view virtualPath);
     static void ResolveWritableDirs();
 };
