@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
-include(${CMAKE_CURRENT_SOURCE_DIR}/CMake/ProjectOptions.cmake)
-include(${CMAKE_CURRENT_SOURCE_DIR}/CMake/TargetHelpers.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/CMake/Project.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/CMake/Helpers.cmake)
 
 if(GLAB_BACKEND_OPENGL)
     find_package(OpenGL REQUIRED)
