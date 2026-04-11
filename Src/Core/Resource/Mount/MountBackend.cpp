@@ -149,6 +149,21 @@ namespace Resource
                 archivePath);
         };
 
+        const auto appendNamespacedArchiveMount = [&](std::string_view layerName,
+                                                      const std::string &archiveName,
+                                                      const PathDomain domain,
+                                                      const MountPriority priority,
+                                                      const std::filesystem::path &archivePath)
+        {
+            appendReadableMount(
+                std::string(layerName) + ":" + archiveName,
+                std::string(layerName) + ":" + archiveName,
+                VirtualPath{domain, archiveName, {}},
+                priority,
+                MountBackendKind::PakArchive,
+                archivePath);
+        };
+
         const auto addReadableMount = [&](const std::string &sourceKey,
                                           const VirtualPath &mountPath,
                                           const std::filesystem::path &sourceRoot,
@@ -265,15 +280,23 @@ namespace Resource
         {
             const auto appendOverlayArchives = [&](const std::filesystem::path &directory,
                                                    std::string_view layerName,
-                                                   const MountPriority priority)
+                                                   const MountPriority priority,
+                                                   const std::optional<PathDomain> namespacedDomain)
             {
                 for (const auto &archivePath : CollectPakArchives(directory))
+                {
                     appendArchiveDomainMounts(layerName, archivePath.stem().string(), priority, archivePath);
+                    if (namespacedDomain.has_value())
+                    {
+                        appendNamespacedArchiveMount(
+                            layerName, archivePath.stem().string(), *namespacedDomain, priority, archivePath);
+                    }
+                }
             };
 
-            appendOverlayArchives(rootPath / "DLC", "DLC", MountPriority::DLC);
-            appendOverlayArchives(rootPath / "Patches", "Patch", MountPriority::Patch);
-            appendOverlayArchives(rootPath / "Mods", "Mod", MountPriority::Mod);
+            appendOverlayArchives(rootPath / "DLC", "DLC", MountPriority::DLC, PathDomain::DLC);
+            appendOverlayArchives(rootPath / "Patches", "Patch", MountPriority::Patch, std::nullopt);
+            appendOverlayArchives(rootPath / "Mods", "Mod", MountPriority::Mod, PathDomain::Mod);
         }
 
         return mounts;
@@ -443,6 +466,8 @@ namespace Resource
             return WritableMount{domain, cacheDir};
         case PathDomain::Project:
         case PathDomain::Engine:
+        case PathDomain::DLC:
+        case PathDomain::Mod:
             return std::nullopt;
         }
 

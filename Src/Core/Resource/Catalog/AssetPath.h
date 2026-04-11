@@ -16,13 +16,20 @@ namespace Resource
         static bool IsValid(std::string_view path)
         {
             const auto parsed = ParseVirtualPath(path);
-            if (!parsed.has_value() || parsed->relativePath.empty() || parsed->mountName.has_value())
+            if (!parsed.has_value() || parsed->relativePath.empty())
                 return false;
 
             switch (parsed->domain)
             {
             case PathDomain::Project:
             case PathDomain::Engine:
+                if (parsed->mountName.has_value())
+                    return false;
+                break;
+            case PathDomain::DLC:
+            case PathDomain::Mod:
+                if (!parsed->mountName.has_value())
+                    return false;
                 break;
             case PathDomain::Saved:
             case PathDomain::Cache:

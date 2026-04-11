@@ -66,6 +66,14 @@ namespace
             return relative.empty() ? "/Project" : "/Project/" + relative;
         case Resource::PathDomain::Engine:
             return relative.empty() ? "/Engine" : "/Engine/" + relative;
+        case Resource::PathDomain::DLC:
+            if (!mountPath.mountName.has_value())
+                return {};
+            return relative.empty() ? "/DLC/" + *mountPath.mountName : "/DLC/" + *mountPath.mountName + "/" + relative;
+        case Resource::PathDomain::Mod:
+            if (!mountPath.mountName.has_value())
+                return {};
+            return relative.empty() ? "/Mod/" + *mountPath.mountName : "/Mod/" + *mountPath.mountName + "/" + relative;
         case Resource::PathDomain::Saved:
             return relative.empty() ? "/Saved" : "/Saved/" + relative;
         case Resource::PathDomain::Cache:

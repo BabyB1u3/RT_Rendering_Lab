@@ -88,6 +88,28 @@ namespace Resource
             return virtualPath;
         }
 
+        if (segments[0] == "DLC")
+        {
+            if (segments.size() < 2)
+                return std::nullopt;
+
+            virtualPath.domain = PathDomain::DLC;
+            virtualPath.mountName = segments[1];
+            virtualPath.relativePath = JoinSegments(segments, 2);
+            return virtualPath;
+        }
+
+        if (segments[0] == "Mod")
+        {
+            if (segments.size() < 2)
+                return std::nullopt;
+
+            virtualPath.domain = PathDomain::Mod;
+            virtualPath.mountName = segments[1];
+            virtualPath.relativePath = JoinSegments(segments, 2);
+            return virtualPath;
+        }
+
         return std::nullopt;
     }
 } // namespace Resource

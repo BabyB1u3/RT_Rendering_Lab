@@ -9,6 +9,8 @@ namespace Resource
     {
         Project,
         Engine,
+        DLC,
+        Mod,
         Saved,
         Cache,
     };

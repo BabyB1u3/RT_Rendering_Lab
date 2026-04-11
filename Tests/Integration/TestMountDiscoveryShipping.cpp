@@ -123,11 +123,18 @@ TEST_F(MountDiscoveryShippingTests, DiscoverReadableMountBackendsFindsDlcPatchAn
     BuildArchiveFixture(
         repoRoot / "DLC" / "Expansion1_Source",
         repoRoot / "DLC" / "Expansion1.rtrpak",
-        {ArchiveEntry{
-            .logicalPath = "/Project/Textures/Grassy_Square",
-            .relativePath = "Project/Textures/Grassy_Square.rtrtex",
-            .contents = "dlc",
-        }});
+        {
+            ArchiveEntry{
+                .logicalPath = "/Project/Textures/Grassy_Square",
+                .relativePath = "Project/Textures/Grassy_Square.rtrtex",
+                .contents = "dlc",
+            },
+            ArchiveEntry{
+                .logicalPath = "/DLC/Expansion1/Weapons/LaserRifle",
+                .relativePath = "DLC/Expansion1/Weapons/LaserRifle.bin",
+                .contents = "laser",
+            },
+        });
     BuildArchiveFixture(
         repoRoot / "Patches" / "Patch_001_Source",
         repoRoot / "Patches" / "Patch_001.rtrpak",
@@ -148,10 +155,15 @@ TEST_F(MountDiscoveryShippingTests, DiscoverReadableMountBackendsFindsDlcPatchAn
     const auto mounts = Resource::DiscoverReadableMountBackends(
         repoRoot, test_support::EngineRoot(repoRoot), repoRoot / "Saved" / "Cache", "Project", "shipping");
 
-    ASSERT_EQ(mounts.size(), 10u);
+    ASSERT_EQ(mounts.size(), 12u);
     EXPECT_TRUE(ContainsMount(
         mounts,
         "DLC:Expansion1:Project",
+        Resource::MountPriority::DLC,
+        repoRoot / "DLC" / "Expansion1.rtrpak"));
+    EXPECT_TRUE(ContainsMount(
+        mounts,
+        "DLC:Expansion1",
         Resource::MountPriority::DLC,
         repoRoot / "DLC" / "Expansion1.rtrpak"));
     EXPECT_TRUE(ContainsMount(
@@ -162,6 +174,11 @@ TEST_F(MountDiscoveryShippingTests, DiscoverReadableMountBackendsFindsDlcPatchAn
     EXPECT_TRUE(ContainsMount(
         mounts,
         "Mod:CoolMod:Project",
+        Resource::MountPriority::Mod,
+        repoRoot / "Mods" / "CoolMod.rtrpak"));
+    EXPECT_TRUE(ContainsMount(
+        mounts,
+        "Mod:CoolMod",
         Resource::MountPriority::Mod,
         repoRoot / "Mods" / "CoolMod.rtrpak"));
 }
@@ -216,6 +233,63 @@ TEST_F(MountDiscoveryShippingTests, CatalogRegistryPrefersModOverPatchDlcAndBase
     const auto projectBytes = Resource::ReadReadableArtifactBinary(*projectResolved, &errorMessage);
     ASSERT_TRUE(projectBytes.has_value()) << errorMessage;
     EXPECT_EQ(std::string(projectBytes->begin(), projectBytes->end()), "mod");
+}
+
+TEST_F(MountDiscoveryShippingTests, CatalogRegistryResolvesDlcAndModNamespaceEntriesFromOverlayArchives)
+{
+    const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
+    BuildSharedGameArchiveFixture(repoRoot);
+    test_support::ScopedEnvVar shippingProfile("RTRLAB_RESOURCE_PROFILE", "shipping");
+
+    BuildArchiveFixture(
+        repoRoot / "DLC" / "Expansion1_Source",
+        repoRoot / "DLC" / "Expansion1.rtrpak",
+        {ArchiveEntry{
+            .logicalPath = "/DLC/Expansion1/Weapons/LaserRifle",
+            .relativePath = "DLC/Expansion1/Weapons/LaserRifle.bin",
+            .contents = "laser",
+        }});
+    BuildArchiveFixture(
+        repoRoot / "Mods" / "CoolMod_Source",
+        repoRoot / "Mods" / "CoolMod.rtrpak",
+        {ArchiveEntry{
+            .logicalPath = "/Mod/CoolMod/Weapons/Hammer",
+            .relativePath = "Mod/CoolMod/Weapons/Hammer.bin",
+            .contents = "hammer",
+        }});
+
+    Resource::CatalogRegistry registry;
+    std::string errorMessage;
+
+    const auto dlcVirtualPath = Resource::VirtualPath{Resource::PathDomain::DLC, std::string("Expansion1"), "Weapons/LaserRifle"};
+    const auto dlcResolved = registry.ResolveArtifact(
+        repoRoot,
+        test_support::EngineRoot(repoRoot),
+        repoRoot / "Saved" / "Cache",
+        dlcVirtualPath,
+        "/DLC/Expansion1/Weapons/LaserRifle",
+        "Project");
+    ASSERT_TRUE(dlcResolved.has_value());
+    EXPECT_EQ(dlcResolved->mountRoot, repoRoot / "DLC" / "Expansion1.rtrpak");
+    EXPECT_EQ(dlcResolved->relativePath, std::filesystem::path("DLC/Expansion1/Weapons/LaserRifle.bin"));
+    const auto dlcBytes = Resource::ReadReadableArtifactBinary(*dlcResolved, &errorMessage);
+    ASSERT_TRUE(dlcBytes.has_value()) << errorMessage;
+    EXPECT_EQ(std::string(dlcBytes->begin(), dlcBytes->end()), "laser");
+
+    const auto modVirtualPath = Resource::VirtualPath{Resource::PathDomain::Mod, std::string("CoolMod"), "Weapons/Hammer"};
+    const auto modResolved = registry.ResolveArtifact(
+        repoRoot,
+        test_support::EngineRoot(repoRoot),
+        repoRoot / "Saved" / "Cache",
+        modVirtualPath,
+        "/Mod/CoolMod/Weapons/Hammer",
+        "Project");
+    ASSERT_TRUE(modResolved.has_value());
+    EXPECT_EQ(modResolved->mountRoot, repoRoot / "Mods" / "CoolMod.rtrpak");
+    EXPECT_EQ(modResolved->relativePath, std::filesystem::path("Mod/CoolMod/Weapons/Hammer.bin"));
+    const auto modBytes = Resource::ReadReadableArtifactBinary(*modResolved, &errorMessage);
+    ASSERT_TRUE(modBytes.has_value()) << errorMessage;
+    EXPECT_EQ(std::string(modBytes->begin(), modBytes->end()), "hammer");
 }
 
 TEST_F(MountDiscoveryShippingTests, CatalogRegistryResolvesProjectAndEngineEntriesFromSharedGameArchive)
