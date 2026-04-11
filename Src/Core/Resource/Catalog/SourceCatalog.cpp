@@ -6,6 +6,7 @@
 #include <cctype>
 #include <fstream>
 #include <json.hpp>
+#include <unordered_set>
 #include <unordered_map>
 
 namespace
@@ -27,21 +28,17 @@ namespace
 
     bool IsExcludedRelativePath(const std::filesystem::path &relativePath)
     {
-        bool firstSegment = true;
         for (const auto &segment : relativePath)
         {
             const auto segmentText = segment.generic_string();
             if (segmentText == ".rtr")
                 return true;
-            if (firstSegment && segmentText == "Config")
-                return true;
-            firstSegment = false;
         }
 
         return false;
     }
 
-    std::string MakeLogicalPath(const Resource::VirtualPath &mountPath, const std::filesystem::path &relativeWithoutExtension)
+    std::string MakeLogicalPath(const Resource::VirtualPath &mountPath, const std::filesystem::path &logicalRelativePath)
     {
         static const std::unordered_map<std::string, std::string> kCanonicalSegmentNames{
             {"textures", "Textures"},
@@ -54,7 +51,7 @@ namespace
         };
 
         std::filesystem::path canonicalRelative;
-        for (const auto &segment : relativeWithoutExtension)
+        for (const auto &segment : logicalRelativePath)
         {
             const auto segmentText = segment.generic_string();
             const auto lookupIt = kCanonicalSegmentNames.find(ToLowerAscii(segmentText));
@@ -84,6 +81,43 @@ namespace
         if (!extension.empty() && extension.front() == '.')
             extension.erase(extension.begin());
         return ToLowerAscii(extension);
+    }
+
+    bool RelativePathStartsWith(const std::filesystem::path &relativePath, std::string_view firstSegment)
+    {
+        const auto it = relativePath.begin();
+        return it != relativePath.end() && ToLowerAscii(it->generic_string()) == ToLowerAscii(std::string(firstSegment));
+    }
+
+    bool RelativePathContainsAssetDirectory(const std::filesystem::path &relativePath)
+    {
+        static const std::unordered_set<std::string> kAssetDirectories{
+            "textures",
+            "shaders",
+            "materials",
+            "scenes",
+            "defaults",
+        };
+
+        for (const auto &segment : relativePath)
+        {
+            if (kAssetDirectories.contains(ToLowerAscii(segment.generic_string())))
+                return true;
+        }
+
+        return false;
+    }
+
+    bool IsDocumentPath(const std::filesystem::path &relativePath)
+    {
+        if (RelativePathStartsWith(relativePath, "Config"))
+            return true;
+
+        if (RelativePathContainsAssetDirectory(relativePath))
+            return false;
+
+        const auto extension = DetectFormat(relativePath);
+        return extension == "ini" || extension == "txt" || extension == "xml" || extension == "toml";
     }
 
     std::vector<std::pair<Resource::VirtualPath, std::filesystem::path>> DiscoverReadableSourceMounts(
@@ -156,7 +190,8 @@ namespace
 
         for (const auto &relativePath : files)
         {
-            const auto logicalRelativePath = relativePath.parent_path() / relativePath.stem();
+            const bool isDocument = IsDocumentPath(relativePath);
+            const auto logicalRelativePath = isDocument ? relativePath : (relativePath.parent_path() / relativePath.stem());
             const auto logicalPath = MakeLogicalPath(mountPath, logicalRelativePath);
 
             if (logicalPath.empty())
@@ -181,7 +216,7 @@ namespace
             catalogEntry.sourceRelativePath = CatalogPathToGenericString(relativePath);
             catalogEntry.artifacts.push_back(Resource::ArtifactRecord{
                 .relativePath = CatalogPathToGenericString(relativePath),
-                .format = DetectFormat(relativePath),
+                .format = isDocument ? "document" : DetectFormat(relativePath),
                 .platformTag = "any",
                 .backendTag = "any",
                 .profileTag = "dev",

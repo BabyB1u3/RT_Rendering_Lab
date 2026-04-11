@@ -33,7 +33,7 @@ namespace
     };
 } // namespace
 
-TEST_F(SourceCatalogTests, BuildProjectSourceCatalogSkipsConfigAndCatalogArtifacts)
+TEST_F(SourceCatalogTests, BuildProjectSourceCatalogIncludesConfigDocumentsAndSkipsCatalogArtifacts)
 {
     test_support::WriteMountFileOrFail(TestRoot(), "textures/Grassy_Square.jpg", "jpg");
     test_support::WriteMountFileOrFail(TestRoot(), "Config/input/DebugCameraControl.json", "{}");
@@ -49,14 +49,35 @@ TEST_F(SourceCatalogTests, BuildProjectSourceCatalogSkipsConfigAndCatalogArtifac
         &errorMessage))
         << errorMessage;
 
-    ASSERT_EQ(entries.size(), 1u);
-    EXPECT_EQ(entries[0].logicalPath, "/Project/Textures/Grassy_Square");
-    ASSERT_TRUE(entries[0].sourceRelativePath.has_value());
-    EXPECT_EQ(*entries[0].sourceRelativePath, "textures/Grassy_Square.jpg");
-    ASSERT_EQ(entries[0].artifacts.size(), 1u);
-    EXPECT_EQ(entries[0].artifacts[0].relativePath, "textures/Grassy_Square.jpg");
-    EXPECT_EQ(entries[0].artifacts[0].format, "jpg");
-    EXPECT_EQ(entries[0].artifacts[0].profileTag, "dev");
+    ASSERT_EQ(entries.size(), 2u);
+
+    const auto findEntry = [&](std::string_view logicalPath) -> const Resource::ResourceCatalogEntry * {
+        for (const auto &entry : entries)
+        {
+            if (entry.logicalPath == logicalPath)
+                return &entry;
+        }
+
+        return nullptr;
+    };
+
+    const auto *textureEntry = findEntry("/Project/Textures/Grassy_Square");
+    ASSERT_NE(textureEntry, nullptr);
+    ASSERT_TRUE(textureEntry->sourceRelativePath.has_value());
+    EXPECT_EQ(*textureEntry->sourceRelativePath, "textures/Grassy_Square.jpg");
+    ASSERT_EQ(textureEntry->artifacts.size(), 1u);
+    EXPECT_EQ(textureEntry->artifacts[0].relativePath, "textures/Grassy_Square.jpg");
+    EXPECT_EQ(textureEntry->artifacts[0].format, "jpg");
+    EXPECT_EQ(textureEntry->artifacts[0].profileTag, "dev");
+
+    const auto *configEntry = findEntry("/Project/Config/input/DebugCameraControl.json");
+    ASSERT_NE(configEntry, nullptr);
+    ASSERT_TRUE(configEntry->sourceRelativePath.has_value());
+    EXPECT_EQ(*configEntry->sourceRelativePath, "Config/input/DebugCameraControl.json");
+    ASSERT_EQ(configEntry->artifacts.size(), 1u);
+    EXPECT_EQ(configEntry->artifacts[0].relativePath, "Config/input/DebugCameraControl.json");
+    EXPECT_EQ(configEntry->artifacts[0].format, "document");
+    EXPECT_EQ(configEntry->artifacts[0].profileTag, "dev");
 }
 
 TEST_F(SourceCatalogTests, BuildSourceCatalogMapReturnsEntriesByLogicalPath)
@@ -136,10 +157,34 @@ TEST_F(SourceCatalogTests, BuildEngineSourceCatalogMapUsesEngineNamespace)
     EXPECT_TRUE(entries.contains("/Engine/Defaults/Materials/ErrorMaterial"));
 }
 
+TEST_F(SourceCatalogTests, BuildSourceCatalogTreatsPlainTextSupportFilesAsDocuments)
+{
+    test_support::WriteMountFileOrFail(TestRoot(), "Docs/Readme.txt", "hello");
+
+    std::unordered_map<std::string, Resource::ResourceCatalogEntry> entries;
+    std::string errorMessage;
+
+    ASSERT_TRUE(Resource::BuildSourceCatalogMap(
+        TestRoot(),
+        Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, {}},
+        entries,
+        &errorMessage))
+        << errorMessage;
+
+    const auto it = entries.find("/Project/Docs/Readme.txt");
+    ASSERT_NE(it, entries.end());
+    ASSERT_TRUE(it->second.sourceRelativePath.has_value());
+    EXPECT_EQ(*it->second.sourceRelativePath, "Docs/Readme.txt");
+    ASSERT_EQ(it->second.artifacts.size(), 1u);
+    EXPECT_EQ(it->second.artifacts[0].relativePath, "Docs/Readme.txt");
+    EXPECT_EQ(it->second.artifacts[0].format, "document");
+}
+
 TEST_F(SourceCatalogTests, IndexRepositorySourceCatalogsWritesProjectAndEngineCatalogs)
 {
     const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
     test_support::WriteProjectFileOrFail(repoRoot, "Textures/Grassy_Square.jpg", "jpg");
+    test_support::WriteProjectFileOrFail(repoRoot, "Config/Graphics.json", "{\n}\n");
     test_support::WriteEngineFileOrFail(repoRoot, "Defaults/Materials/ErrorMaterial.json", "{\n}\n");
 
     std::string errorMessage;
@@ -160,6 +205,8 @@ TEST_F(SourceCatalogTests, IndexRepositorySourceCatalogsWritesProjectAndEngineCa
     const std::string engineContents((std::istreambuf_iterator<char>(engineCatalog)), std::istreambuf_iterator<char>());
 
     EXPECT_NE(projectContents.find("/Project/Textures/Grassy_Square"), std::string::npos);
+    EXPECT_NE(projectContents.find("/Project/Config/Graphics.json"), std::string::npos);
+    EXPECT_NE(projectContents.find("\"format\": \"document\""), std::string::npos);
     EXPECT_NE(engineContents.find("/Engine/Defaults/Materials/ErrorMaterial"), std::string::npos);
 }
 

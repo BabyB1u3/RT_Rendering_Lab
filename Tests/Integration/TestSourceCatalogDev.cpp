@@ -50,6 +50,25 @@ TEST_F(SourceCatalogDevTests, CatalogRegistryBuildsProjectSourceCatalogInMemoryD
     EXPECT_EQ(*resolved, test_support::ProjectContentRoot(repoRoot) / "Textures" / "Grassy_Square.jpg");
 }
 
+TEST_F(SourceCatalogDevTests, CatalogRegistryBuildsProjectConfigDocumentEntriesInMemoryDuringDevResolution)
+{
+    const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
+    test_support::WriteProjectFileOrFail(repoRoot, "Config/Graphics.json", "{\n  \"vsync\": true\n}\n");
+
+    Resource::CatalogRegistry registry;
+    const auto virtualPath = Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, "Config/Graphics.json"};
+    const auto resolved = registry.ResolvePath(
+        repoRoot,
+        test_support::EngineRoot(repoRoot),
+        repoRoot / "Saved" / "Cache",
+        virtualPath,
+        "/Project/Config/Graphics.json",
+        "Project");
+
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_EQ(*resolved, test_support::ProjectContentRoot(repoRoot) / "Config" / "Graphics.json");
+}
+
 TEST_F(SourceCatalogDevTests, CatalogRegistryBuildsEngineSourceCatalogInMemoryDuringDevResolution)
 {
     const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
