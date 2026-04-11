@@ -3,6 +3,7 @@
 #include <filesystem>
 
 #include "Core/Resource/Catalog/ResourceCatalog.h"
+#include "Core/Resource/Package/PakArchive.h"
 #include "ResourceTestSupport.h"
 
 namespace
@@ -113,4 +114,55 @@ TEST_F(SourceCatalogDevTests, CatalogRegistryBuildsEngineSourceCatalogInMemoryDu
     EXPECT_EQ(resolved->backend, Resource::MountBackendKind::Directory);
     EXPECT_EQ(resolved->mountRoot, test_support::EngineRoot(repoRoot));
     EXPECT_EQ(resolved->relativePath, std::filesystem::path("Defaults/Materials/ErrorMaterial.json"));
+}
+
+TEST_F(SourceCatalogDevTests, CatalogRegistryResolvesProjectAndEngineEntriesFromSharedGameArchive)
+{
+    const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
+    const auto cookedRoot = test_support::CookedRoot(repoRoot);
+    const auto packagedRoot = repoRoot / "Saved" / "Cache" / "Packaged";
+
+    test_support::WriteTextFileOrFail(
+        test_support::ProjectCookedCatalogPath(cookedRoot),
+        "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": [\n    {\n      \"logicalPath\": \"/Project/Textures/Grassy_Square\",\n      \"artifacts\": [\n        {\n          \"relativePath\": \"Textures/Grassy_Square.rtrtex\",\n          \"format\": \"rtrtex\",\n          \"profileTag\": \"cooked\",\n          \"backendTag\": \"any\",\n          \"platformTag\": \"any\"\n        }\n      ]\n    }\n  ]\n}\n");
+    test_support::WriteProjectCookedFileOrFail(cookedRoot, "Textures/Grassy_Square.rtrtex", "project");
+
+    test_support::WriteTextFileOrFail(
+        test_support::EngineCookedCatalogPath(cookedRoot),
+        "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": [\n    {\n      \"logicalPath\": \"/Engine/Defaults/Materials/ErrorMaterial\",\n      \"artifacts\": [\n        {\n          \"relativePath\": \"Defaults/Materials/ErrorMaterial.json\",\n          \"format\": \"json\",\n          \"profileTag\": \"cooked\",\n          \"backendTag\": \"any\",\n          \"platformTag\": \"any\"\n        }\n      ]\n    }\n  ]\n}\n");
+    test_support::WriteEngineCookedFileOrFail(cookedRoot, "Defaults/Materials/ErrorMaterial.json", "engine");
+
+    std::string errorMessage;
+    ASSERT_TRUE(Resource::PackageCookedRepositoryCatalogs(cookedRoot, packagedRoot, &errorMessage)) << errorMessage;
+
+    _putenv_s("RTRLAB_RESOURCE_PROFILE", "packaged");
+    Resource::CatalogRegistry registry;
+
+    const auto projectVirtualPath = Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, "Textures/Grassy_Square"};
+    const auto projectResolved = registry.ResolveArtifact(
+        repoRoot,
+        test_support::EngineRoot(repoRoot),
+        repoRoot / "Saved" / "Cache",
+        projectVirtualPath,
+        "/Project/Textures/Grassy_Square",
+        "Project");
+    ASSERT_TRUE(projectResolved.has_value());
+    EXPECT_EQ(projectResolved->backend, Resource::MountBackendKind::PakArchive);
+    EXPECT_EQ(projectResolved->mountRoot, test_support::GamePackagedArchivePath(packagedRoot));
+    EXPECT_EQ(projectResolved->relativePath, std::filesystem::path("Project/Textures/Grassy_Square.rtrtex"));
+
+    const auto engineVirtualPath = Resource::VirtualPath{Resource::PathDomain::Engine, std::nullopt, "Defaults/Materials/ErrorMaterial"};
+    const auto engineResolved = registry.ResolveArtifact(
+        repoRoot,
+        test_support::EngineRoot(repoRoot),
+        repoRoot / "Saved" / "Cache",
+        engineVirtualPath,
+        "/Engine/Defaults/Materials/ErrorMaterial",
+        "Project");
+    ASSERT_TRUE(engineResolved.has_value());
+    EXPECT_EQ(engineResolved->backend, Resource::MountBackendKind::PakArchive);
+    EXPECT_EQ(engineResolved->mountRoot, test_support::GamePackagedArchivePath(packagedRoot));
+    EXPECT_EQ(engineResolved->relativePath, std::filesystem::path("Engine/Defaults/Materials/ErrorMaterial.json"));
+
+    _putenv_s("RTRLAB_RESOURCE_PROFILE", "");
 }

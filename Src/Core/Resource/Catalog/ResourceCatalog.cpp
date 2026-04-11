@@ -153,7 +153,19 @@ namespace
 
             const std::string logicalPath = logicalPathIt->get<std::string>();
             const auto parsedLogicalPath = Resource::ParseVirtualPath(logicalPath);
-            if (!parsedLogicalPath.has_value() || !IsCatalogLogicalPathForMount(*parsedLogicalPath, mountPath))
+            if (!parsedLogicalPath.has_value())
+            {
+                LOG_ERROR_CAT(LogCategory::FileSystem,
+                              "Catalog '{}' contains invalid logical path '{}'",
+                              catalogLabel,
+                              logicalPath);
+                return false;
+            }
+
+            if (!DomainMatchesMount(*parsedLogicalPath, mountPath))
+                continue;
+
+            if (!IsCatalogLogicalPathForMount(*parsedLogicalPath, mountPath))
             {
                 LOG_ERROR_CAT(LogCategory::FileSystem,
                               "Catalog '{}' contains invalid mount-scoped logical path '{}'",
