@@ -29,7 +29,8 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-ninja-release",
-        "GLAB_BUILD_TESTS": "OFF"
+        "GLAB_BUILD_TESTS": "OFF",
+        "GLAB_ENABLE_UNITY_BUILD": "ON"
       }
     },
     {
@@ -41,42 +42,6 @@
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-ninja-release-tests",
         "GLAB_BUILD_TESTS": "ON"
-      }
-    },
-    {
-      "name": "macos-ninja-debug-fast",
-      "displayName": "macOS Ninja Debug Fast",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/macos-ninja-debug-fast",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-ninja-debug-fast",
-        "GLAB_BUILD_TESTS": "OFF",
-        "GLAB_ENABLE_UNITY_BUILD": "ON"
-      }
-    },
-    {
-      "name": "macos-ninja-relwithdebinfo-fast",
-      "displayName": "macOS Ninja RelWithDebInfo Fast",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/macos-ninja-relwithdebinfo-fast",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-ninja-relwithdebinfo-fast",
-        "GLAB_BUILD_TESTS": "OFF",
-        "GLAB_ENABLE_UNITY_BUILD": "ON"
-      }
-    },
-    {
-      "name": "macos-ninja-release-fast",
-      "displayName": "macOS Ninja Release Fast",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/macos-ninja-release-fast",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-ninja-release-fast",
-        "GLAB_BUILD_TESTS": "OFF",
-        "GLAB_ENABLE_UNITY_BUILD": "ON"
       }
     },
     {
@@ -98,7 +63,8 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-macos-ninja-release",
-        "GLAB_BUILD_TESTS": "ON"
+        "GLAB_BUILD_TESTS": "ON",
+        "GLAB_ENABLE_UNITY_BUILD": "ON"
       }
     }
   ]

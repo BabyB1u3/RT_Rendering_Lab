@@ -21,12 +21,22 @@
       }
     },
     {
-      "name": "windows-vs-fast",
-      "displayName": "Windows VS2026 Fast",
+      "name": "windows-vs-release",
+      "displayName": "Windows VS2026 Release",
       "generator": "Visual Studio 18 2026",
-      "binaryDir": "${sourceDir}/build/windows-vs-fast",
+      "binaryDir": "${sourceDir}/build/windows-vs-release",
       "cacheVariables": {
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/windows-vs-fast",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/windows-vs-release",
+        "GLAB_ENABLE_UNITY_BUILD": "ON"
+      }
+    },
+    {
+      "name": "windows-vs-notests-release",
+      "displayName": "Windows VS2026 No Tests Release",
+      "generator": "Visual Studio 18 2026",
+      "binaryDir": "${sourceDir}/build/windows-vs-notests-release",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/windows-vs-notests-release",
         "GLAB_BUILD_TESTS": "OFF",
         "GLAB_ENABLE_UNITY_BUILD": "ON"
       }
@@ -54,7 +64,8 @@
       },
       "binaryDir": "${sourceDir}/build/ci-windows-vs-release",
       "cacheVariables": {
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-windows-vs-release"
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-windows-vs-release",
+        "GLAB_ENABLE_UNITY_BUILD": "ON"
       }
     }
   ]

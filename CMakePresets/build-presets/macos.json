@@ -35,18 +35,6 @@
       "configurePreset": "macos-ninja-release-tests"
     },
     {
-      "name": "build-macos-ninja-debug-fast",
-      "configurePreset": "macos-ninja-debug-fast"
-    },
-    {
-      "name": "build-macos-ninja-relwithdebinfo-fast",
-      "configurePreset": "macos-ninja-relwithdebinfo-fast"
-    },
-    {
-      "name": "build-macos-ninja-release-fast",
-      "configurePreset": "macos-ninja-release-fast"
-    },
-    {
       "name": "build-ci-macos-ninja-debug",
       "configurePreset": "ci-macos-ninja-debug"
     },

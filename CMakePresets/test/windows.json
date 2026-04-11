@@ -23,7 +23,7 @@
       "name": "test-windows-vs-release-base",
       "hidden": true,
       "inherits": "test-base",
-      "configurePreset": "windows-vs",
+      "configurePreset": "windows-vs-release",
       "configuration": "Release"
     },
     {

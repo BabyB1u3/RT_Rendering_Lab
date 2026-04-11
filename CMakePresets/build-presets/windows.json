@@ -16,7 +16,7 @@
     },
     {
       "name": "build-windows-vs-release",
-      "configurePreset": "windows-vs",
+      "configurePreset": "windows-vs-release",
       "configuration": "Release"
     },
     {
@@ -31,12 +31,12 @@
     },
     {
       "name": "build-windows-vs-notests-release",
-      "configurePreset": "windows-vs-notests",
+      "configurePreset": "windows-vs-notests-release",
       "configuration": "Release"
     },
     {
       "name": "build-windows-vs-notests-release-stage-assets",
-      "configurePreset": "windows-vs-notests",
+      "configurePreset": "windows-vs-notests-release",
       "configuration": "Release",
       "targets": [
         "rtrlab_stage_shipping_assets"
@@ -44,26 +44,11 @@
     },
     {
       "name": "build-windows-vs-notests-release-stage",
-      "configurePreset": "windows-vs-notests",
+      "configurePreset": "windows-vs-notests-release",
       "configuration": "Release",
       "targets": [
         "rtrlab_stage_shipping"
       ]
-    },
-    {
-      "name": "build-windows-vs-fast-debug",
-      "configurePreset": "windows-vs-fast",
-      "configuration": "Debug"
-    },
-    {
-      "name": "build-windows-vs-fast-relwithdebinfo",
-      "configurePreset": "windows-vs-fast",
-      "configuration": "RelWithDebInfo"
-    },
-    {
-      "name": "build-windows-vs-fast-release",
-      "configurePreset": "windows-vs-fast",
-      "configuration": "Release"
     },
     {
       "name": "build-ci-windows-vs-debug",

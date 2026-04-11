@@ -35,18 +35,6 @@
       "configurePreset": "linux-ninja-release-tests"
     },
     {
-      "name": "build-linux-ninja-debug-fast",
-      "configurePreset": "linux-ninja-debug-fast"
-    },
-    {
-      "name": "build-linux-ninja-relwithdebinfo-fast",
-      "configurePreset": "linux-ninja-relwithdebinfo-fast"
-    },
-    {
-      "name": "build-linux-ninja-release-fast",
-      "configurePreset": "linux-ninja-release-fast"
-    },
-    {
       "name": "build-ci-linux-ninja-debug",
       "configurePreset": "ci-linux-ninja-debug"
     },
