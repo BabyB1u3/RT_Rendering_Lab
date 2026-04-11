@@ -9,6 +9,8 @@
 #include "Core/Resource/Mount/RootDiscovery.h"
 #include "Core/Resource/Path/PathParser.h"
 
+#include <fstream>
+
 std::filesystem::path FileSystem::s_RootPath;
 std::filesystem::path FileSystem::s_EngineDir;
 std::filesystem::path FileSystem::s_SavedDir;
@@ -46,7 +48,7 @@ std::optional<FileSystem::VirtualPath> FileSystem::ParseVirtualPath(std::string_
     return Resource::ParseVirtualPath(path);
 }
 
-std::optional<std::filesystem::path> FileSystem::ResolveReadPath(std::string_view virtualPathString)
+std::optional<Resource::ResolvedReadableArtifact> FileSystem::ResolveCatalogArtifact(std::string_view virtualPathString)
 {
     const auto virtualPath = Resource::ParseVirtualPath(virtualPathString);
     if (!virtualPath.has_value())
@@ -56,13 +58,24 @@ std::optional<std::filesystem::path> FileSystem::ResolveReadPath(std::string_vie
     {
     case Resource::PathDomain::Project:
     case Resource::PathDomain::Engine:
-        if (const auto resolved = s_CatalogRegistry.ResolvePath(
-                s_RootPath, s_EngineDir, GetCacheDir(), *virtualPath, virtualPathString, kProjectContentDirName))
-        {
-            return resolved;
-        }
-
+        return s_CatalogRegistry.ResolveArtifact(
+            s_RootPath, s_EngineDir, GetCacheDir(), *virtualPath, virtualPathString, kProjectContentDirName);
+    case Resource::PathDomain::Saved:
+    case Resource::PathDomain::Cache:
         return std::nullopt;
+    }
+
+    return std::nullopt;
+}
+
+std::optional<std::filesystem::path> FileSystem::ResolveWritableReadPath(std::string_view virtualPathString)
+{
+    const auto virtualPath = Resource::ParseVirtualPath(virtualPathString);
+    if (!virtualPath.has_value())
+        return std::nullopt;
+
+    switch (virtualPath->domain)
+    {
     case Resource::PathDomain::Saved:
     case Resource::PathDomain::Cache:
     {
@@ -73,6 +86,9 @@ std::optional<std::filesystem::path> FileSystem::ResolveReadPath(std::string_vie
         const auto relativePath = Resource::GetPhysicalRelativePath(*virtualPath);
         return relativePath.empty() ? writableMount->rootPath : writableMount->rootPath / relativePath;
     }
+    case Resource::PathDomain::Project:
+    case Resource::PathDomain::Engine:
+        return std::nullopt;
     }
 
     return std::nullopt;
@@ -98,13 +114,27 @@ std::optional<std::filesystem::path> FileSystem::ResolveWritePath(std::string_vi
 
 bool FileSystem::Exists(std::string_view virtualPath)
 {
-    const auto resolved = ResolveReadPath(virtualPath);
+    if (const auto artifact = ResolveCatalogArtifact(virtualPath))
+    {
+        switch (artifact->backend)
+        {
+        case Resource::MountBackendKind::Directory:
+            return std::filesystem::exists(artifact->mountRoot / artifact->relativePath);
+        case Resource::MountBackendKind::PakArchive:
+            return true;
+        }
+    }
+
+    const auto resolved = ResolveWritableReadPath(virtualPath);
     return resolved.has_value() && std::filesystem::exists(*resolved);
 }
 
 std::optional<std::string> FileSystem::ReadText(std::string_view virtualPath)
 {
-    const auto resolved = ResolveReadPath(virtualPath);
+    if (const auto artifact = ResolveCatalogArtifact(virtualPath))
+        return Resource::ReadReadableArtifactText(*artifact);
+
+    const auto resolved = ResolveWritableReadPath(virtualPath);
     if (!resolved.has_value())
         return std::nullopt;
 
@@ -113,11 +143,30 @@ std::optional<std::string> FileSystem::ReadText(std::string_view virtualPath)
 
 std::optional<std::vector<uint8_t>> FileSystem::ReadBinary(std::string_view virtualPath)
 {
-    const auto resolved = ResolveReadPath(virtualPath);
+    if (const auto artifact = ResolveCatalogArtifact(virtualPath))
+        return Resource::ReadReadableArtifactBinary(*artifact);
+
+    const auto resolved = ResolveWritableReadPath(virtualPath);
     if (!resolved.has_value())
         return std::nullopt;
 
     return Resource::ReadBinaryFile(*resolved);
+}
+
+std::unique_ptr<std::istream> FileSystem::OpenReadStream(std::string_view virtualPath)
+{
+    if (const auto artifact = ResolveCatalogArtifact(virtualPath))
+        return Resource::OpenReadableArtifactStream(*artifact);
+
+    const auto resolved = ResolveWritableReadPath(virtualPath);
+    if (!resolved.has_value())
+        return nullptr;
+
+    auto fileStream = std::make_unique<std::ifstream>(*resolved, std::ios::binary);
+    if (!fileStream->is_open())
+        return nullptr;
+
+    return std::unique_ptr<std::istream>(std::move(fileStream));
 }
 
 bool FileSystem::WriteText(std::string_view virtualPath, std::string_view data)

@@ -33,12 +33,11 @@ namespace
     };
 } // namespace
 
-TEST_F(PakArchiveTests, BuildPakArchiveCanReadAndMaterializeEntries)
+TEST_F(PakArchiveTests, BuildPakArchiveCanReadEntries)
 {
     const auto sourceRoot = TestRoot() / "Mount";
     const auto packagedRoot = TestRoot() / "out";
     const auto pakPath = test_support::ProjectPackagedArchivePath(packagedRoot);
-    const auto extractedRoot = TestRoot() / "extracted";
     test_support::WriteTextFileOrFail(test_support::MountCatalogPath(sourceRoot), "{\n  \"version\": 2\n}\n");
     test_support::WriteMountFileOrFail(sourceRoot, "Textures/Checker.txt", "checker");
 
@@ -51,15 +50,6 @@ TEST_F(PakArchiveTests, BuildPakArchiveCanReadAndMaterializeEntries)
     ASSERT_TRUE(bytes.has_value()) << errorMessage;
     const std::string text(bytes->begin(), bytes->end());
     EXPECT_EQ(text, "checker");
-
-    const auto materialized = Resource::MaterializePakEntry(
-        pakPath, "Textures/Checker.txt", test_support::ProjectMaterializedRoot(extractedRoot), &errorMessage);
-    ASSERT_TRUE(materialized.has_value()) << errorMessage;
-
-    std::ifstream in(*materialized);
-    ASSERT_TRUE(in.is_open());
-    const std::string materializedText((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-    EXPECT_EQ(materializedText, "checker");
 }
 
 TEST_F(PakArchiveTests, PackageCookedRepositoryCatalogsWritesProjectAndEngineArchives)

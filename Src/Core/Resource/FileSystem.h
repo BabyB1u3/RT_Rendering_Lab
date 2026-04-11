@@ -9,6 +9,8 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <istream>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -27,11 +29,11 @@ public:
     static bool IsVirtualPath(std::string_view path);
     static std::optional<VirtualPath> ParseVirtualPath(std::string_view path);
 
-    static std::optional<std::filesystem::path> ResolveReadPath(std::string_view virtualPath);
     static std::optional<std::filesystem::path> ResolveWritePath(std::string_view virtualPath);
     static bool Exists(std::string_view virtualPath);
     static std::optional<std::string> ReadText(std::string_view virtualPath);
     static std::optional<std::vector<uint8_t>> ReadBinary(std::string_view virtualPath);
+    static std::unique_ptr<std::istream> OpenReadStream(std::string_view virtualPath);
     static bool WriteText(std::string_view virtualPath, std::string_view data);
     static bool WriteBinary(std::string_view virtualPath, std::span<const uint8_t> data);
 
@@ -49,5 +51,7 @@ private:
     static bool s_Initialized;
     static bool s_WritableDirsResolved;
 
+    static std::optional<Resource::ResolvedReadableArtifact> ResolveCatalogArtifact(std::string_view virtualPath);
+    static std::optional<std::filesystem::path> ResolveWritableReadPath(std::string_view virtualPath);
     static void ResolveWritableDirs();
 };

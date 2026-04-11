@@ -28,50 +28,63 @@ namespace Serialization
             return std::string(mountRoot) + "/" + std::string(relativePath);
         }
 
-        inline std::optional<std::filesystem::path> ResolveConfigReadPath(std::string_view relativePath)
+        template <Serializable T>
+        bool LoadValueFromString(T &value,
+                                 const std::string &data,
+                                 const IFormatBackend &backend,
+                                 std::string_view sourceLabel)
+        {
+            PropertyTree tree;
+            if (!backend.ReadFromString(data, tree))
+            {
+                LOG_ERROR_CAT(LogCategory::Serialization, "Serialization: failed to parse '{}'", sourceLabel);
+                return false;
+            }
+
+            T temp{};
+            if (!Deserialize(tree, temp))
+            {
+                LOG_ERROR_CAT(LogCategory::Serialization, "Serialization: failed to deserialize '{}'", sourceLabel);
+                return false;
+            }
+
+            value = std::move(temp);
+            return true;
+        }
+
+        inline std::optional<std::string> ResolveConfigReadText(std::string_view relativePath)
         {
             const std::string savedVirtualPath = MakeConfigVirtualPath("/Saved/Config", relativePath);
             const std::string projectVirtualPath = MakeConfigVirtualPath("/Project/Config", relativePath);
             const std::string engineVirtualPath = MakeConfigVirtualPath("/Engine/Config", relativePath);
 
-            if (const auto savedPath = FileSystem::ResolveReadPath(savedVirtualPath);
-                savedPath.has_value() && std::filesystem::exists(*savedPath))
-            {
-                return savedPath;
-            }
+            if (const auto savedText = FileSystem::ReadText(savedVirtualPath); savedText.has_value())
+                return savedText;
 
             const auto seedToSaved = [&](std::string_view sourceVirtualPath, std::string_view sourceLabel)
-                -> std::optional<std::filesystem::path>
+                -> std::optional<std::string>
             {
-                const auto sourcePath = FileSystem::ResolveReadPath(sourceVirtualPath);
-                if (!sourcePath.has_value() || !std::filesystem::exists(*sourcePath))
+                const auto sourceText = FileSystem::ReadText(sourceVirtualPath);
+                if (!sourceText.has_value())
                     return std::nullopt;
 
-                const auto savedPath = FileSystem::ResolveWritePath(savedVirtualPath);
-                if (!savedPath.has_value())
-                    return sourcePath;
-
-                std::error_code ec;
-                std::filesystem::copy_file(*sourcePath, *savedPath, ec);
-                if (ec)
+                if (!FileSystem::WriteText(savedVirtualPath, *sourceText))
                 {
                     LOG_WARN_CAT(LogCategory::Serialization,
-                                 "Serialization: failed to seed {} config '{}' into saved path '{}': {}",
+                                 "Serialization: failed to seed {} config '{}' into saved path '{}'",
                                  sourceLabel,
                                  relativePath,
-                                 savedPath->string(),
-                                 ec.message());
-                    return sourcePath;
+                                 savedVirtualPath);
                 }
 
-                return savedPath;
+                return sourceText;
             };
 
-            if (const auto seededProjectPath = seedToSaved(projectVirtualPath, "project"); seededProjectPath.has_value())
-                return seededProjectPath;
+            if (const auto seededProjectText = seedToSaved(projectVirtualPath, "project"); seededProjectText.has_value())
+                return seededProjectText;
 
-            if (const auto seededEnginePath = seedToSaved(engineVirtualPath, "engine"); seededEnginePath.has_value())
-                return seededEnginePath;
+            if (const auto seededEngineText = seedToSaved(engineVirtualPath, "engine"); seededEngineText.has_value())
+                return seededEngineText;
 
             return std::nullopt;
         }
@@ -175,23 +188,7 @@ namespace Serialization
         ss << file.rdbuf();
         std::string data = ss.str();
 
-        PropertyTree tree;
-        if (!backend.ReadFromString(data, tree))
-        {
-            LOG_ERROR_CAT(LogCategory::Serialization, "Serialization: failed to parse '{}'", path.string());
-            return false;
-        }
-
-        // Deserialize into a temporary - only commit on success
-        T temp{};
-        if (!Deserialize(tree, temp))
-        {
-            LOG_ERROR_CAT(LogCategory::Serialization, "Serialization: failed to deserialize '{}'", path.string());
-            return false;
-        }
-
-        value = std::move(temp);
-        return true;
+        return detail::LoadValueFromString(value, data, backend, path.string());
     }
 
     /// Load with auto-detected backend (based on file extension).
@@ -207,8 +204,8 @@ namespace Serialization
     bool LoadFromVirtualPath(T &value, std::string_view virtualPath,
                              const IFormatBackend &backend)
     {
-        const auto path = FileSystem::ResolveReadPath(virtualPath);
-        if (!path.has_value())
+        const auto data = FileSystem::ReadText(virtualPath);
+        if (!data.has_value())
         {
             LOG_ERROR_CAT(LogCategory::Serialization,
                           "Serialization: failed to resolve readable virtual path '{}'",
@@ -216,15 +213,15 @@ namespace Serialization
             return false;
         }
 
-        return LoadFromFile(value, *path, backend);
+        return detail::LoadValueFromString(value, *data, backend, virtualPath);
     }
 
     /// Load with auto-detected backend through a logical resource path.
     template <Serializable T>
     bool LoadFromVirtualPath(T &value, std::string_view virtualPath)
     {
-        const auto path = FileSystem::ResolveReadPath(virtualPath);
-        if (!path.has_value())
+        const auto data = FileSystem::ReadText(virtualPath);
+        if (!data.has_value())
         {
             LOG_ERROR_CAT(LogCategory::Serialization,
                           "Serialization: failed to resolve readable virtual path '{}'",
@@ -232,7 +229,8 @@ namespace Serialization
             return false;
         }
 
-        return LoadFromFile(value, *path);
+        const auto ext = std::filesystem::path(virtualPath).extension().string();
+        return detail::LoadValueFromString(value, *data, GetBackendForExtension(ext), virtualPath);
     }
 
     /// Save through the logical config namespace. Writes always target /Saved/Config.
@@ -261,8 +259,8 @@ namespace Serialization
     bool LoadFromConfigPath(T &value, std::string_view relativePath,
                             const IFormatBackend &backend)
     {
-        const auto path = detail::ResolveConfigReadPath(relativePath);
-        if (!path.has_value())
+        const auto data = detail::ResolveConfigReadText(relativePath);
+        if (!data.has_value())
         {
             LOG_ERROR_CAT(LogCategory::Serialization,
                           "Serialization: failed to resolve config path '{}'",
@@ -270,15 +268,16 @@ namespace Serialization
             return false;
         }
 
-        return LoadFromFile(value, *path, backend);
+        const std::string sourceLabel = detail::MakeConfigVirtualPath("/Config", relativePath);
+        return detail::LoadValueFromString(value, *data, backend, sourceLabel);
     }
 
     /// Load through the config namespace with auto-detected backend.
     template <Serializable T>
     bool LoadFromConfigPath(T &value, std::string_view relativePath)
     {
-        const auto path = detail::ResolveConfigReadPath(relativePath);
-        if (!path.has_value())
+        const auto data = detail::ResolveConfigReadText(relativePath);
+        if (!data.has_value())
         {
             LOG_ERROR_CAT(LogCategory::Serialization,
                           "Serialization: failed to resolve config path '{}'",
@@ -286,7 +285,9 @@ namespace Serialization
             return false;
         }
 
-        return LoadFromFile(value, *path);
+        const std::string sourceLabel = detail::MakeConfigVirtualPath("/Config", relativePath);
+        const auto ext = std::filesystem::path(relativePath).extension().string();
+        return detail::LoadValueFromString(value, *data, GetBackendForExtension(ext), sourceLabel);
     }
 
 } // namespace Serialization

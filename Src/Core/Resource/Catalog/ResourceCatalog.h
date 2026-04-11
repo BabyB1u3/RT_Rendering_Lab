@@ -50,6 +50,13 @@ namespace Resource
         std::vector<ArtifactRecord> artifacts;
     };
 
+    struct ResolvedReadableArtifact
+    {
+        MountBackendKind backend = MountBackendKind::Directory;
+        std::filesystem::path mountRoot;
+        std::filesystem::path relativePath;
+    };
+
     class CatalogRegistry
     {
     public:
@@ -69,18 +76,17 @@ namespace Resource
             MountPriority priority = MountPriority::Source;
             MountBackendKind backend = MountBackendKind::Directory;
             std::filesystem::path mountRoot;
-            std::filesystem::path materializedRoot;
             std::string sourceMountKey;
         };
 
         void Reset();
 
-        std::optional<std::filesystem::path> ResolvePath(const std::filesystem::path &rootPath,
-                                                         const std::filesystem::path &engineDir,
-                                                         const std::filesystem::path &cacheDir,
-                                                         const VirtualPath &virtualPath,
-                                                         std::string_view logicalPath,
-                                                         std::string_view projectContentDirName);
+        std::optional<ResolvedReadableArtifact> ResolveArtifact(const std::filesystem::path &rootPath,
+                                                                const std::filesystem::path &engineDir,
+                                                                const std::filesystem::path &cacheDir,
+                                                                const VirtualPath &virtualPath,
+                                                                std::string_view logicalPath,
+                                                                std::string_view projectContentDirName);
 
     private:
         bool m_GlobalTableBuilt = false;

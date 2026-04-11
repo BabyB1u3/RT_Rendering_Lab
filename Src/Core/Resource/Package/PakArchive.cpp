@@ -147,28 +147,14 @@ namespace
             return std::nullopt;
 
         const auto wantedPath = PakPathToGenericString(relativePath);
-        const auto it = std::find_if(entries.begin(), entries.end(), [&](const PakIndexEntry &entry) {
-            return entry.relativePath == wantedPath;
-        });
+        const auto it = std::find_if(entries.begin(), entries.end(), [&](const PakIndexEntry &entry)
+                                     { return entry.relativePath == wantedPath; });
         if (it == entries.end())
             return std::nullopt;
 
         return *it;
     }
 
-    std::string SanitizeKeyForPath(std::string_view key)
-    {
-        std::string sanitized;
-        sanitized.reserve(key.size());
-        for (const char c : key)
-        {
-            if (std::isalnum(static_cast<unsigned char>(c)) || c == '_' || c == '-')
-                sanitized.push_back(c);
-            else
-                sanitized.push_back('_');
-        }
-        return sanitized;
-    }
 } // namespace
 
 namespace Resource
@@ -222,9 +208,8 @@ namespace Resource
             files.push_back(relativePath);
         }
 
-        std::sort(files.begin(), files.end(), [](const auto &lhs, const auto &rhs) {
-            return lhs.generic_string() < rhs.generic_string();
-        });
+        std::sort(files.begin(), files.end(), [](const auto &lhs, const auto &rhs)
+                  { return lhs.generic_string() < rhs.generic_string(); });
 
         std::filesystem::create_directories(pakPath.parent_path(), ec);
         if (ec)
@@ -351,50 +336,13 @@ namespace Resource
         return FindPakEntry(pakPath, relativePath, errorMessage).has_value();
     }
 
-    std::optional<std::filesystem::path> MaterializePakEntry(const std::filesystem::path &pakPath,
-                                                             const std::filesystem::path &relativePath,
-                                                             const std::filesystem::path &outputRoot,
-                                                             std::string *errorMessage)
-    {
-        const auto bytes = ReadPakEntry(pakPath, relativePath, errorMessage);
-        if (!bytes.has_value())
-            return std::nullopt;
-
-        const auto outputPath = outputRoot / relativePath;
-        std::error_code ec;
-        std::filesystem::create_directories(outputPath.parent_path(), ec);
-        if (ec)
-        {
-            if (errorMessage != nullptr)
-                *errorMessage = "failed to create pak extraction directory: " + ec.message();
-            return std::nullopt;
-        }
-
-        std::ofstream out(outputPath, std::ios::binary | std::ios::trunc);
-        if (!out.is_open())
-        {
-            if (errorMessage != nullptr)
-                *errorMessage = "failed to open extracted pak entry for writing: " + outputPath.string();
-            return std::nullopt;
-        }
-
-        out.write(reinterpret_cast<const char *>(bytes->data()), static_cast<std::streamsize>(bytes->size()));
-        if (!out.good())
-        {
-            if (errorMessage != nullptr)
-                *errorMessage = "failed to write extracted pak entry: " + outputPath.string();
-            return std::nullopt;
-        }
-
-        return outputPath;
-    }
-
     bool PackageCookedRepositoryCatalogs(const std::filesystem::path &cookedRootPath,
                                          const std::filesystem::path &packagedRootPath,
                                          std::string *errorMessage)
     {
         const auto packageMountIfPresent = [&](const std::filesystem::path &mountRoot,
-                                               const std::filesystem::path &pakPath) -> bool {
+                                               const std::filesystem::path &pakPath) -> bool
+        {
             if (!std::filesystem::exists(mountRoot))
                 return true;
 

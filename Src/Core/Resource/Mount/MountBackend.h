@@ -3,6 +3,8 @@
 #include "Core/Resource/Catalog/ResourceCatalog.h"
 
 #include <filesystem>
+#include <istream>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -18,7 +20,6 @@ namespace Resource
         MountPriority priority = MountPriority::Source;
         MountBackendKind backend = MountBackendKind::Directory;
         std::filesystem::path mountRoot;
-        std::filesystem::path materializedRoot;
     };
 
     struct WritableMount
@@ -39,9 +40,18 @@ namespace Resource
                                std::vector<uint8_t> &bytes,
                                std::string *errorMessage = nullptr);
 
-    std::optional<std::filesystem::path> ResolveReadableMountArtifact(const ReadableMount &mount,
-                                                                      const ArtifactRecord &artifact,
-                                                                      std::string *errorMessage = nullptr);
+    std::optional<ResolvedReadableArtifact> ResolveReadableMountArtifact(const ReadableMount &mount,
+                                                                         const ArtifactRecord &artifact,
+                                                                         std::string *errorMessage = nullptr);
+
+    std::optional<std::string> ReadReadableArtifactText(const ResolvedReadableArtifact &artifact,
+                                                        std::string *errorMessage = nullptr);
+
+    std::optional<std::vector<uint8_t>> ReadReadableArtifactBinary(const ResolvedReadableArtifact &artifact,
+                                                                   std::string *errorMessage = nullptr);
+
+    std::unique_ptr<std::istream> OpenReadableArtifactStream(const ResolvedReadableArtifact &artifact,
+                                                             std::string *errorMessage = nullptr);
 
     std::optional<WritableMount> ResolveWritableMount(PathDomain domain,
                                                       const std::filesystem::path &savedDir,

@@ -52,13 +52,11 @@ TEST_F(MountBackendTests, ResolveWritableMountReturnsSavedAndCacheRoots)
     EXPECT_FALSE(Resource::ResolveWritableMount(Resource::PathDomain::Project, savedDir, cacheDir).has_value());
 }
 
-TEST_F(MountBackendTests, ResolveReadableMountArtifactMaterializesPakArchiveEntries)
+TEST_F(MountBackendTests, ResolveReadableMountArtifactReturnsPakBackedDescriptor)
 {
     const auto sourceRoot = TestRoot() / "pak-source";
     const auto packagedRoot = TestRoot() / "out";
     const auto pakPath = test_support::ProjectPackagedArchivePath(packagedRoot);
-    const auto extractedRoot = TestRoot() / "materialized";
-    const auto materializedRoot = test_support::ProjectMaterializedRoot(extractedRoot);
 
     test_support::WriteTextFileOrFail(test_support::MountCatalogPath(sourceRoot), "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": []\n}\n");
     test_support::WriteMountFileOrFail(sourceRoot, "Materials/Checker.json", "{\n  \"name\": \"pak\"\n}\n");
@@ -73,7 +71,6 @@ TEST_F(MountBackendTests, ResolveReadableMountArtifactMaterializesPakArchiveEntr
         .priority = Resource::MountPriority::Packaged,
         .backend = Resource::MountBackendKind::PakArchive,
         .mountRoot = pakPath,
-        .materializedRoot = materializedRoot,
     };
     const Resource::ArtifactRecord artifact{
         .relativePath = "Materials/Checker.json",
@@ -82,10 +79,52 @@ TEST_F(MountBackendTests, ResolveReadableMountArtifactMaterializesPakArchiveEntr
 
     const auto resolved = Resource::ResolveReadableMountArtifact(mount, artifact, &errorMessage);
     ASSERT_TRUE(resolved.has_value()) << errorMessage;
-    EXPECT_EQ(*resolved, materializedRoot / "Materials" / "Checker.json");
+    EXPECT_EQ(resolved->backend, Resource::MountBackendKind::PakArchive);
+    EXPECT_EQ(resolved->mountRoot, pakPath);
+    EXPECT_EQ(resolved->relativePath, std::filesystem::path("Materials/Checker.json"));
 
-    std::ifstream in(*resolved, std::ios::binary);
-    ASSERT_TRUE(in.is_open());
-    const std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    const auto bytes = Resource::ReadReadableArtifactBinary(*resolved, &errorMessage);
+    ASSERT_TRUE(bytes.has_value()) << errorMessage;
+    const std::string contents(bytes->begin(), bytes->end());
     EXPECT_NE(contents.find("\"pak\""), std::string::npos);
+
+    const auto stream = Resource::OpenReadableArtifactStream(*resolved, &errorMessage);
+    ASSERT_NE(stream, nullptr) << errorMessage;
+    const std::string streamedContents((std::istreambuf_iterator<char>(*stream)), std::istreambuf_iterator<char>());
+    EXPECT_EQ(streamedContents, contents);
+}
+
+TEST_F(MountBackendTests, ResolveReadableMountArtifactReturnsDirectoryBackedDescriptor)
+{
+    const auto mountRoot = TestRoot() / "directory-mount";
+    test_support::WriteMountFileOrFail(mountRoot, "Docs/Readme.txt", "hello");
+
+    const Resource::ReadableMount mount{
+        .cacheKey = "Project",
+        .sourceKey = "Project",
+        .mountPath = Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, {}},
+        .priority = Resource::MountPriority::Source,
+        .backend = Resource::MountBackendKind::Directory,
+        .mountRoot = mountRoot,
+    };
+    const Resource::ArtifactRecord artifact{
+        .relativePath = "Docs/Readme.txt",
+        .format = "document",
+    };
+
+    std::string errorMessage;
+    const auto resolved = Resource::ResolveReadableMountArtifact(mount, artifact, &errorMessage);
+    ASSERT_TRUE(resolved.has_value()) << errorMessage;
+    EXPECT_EQ(resolved->backend, Resource::MountBackendKind::Directory);
+    EXPECT_EQ(resolved->mountRoot, mountRoot);
+    EXPECT_EQ(resolved->relativePath, std::filesystem::path("Docs/Readme.txt"));
+
+    const auto text = Resource::ReadReadableArtifactText(*resolved, &errorMessage);
+    ASSERT_TRUE(text.has_value()) << errorMessage;
+    EXPECT_EQ(*text, "hello");
+
+    const auto stream = Resource::OpenReadableArtifactStream(*resolved, &errorMessage);
+    ASSERT_NE(stream, nullptr) << errorMessage;
+    const std::string streamedContents((std::istreambuf_iterator<char>(*stream)), std::istreambuf_iterator<char>());
+    EXPECT_EQ(streamedContents, "hello");
 }

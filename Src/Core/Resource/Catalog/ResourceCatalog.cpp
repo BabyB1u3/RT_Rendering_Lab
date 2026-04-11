@@ -94,11 +94,11 @@ namespace
     }
 
     bool ParseCatalogFromJson(const Json &rootJson,
-                             const std::string &catalogLabel,
-                             const Resource::VirtualPath &mountPath,
-                             Resource::CatalogKind &catalogKind,
-                             int &catalogVersion,
-                             std::unordered_map<std::string, Resource::ResourceCatalogEntry> &entries)
+                              const std::string &catalogLabel,
+                              const Resource::VirtualPath &mountPath,
+                              Resource::CatalogKind &catalogKind,
+                              int &catalogVersion,
+                              std::unordered_map<std::string, Resource::ResourceCatalogEntry> &entries)
     {
         const auto versionIt = rootJson.find("version");
         if (versionIt == rootJson.end() || !versionIt->is_number_integer())
@@ -219,9 +219,9 @@ namespace
     }
 
     bool LoadCatalogFromMount(const Resource::ReadableMount &mount,
-                             Resource::CatalogKind &catalogKind,
-                             int &catalogVersion,
-                             std::unordered_map<std::string, Resource::ResourceCatalogEntry> &entries)
+                              Resource::CatalogKind &catalogKind,
+                              int &catalogVersion,
+                              std::unordered_map<std::string, Resource::ResourceCatalogEntry> &entries)
     {
         std::vector<uint8_t> bytes;
         std::string errorMessage;
@@ -382,7 +382,6 @@ namespace
                         mount.priority,
                         mount.backend,
                         mount.mountRoot,
-                        mount.materializedRoot,
                         mount.sourceKey,
                     };
                     continue;
@@ -409,7 +408,6 @@ namespace
                                       mount.priority,
                                       mount.backend,
                                       mount.mountRoot,
-                                      mount.materializedRoot,
                                       mount.sourceKey,
                                   });
         }
@@ -426,12 +424,12 @@ namespace Resource
         m_ConflictedLogicalPaths.clear();
     }
 
-    std::optional<std::filesystem::path> CatalogRegistry::ResolvePath(const std::filesystem::path &rootPath,
-                                                                      const std::filesystem::path &engineDir,
-                                                                      const std::filesystem::path &cacheDir,
-                                                                      const VirtualPath &virtualPath,
-                                                                      std::string_view logicalPath,
-                                                                      std::string_view projectContentDirName)
+    std::optional<ResolvedReadableArtifact> CatalogRegistry::ResolveArtifact(const std::filesystem::path &rootPath,
+                                                                             const std::filesystem::path &engineDir,
+                                                                             const std::filesystem::path &cacheDir,
+                                                                             const VirtualPath &virtualPath,
+                                                                             std::string_view logicalPath,
+                                                                             std::string_view projectContentDirName)
     {
         const auto mountRoot = GetMountRoot(rootPath, engineDir, virtualPath, projectContentDirName);
         if (mountRoot.empty())
@@ -513,7 +511,6 @@ namespace Resource
             .priority = entryIt->second.priority,
             .backend = entryIt->second.backend,
             .mountRoot = entryIt->second.mountRoot,
-            .materializedRoot = entryIt->second.materializedRoot,
         };
 
         std::string errorMessage;

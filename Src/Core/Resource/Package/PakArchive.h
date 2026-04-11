@@ -26,11 +26,6 @@ namespace Resource
                         const std::filesystem::path &relativePath,
                         std::string *errorMessage = nullptr);
 
-    std::optional<std::filesystem::path> MaterializePakEntry(const std::filesystem::path &pakPath,
-                                                             const std::filesystem::path &relativePath,
-                                                             const std::filesystem::path &outputRoot,
-                                                             std::string *errorMessage = nullptr);
-
     bool PackageCookedRepositoryCatalogs(const std::filesystem::path &cookedRootPath,
                                          const std::filesystem::path &packagedRootPath,
                                          std::string *errorMessage = nullptr);
