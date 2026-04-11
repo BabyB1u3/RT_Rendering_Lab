@@ -2,6 +2,36 @@
   "version": 6,
   "configurePresets": [
     {
+      "name": "linux-debug",
+      "displayName": "Linux Debug",
+      "inherits": "linux-ninja-debug"
+    },
+    {
+      "name": "linux-relwithdebinfo",
+      "displayName": "Linux RelWithDebInfo",
+      "inherits": "linux-ninja-relwithdebinfo"
+    },
+    {
+      "name": "linux-release",
+      "displayName": "Linux Release",
+      "inherits": "linux-ninja-release"
+    },
+    {
+      "name": "linux-release-tests",
+      "displayName": "Linux Release Tests",
+      "inherits": "linux-ninja-release-tests"
+    },
+    {
+      "name": "ci-linux-debug",
+      "displayName": "CI Linux Debug",
+      "inherits": "ci-linux-ninja-debug"
+    },
+    {
+      "name": "ci-linux-release",
+      "displayName": "CI Linux Release",
+      "inherits": "ci-linux-ninja-release"
+    },
+    {
       "name": "linux-ninja-debug",
       "displayName": "Linux Ninja Debug",
       "generator": "Ninja",

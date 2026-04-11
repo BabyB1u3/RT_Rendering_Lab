@@ -5,6 +5,44 @@
   ],
   "buildPresets": [
     {
+      "name": "build-windows-debug",
+      "configurePreset": "windows-debug"
+    },
+    {
+      "name": "build-windows-relwithdebinfo",
+      "configurePreset": "windows-relwithdebinfo"
+    },
+    {
+      "name": "build-windows-release",
+      "configurePreset": "windows-release"
+    },
+    {
+      "name": "build-windows-release-tests",
+      "configurePreset": "windows-release-tests"
+    },
+    {
+      "name": "build-windows-release-stage-assets",
+      "configurePreset": "windows-release",
+      "targets": [
+        "rtrlab_stage_shipping_assets"
+      ]
+    },
+    {
+      "name": "build-windows-release-stage",
+      "configurePreset": "windows-release",
+      "targets": [
+        "rtrlab_stage_shipping"
+      ]
+    },
+    {
+      "name": "build-ci-windows-debug",
+      "configurePreset": "ci-windows-debug"
+    },
+    {
+      "name": "build-ci-windows-release",
+      "configurePreset": "ci-windows-release"
+    },
+    {
       "name": "build-windows-vs-debug",
       "configurePreset": "windows-vs",
       "configuration": "Debug"

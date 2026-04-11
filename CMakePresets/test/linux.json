@@ -6,6 +6,115 @@
   ],
   "testPresets": [
     {
+      "name": "test-linux-debug-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "linux-debug"
+    },
+    {
+      "name": "test-linux-relwithdebinfo-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "linux-relwithdebinfo"
+    },
+    {
+      "name": "test-linux-release-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "linux-release-tests"
+    },
+    {
+      "name": "test-ci-linux-release",
+      "inherits": [
+        "test-base",
+        "test-filter-release-matrix"
+      ],
+      "configurePreset": "ci-linux-release"
+    },
+    {
+      "name": "test-ci-linux-debug",
+      "inherits": [
+        "test-base",
+        "test-filter-debug-matrix"
+      ],
+      "configurePreset": "ci-linux-debug"
+    },
+    {
+      "name": "test-linux-debug",
+      "inherits": "test-linux-debug-base"
+    },
+    {
+      "name": "test-linux-relwithdebinfo",
+      "inherits": "test-linux-relwithdebinfo-base"
+    },
+    {
+      "name": "test-linux-release",
+      "inherits": "test-linux-release-base"
+    },
+    {
+      "name": "test-linux-debug-unit",
+      "inherits": [
+        "test-linux-debug-base",
+        "test-label-unit"
+      ]
+    },
+    {
+      "name": "test-linux-relwithdebinfo-unit",
+      "inherits": [
+        "test-linux-relwithdebinfo-base",
+        "test-label-unit"
+      ]
+    },
+    {
+      "name": "test-linux-release-unit",
+      "inherits": [
+        "test-linux-release-base",
+        "test-label-unit"
+      ]
+    },
+    {
+      "name": "test-linux-debug-integration",
+      "inherits": [
+        "test-linux-debug-base",
+        "test-label-integration"
+      ]
+    },
+    {
+      "name": "test-linux-debug-dev-profile",
+      "inherits": [
+        "test-linux-debug-base",
+        "test-label-dev-profile"
+      ]
+    },
+    {
+      "name": "test-linux-relwithdebinfo-integration",
+      "inherits": [
+        "test-linux-relwithdebinfo-base",
+        "test-label-integration"
+      ]
+    },
+    {
+      "name": "test-linux-relwithdebinfo-dev-profile",
+      "inherits": [
+        "test-linux-relwithdebinfo-base",
+        "test-label-dev-profile"
+      ]
+    },
+    {
+      "name": "test-linux-release-integration",
+      "inherits": [
+        "test-linux-release-base",
+        "test-label-integration"
+      ]
+    },
+    {
+      "name": "test-linux-release-shipping-profile",
+      "inherits": [
+        "test-linux-release-base",
+        "test-label-shipping-profile"
+      ]
+    },
+    {
       "name": "test-linux-ninja-debug-base",
       "hidden": true,
       "inherits": "test-base",

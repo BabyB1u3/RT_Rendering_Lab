@@ -6,6 +6,115 @@
   ],
   "testPresets": [
     {
+      "name": "test-macos-debug-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "macos-debug"
+    },
+    {
+      "name": "test-macos-relwithdebinfo-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "macos-relwithdebinfo"
+    },
+    {
+      "name": "test-macos-release-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "macos-release-tests"
+    },
+    {
+      "name": "test-ci-macos-debug",
+      "inherits": [
+        "test-base",
+        "test-filter-debug-matrix"
+      ],
+      "configurePreset": "ci-macos-debug"
+    },
+    {
+      "name": "test-ci-macos-release",
+      "inherits": [
+        "test-base",
+        "test-filter-release-matrix"
+      ],
+      "configurePreset": "ci-macos-release"
+    },
+    {
+      "name": "test-macos-debug",
+      "inherits": "test-macos-debug-base"
+    },
+    {
+      "name": "test-macos-relwithdebinfo",
+      "inherits": "test-macos-relwithdebinfo-base"
+    },
+    {
+      "name": "test-macos-release",
+      "inherits": "test-macos-release-base"
+    },
+    {
+      "name": "test-macos-debug-unit",
+      "inherits": [
+        "test-macos-debug-base",
+        "test-label-unit"
+      ]
+    },
+    {
+      "name": "test-macos-relwithdebinfo-unit",
+      "inherits": [
+        "test-macos-relwithdebinfo-base",
+        "test-label-unit"
+      ]
+    },
+    {
+      "name": "test-macos-release-unit",
+      "inherits": [
+        "test-macos-release-base",
+        "test-label-unit"
+      ]
+    },
+    {
+      "name": "test-macos-debug-integration",
+      "inherits": [
+        "test-macos-debug-base",
+        "test-label-integration"
+      ]
+    },
+    {
+      "name": "test-macos-debug-dev-profile",
+      "inherits": [
+        "test-macos-debug-base",
+        "test-label-dev-profile"
+      ]
+    },
+    {
+      "name": "test-macos-relwithdebinfo-integration",
+      "inherits": [
+        "test-macos-relwithdebinfo-base",
+        "test-label-integration"
+      ]
+    },
+    {
+      "name": "test-macos-relwithdebinfo-dev-profile",
+      "inherits": [
+        "test-macos-relwithdebinfo-base",
+        "test-label-dev-profile"
+      ]
+    },
+    {
+      "name": "test-macos-release-integration",
+      "inherits": [
+        "test-macos-release-base",
+        "test-label-integration"
+      ]
+    },
+    {
+      "name": "test-macos-release-shipping-profile",
+      "inherits": [
+        "test-macos-release-base",
+        "test-label-shipping-profile"
+      ]
+    },
+    {
       "name": "test-macos-ninja-debug-base",
       "hidden": true,
       "inherits": "test-base",

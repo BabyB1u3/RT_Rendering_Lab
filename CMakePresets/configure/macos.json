@@ -2,6 +2,36 @@
   "version": 6,
   "configurePresets": [
     {
+      "name": "macos-debug",
+      "displayName": "macOS Debug",
+      "inherits": "macos-ninja-debug"
+    },
+    {
+      "name": "macos-relwithdebinfo",
+      "displayName": "macOS RelWithDebInfo",
+      "inherits": "macos-ninja-relwithdebinfo"
+    },
+    {
+      "name": "macos-release",
+      "displayName": "macOS Release",
+      "inherits": "macos-ninja-release"
+    },
+    {
+      "name": "macos-release-tests",
+      "displayName": "macOS Release Tests",
+      "inherits": "macos-ninja-release-tests"
+    },
+    {
+      "name": "ci-macos-debug",
+      "displayName": "CI macOS Debug",
+      "inherits": "ci-macos-ninja-debug"
+    },
+    {
+      "name": "ci-macos-release",
+      "displayName": "CI macOS Release",
+      "inherits": "ci-macos-ninja-release"
+    },
+    {
       "name": "macos-ninja-debug",
       "displayName": "macOS Ninja Debug",
       "generator": "Ninja",
