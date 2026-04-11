@@ -467,13 +467,17 @@ or this:
 
 ### 10.1 Source Indexing
 
-`rtr_asset_index` scans readable loose content roots and generates source catalogs for:
+`rtr_asset_index` can scan readable loose content roots and export source catalogs for:
 
 - `Project/`
 - `Engine/`
 
 It skips document-style config subtrees for extensionless asset indexing and enforces
 logical-path uniqueness.
+
+At runtime in development builds, and during cooking, source catalogs are built in
+memory from the source trees rather than being read back from `Project/.rtr/catalog.json`
+or `Engine/.rtr/catalog.json`.
 
 ### 10.2 Loose Cooked Output
 
@@ -543,7 +547,8 @@ active engine subsystem with the following implemented behavior:
 - `/Project/`, `/Engine/`, `/Saved/`, and `/Cache/` are active
 - config fallback resolution is implemented through serialization-facing helpers
 - logical-path-based file I/O is implemented
-- source catalogs are generated and consumed
+- source catalogs can be generated for inspection or tooling, while dev runtime and cook
+  build source catalogs in memory
 - loose cooked catalogs are generated and consumed
 - packaged `.rtrpak` archives are generated and consumed
 - overlay precedence over packaged/cooked/source mounts is implemented
@@ -665,10 +670,10 @@ src/Tools/
 .rtrproject                    - Development-time project root marker
 
 Project/
-    .rtr/catalog.json           - Generated project source catalog
+    ...                         - Project source files (catalog built in memory in dev)
 
 Engine/
-    .rtr/catalog.json           - Generated engine source catalog
+    ...                         - Engine source files (catalog built in memory in dev)
 
 Saved/Cache/Cooked/
     ...                         - Loose cooked output

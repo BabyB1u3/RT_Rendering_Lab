@@ -61,10 +61,9 @@ TEST_F(CookedCatalogTests, CookRepositoryCatalogsCopiesArtifactsAndWritesCookedC
 {
     const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
     test_support::WriteProjectBinaryFileOrFail(repoRoot, "textures/Grassy_Square.png", kOnePixelPng);
+    EXPECT_FALSE(std::filesystem::exists(test_support::ProjectSourceCatalogPath(repoRoot)));
 
     std::string errorMessage;
-    ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(repoRoot, "Project", &errorMessage)) << errorMessage;
-
     const auto cookedRoot = test_support::CookedRoot(repoRoot);
     ASSERT_TRUE(Resource::CookRepositoryCatalogs(repoRoot, cookedRoot, "Project", &errorMessage)) << errorMessage;
 
@@ -116,10 +115,10 @@ TEST_F(CookedCatalogTests, CookRepositoryCatalogsPreservesLogicalPathsAcrossProj
         repoRoot,
         "Defaults/Materials/ErrorMaterial.json",
         "{\n  \"name\": \"error-material\"\n}\n");
+    EXPECT_FALSE(std::filesystem::exists(test_support::ProjectSourceCatalogPath(repoRoot)));
+    EXPECT_FALSE(std::filesystem::exists(test_support::EngineSourceCatalogPath(repoRoot)));
 
     std::string errorMessage;
-    ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(repoRoot, "Project", &errorMessage)) << errorMessage;
-
     const auto cookedRoot = test_support::CookedRoot(repoRoot);
     ASSERT_TRUE(Resource::CookRepositoryCatalogs(repoRoot, cookedRoot, "Project", &errorMessage)) << errorMessage;
 
@@ -129,15 +128,10 @@ TEST_F(CookedCatalogTests, CookRepositoryCatalogsPreservesLogicalPathsAcrossProj
         return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     };
 
-    const auto projectSourceCatalog = readFile(test_support::ProjectSourceCatalogPath(repoRoot));
-    const auto engineSourceCatalog = readFile(test_support::EngineSourceCatalogPath(repoRoot));
-
     const auto projectCookedCatalog = readFile(test_support::ProjectCookedCatalogPath(cookedRoot));
     const auto engineCookedCatalog = readFile(test_support::EngineCookedCatalogPath(cookedRoot));
 
-    EXPECT_NE(projectSourceCatalog.find("/Project/Textures/Grassy_Square"), std::string::npos);
     EXPECT_NE(projectCookedCatalog.find("/Project/Textures/Grassy_Square"), std::string::npos);
-    EXPECT_NE(engineSourceCatalog.find("/Engine/Defaults/Materials/ErrorMaterial"), std::string::npos);
     EXPECT_NE(engineCookedCatalog.find("/Engine/Defaults/Materials/ErrorMaterial"), std::string::npos);
 
     EXPECT_TRUE(std::filesystem::exists(test_support::ProjectCookedRoot(cookedRoot) / "Textures" / "Grassy_Square.rtrtex"));

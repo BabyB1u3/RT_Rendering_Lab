@@ -3,6 +3,7 @@
 #include "Core/Diagnostics/Logging/LogCategories.h"
 #include "Core/Diagnostics/Logging/LogMacros.h"
 #include "Core/Resource/Mount/MountBackend.h"
+#include "Core/Resource/Catalog/SourceCatalog.h"
 #include "Core/Resource/Path/PathParser.h"
 
 #include <algorithm>
@@ -228,6 +229,17 @@ namespace
         return ParseCatalogFromJson(rootJson, catalogLabel, mount.mountPath, catalogKind, catalogVersion, entries);
     }
 
+    bool ShouldBuildSourceCatalogInMemory(const Resource::ReadableMount &mount, std::string_view currentProfileTag)
+    {
+        if (currentProfileTag != "dev")
+            return false;
+
+        return mount.priority == Resource::MountPriority::Source &&
+               mount.backend == Resource::MountBackendKind::Directory &&
+               (mount.mountPath.domain == Resource::PathDomain::Project ||
+                mount.mountPath.domain == Resource::PathDomain::Engine);
+    }
+
     std::string_view GetCurrentPlatformTag()
     {
 #if defined(_WIN32)
@@ -410,15 +422,36 @@ namespace Resource
             m_GlobalTableBuilt = true;
             m_GlobalEntries.clear();
             m_ConflictedLogicalPaths.clear();
+            const auto currentProfileTag = GetCurrentProfileTag();
 
             for (const auto &mount : Resource::DiscoverReadableMountBackends(
-                     rootPath, engineDir, cacheDir, projectContentDirName, GetCurrentProfileTag()))
+                     rootPath, engineDir, cacheDir, projectContentDirName, currentProfileTag))
             {
                 auto &cache = m_MountCatalogs[mount.cacheKey];
                 if (!cache.attemptedLoad)
                 {
                     cache.attemptedLoad = true;
-                    if (Resource::MountHasCatalog(mount))
+                    if (ShouldBuildSourceCatalogInMemory(mount, currentProfileTag))
+                    {
+                        cache.kind = CatalogKind::Source;
+                        cache.version = 1;
+                        std::unordered_map<std::string, ResourceCatalogEntry> loadedEntries;
+                        if (!Resource::BuildSourceCatalogMap(mount.mountRoot, mount.mountPath, loadedEntries))
+                        {
+                            cache.entries.clear();
+                            LOG_ERROR_CAT(LogCategory::FileSystem,
+                                          "Failed to build in-memory source catalog '{}'",
+                                          mount.mountRoot.string());
+                        }
+                        else
+                        {
+                            cache.entries = std::move(loadedEntries);
+                            LOG_INFO_CAT(LogCategory::FileSystem,
+                                         "Built in-memory source catalog '{}'",
+                                         mount.mountRoot.string());
+                        }
+                    }
+                    else if (Resource::MountHasCatalog(mount))
                     {
                         cache.kind = CatalogKind::Source;
                         cache.version = 0;

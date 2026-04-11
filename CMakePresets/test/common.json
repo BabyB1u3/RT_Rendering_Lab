@@ -36,20 +36,20 @@
       }
     },
     {
-      "name": "test-label-debug-matrix",
+      "name": "test-filter-debug-matrix",
       "hidden": true,
       "filter": {
         "include": {
-          "label": "common|dev-profile"
+          "name": "^(Unit\\.|Integration\\.|DevProfile\\.)"
         }
       }
     },
     {
-      "name": "test-label-release-matrix",
+      "name": "test-filter-release-matrix",
       "hidden": true,
       "filter": {
         "include": {
-          "label": "common|shipping-profile"
+          "name": "^(Unit\\.|Integration\\.|ShippingProfile\\.)"
         }
       }
     },

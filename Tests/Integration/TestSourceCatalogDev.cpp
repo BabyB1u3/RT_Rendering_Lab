@@ -1,0 +1,70 @@
+#include <gtest/gtest.h>
+
+#include <filesystem>
+
+#include "Core/Resource/Catalog/ResourceCatalog.h"
+#include "ResourceTestSupport.h"
+
+namespace
+{
+    class SourceCatalogDevTests : public ::testing::Test
+    {
+    protected:
+        void SetUp() override
+        {
+            m_TestRoot = test_support::CurrentTestRoot("source-catalog-dev");
+            test_support::ResetCurrentTestRoot("source-catalog-dev");
+        }
+
+        void TearDown() override
+        {
+            test_support::RemoveCurrentTestArtifacts("source-catalog-dev");
+        }
+
+        std::filesystem::path TestRoot() const
+        {
+            return m_TestRoot;
+        }
+
+    private:
+        std::filesystem::path m_TestRoot;
+    };
+} // namespace
+
+TEST_F(SourceCatalogDevTests, CatalogRegistryBuildsProjectSourceCatalogInMemoryDuringDevResolution)
+{
+    const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
+    test_support::WriteProjectFileOrFail(repoRoot, "Textures/Grassy_Square.jpg", "jpg");
+
+    Resource::CatalogRegistry registry;
+    const auto virtualPath = Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, "Textures/Grassy_Square"};
+    const auto resolved = registry.ResolvePath(
+        repoRoot,
+        test_support::EngineRoot(repoRoot),
+        repoRoot / "Saved" / "Cache",
+        virtualPath,
+        "/Project/Textures/Grassy_Square",
+        "Project");
+
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_EQ(*resolved, test_support::ProjectContentRoot(repoRoot) / "Textures" / "Grassy_Square.jpg");
+}
+
+TEST_F(SourceCatalogDevTests, CatalogRegistryBuildsEngineSourceCatalogInMemoryDuringDevResolution)
+{
+    const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
+    test_support::WriteEngineFileOrFail(repoRoot, "Defaults/Materials/ErrorMaterial.json", "{\n}\n");
+
+    Resource::CatalogRegistry registry;
+    const auto virtualPath = Resource::VirtualPath{Resource::PathDomain::Engine, std::nullopt, "Defaults/Materials/ErrorMaterial"};
+    const auto resolved = registry.ResolvePath(
+        repoRoot,
+        test_support::EngineRoot(repoRoot),
+        repoRoot / "Saved" / "Cache",
+        virtualPath,
+        "/Engine/Defaults/Materials/ErrorMaterial",
+        "Project");
+
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_EQ(*resolved, test_support::EngineRoot(repoRoot) / "Defaults" / "Materials" / "ErrorMaterial.json");
+}
