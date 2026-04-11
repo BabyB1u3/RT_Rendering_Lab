@@ -8,7 +8,7 @@ It is intended as a companion to the main
 contract and design rationale. This document focuses on implementation mechanics and
 industry context.
 
-> **Snapshot date**: 2026-04-10
+> **Snapshot date**: 2026-04-11
 
 ---
 
@@ -241,12 +241,14 @@ When `ReadBinary("/Project/Textures/Grassy_Square")` is called:
 - Validate: must start with `/`, must not contain `\`, must not contain `.` or `..`
   segments.
 - Split into segments, collapse consecutive `/`.
-- Determine domain from the first segment: `Project` / `Engine` / `Saved` / `Cache`.
+- Determine domain from the first segment: `Project` / `Engine` / `DLC` / `Mod` /
+  `Saved` / `Cache`.
 
 Result: `VirtualPath { domain=Project, mountName=nullopt, relativePath="Textures/Grassy_Square" }`
 
 **Step 2: Dispatch by domain**
-- `Project` / `Engine`: always resolve through `CatalogRegistry::ResolveArtifact()`
+- `Project` / `Engine` / `DLC` / `Mod`: always resolve through
+  `CatalogRegistry::ResolveArtifact()`
 - `Saved` / `Cache`: resolve through writable mounts directly
 
 The runtime no longer branches on "has extension" versus "no extension". Document vs
@@ -254,7 +256,8 @@ asset classification now exists only inside the source catalog builder.
 
 #### 3.3 Unified Project / Engine Read Resolution
 
-`FileSystem.cpp` routes every Project / Engine read through `CatalogRegistry::ResolveArtifact()`.
+`FileSystem.cpp` routes every Project / Engine / DLC / Mod read through
+`CatalogRegistry::ResolveArtifact()`.
 
 This includes both kinds of logical path:
 
@@ -262,6 +265,8 @@ This includes both kinds of logical path:
 /Project/Textures/Grassy_Square  -> catalog entry -> selected artifact
 /Project/Config/Graphics.json    -> document catalog entry -> selected artifact
 /Engine/Defaults/Materials/ErrorMaterial -> asset catalog entry -> selected artifact
+/DLC/Expansion1/Weapons/LaserRifle -> namespaced DLC entry -> selected artifact
+/Mod/CoolMod/Weapons/Hammer -> namespaced mod entry -> selected artifact
 ```
 
 The resolution path is the same for both asset and document entries. The difference is
@@ -285,15 +290,20 @@ builder-time rule produced it.
    - `"cooked"` profile: prefer cooked, then source.
    - `"packaged"` / `"shipping"` profile: prefer packaged, then cooked, then source.
 
-   For each domain (Project / Engine), register mounts according to the profile
-   strategy, assigning priorities:
+   For each catalog-backed domain, register mounts according to the profile strategy,
+   assigning priorities:
 
    ```
-   Overlay  (300)  >  Packaged (200)  >  Cooked (100)  >  Source (0)
+   Mod      (500)  >  Patch    (400)  >  DLC      (300)
+   > Packaged (200) > Cooked   (100)  >  Source   (0)
    ```
 
-   Overlay mounts are discovered from `Saved/Overrides/` or the `RTRLAB_OVERLAY_ROOT`
-   environment variable.
+   In shipping/profiled packaged installs, the runtime scans:
+
+   - `<install>/Game.rtrpak` for the base packaged Project / Engine content
+   - `<install>/DLC/*.rtrpak` for DLC overlays and `/DLC/<Name>/...` namespace mounts
+   - `<install>/Patches/*.rtrpak` for transparent patch overlays
+   - `<install>/Mods/*.rtrpak` for mod overlays and `/Mod/<Name>/...` namespace mounts
 
 2. For each discovered mount, acquire its catalog:
    - Dev source directory backend (`Project/` or `Engine/`, source priority): build the
@@ -304,12 +314,14 @@ builder-time rule produced it.
 3. Parse the catalog JSON, validate version (v1 = source, v2 = cooked), and filter the
    merged entry set by mount domain. In packaged mode, both the Project and Engine
    mounts may read from the same shared `Game.rtrpak` catalog, but each mount only
-   keeps entries for its own logical domain. Both extensionless asset paths and
-   extension-preserving document paths are valid for Project / Engine mounts.
+   keeps entries for its own logical domain. DLC and Mod namespace mounts perform the
+   same filtering, but also require the catalog path's `mountName` to match the
+   discovered pak stem. Both extensionless asset paths and extension-preserving
+   document paths are valid for Project / Engine / DLC / Mod mounts.
 
 4. **Merge into global table** (`ResourceCatalog.cpp:334-388`):
    - A higher-priority mount's entry replaces a lower-priority one
-     (overlay > packaged > cooked > source).
+     (mod > patch > DLC > packaged > cooked > source).
    - Two equal-priority mounts providing the same `logicalPath` are treated as a
      **conflict**: the path is removed from the global table and recorded in
      `m_ConflictedLogicalPaths`. Future lookups for that path return `nullopt`.
@@ -388,7 +400,11 @@ User calls: FileSystem::ReadBinary("/Project/Textures/Grassy_Square")
        |    +- Cooked/Project/ has cat   -> register Cooked:Project   (priority=100)
        |    +- Game.rtrpak               -> register Packaged:Project (priority=200)
        |    +- Game.rtrpak               -> register Packaged:Engine  (priority=200)
-       |    +- Overrides/Project/ has cat-> register Overlay:Project  (priority=300)
+       |    +- DLC/Expansion1.rtrpak     -> register DLC:Expansion1:Project (priority=300)
+       |    +- DLC/Expansion1.rtrpak     -> register DLC:Expansion1         (priority=300)
+       |    +- Patches/Patch_001.rtrpak  -> register Patch:Patch_001:Project(priority=400)
+       |    +- Mods/CoolMod.rtrpak       -> register Mod:CoolMod:Project    (priority=500)
+       |    +- Mods/CoolMod.rtrpak       -> register Mod:CoolMod            (priority=500)
        |
        +- [first call] Load catalog for each mount -> parse JSON -> merge into global table
        |
@@ -414,9 +430,9 @@ User calls: FileSystem::ReadBinary("/Project/Textures/Grassy_Square")
 
 | Mechanism | Implementation Location | Key Point |
 |-----------|------------------------|-----------|
-| Project / Engine reads are always catalog-backed | `FileSystem::ReadText` / `ReadBinary` / `OpenReadStream` | Runtime dispatch is by domain, not by filename extension |
+| Project / Engine / DLC / Mod reads are always catalog-backed | `FileSystem::ReadText` / `ReadBinary` / `OpenReadStream` | Runtime dispatch is by domain, not by filename extension |
 | Document vs asset classification is builder-time | `SourceCatalog.cpp` | Source catalog synthesis decides whether a logical path keeps its extension |
-| Overlay overrides everything | `MountPriority::Overlay = 300` | Development-time `Saved/Overrides/` can replace any resource |
+| Shipping overlay precedence is explicit | `MountPriority::{DLC,Patch,Mod}` | Mods override patches, patches override DLC, DLC overrides packaged base content |
 | Equal-priority conflict = removal | `MergeMountEntriesIntoGlobalTable` | No implicit choice; the path becomes unavailable |
 | Catalog is lazily built | `m_GlobalTableBuilt` flag | All mounts are scanned on the first Project / Engine read |
 | Pak entries are read directly | `ReadPakEntry` / `OpenReadableArtifactStream` | No extraction cache or temp-file materialization remains in the normal read path |
@@ -528,7 +544,7 @@ more flexible conflict policy as overlay/mod scenarios grow more complex.
 | Dimension | RTRLab | Unreal Engine | Unity | id Tech / Source |
 |-----------|--------|---------------|-------|------------------|
 | Mount hierarchy | Project > Engine > Saved > Cache | /Game, /Engine, /Plugin, /Temp | No hierarchy concept | Search-path-based pak stack |
-| Override mechanism | 4-level priority (Overlay > Packaged > Cooked > Source) | Pak priority + patch pak | AssetBundle variants | Later-mounted pak overrides earlier |
+| Override mechanism | 6-level priority (Mod > Patch > DLC > Packaged > Cooked > Source) | Pak priority + patch pak | AssetBundle variants | Later-mounted pak overrides earlier |
 | Runtime dynamic mount | **Not supported** | Supported (`MountPak` / `UnmountPak`) | Supported (`LoadAssetBundle`) | Supported |
 | Write domain isolation | Hard-coded: only Saved/Cache writable | Similar (Saved/ writable) | `Application.persistentDataPath` | Dedicated write path |
 

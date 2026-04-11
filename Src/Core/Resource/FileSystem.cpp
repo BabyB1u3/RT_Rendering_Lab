@@ -58,6 +58,8 @@ std::optional<Resource::ResolvedReadableArtifact> FileSystem::ResolveCatalogArti
     {
     case Resource::PathDomain::Project:
     case Resource::PathDomain::Engine:
+    case Resource::PathDomain::DLC:
+    case Resource::PathDomain::Mod:
         return s_CatalogRegistry.ResolveArtifact(
             s_RootPath, s_EngineDir, GetCacheDir(), *virtualPath, virtualPathString, kProjectContentDirName);
     case Resource::PathDomain::Saved:
@@ -88,6 +90,8 @@ std::optional<std::filesystem::path> FileSystem::ResolveWritableReadPath(std::st
     }
     case Resource::PathDomain::Project:
     case Resource::PathDomain::Engine:
+    case Resource::PathDomain::DLC:
+    case Resource::PathDomain::Mod:
         return std::nullopt;
     }
 

@@ -15,15 +15,39 @@ namespace Resource
 {
     namespace
     {
-        std::filesystem::path GetPackagedArchiveSearchPathForMount(const std::filesystem::path &packagedRoot,
-                                                                   std::string_view currentProfile,
-                                                                   const VirtualPath & /*mountPath*/,
-                                                                   const std::filesystem::path &legacyArchiveRelativePath)
+        std::filesystem::path GetPackagedArchiveSearchPath(const std::filesystem::path &packagedRoot,
+                                                           std::string_view currentProfile,
+                                                           const std::filesystem::path &legacyArchiveRelativePath)
         {
             if (currentProfile == "shipping" || currentProfile == "packaged")
                 return GetGamePackagedArchivePath(packagedRoot);
 
             return packagedRoot / legacyArchiveRelativePath;
+        }
+
+        std::vector<std::filesystem::path> CollectPakArchives(const std::filesystem::path &directory)
+        {
+            std::vector<std::filesystem::path> archives;
+            std::error_code ec;
+            if (!std::filesystem::exists(directory, ec) || ec || !std::filesystem::is_directory(directory, ec))
+                return archives;
+
+            for (const auto &entry : std::filesystem::directory_iterator(directory, ec))
+            {
+                if (ec)
+                    break;
+
+                if (!entry.is_regular_file())
+                    continue;
+
+                if (entry.path().extension() == kPakArchiveExtension)
+                    archives.push_back(entry.path());
+            }
+
+            std::sort(archives.begin(), archives.end(), [](const auto &lhs, const auto &rhs) {
+                return lhs.generic_string() < rhs.generic_string();
+            });
+            return archives;
         }
     } // namespace
 
@@ -38,7 +62,6 @@ namespace Resource
         const bool preferPackagedArtifacts = currentProfile == "packaged" || currentProfile == "shipping";
         std::vector<std::filesystem::path> cookedRootSearchOrder;
         std::vector<std::filesystem::path> packagedRootSearchOrder;
-        std::vector<std::filesystem::path> overlayRootSearchOrder;
 
         if (const char *overrideValue = std::getenv("RTRLAB_COOKED_ROOT"))
         {
@@ -52,18 +75,13 @@ namespace Resource
             if (!overrideRoot.empty())
                 packagedRootSearchOrder.push_back(overrideRoot);
         }
-        if (const char *overrideValue = std::getenv("RTRLAB_OVERLAY_ROOT"))
-        {
-            const std::filesystem::path overrideRoot = overrideValue;
-            if (!overrideRoot.empty())
-                overlayRootSearchOrder.push_back(overrideRoot);
-        }
 
+        if (currentProfile == "shipping")
+            packagedRootSearchOrder.push_back(rootPath);
         cookedRootSearchOrder.push_back(cacheDir / "Cooked");
         cookedRootSearchOrder.push_back(rootPath / "build" / "Cooked");
         packagedRootSearchOrder.push_back(cacheDir / "Packaged");
         packagedRootSearchOrder.push_back(rootPath / "build" / "Packaged");
-        overlayRootSearchOrder.push_back(rootPath / "Saved" / "Overrides");
 
         auto findCookedMountRoot = [&](const std::filesystem::path &mountRelativePath) -> std::filesystem::path
         {
@@ -77,27 +95,13 @@ namespace Resource
             return {};
         };
 
-        auto findPackagedMountArchive = [&](const VirtualPath &mountPath,
-                                            const std::filesystem::path &archiveRelativePath) -> std::filesystem::path
+        auto findPackagedMountArchive = [&](const std::filesystem::path &archiveRelativePath) -> std::filesystem::path
         {
             for (const auto &packagedRoot : packagedRootSearchOrder)
             {
-                const auto candidate = GetPackagedArchiveSearchPathForMount(
-                    packagedRoot, currentProfile, mountPath, archiveRelativePath);
+                const auto candidate = GetPackagedArchiveSearchPath(packagedRoot, currentProfile, archiveRelativePath);
                 std::string errorMessage;
                 if (std::filesystem::exists(candidate) && PakEntryExists(candidate, ".rtr/catalog.json", &errorMessage))
-                    return candidate;
-            }
-
-            return {};
-        };
-
-        auto findOverlayMountRoot = [&](const std::filesystem::path &mountRelativePath) -> std::filesystem::path
-        {
-            for (const auto &overlayRoot : overlayRootSearchOrder)
-            {
-                const auto candidate = overlayRoot / mountRelativePath;
-                if (std::filesystem::exists(candidate / ".rtr" / "catalog.json"))
                     return candidate;
             }
 
@@ -124,29 +128,53 @@ namespace Resource
             });
         };
 
+        const auto appendArchiveDomainMounts = [&](std::string_view layerName,
+                                                   const std::string &archiveName,
+                                                   const MountPriority priority,
+                                                   const std::filesystem::path &archivePath)
+        {
+            appendReadableMount(
+                std::string(layerName) + ":" + archiveName + ":Project",
+                std::string(layerName) + ":" + archiveName + ":Project",
+                VirtualPath{PathDomain::Project, std::nullopt, {}},
+                priority,
+                MountBackendKind::PakArchive,
+                archivePath);
+            appendReadableMount(
+                std::string(layerName) + ":" + archiveName + ":Engine",
+                std::string(layerName) + ":" + archiveName + ":Engine",
+                VirtualPath{PathDomain::Engine, std::nullopt, {}},
+                priority,
+                MountBackendKind::PakArchive,
+                archivePath);
+        };
+
+        const auto appendNamespacedArchiveMount = [&](std::string_view layerName,
+                                                      const std::string &archiveName,
+                                                      const PathDomain domain,
+                                                      const MountPriority priority,
+                                                      const std::filesystem::path &archivePath)
+        {
+            appendReadableMount(
+                std::string(layerName) + ":" + archiveName,
+                std::string(layerName) + ":" + archiveName,
+                VirtualPath{domain, archiveName, {}},
+                priority,
+                MountBackendKind::PakArchive,
+                archivePath);
+        };
+
         const auto addReadableMount = [&](const std::string &sourceKey,
                                           const VirtualPath &mountPath,
                                           const std::filesystem::path &sourceRoot,
                                           const std::filesystem::path &cookedMountRelativePath,
                                           const std::filesystem::path &packagedArchiveRelativePath)
         {
-            const auto overlayRoot = findOverlayMountRoot(cookedMountRelativePath);
             const auto cookedRoot = findCookedMountRoot(cookedMountRelativePath);
-            const auto packagedArchive = findPackagedMountArchive(mountPath, packagedArchiveRelativePath);
-            const bool hasOverlayCatalog = !overlayRoot.empty();
+            const auto packagedArchive = findPackagedMountArchive(packagedArchiveRelativePath);
             const bool hasCookedCatalog = !cookedRoot.empty();
             const bool hasPackagedCatalog = !packagedArchive.empty();
             const bool hasSourceRoot = std::filesystem::exists(sourceRoot);
-
-            if (hasOverlayCatalog)
-            {
-                appendReadableMount("Overlay:" + sourceKey,
-                                    sourceKey,
-                                    mountPath,
-                                    MountPriority::Overlay,
-                                    MountBackendKind::Directory,
-                                    overlayRoot);
-            }
 
             if (preferPackagedArtifacts)
             {
@@ -247,6 +275,29 @@ namespace Resource
             engineDir,
             "Engine",
             std::filesystem::path(std::string("Engine") + std::string(kPakArchiveExtension)));
+
+        if (preferPackagedArtifacts)
+        {
+            const auto appendOverlayArchives = [&](const std::filesystem::path &directory,
+                                                   std::string_view layerName,
+                                                   const MountPriority priority,
+                                                   const std::optional<PathDomain> namespacedDomain)
+            {
+                for (const auto &archivePath : CollectPakArchives(directory))
+                {
+                    appendArchiveDomainMounts(layerName, archivePath.stem().string(), priority, archivePath);
+                    if (namespacedDomain.has_value())
+                    {
+                        appendNamespacedArchiveMount(
+                            layerName, archivePath.stem().string(), *namespacedDomain, priority, archivePath);
+                    }
+                }
+            };
+
+            appendOverlayArchives(rootPath / "DLC", "DLC", MountPriority::DLC, PathDomain::DLC);
+            appendOverlayArchives(rootPath / "Patches", "Patch", MountPriority::Patch, std::nullopt);
+            appendOverlayArchives(rootPath / "Mods", "Mod", MountPriority::Mod, PathDomain::Mod);
+        }
 
         return mounts;
     }
@@ -415,6 +466,8 @@ namespace Resource
             return WritableMount{domain, cacheDir};
         case PathDomain::Project:
         case PathDomain::Engine:
+        case PathDomain::DLC:
+        case PathDomain::Mod:
             return std::nullopt;
         }
 

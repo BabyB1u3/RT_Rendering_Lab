@@ -33,6 +33,9 @@ namespace
             return rootPath / projectContentDirName;
         case Resource::PathDomain::Engine:
             return engineDir;
+        case Resource::PathDomain::DLC:
+        case Resource::PathDomain::Mod:
+            return rootPath;
         case Resource::PathDomain::Saved:
         case Resource::PathDomain::Cache:
             return {};
@@ -43,7 +46,8 @@ namespace
 
     bool DomainMatchesMount(const Resource::VirtualPath &catalogPath, const Resource::VirtualPath &requestedPath)
     {
-        return catalogPath.domain == requestedPath.domain;
+        return catalogPath.domain == requestedPath.domain &&
+               catalogPath.mountName == requestedPath.mountName;
     }
 
     bool IsCatalogLogicalPathForMount(const Resource::VirtualPath &catalogPath, const Resource::VirtualPath &mountPath)
@@ -51,14 +55,17 @@ namespace
         if (!DomainMatchesMount(catalogPath, mountPath))
             return false;
 
-        if (catalogPath.mountName.has_value() || catalogPath.relativePath.empty())
+        if (catalogPath.relativePath.empty())
             return false;
 
         switch (catalogPath.domain)
         {
         case Resource::PathDomain::Project:
         case Resource::PathDomain::Engine:
-            return true;
+            return !catalogPath.mountName.has_value();
+        case Resource::PathDomain::DLC:
+        case Resource::PathDomain::Mod:
+            return catalogPath.mountName.has_value();
         case Resource::PathDomain::Saved:
         case Resource::PathDomain::Cache:
             return false;

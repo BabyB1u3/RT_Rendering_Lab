@@ -247,8 +247,8 @@ can be added at that time as isolated code — there is no reason to design for 
 ### 2.8 Env Vars and CLI Overrides
 
 - **Dev mode**: env vars (`RTRL_ROOT`, `RTRLAB_COOKED_ROOT`, `RTRLAB_PACKAGE_ROOT`,
-  `RTRLAB_OVERLAY_ROOT`, `RTRLAB_RESOURCE_PROFILE`) and CLI args remain supported.
-- **Shipping mode**: path-related overrides (`RTRL_ROOT`, cooked/package/overlay roots)
+  `RTRLAB_RESOURCE_PROFILE`) and CLI args remain supported.
+- **Shipping mode**: path-related overrides (`RTRL_ROOT`, cooked/package roots)
   are **compiled out** or return `nullptr` unconditionally. This prevents an attacker
   from redirecting resource loads via a malicious shortcut.
 - **Shipping whitelist**: only a small set of player-facing overrides survives
@@ -519,6 +519,13 @@ exe in shipping.
 
 **Scope**: add mount discovery for DLC, Patch, and Mod overlay directories.
 
+**Status (2026-04-11)**: completed in the current codebase. Shipping/profiled packaged
+mount discovery now scans `Game.rtrpak` plus optional `DLC/`, `Patches/`, and `Mods/`
+pak directories, `MountPriority` includes `DLC` / `Patch` / `Mod`, `/DLC/<Name>/` and
+`/Mod/<Name>/` virtual paths are parsed and resolved through the catalog system, and
+shipping-profile tests now cover base reads, additive DLC/mod namespaces, and
+`Mod > Patch > DLC > Packaged > Cooked > Source` precedence.
+
 - Extend `MountPriority` enum with `DLC = 300`, `Patch = 400`, `Mod = 500`.
 - Extend `DiscoverReadableMountBackends` to scan `<install>/DLC/`,
   `<install>/Patches/`, `<install>/Mods/` for `.rtrpak` files in shipping mode.
@@ -576,7 +583,7 @@ a small shared parser.
 **8c. Override hardening**:
 
 - Gate `RTRL_ROOT`, `RTRLAB_COOKED_ROOT`, `RTRLAB_PACKAGE_ROOT`,
-  `RTRLAB_OVERLAY_ROOT`, and `RTRLAB_RESOURCE_PROFILE` behind `#ifndef RTRL_SHIPPING`.
+  and `RTRLAB_RESOURCE_PROFILE` behind `#ifndef RTRL_SHIPPING`.
   In shipping builds, these environment variables are ignored entirely.
 - Define a shipping-mode CLI whitelist inside the new parser: only
   player-facing options (`--language`, `--windowed`, `--fullscreen`, etc.) are

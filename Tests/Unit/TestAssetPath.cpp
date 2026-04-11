@@ -9,12 +9,16 @@ TEST(AssetPathTests, TryCreateAcceptsContentPathsWithoutExtensions)
 {
     EXPECT_TRUE(Resource::AssetPath::TryCreate("/Project/Textures/Grassy_Square").has_value());
     EXPECT_TRUE(Resource::AssetPath::TryCreate("/Engine/Defaults/Materials/ErrorMaterial").has_value());
+    EXPECT_TRUE(Resource::AssetPath::TryCreate("/DLC/Expansion1/Weapons/LaserRifle").has_value());
+    EXPECT_TRUE(Resource::AssetPath::TryCreate("/Mod/CoolMod/Weapons/Hammer").has_value());
 }
 
 TEST(AssetPathTests, TryCreateRejectsConfigDocumentPaths)
 {
     EXPECT_FALSE(Resource::AssetPath::TryCreate("/Project/Config/Graphics.json").has_value());
     EXPECT_FALSE(Resource::AssetPath::TryCreate("/Engine/Config/Graphics.json").has_value());
+    EXPECT_FALSE(Resource::AssetPath::TryCreate("/DLC/Expansion1/Config/Graphics.json").has_value());
+    EXPECT_FALSE(Resource::AssetPath::TryCreate("/Mod/CoolMod/Config/Graphics.json").has_value());
 }
 
 TEST(AssetPathTests, DeserializeRejectsAbsoluteFilesystemPathAndLeavesOutputUnchanged)

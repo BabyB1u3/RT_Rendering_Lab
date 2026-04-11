@@ -133,17 +133,21 @@ At a high level, the system has four cooperating pieces:
 
 ### 3.1 Public Mount Roots
 
-The resource system defines four public logical roots:
+The resource system defines six public logical roots:
 
 | Mount | Purpose | Writable | Typical Examples |
 |------|---------|----------|------------------|
 | `/Project/` | Project-authored runtime content | No | textures, materials, shaders, scenes, config defaults |
 | `/Engine/` | Engine-shipped built-in content | No | fallback materials, shared defaults, editor/support assets |
+| `/DLC/<Name>/` | First-party DLC content namespace | No | expansion-specific weapons, maps, config defaults |
+| `/Mod/<Name>/` | User-installed mod content namespace | No | mod-local assets and documents |
 | `/Saved/` | User and runtime-generated data | Yes | config overrides, logs, save data |
-| `/Cache/` | Disposable derived data | Yes | shader cache, cooked intermediates, extracted packaged artifacts |
+| `/Cache/` | Disposable derived data | Yes | shader cache, cooked intermediates |
 
-`/Project/` and `/Engine/` are read domains. `/Saved/` and `/Cache/` are write
-domains.
+`/Project/`, `/Engine/`, `/DLC/<Name>/`, and `/Mod/<Name>/` are read domains.
+`/Saved/` and `/Cache/` are write domains. `Patch` is intentionally not a public
+path root: patch paks override existing `/Project/...` and `/Engine/...` logical paths
+transparently.
 
 ### 3.2 Path Categories
 
@@ -155,6 +159,8 @@ physical source extensions:
 ```text
 /Project/Textures/Grassy_Square
 /Engine/Defaults/Materials/ErrorMaterial
+/DLC/Expansion1/Weapons/LaserRifle
+/Mod/CoolMod/Weapons/Hammer
 ```
 
 These resolve through a resource catalog rather than by probing the filesystem.
@@ -170,8 +176,9 @@ filenames and extensions:
 ```
 
 These retain explicit filenames and extensions. In the Project / Engine domains, they
-are represented as document entries in the source/cooked catalog. In the Saved / Cache
-domains, they resolve through writable mounts directly.
+are represented as document entries in the source/cooked catalog. DLC and Mod mounts
+use the same catalog-backed model, but with a required mount-name segment. In the
+Saved / Cache domains, they resolve through writable mounts directly.
 
 ### 3.3 Path Syntax Contract
 
@@ -181,6 +188,7 @@ Logical paths are part of RTRLab's serialized contract and follow strict rules:
 - path segments use forward slashes only
 - repeated `/` segments are normalized
 - `.` and `..` segments are rejected
+- `/DLC/` and `/Mod/` require a non-empty mount name segment immediately after the root
 - public logical paths are case-sensitive on all platforms
 
 The parser accepts no raw OS path syntax. Strings like
@@ -203,20 +211,26 @@ That means:
 
 This rule is enforced centrally by the resource system rather than by each caller.
 
-### 4.2 Unified Project / Engine Read Resolution
+### 4.2 Unified Catalog-Backed Read Resolution
 
-`/Project/...` and `/Engine/...` reads are resolved uniformly through the catalog
-system, regardless of whether the logical path is an extensionless asset path or an
-extension-preserving document path.
+`/Project/...`, `/Engine/...`, `/DLC/<Name>/...`, and `/Mod/<Name>/...` reads are
+resolved uniformly through the catalog system, regardless of whether the logical path
+is an extensionless asset path or an extension-preserving document path.
 
 That means:
 
 - `/Project/Textures/Grassy_Square` resolves through a catalog entry whose selected
-  artifact may be a source file, cooked file, packaged archive entry, or overlay
+  artifact may be a source file, cooked file, packaged archive entry, or higher-priority
+  DLC / Patch / Mod pak
 - `/Project/Config/Graphics.json` also resolves through a catalog entry, but keeps its
   explicit filename and extension
+- `/DLC/Expansion1/Weapons/LaserRifle` resolves through the named DLC pak namespace
+- `/Mod/CoolMod/Weapons/Hammer` resolves through the named mod pak namespace
 - the runtime no longer branches on "has extension" versus "no extension" when deciding
   whether to use the catalog
+
+Patch mounts remain invisible to callers: they override `/Project/...` or `/Engine/...`
+paths directly and do not introduce a `/Patch/...` namespace.
 
 The catalog entry type is decided at **source catalog build time**:
 
@@ -258,7 +272,7 @@ defaults are never modified in place.
 
 ### 4.4 Mount Precedence
 
-Catalog-backed Project / Engine logical paths resolve in two stages:
+Catalog-backed logical paths resolve in two stages:
 
 1. **Catalog lookup**
    Find a `ResourceCatalogEntry` for the requested logical path in the merged global
@@ -273,21 +287,25 @@ The caller never sees whether the chosen artifact came from:
 - a loose source directory
 - a loose cooked directory
 - a packaged `.rtrpak` archive
-- a higher-priority overlay directory
+- a higher-priority DLC / Patch / Mod pak
 
 The public path stays the same.
 
 Readable mounts are merged with explicit precedence. For the current implementation,
 the order is:
 
-1. overlay mounts
-2. packaged mounts
-3. loose cooked mounts
-4. loose source mounts
+1. mod mounts
+2. patch mounts
+3. DLC mounts
+4. packaged mounts
+5. loose cooked mounts
+6. loose source mounts
 
-If an overlay supplies `/Project/Textures/Grassy_Square`, it overrides lower-priority
-project mounts for that logical path. Unrelated project entries still fall back to the
-next available lower layer.
+If a mod pak supplies `/Project/Textures/Grassy_Square`, it overrides lower-priority
+patch, DLC, packaged, cooked, and source mounts for that logical path. Unrelated
+entries still fall back to the next available lower layer. DLC and Mod paks may also
+publish additive content under their own `/DLC/<Name>/...` and `/Mod/<Name>/...`
+namespaces.
 
 ---
 
@@ -548,6 +566,17 @@ At runtime, packaged Project and Engine reads are still resolved as separate log
 domains, but in packaged/shipping profiles they both mount the same shared
 `Game.rtrpak` and filter its merged catalog by domain.
 
+Shipping installs may also provide optional overlay pak directories next to the base
+archive:
+
+- `DLC/*.rtrpak`
+- `Patches/*.rtrpak`
+- `Mods/*.rtrpak`
+
+Patch paks override existing `/Project/...` and `/Engine/...` entries transparently.
+DLC and Mod paks can do that as well, and may additionally expose additive content
+through `/DLC/<Name>/...` and `/Mod/<Name>/...`.
+
 ### 10.4 Current Cooked Texture Format
 
 Cooked textures currently use an engine-private `.rtrtex` format.
@@ -573,14 +602,15 @@ is not yet a fully evolved long-term texture container.
 
 ## 11. Current Implementation Status
 
-As of 2026-04-10, the resource system is no longer a speculative design. It is an
+As of 2026-04-11, the resource system is no longer a speculative design. It is an
 active engine subsystem with the following implemented behavior:
 
 - `src/Core/Resource/` is the home of the module
 - `FileSystem` is the public facade
 - logical path parsing and domain dispatch are implemented
 - read/write domain enforcement is implemented
-- `/Project/`, `/Engine/`, `/Saved/`, and `/Cache/` are active
+- `/Project/`, `/Engine/`, `/DLC/<Name>/`, `/Mod/<Name>/`, `/Saved/`, and `/Cache/`
+  are active
 - config fallback resolution is implemented through serialization-facing helpers
 - logical-path-based file I/O is implemented
 - source catalogs can be generated for inspection or tooling, while dev runtime and cook
@@ -589,13 +619,16 @@ active engine subsystem with the following implemented behavior:
   document entries
 - loose cooked catalogs are generated and consumed
 - packaged `.rtrpak` archives are generated and consumed
-- overlay precedence over packaged/cooked/source mounts is implemented
+- shipping overlay precedence over packaged/cooked/source mounts is implemented through
+  `DLC`, `Patch`, and `Mod` pak priorities
 - mount handling now goes through a backend layer rather than being inlined inside the
   catalog resolver
 - development root discovery uses a repo-root `.rtrproject` marker instead of
   searching for `Project/`
 - shipping builds use the executable directory as the install root via
   `RTRL_SHIPPING`
+- shipping installs scan optional `DLC/`, `Patches/`, and `Mods/` directories for
+  additional pak mounts
 
 The core path and mount architecture is in place, but the system is not "fully done" in
 the sense of having every long-term artifact format, mount policy, and runtime consumer
@@ -650,19 +683,21 @@ Near-term plan:
 - prefer connecting future loaders to `/Project/...` and `/Engine/...` directly rather
   than introducing new physical-path shortcuts
 
-### 12.4 Overlay and packaging policy depth
+### 12.4 Shipping Overlay Policy Depth
 
-The current packaged/overlay model is intentionally small and explicit:
+The current packaged overlay model is intentionally small and explicit:
 
 - packaged content is mounted through `.rtrpak`
-- one loose override layer can sit above packaged/cooked/source mounts
-- precedence is defined, but multi-layer patching and chunk policy are still minimal
+- the base game ships as one `Game.rtrpak`
+- shipping can add `DLC/`, `Patches/`, and `Mods/` pak directories above the base game
+- precedence is defined, but chunk policy and runtime hot-mount behavior are still
+  minimal
 
 Near-term plan:
 
-- keep the current override model as the baseline behavior
+- keep the current shipping mount stack as the baseline behavior
 - defer more complex mod/DLC/chunk policies until there is a concrete consumer need
-- avoid inventing a broader overlay stack before the runtime actually needs one
+- avoid inventing a broader runtime mount manager before the engine actually needs one
 
 ### 12.5 Streaming versus materialized archive entries
 
@@ -721,8 +756,11 @@ Saved/Cache/Cooked/
 Saved/Cache/Packaged/
     ...                         - Packaged `.rtrpak` output
 
-Saved/Overrides/
-    ...                         - Development-time loose overlay root
+<install>/
+    Game.rtrpak                 - Base packaged content
+    DLC/                        - Optional DLC pak directory
+    Patches/                    - Optional patch pak directory
+    Mods/                       - Optional user mod pak directory
 ```
 
 ---

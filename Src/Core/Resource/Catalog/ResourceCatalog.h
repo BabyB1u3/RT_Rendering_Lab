@@ -30,7 +30,9 @@ namespace Resource
         Source = 0,
         Cooked = 100,
         Packaged = 200,
-        Overlay = 300,
+        DLC = 300,
+        Patch = 400,
+        Mod = 500,
     };
 
     struct ArtifactRecord
