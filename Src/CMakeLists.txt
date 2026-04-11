@@ -3,6 +3,7 @@
 # -----------------------------------------------------------------------------
 set(GLAB_APP_SOURCES
     Core/Util/Time.cpp
+    Core/Util/CommandLine.cpp
     Core/App/Application.cpp
     Core/App/Window.cpp
     Core/App/Layer.cpp
@@ -11,6 +12,7 @@ set(GLAB_APP_SOURCES
 
 set(GLAB_APP_HEADERS
     Core/Util/Base.h
+    Core/Util/CommandLine.h
     Core/Util/Time.h
     Core/App/Application.h
     Core/App/Layer.h
