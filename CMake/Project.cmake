@@ -1,17 +1,6 @@
 # -----------------------------------------------------------------------------
-# Project setup
+# Project options
 # -----------------------------------------------------------------------------
-set(GLAB_PROJECT_LANGUAGES C CXX)
-if(APPLE)
-    list(APPEND GLAB_PROJECT_LANGUAGES OBJC OBJCXX)
-endif()
-
-project(RTRLab
-    VERSION 0.1.0
-    DESCRIPTION "A C++ rendering playground"
-    LANGUAGES ${GLAB_PROJECT_LANGUAGES}
-)
-
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)

@@ -1,5 +1,16 @@
 cmake_minimum_required(VERSION 3.20)
 
+set(GLAB_PROJECT_LANGUAGES C CXX)
+if(APPLE)
+    list(APPEND GLAB_PROJECT_LANGUAGES OBJC OBJCXX)
+endif()
+
+project(RTRLab
+    VERSION 0.1.0
+    DESCRIPTION "A C++ rendering playground"
+    LANGUAGES ${GLAB_PROJECT_LANGUAGES}
+)
+
 include(${CMAKE_CURRENT_SOURCE_DIR}/CMake/Project.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/CMake/Helpers.cmake)
 
