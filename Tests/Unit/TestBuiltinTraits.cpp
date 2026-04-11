@@ -142,6 +142,18 @@ TEST(BuiltinTraitsTests, AssetPathRoundTrip)
     EXPECT_EQ(output.String(), "/Project/Textures/Grassy_Square");
 }
 
+TEST(BuiltinTraitsTests, AssetPathTryCreateAcceptsContentPathsWithoutExtensions)
+{
+    EXPECT_TRUE(Resource::AssetPath::TryCreate("/Project/Textures/Grassy_Square").has_value());
+    EXPECT_TRUE(Resource::AssetPath::TryCreate("/Engine/Defaults/Materials/ErrorMaterial").has_value());
+}
+
+TEST(BuiltinTraitsTests, AssetPathTryCreateRejectsConfigDocumentPaths)
+{
+    EXPECT_FALSE(Resource::AssetPath::TryCreate("/Project/Config/Graphics.json").has_value());
+    EXPECT_FALSE(Resource::AssetPath::TryCreate("/Engine/Config/Graphics.json").has_value());
+}
+
 TEST(BuiltinTraitsTests, AssetPathDeserializeRejectsAbsoluteFilesystemPathAndLeavesOutputUnchanged)
 {
     const auto original = Resource::AssetPath::TryCreate("/Project/Textures/Original");
