@@ -46,6 +46,27 @@ namespace
         return catalogPath.domain == requestedPath.domain;
     }
 
+    bool IsCatalogLogicalPathForMount(const Resource::VirtualPath &catalogPath, const Resource::VirtualPath &mountPath)
+    {
+        if (!DomainMatchesMount(catalogPath, mountPath))
+            return false;
+
+        if (catalogPath.mountName.has_value() || catalogPath.relativePath.empty())
+            return false;
+
+        switch (catalogPath.domain)
+        {
+        case Resource::PathDomain::Project:
+        case Resource::PathDomain::Engine:
+            return true;
+        case Resource::PathDomain::Saved:
+        case Resource::PathDomain::Cache:
+            return false;
+        }
+
+        return false;
+    }
+
     std::optional<Resource::ArtifactRecord> ParseArtifactRecord(const Json &artifactJson)
     {
         if (!artifactJson.is_object())
@@ -132,8 +153,7 @@ namespace
 
             const std::string logicalPath = logicalPathIt->get<std::string>();
             const auto parsedLogicalPath = Resource::ParseVirtualPath(logicalPath);
-            if (!parsedLogicalPath.has_value() || !Resource::IsCatalogBackedPath(logicalPath) ||
-                !DomainMatchesMount(*parsedLogicalPath, mountPath))
+            if (!parsedLogicalPath.has_value() || !IsCatalogLogicalPathForMount(*parsedLogicalPath, mountPath))
             {
                 LOG_ERROR_CAT(LogCategory::FileSystem,
                               "Catalog '{}' contains invalid mount-scoped logical path '{}'",

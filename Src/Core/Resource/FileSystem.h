@@ -26,8 +26,6 @@ public:
 
     static bool IsVirtualPath(std::string_view path);
     static std::optional<VirtualPath> ParseVirtualPath(std::string_view path);
-    static bool IsCatalogBackedPath(std::string_view path);
-    static bool IsDocumentPath(std::string_view path);
 
     static std::optional<std::filesystem::path> ResolveReadPath(std::string_view virtualPath);
     static std::optional<std::filesystem::path> ResolveWritePath(std::string_view virtualPath);

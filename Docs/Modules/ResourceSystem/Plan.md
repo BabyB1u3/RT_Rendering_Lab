@@ -119,9 +119,14 @@ state, not content.
   - **Document files** (config, text, JSON) → logical path keeps the extension;
     the entry holds a single artifact with `format="document"`. Artifact selection
     is trivial (single artifact always wins).
-  The classification rule is a **builder-time convention** (e.g. files under
-  `Config/` or with extensions in `{.json, .ini, .txt, .xml, .toml}` are
-  documents), not a runtime branch.
+  The classification rule is a **builder-time convention** based primarily on
+  content role, not merely file extension. Files under `Config/` are documents.
+  Plain-text support files such as `{.ini, .txt, .xml, .toml}` may also be
+  treated as documents where appropriate. Engine / Project content entries under
+  asset-oriented directories such as `Textures/`, `Shaders/`, `Materials/`,
+  `Scenes/`, and `Defaults/` remain assets even when their source representation
+  uses a text format such as `.json`. This classification remains a builder-time
+  rule, not a runtime branch.
 - On `FileSystem::Init`, dev builds catalogs **in memory** for Engine and Project
   source trees and installs them into `CatalogRegistry` alongside any on-disk
   cooked / packaged catalogs that exist.

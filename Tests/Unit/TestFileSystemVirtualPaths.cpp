@@ -28,16 +28,24 @@ TEST(FileSystemVirtualPathTests, ParseRejectsBackslashes)
     EXPECT_FALSE(FileSystem::ParseVirtualPath("/Project\\Textures\\Wood").has_value());
 }
 
-TEST(FileSystemVirtualPathTests, DocumentPathDetectionRequiresExplicitExtension)
+TEST(FileSystemVirtualPathTests, IsVirtualPathAcceptsReadableAndWritableDomains)
 {
-    EXPECT_TRUE(FileSystem::IsDocumentPath("/Saved/Config/imgui.ini"));
-    EXPECT_TRUE(FileSystem::IsDocumentPath("/Project/Config/input/DebugCameraControl.json"));
-    EXPECT_FALSE(FileSystem::IsDocumentPath("/Project/Textures/Grassy_Square"));
+    EXPECT_TRUE(FileSystem::IsVirtualPath("/Project/Config/input/DebugCameraControl.json"));
+    EXPECT_TRUE(FileSystem::IsVirtualPath("/Engine/Defaults/Materials/ErrorMaterial"));
+    EXPECT_TRUE(FileSystem::IsVirtualPath("/Saved/Config/imgui.ini"));
+    EXPECT_TRUE(FileSystem::IsVirtualPath("/Cache/Shaders/bootstrap.bin"));
 }
 
-TEST(FileSystemVirtualPathTests, CatalogBackedDetectionOnlyAppliesToReadDomainsWithoutExtensions)
+TEST(FileSystemVirtualPathTests, ParseRecognizesSavedAndCacheDomains)
 {
-    EXPECT_TRUE(FileSystem::IsCatalogBackedPath("/Project/Textures/Grassy_Square"));
-    EXPECT_FALSE(FileSystem::IsCatalogBackedPath("/Project/Config/input/DebugCameraControl.json"));
-    EXPECT_FALSE(FileSystem::IsCatalogBackedPath("/Saved/Logs/RTRLab.log"));
+    const auto saved = FileSystem::ParseVirtualPath("/Saved/Logs/RTRLab.log");
+    const auto cache = FileSystem::ParseVirtualPath("/Cache/Shaders/bootstrap.bin");
+
+    ASSERT_TRUE(saved.has_value());
+    EXPECT_EQ(saved->domain, FileSystem::PathDomain::Saved);
+    EXPECT_EQ(saved->relativePath, "Logs/RTRLab.log");
+
+    ASSERT_TRUE(cache.has_value());
+    EXPECT_EQ(cache->domain, FileSystem::PathDomain::Cache);
+    EXPECT_EQ(cache->relativePath, "Shaders/bootstrap.bin");
 }

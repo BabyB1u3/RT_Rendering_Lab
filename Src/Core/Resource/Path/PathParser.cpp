@@ -17,19 +17,6 @@ namespace
 
         return joined;
     }
-
-    bool HasDocumentExtension(std::string_view relativePath)
-    {
-        const size_t slashPos = relativePath.find_last_of('/');
-        const std::string_view fileName = slashPos == std::string_view::npos
-                                              ? relativePath
-                                              : relativePath.substr(slashPos + 1);
-        if (fileName.empty())
-            return false;
-
-        const size_t dotPos = fileName.find_last_of('.');
-        return dotPos != std::string_view::npos && dotPos > 0 && dotPos + 1 < fileName.size();
-    }
 } // namespace
 
 namespace Resource
@@ -102,30 +89,5 @@ namespace Resource
         }
 
         return std::nullopt;
-    }
-
-    bool IsCatalogBackedPath(std::string_view path)
-    {
-        const auto virtualPath = ParseVirtualPath(path);
-        if (!virtualPath.has_value())
-            return false;
-
-        switch (virtualPath->domain)
-        {
-        case PathDomain::Project:
-        case PathDomain::Engine:
-            return !virtualPath->relativePath.empty() && !IsDocumentPath(path);
-        case PathDomain::Saved:
-        case PathDomain::Cache:
-            return false;
-        }
-
-        return false;
-    }
-
-    bool IsDocumentPath(std::string_view path)
-    {
-        const auto virtualPath = ParseVirtualPath(path);
-        return virtualPath.has_value() && HasDocumentExtension(virtualPath->relativePath);
     }
 } // namespace Resource

@@ -46,24 +46,16 @@ std::optional<FileSystem::VirtualPath> FileSystem::ParseVirtualPath(std::string_
     return Resource::ParseVirtualPath(path);
 }
 
-bool FileSystem::IsCatalogBackedPath(std::string_view path)
-{
-    return Resource::IsCatalogBackedPath(path);
-}
-
-bool FileSystem::IsDocumentPath(std::string_view path)
-{
-    return Resource::IsDocumentPath(path);
-}
-
 std::optional<std::filesystem::path> FileSystem::ResolveReadPath(std::string_view virtualPathString)
 {
     const auto virtualPath = Resource::ParseVirtualPath(virtualPathString);
     if (!virtualPath.has_value())
         return std::nullopt;
 
-    if (Resource::IsCatalogBackedPath(virtualPathString))
+    switch (virtualPath->domain)
     {
+    case Resource::PathDomain::Project:
+    case Resource::PathDomain::Engine:
         if (const auto resolved = s_CatalogRegistry.ResolvePath(
                 s_RootPath, s_EngineDir, GetCacheDir(), *virtualPath, virtualPathString, kProjectContentDirName))
         {
@@ -71,10 +63,19 @@ std::optional<std::filesystem::path> FileSystem::ResolveReadPath(std::string_vie
         }
 
         return std::nullopt;
+    case Resource::PathDomain::Saved:
+    case Resource::PathDomain::Cache:
+    {
+        const auto writableMount = Resource::ResolveWritableMount(virtualPath->domain, GetSavedDir(), GetCacheDir());
+        if (!writableMount.has_value())
+            return std::nullopt;
+
+        const auto relativePath = Resource::GetPhysicalRelativePath(*virtualPath);
+        return relativePath.empty() ? writableMount->rootPath : writableMount->rootPath / relativePath;
+    }
     }
 
-    return Resource::ResolvePhysicalPath(
-        s_RootPath, s_EngineDir, GetSavedDir(), GetCacheDir(), *virtualPath, kProjectContentDirName);
+    return std::nullopt;
 }
 
 std::optional<std::filesystem::path> FileSystem::ResolveWritePath(std::string_view virtualPathString)

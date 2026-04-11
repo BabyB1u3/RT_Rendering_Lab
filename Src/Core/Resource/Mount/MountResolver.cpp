@@ -67,48 +67,8 @@ namespace Resource
         return writableRoots;
     }
 
-    std::filesystem::path GetDomainBasePath(const std::filesystem::path &rootPath,
-                                            const std::filesystem::path &engineDir,
-                                            const std::filesystem::path &savedDir,
-                                            const std::filesystem::path &cacheDir,
-                                            const VirtualPath &virtualPath,
-                                            std::string_view assetDirName)
-    {
-        switch (virtualPath.domain)
-        {
-        case PathDomain::Project:
-            return rootPath / assetDirName;
-        case PathDomain::Engine:
-            return engineDir;
-        case PathDomain::Saved:
-            return savedDir;
-        case PathDomain::Cache:
-            return cacheDir;
-        }
-
-        return {};
-    }
-
     std::filesystem::path GetPhysicalRelativePath(const VirtualPath &virtualPath)
     {
         return std::filesystem::path(virtualPath.relativePath);
-    }
-
-    std::optional<std::filesystem::path> ResolvePhysicalPath(const std::filesystem::path &rootPath,
-                                                             const std::filesystem::path &engineDir,
-                                                             const std::filesystem::path &savedDir,
-                                                             const std::filesystem::path &cacheDir,
-                                                             const VirtualPath &virtualPath,
-                                                             std::string_view assetDirName)
-    {
-        const auto basePath = GetDomainBasePath(rootPath, engineDir, savedDir, cacheDir, virtualPath, assetDirName);
-        if (basePath.empty())
-            return std::nullopt;
-
-        const auto relativePath = GetPhysicalRelativePath(virtualPath);
-        if (relativePath.empty())
-            return basePath;
-
-        return basePath / relativePath;
     }
 } // namespace Resource

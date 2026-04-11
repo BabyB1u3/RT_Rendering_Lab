@@ -24,9 +24,9 @@ industry context.
       - [2.3 Packaging (rtr\_asset\_pack)](#23-packaging-rtr_asset_pack)
     - [3. Runtime Resolution](#3-runtime-resolution)
       - [3.1 Initialization](#31-initialization)
-      - [3.2 Path Classification](#32-path-classification)
-      - [3.3 Document Path Resolution](#33-document-path-resolution)
-      - [3.4 Catalog-Backed Path Resolution](#34-catalog-backed-path-resolution)
+      - [3.2 Path Parsing and Domain Dispatch](#32-path-parsing-and-domain-dispatch)
+      - [3.3 Unified Project--Engine Read Resolution](#33-unified-project--engine-read-resolution)
+      - [3.4 Writable Domain Resolution](#34-writable-domain-resolution)
       - [3.5 Write Path Resolution](#35-write-path-resolution)
     - [4. Runtime Data Flow Walkthrough](#4-runtime-data-flow-walkthrough)
     - [5. Key Implementation Details](#5-key-implementation-details)
@@ -58,15 +58,15 @@ Offline phase (build time)                Runtime phase
        |                                            |
        v                                            v
 +---------------+                        +----------------------+
-| rtr_asset_    |  decode images->.rtrtex | Is path document     |-> direct physical join
-|   cook        |-> generate cooked cat   | or catalog-backed?   |
+| rtr_asset_    |  decode images->.rtrtex | Which domain?        |
+|   cook        |-> generate cooked cat   | Project/Engine       |
 +---------------+                        +----------+-----------+
-       |                                            | catalog-backed
+       |                                            |
        v                                            v
-+---------------+                        +----------------------+
-| rtr_asset_    |  bundle into .rtrpak   | CatalogRegistry      |-> global table lookup
-|   pack        |-> binary archive       | ::ResolvePath         |   + artifact selection
-+---------------+                        +----------------------+
++---------------+                +----------------------+  +----------------------+
+| rtr_asset_    |  bundle into   | CatalogRegistry      |  | Writable mounts      |
+|   pack        |  .rtrpak       | ::ResolvePath        |  | Saved / Cache roots  |
++---------------+                +----------------------+  +----------------------+
 ```
 
 ---
@@ -86,15 +86,19 @@ per mount.
 1. **Discover mounts**: scan for `Project/` and `Engine/` and collect each existing
    directory as a source mount.
 
-2. **Scan files** (`SourceCatalog.cpp:167-191`): for each mount root, run a
-   `recursive_directory_iterator`. Skip the `.rtr/` metadata directory and any top-level
-   `Config/` subtree (config files are documents, not catalog-backed assets).
+2. **Scan files**: for each mount root, run a `recursive_directory_iterator`. Skip the
+   `.rtr/` metadata directory.
 
-3. **Derive logical paths** (`SourceCatalog.cpp:44-89`):
-   - take each file's relative path, strip the extension
-   - normalize known directory names to canonical casing (`textures` -> `Textures`,
-     `shaders` -> `Shaders`, etc.)
-   - prepend the domain prefix:
+3. **Classify content role and derive logical paths**:
+   - files under `Config/` become **document entries**
+   - plain-text support files such as `.ini`, `.txt`, `.xml`, and `.toml` may also
+     become document entries
+   - asset-oriented directories such as `Textures/`, `Shaders/`, `Materials/`,
+     `Scenes/`, and `Defaults/` remain **asset entries** even when the source file is
+     text-based such as `.json`
+   - document entries keep the logical filename and extension:
+     `Project/Config/Graphics.json` -> `/Project/Config/Graphics.json`
+   - asset entries strip the source extension:
      `Project/Textures/Grassy_Square.jpg` -> `/Project/Textures/Grassy_Square`
 
 4. **Enforce uniqueness**: if two source files generate the same logical path (e.g.
@@ -229,11 +233,11 @@ use platform-specific user data paths:
 - macOS: `~/Library/Application Support/RTRLab/Saved` and `~/Library/Caches/RTRLab`
 - Linux: `$XDG_DATA_HOME/RTRLab/Saved` and `$XDG_CACHE_HOME/RTRLab`
 
-#### 3.2 Path Classification
+#### 3.2 Path Parsing and Domain Dispatch
 
 When `ResolveReadPath("/Project/Textures/Grassy_Square")` is called:
 
-**Step 1: Parse the virtual path** (`PathParser.cpp:66-140`)
+**Step 1: Parse the virtual path**
 - Validate: must start with `/`, must not contain `\`, must not contain `.` or `..`
   segments.
 - Split into segments, collapse consecutive `/`.
@@ -241,35 +245,36 @@ When `ResolveReadPath("/Project/Textures/Grassy_Square")` is called:
 
 Result: `VirtualPath { domain=Project, mountName=nullopt, relativePath="Textures/Grassy_Square" }`
 
-**Step 2: Classify as document or catalog-backed** (`PathParser.cpp:142-167`)
-- `Saved` / `Cache` domain: never catalog-backed.
-- `Project` / `Engine` domain: check whether the relative path has a file extension.
-  - Has extension (e.g. `.json`): document path, resolved via direct physical join.
-  - No extension: catalog-backed, resolved through catalog lookup.
+**Step 2: Dispatch by domain**
+- `Project` / `Engine`: always resolve through `CatalogRegistry::ResolvePath()`
+- `Saved` / `Cache`: resolve through writable mounts directly
 
-This implements the design contract: **extensionless = asset, has extension = document**.
+The runtime no longer branches on "has extension" versus "no extension". Document vs
+asset classification now exists only inside the source catalog builder.
 
-#### 3.3 Document Path Resolution
+#### 3.3 Unified Project / Engine Read Resolution
 
-`FileSystem.cpp:76-78` -> `Resource::ResolvePhysicalPath()`
+`FileSystem.cpp` routes every Project / Engine read through `CatalogRegistry::ResolvePath()`.
 
-Direct domain-to-directory mapping:
+This includes both kinds of logical path:
 
 ```
-/Project/Config/input/Foo.json  ->  {root}/Project/Config/input/Foo.json
-/Engine/Config/Foo.json         ->  {root}/Engine/Config/Foo.json
-/Saved/Config/imgui.ini         ->  {savedDir}/Config/imgui.ini
+/Project/Textures/Grassy_Square  -> catalog entry -> selected artifact
+/Project/Config/Graphics.json    -> document catalog entry -> selected artifact
+/Engine/Defaults/Materials/ErrorMaterial -> asset catalog entry -> selected artifact
 ```
 
-#### 3.4 Catalog-Backed Path Resolution
+The resolution path is the same for both asset and document entries. The difference is
+how the source catalog entry was synthesized:
 
-`FileSystem.cpp:66-73` -> `CatalogRegistry::ResolvePath()`
+- asset entries are extensionless logical paths and may later grow multiple artifacts
+- document entries keep their explicit filename/extension and currently carry a single
+  artifact with `format="document"`
 
-This is the most complex path, involving mount discovery, catalog loading, global table
-merging, and artifact selection.
+Once the entry is in the merged catalog table, runtime resolution does not care which
+builder-time rule produced it.
 
-**Step A: Lazily build the global table** (first call only,
-`ResourceCatalog.cpp:412-445`)
+**Step A: Lazily build the global table** (first call only)
 
 1. Call `DiscoverReadableMountBackends()` to discover all readable mounts. This function
    decides which backends to register based on the current profile:
@@ -297,7 +302,8 @@ merging, and artifact selection.
    - PakArchive backend: extract `.rtr/catalog.json` from inside the `.rtrpak` file.
 
 3. Parse the catalog JSON, validate version (v1 = source, v2 = cooked), and verify that
-   every entry's `logicalPath` belongs to the mount's domain.
+   every entry's `logicalPath` belongs to the mount's domain. Both extensionless asset
+   paths and extension-preserving document paths are valid for Project / Engine mounts.
 
 4. **Merge into global table** (`ResourceCatalog.cpp:334-388`):
    - A higher-priority mount's entry replaces a lower-priority one
@@ -342,6 +348,16 @@ Runtime tag sources:
   `{cacheDir}/PackagedExtracted/{sanitizedKey}/{relativePath}`, and return the extracted
   physical path.
 
+#### 3.4 Writable Domain Resolution
+
+`/Saved/...` and `/Cache/...` reads do not go through the catalog. They resolve by
+joining the parsed relative path onto the selected writable root:
+
+```
+/Saved/Config/imgui.ini  ->  {savedDir}/Config/imgui.ini
+/Cache/Shaders/foo.bin   ->  {cacheDir}/Shaders/foo.bin
+```
+
 #### 3.5 Write Path Resolution
 
 `FileSystem.cpp:80-96`:
@@ -358,7 +374,7 @@ returning the resolved path.
 User calls: FileSystem::ReadBinary("/Project/Textures/Grassy_Square")
   |
   +- ParseVirtualPath -> {Project, "Textures/Grassy_Square"}
-  +- IsCatalogBackedPath -> true (no extension + not Saved/Cache)
+  +- Domain dispatch -> Project => catalog path
   |
   +- CatalogRegistry::ResolvePath
        |
@@ -389,7 +405,8 @@ User calls: FileSystem::ReadBinary("/Project/Textures/Grassy_Square")
 
 | Mechanism | Implementation Location | Key Point |
 |-----------|------------------------|-----------|
-| Extension = document, no extension = asset | `PathParser::HasDocumentExtension` | The sole criterion that routes to document vs catalog resolution |
+| Project / Engine reads are always catalog-backed | `FileSystem::ResolveReadPath` | Runtime dispatch is by domain, not by filename extension |
+| Document vs asset classification is builder-time | `SourceCatalog.cpp` | Source catalog synthesis decides whether a logical path keeps its extension |
 | Overlay overrides everything | `MountPriority::Overlay = 300` | Development-time `Saved/Overrides/` can replace any resource |
 | Equal-priority conflict = removal | `MergeMountEntriesIntoGlobalTable` | No implicit choice; the path becomes unavailable |
 | Catalog is lazily built | `m_GlobalTableBuilt` flag | All mounts are scanned on the first `ResolvePath` call |
