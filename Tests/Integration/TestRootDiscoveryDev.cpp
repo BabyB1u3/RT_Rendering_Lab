@@ -3,6 +3,7 @@
 #include <filesystem>
 
 #include "Core/Resource/Mount/RootDiscovery.h"
+#include "Core/Util/CommandLine.h"
 #include "RootDiscoveryTestSupport.h"
 
 namespace
@@ -22,5 +23,26 @@ TEST_F(RootDiscoveryTests, DiscoverRootPathUsesEnvOverrideWhenProjectMarkerExist
     const auto discoveredRoot = Resource::DiscoverRootPath();
 
     EXPECT_EQ(discoveredRoot, std::filesystem::canonical(repoRoot));
+#endif
+}
+
+TEST_F(RootDiscoveryTests, DiscoverRootPathPrefersCliOverrideOverEnvInDev)
+{
+#ifdef RTRLAB_CONFIG_RELEASE
+    GTEST_SKIP() << "Dev-profile root discovery coverage runs in non-release builds only.";
+#else
+    const auto envRepoRoot = TestRoot() / "EnvRepo";
+    const auto cliRepoRoot = TestRoot() / "CliRepo";
+    test_support::WriteProjectMarkerOrFail(envRepoRoot);
+    test_support::WriteProjectMarkerOrFail(cliRepoRoot);
+
+    Util::ParsedCommandLine commandLine;
+    commandLine.options.emplace("root", std::string(cliRepoRoot.string()));
+    Util::SetProcessCommandLine(commandLine);
+
+    const test_support::ScopedEnvVar rootOverride("RTRL_ROOT", envRepoRoot.string());
+    const auto discoveredRoot = Resource::DiscoverRootPath();
+
+    EXPECT_EQ(discoveredRoot, std::filesystem::canonical(cliRepoRoot));
 #endif
 }

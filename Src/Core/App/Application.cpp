@@ -11,7 +11,7 @@
 #include "Core/Diagnostics/Logging/Logger.h"
 #include "Core/Event/Events.h"
 #include "Core/Input/Input.h"
-#include "Core/Time.h"
+#include "Core/Util/Time.h"
 #include "GUI/ImGuiLayer.h"
 
 Application *Application::s_Instance = nullptr;

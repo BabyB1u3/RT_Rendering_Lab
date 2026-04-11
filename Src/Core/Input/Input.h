@@ -23,7 +23,7 @@
 #include <array>
 #include <utility>
 
-#include "Core/Base.h"
+#include "Core/Util/Base.h"
 #include "Core/Input/Device/InputDevice.h"
 #include "Core/Input/Code/GamepadCode.h"
 #include "Core/Input/Device/KeyboardDevice.h"

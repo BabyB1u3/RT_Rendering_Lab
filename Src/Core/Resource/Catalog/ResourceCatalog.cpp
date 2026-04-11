@@ -2,9 +2,10 @@
 
 #include "Core/Diagnostics/Logging/LogCategories.h"
 #include "Core/Diagnostics/Logging/LogMacros.h"
-#include "Core/Resource/Mount/MountBackend.h"
 #include "Core/Resource/Catalog/SourceCatalog.h"
+#include "Core/Resource/Mount/MountBackend.h"
 #include "Core/Resource/Path/PathParser.h"
+#include "Core/Util/CommandLine.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -307,6 +308,18 @@ namespace
 
     std::string_view GetCurrentProfileTag()
     {
+#ifdef RTRLAB_CONFIG_RELEASE
+        if (Util::ProcessHasOption("dev-mode"))
+        {
+            if (const auto cliOverride = Util::GetProcessOptionValue("resource-profile"); cliOverride.has_value() && !cliOverride->empty())
+                return *cliOverride;
+        }
+
+        return "shipping";
+#else
+        if (const auto cliOverride = Util::GetProcessOptionValue("resource-profile"); cliOverride.has_value() && !cliOverride->empty())
+            return *cliOverride;
+
         if (const char *overrideValue = std::getenv("RTRLAB_RESOURCE_PROFILE"))
         {
             const std::string_view value = overrideValue;
@@ -316,10 +329,9 @@ namespace
 
 #if defined(GLAB_ROOT_DIR)
         return "dev";
-#elif defined(NDEBUG)
-        return "shipping";
 #else
-        return "dev";
+        return "shipping";
+#endif
 #endif
     }
 

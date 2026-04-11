@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 /// @file Base.h
 /// @brief Core type aliases and utility macros used throughout the engine.

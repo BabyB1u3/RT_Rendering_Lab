@@ -44,6 +44,7 @@ set(GLAB_UNIT_TEST_SOURCES
     Unit/TestAssetPath.cpp
     Unit/TestBuiltinTraits.cpp
     Unit/TestCamera.cpp
+    Unit/TestCommandLine.cpp
     Unit/TestCookedCatalog.cpp
     Unit/TestDefaultCameraController.cpp
     Unit/TestEventBus.cpp

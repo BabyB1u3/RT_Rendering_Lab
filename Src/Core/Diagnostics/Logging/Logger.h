@@ -10,7 +10,7 @@
 #include <spdlog/logger.h>
 #include <spdlog/sinks/sink.h>
 
-#include "Core/Base.h"
+#include "Core/Util/Base.h"
 
 namespace Diagnostics
 {

@@ -8,6 +8,7 @@
 #include <string>
 #include <string_view>
 
+#include "Core/Util/CommandLine.h"
 #include "ResourceTestSupport.h"
 
 #ifdef _WIN32
@@ -105,10 +106,12 @@ namespace test_support
         {
             m_TestRoot = CurrentTestRoot("root-discovery");
             ResetCurrentTestRoot("root-discovery");
+            Util::ClearProcessCommandLine();
         }
 
         void TearDown() override
         {
+            Util::ClearProcessCommandLine();
             RemoveCurrentTestArtifacts("root-discovery");
         }
 

@@ -15,7 +15,7 @@
 #include <string>
 
 #include "Core/App/Layer.h"
-#include "Core/Base.h"
+#include "Core/Util/Base.h"
 #include "GUI/Panels/ConsolePanel.h"
 #include "GUI/Panels/DebugPanel.h"
 #include "GUI/Panels/DemoSelectorPanel.h"

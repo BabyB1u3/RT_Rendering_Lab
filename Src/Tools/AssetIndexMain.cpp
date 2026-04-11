@@ -1,51 +1,43 @@
 #include "Core/Resource/Catalog/SourceCatalog.h"
+#include "Core/Util/CommandLine.h"
 
 #include <filesystem>
 #include <iostream>
-#include <string_view>
 
 namespace
 {
     constexpr std::string_view kProjectContentDirName = "Project";
 
-    void PrintUsage()
+    Util::CommandLineSpec BuildCommandLineSpec()
     {
-        std::cout << "Usage: rtr_asset_index [--root <path>]\n";
+        Util::CommandLineSpec spec;
+        spec.AddFlag("help", 'h', "Show command-line help and exit.")
+            .AddValueOption("root", std::nullopt, "path", "Repository root to index.");
+        return spec;
     }
 }
 
 int main(int argc, char **argv)
 {
-    std::filesystem::path rootPath = std::filesystem::current_path();
-
-    for (int i = 1; i < argc; ++i)
+    const auto commandLineSpec = BuildCommandLineSpec();
+    Util::ParsedCommandLine commandLine;
+    std::string errorMessage;
+    if (!Util::ParseCommandLine(argc, argv, commandLineSpec, commandLine, &errorMessage))
     {
-        const std::string_view arg = argv[i];
-        if (arg == "--help" || arg == "-h")
-        {
-            PrintUsage();
-            return 0;
-        }
-
-        if (arg == "--root")
-        {
-            if (i + 1 >= argc)
-            {
-                std::cerr << "Missing value for --root\n";
-                PrintUsage();
-                return 1;
-            }
-
-            rootPath = argv[++i];
-            continue;
-        }
-
-        std::cerr << "Unknown argument: " << arg << "\n";
-        PrintUsage();
+        std::cerr << errorMessage << "\n\n" << commandLineSpec.BuildUsage("rtr_asset_index");
         return 1;
     }
 
-    std::string errorMessage;
+    if (commandLine.HasOption("help"))
+    {
+        std::cout << commandLineSpec.BuildUsage("rtr_asset_index");
+        return 0;
+    }
+
+    std::filesystem::path rootPath = std::filesystem::current_path();
+    if (const auto rootOverride = commandLine.GetOptionValue("root"))
+        rootPath = std::string(*rootOverride);
+
     if (!Resource::IndexRepositorySourceCatalogs(rootPath, kProjectContentDirName, &errorMessage))
     {
         std::cerr << "rtr_asset_index: " << errorMessage << "\n";
