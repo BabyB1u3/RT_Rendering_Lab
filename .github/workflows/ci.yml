@@ -26,21 +26,24 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Set up MSVC developer command prompt
+        uses: ilammy/msvc-dev-cmd@v1
+
       - name: Cache build
         uses: actions/cache@v5
         with:
-          path: build/ci-windows-vs-${{ matrix.profile }}
+          path: build/ci-windows-${{ matrix.profile }}
           key: ci-windows-${{ matrix.profile }}-${{ hashFiles('CMakeLists.txt', 'CMake/**/*.cmake', 'Src/CMakeLists.txt', 'Vendor/CMakeLists.txt', 'Tests/CMakeLists.txt', 'CMakePresets/configure/windows.json', 'CMakePresets/build-presets/windows.json', 'CMakePresets/test/windows.json', 'CMakePresets/test/common.json') }}
           restore-keys: ci-windows-
 
       - name: Configure
-        run: cmake --preset ci-windows-vs-${{ matrix.profile }}
+        run: cmake --preset ci-windows-${{ matrix.profile }}
 
       - name: Build
-        run: cmake --build --preset build-ci-windows-vs-${{ matrix.profile }} --parallel
+        run: cmake --build --preset build-ci-windows-${{ matrix.profile }} --parallel
 
       - name: Test
-        run: ctest --preset test-ci-windows-vs-${{ matrix.profile }}
+        run: ctest --preset test-ci-windows-${{ matrix.profile }}
 
   linux:
     name: Linux GCC (${{ matrix.profile }})
@@ -64,18 +67,18 @@ jobs:
       - name: Cache build
         uses: actions/cache@v5
         with:
-          path: build/ci-linux-ninja-${{ matrix.profile }}
+          path: build/ci-linux-${{ matrix.profile }}
           key: ci-linux-${{ matrix.profile }}-${{ hashFiles('CMakeLists.txt', 'CMake/**/*.cmake', 'Src/CMakeLists.txt', 'Vendor/CMakeLists.txt', 'Tests/CMakeLists.txt', 'CMakePresets/configure/linux.json', 'CMakePresets/build-presets/linux.json', 'CMakePresets/test/linux.json', 'CMakePresets/test/common.json') }}
           restore-keys: ci-linux-
 
       - name: Configure
-        run: cmake --preset ci-linux-ninja-${{ matrix.profile }}
+        run: cmake --preset ci-linux-${{ matrix.profile }}
 
       - name: Build
-        run: cmake --build --preset build-ci-linux-ninja-${{ matrix.profile }} --parallel
+        run: cmake --build --preset build-ci-linux-${{ matrix.profile }} --parallel
 
       - name: Test
-        run: ctest --preset test-ci-linux-ninja-${{ matrix.profile }}
+        run: ctest --preset test-ci-linux-${{ matrix.profile }}
 
   macos:
     name: macOS Clang (${{ matrix.profile }})
@@ -95,15 +98,15 @@ jobs:
       - name: Cache build
         uses: actions/cache@v5
         with:
-          path: build/ci-macos-ninja-${{ matrix.profile }}
+          path: build/ci-macos-${{ matrix.profile }}
           key: ci-macos-${{ matrix.profile }}-${{ hashFiles('CMakeLists.txt', 'CMake/**/*.cmake', 'Src/CMakeLists.txt', 'Vendor/CMakeLists.txt', 'Tests/CMakeLists.txt', 'CMakePresets/configure/macos.json', 'CMakePresets/build-presets/macos.json', 'CMakePresets/test/macos.json', 'CMakePresets/test/common.json') }}
           restore-keys: ci-macos-
 
       - name: Configure
-        run: cmake --preset ci-macos-ninja-${{ matrix.profile }}
+        run: cmake --preset ci-macos-${{ matrix.profile }}
 
       - name: Build
-        run: cmake --build --preset build-ci-macos-ninja-${{ matrix.profile }} --parallel
+        run: cmake --build --preset build-ci-macos-${{ matrix.profile }} --parallel
 
       - name: Test
-        run: ctest --preset test-ci-macos-ninja-${{ matrix.profile }}
+        run: ctest --preset test-ci-macos-${{ matrix.profile }}
