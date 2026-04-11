@@ -155,7 +155,30 @@ namespace
                 return false;
 
             for (auto &entry : mountEntries)
+            {
+                if (!entry.is_object())
+                    continue;
+
+                auto artifactsIt = entry.find("artifacts");
+                if (artifactsIt == entry.end() || !artifactsIt->is_array())
+                    continue;
+
+                for (auto &artifact : *artifactsIt)
+                {
+                    if (!artifact.is_object())
+                        continue;
+
+                    auto relativePathIt = artifact.find("relativePath");
+                    if (relativePathIt == artifact.end() || !relativePathIt->is_string())
+                        continue;
+
+                    const auto archiveRelativePath =
+                        (std::filesystem::path(mountName) / relativePathIt->get<std::string>()).generic_string();
+                    *relativePathIt = archiveRelativePath;
+                }
+
                 mergedEntries.push_back(std::move(entry));
+            }
         }
 
         Json mergedCatalog{

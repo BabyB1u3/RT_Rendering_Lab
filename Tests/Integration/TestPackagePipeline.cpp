@@ -39,12 +39,12 @@ TEST_F(PackagePipelineTests, PackageCookedRepositoryCatalogsWritesMergedGameArch
 
     test_support::WriteTextFileOrFail(
         test_support::ProjectCookedCatalogPath(cookedRoot),
-        "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": []\n}\n");
+        "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": [\n    {\n      \"logicalPath\": \"/Project/Textures/Grassy_Square\",\n      \"artifacts\": [\n        {\n          \"relativePath\": \"Textures/Grassy_Square.rtrtex\",\n          \"format\": \"rtrtex\",\n          \"profileTag\": \"cooked\",\n          \"backendTag\": \"any\",\n          \"platformTag\": \"any\"\n        }\n      ]\n    }\n  ]\n}\n");
     test_support::WriteProjectCookedFileOrFail(cookedRoot, "Textures/Grassy_Square.rtrtex", "project");
 
     test_support::WriteTextFileOrFail(
         test_support::EngineCookedCatalogPath(cookedRoot),
-        "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": []\n}\n");
+        "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": [\n    {\n      \"logicalPath\": \"/Engine/Defaults/Materials/ErrorMaterial\",\n      \"artifacts\": [\n        {\n          \"relativePath\": \"Defaults/Materials/ErrorMaterial.json\",\n          \"format\": \"json\",\n          \"profileTag\": \"cooked\",\n          \"backendTag\": \"any\",\n          \"platformTag\": \"any\"\n        }\n      ]\n    }\n  ]\n}\n");
     test_support::WriteEngineCookedFileOrFail(cookedRoot, "Defaults/Materials/ErrorMaterial.json", "engine");
 
     std::string errorMessage;
@@ -62,4 +62,6 @@ TEST_F(PackagePipelineTests, PackageCookedRepositoryCatalogsWritesMergedGameArch
     const std::string catalogText(catalogBytes->begin(), catalogBytes->end());
     EXPECT_NE(catalogText.find("\"logicalPath\": \"/Project/"), std::string::npos);
     EXPECT_NE(catalogText.find("\"logicalPath\": \"/Engine/"), std::string::npos);
+    EXPECT_NE(catalogText.find("\"relativePath\": \"Project/Textures/Grassy_Square.rtrtex\""), std::string::npos);
+    EXPECT_NE(catalogText.find("\"relativePath\": \"Engine/Defaults/Materials/ErrorMaterial.json\""), std::string::npos);
 }

@@ -41,13 +41,21 @@ TEST_F(MountDiscoveryShippingTests, DiscoverReadableMountBackendsUsesGameArchive
     const auto mounts = Resource::DiscoverReadableMountBackends(
         repoRoot, test_support::EngineRoot(repoRoot), repoRoot / "Saved" / "Cache", "Project", "packaged");
 
-    ASSERT_EQ(mounts.size(), 2u);
+    ASSERT_EQ(mounts.size(), 4u);
     EXPECT_EQ(mounts[0].sourceKey, "Project");
+    EXPECT_EQ(mounts[0].priority, Resource::MountPriority::Packaged);
     EXPECT_EQ(mounts[0].backend, Resource::MountBackendKind::PakArchive);
     EXPECT_EQ(mounts[0].mountRoot, test_support::GamePackagedArchivePath(packagedRoot));
-    EXPECT_EQ(mounts[1].sourceKey, "Engine");
-    EXPECT_EQ(mounts[1].backend, Resource::MountBackendKind::PakArchive);
-    EXPECT_EQ(mounts[1].mountRoot, test_support::GamePackagedArchivePath(packagedRoot));
+    EXPECT_EQ(mounts[1].sourceKey, "Project");
+    EXPECT_EQ(mounts[1].priority, Resource::MountPriority::Cooked);
+    EXPECT_EQ(mounts[1].backend, Resource::MountBackendKind::Directory);
+    EXPECT_EQ(mounts[2].sourceKey, "Engine");
+    EXPECT_EQ(mounts[2].priority, Resource::MountPriority::Packaged);
+    EXPECT_EQ(mounts[2].backend, Resource::MountBackendKind::PakArchive);
+    EXPECT_EQ(mounts[2].mountRoot, test_support::GamePackagedArchivePath(packagedRoot));
+    EXPECT_EQ(mounts[3].sourceKey, "Engine");
+    EXPECT_EQ(mounts[3].priority, Resource::MountPriority::Cooked);
+    EXPECT_EQ(mounts[3].backend, Resource::MountBackendKind::Directory);
 }
 
 TEST_F(MountDiscoveryShippingTests, CatalogRegistryResolvesProjectAndEngineEntriesFromSharedGameArchive)
@@ -71,6 +79,10 @@ TEST_F(MountDiscoveryShippingTests, CatalogRegistryResolvesProjectAndEngineEntri
     EXPECT_EQ(projectResolved->backend, Resource::MountBackendKind::PakArchive);
     EXPECT_EQ(projectResolved->mountRoot, test_support::GamePackagedArchivePath(packagedRoot));
     EXPECT_EQ(projectResolved->relativePath, std::filesystem::path("Project/Textures/Grassy_Square.rtrtex"));
+    std::string errorMessage;
+    const auto projectBytes = Resource::ReadReadableArtifactBinary(*projectResolved, &errorMessage);
+    ASSERT_TRUE(projectBytes.has_value()) << errorMessage;
+    EXPECT_EQ(std::string(projectBytes->begin(), projectBytes->end()), "project");
 
     const auto engineVirtualPath = Resource::VirtualPath{Resource::PathDomain::Engine, std::nullopt, "Defaults/Materials/ErrorMaterial"};
     const auto engineResolved = registry.ResolveArtifact(
@@ -84,4 +96,7 @@ TEST_F(MountDiscoveryShippingTests, CatalogRegistryResolvesProjectAndEngineEntri
     EXPECT_EQ(engineResolved->backend, Resource::MountBackendKind::PakArchive);
     EXPECT_EQ(engineResolved->mountRoot, test_support::GamePackagedArchivePath(packagedRoot));
     EXPECT_EQ(engineResolved->relativePath, std::filesystem::path("Engine/Defaults/Materials/ErrorMaterial.json"));
+    const auto engineText = Resource::ReadReadableArtifactText(*engineResolved, &errorMessage);
+    ASSERT_TRUE(engineText.has_value()) << errorMessage;
+    EXPECT_EQ(*engineText, "engine");
 }
