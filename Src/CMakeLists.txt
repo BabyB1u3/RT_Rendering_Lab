@@ -398,7 +398,6 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES
 # -----------------------------------------------------------------------------
 # Tools
 # -----------------------------------------------------------------------------
-glab_add_tool_target(rtr_asset_index Tools/AssetIndexMain.cpp)
 glab_add_tool_target(rtr_asset_cook Tools/AssetCookMain.cpp)
 glab_add_tool_target(rtr_asset_pack Tools/AssetPackMain.cpp)
 
@@ -406,7 +405,6 @@ glab_add_tool_target(rtr_asset_pack Tools/AssetPackMain.cpp)
 # Install rules
 # -----------------------------------------------------------------------------
 install(TARGETS RTRLab RUNTIME DESTINATION .)
-install(TARGETS rtr_asset_index RUNTIME DESTINATION tools)
 install(TARGETS rtr_asset_cook RUNTIME DESTINATION tools)
 install(TARGETS rtr_asset_pack RUNTIME DESTINATION tools)
 

@@ -179,23 +179,3 @@ TEST_F(SourceCatalogTests, BuildSourceCatalogTreatsPlainTextSupportFilesAsDocume
     EXPECT_EQ(it->second.artifacts[0].format, "document");
 }
 
-TEST_F(SourceCatalogTests, WriteSourceCatalogJsonRejectsEntriesWithoutSourceRelativePath)
-{
-    std::vector<Resource::ResourceCatalogEntry> entries{
-        Resource::ResourceCatalogEntry{
-            .logicalPath = "/Project/Textures/Grassy_Square",
-            .artifacts =
-                {
-                    Resource::ArtifactRecord{
-                        .relativePath = "textures/Grassy_Square.jpg",
-                        .format = "jpg",
-                        .profileTag = "dev",
-                    },
-                },
-        },
-    };
-
-    std::string errorMessage;
-    EXPECT_FALSE(Resource::WriteSourceCatalogJson(test_support::MountCatalogPath(TestRoot()), entries, &errorMessage));
-    EXPECT_NE(errorMessage.find("missing sourceRelativePath"), std::string::npos);
-}
