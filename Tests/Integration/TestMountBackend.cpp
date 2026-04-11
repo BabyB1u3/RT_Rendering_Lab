@@ -93,6 +93,11 @@ TEST_F(MountBackendTests, ResolveReadableMountArtifactMaterializesPakArchiveEntr
     const std::string contents(bytes->begin(), bytes->end());
     EXPECT_NE(contents.find("\"pak\""), std::string::npos);
 
+    const auto stream = Resource::OpenReadableArtifactStream(*resolved, &errorMessage);
+    ASSERT_NE(stream, nullptr) << errorMessage;
+    const std::string streamedContents((std::istreambuf_iterator<char>(*stream)), std::istreambuf_iterator<char>());
+    EXPECT_EQ(streamedContents, contents);
+
     const auto materializedPath = Resource::MaterializeReadableArtifact(*resolved, &errorMessage);
     ASSERT_TRUE(materializedPath.has_value()) << errorMessage;
     EXPECT_EQ(*materializedPath, materializedRoot / "Materials" / "Checker.json");
@@ -127,6 +132,11 @@ TEST_F(MountBackendTests, ResolveReadableMountArtifactReturnsDirectoryBackedDesc
     const auto text = Resource::ReadReadableArtifactText(*resolved, &errorMessage);
     ASSERT_TRUE(text.has_value()) << errorMessage;
     EXPECT_EQ(*text, "hello");
+
+    const auto stream = Resource::OpenReadableArtifactStream(*resolved, &errorMessage);
+    ASSERT_NE(stream, nullptr) << errorMessage;
+    const std::string streamedContents((std::istreambuf_iterator<char>(*stream)), std::istreambuf_iterator<char>());
+    EXPECT_EQ(streamedContents, "hello");
 
     const auto physicalPath = Resource::MaterializeReadableArtifact(*resolved, &errorMessage);
     ASSERT_TRUE(physicalPath.has_value()) << errorMessage;

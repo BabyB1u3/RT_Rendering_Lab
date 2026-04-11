@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iterator>
+#include <sstream>
 
 namespace
 {
@@ -391,6 +392,39 @@ namespace Resource
         }
 
         return std::nullopt;
+    }
+
+    std::unique_ptr<std::istream> OpenReadableArtifactStream(const ResolvedReadableArtifact &artifact,
+                                                             std::string *errorMessage)
+    {
+        switch (artifact.backend)
+        {
+        case MountBackendKind::Directory:
+        {
+            auto stream = std::make_unique<std::ifstream>(artifact.mountRoot / artifact.relativePath, std::ios::binary);
+            if (!stream->is_open())
+            {
+                if (errorMessage != nullptr)
+                    *errorMessage = "failed to open readable artifact stream: " + (artifact.mountRoot / artifact.relativePath).string();
+                return nullptr;
+            }
+
+            return stream;
+        }
+        case MountBackendKind::PakArchive:
+        {
+            const auto bytes = ReadPakEntry(artifact.mountRoot, artifact.relativePath, errorMessage);
+            if (!bytes.has_value())
+                return nullptr;
+
+            auto stream = std::make_unique<std::istringstream>(
+                std::string(reinterpret_cast<const char *>(bytes->data()), bytes->size()),
+                std::ios::in | std::ios::binary);
+            return stream;
+        }
+        }
+
+        return nullptr;
     }
 
     std::optional<WritableMount> ResolveWritableMount(PathDomain domain,

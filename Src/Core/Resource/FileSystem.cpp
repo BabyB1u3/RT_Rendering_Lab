@@ -117,6 +117,17 @@ std::optional<std::filesystem::path> FileSystem::ResolveWritePath(std::string_vi
 
 bool FileSystem::Exists(std::string_view virtualPath)
 {
+    if (const auto artifact = ResolveCatalogArtifact(virtualPath))
+    {
+        switch (artifact->backend)
+        {
+        case Resource::MountBackendKind::Directory:
+            return std::filesystem::exists(artifact->mountRoot / artifact->relativePath);
+        case Resource::MountBackendKind::PakArchive:
+            return true;
+        }
+    }
+
     const auto resolved = ResolveReadPath(virtualPath);
     return resolved.has_value() && std::filesystem::exists(*resolved);
 }
