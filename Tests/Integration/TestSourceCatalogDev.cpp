@@ -50,6 +50,27 @@ TEST_F(SourceCatalogDevTests, CatalogRegistryBuildsProjectSourceCatalogInMemoryD
     EXPECT_EQ(*resolved, test_support::ProjectContentRoot(repoRoot) / "Textures" / "Grassy_Square.jpg");
 }
 
+TEST_F(SourceCatalogDevTests, CatalogRegistryCanReturnReadableArtifactDescriptorWithoutMaterializedPath)
+{
+    const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
+    test_support::WriteProjectFileOrFail(repoRoot, "Textures/Grassy_Square.jpg", "jpg");
+
+    Resource::CatalogRegistry registry;
+    const auto virtualPath = Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, "Textures/Grassy_Square"};
+    const auto resolved = registry.ResolveArtifact(
+        repoRoot,
+        test_support::EngineRoot(repoRoot),
+        repoRoot / "Saved" / "Cache",
+        virtualPath,
+        "/Project/Textures/Grassy_Square",
+        "Project");
+
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_EQ(resolved->backend, Resource::MountBackendKind::Directory);
+    EXPECT_EQ(resolved->mountRoot, test_support::ProjectContentRoot(repoRoot));
+    EXPECT_EQ(resolved->relativePath, std::filesystem::path("Textures/Grassy_Square.jpg"));
+}
+
 TEST_F(SourceCatalogDevTests, CatalogRegistryBuildsProjectConfigDocumentEntriesInMemoryDuringDevResolution)
 {
     const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());

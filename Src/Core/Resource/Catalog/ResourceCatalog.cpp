@@ -426,12 +426,12 @@ namespace Resource
         m_ConflictedLogicalPaths.clear();
     }
 
-    std::optional<std::filesystem::path> CatalogRegistry::ResolvePath(const std::filesystem::path &rootPath,
-                                                                      const std::filesystem::path &engineDir,
-                                                                      const std::filesystem::path &cacheDir,
-                                                                      const VirtualPath &virtualPath,
-                                                                      std::string_view logicalPath,
-                                                                      std::string_view projectContentDirName)
+    std::optional<ResolvedReadableArtifact> CatalogRegistry::ResolveArtifact(const std::filesystem::path &rootPath,
+                                                                             const std::filesystem::path &engineDir,
+                                                                             const std::filesystem::path &cacheDir,
+                                                                             const VirtualPath &virtualPath,
+                                                                             std::string_view logicalPath,
+                                                                             std::string_view projectContentDirName)
     {
         const auto mountRoot = GetMountRoot(rootPath, engineDir, virtualPath, projectContentDirName);
         if (mountRoot.empty())
@@ -528,5 +528,30 @@ namespace Resource
         }
 
         return resolvedArtifact;
+    }
+
+    std::optional<std::filesystem::path> CatalogRegistry::ResolvePath(const std::filesystem::path &rootPath,
+                                                                      const std::filesystem::path &engineDir,
+                                                                      const std::filesystem::path &cacheDir,
+                                                                      const VirtualPath &virtualPath,
+                                                                      std::string_view logicalPath,
+                                                                      std::string_view projectContentDirName)
+    {
+        const auto artifact = ResolveArtifact(rootPath, engineDir, cacheDir, virtualPath, logicalPath, projectContentDirName);
+        if (!artifact.has_value())
+            return std::nullopt;
+
+        std::string errorMessage;
+        const auto path = MaterializeReadableArtifact(*artifact, &errorMessage);
+        if (!path.has_value() && !errorMessage.empty())
+        {
+            LOG_ERROR_CAT(LogCategory::FileSystem,
+                          "Failed to materialize resolved artifact '{}' from mount '{}': {}",
+                          artifact->relativePath.generic_string(),
+                          artifact->mountRoot.string(),
+                          errorMessage);
+        }
+
+        return path;
     }
 } // namespace Resource

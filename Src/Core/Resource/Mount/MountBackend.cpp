@@ -1,5 +1,6 @@
 #include "Core/Resource/Mount/MountBackend.h"
 
+#include "Core/Resource/IO/PhysicalIO.h"
 #include "Core/Resource/Package/PakArchive.h"
 #include "Core/Resource/Path/PathParser.h"
 
@@ -307,16 +308,86 @@ namespace Resource
         return false;
     }
 
-    std::optional<std::filesystem::path> ResolveReadableMountArtifact(const ReadableMount &mount,
-                                                                      const ArtifactRecord &artifact,
-                                                                      std::string *errorMessage)
+    std::optional<ResolvedReadableArtifact> ResolveReadableMountArtifact(const ReadableMount &mount,
+                                                                         const ArtifactRecord &artifact,
+                                                                         std::string *errorMessage)
     {
+        (void)errorMessage;
+
         switch (mount.backend)
         {
         case MountBackendKind::Directory:
-            return mount.mountRoot / artifact.relativePath;
+            return ResolvedReadableArtifact{
+                .backend = mount.backend,
+                .mountRoot = mount.mountRoot,
+                .relativePath = artifact.relativePath,
+                .materializedRoot = {},
+            };
         case MountBackendKind::PakArchive:
-            return MaterializePakEntry(mount.mountRoot, artifact.relativePath, mount.materializedRoot, errorMessage);
+            return ResolvedReadableArtifact{
+                .backend = mount.backend,
+                .mountRoot = mount.mountRoot,
+                .relativePath = artifact.relativePath,
+                .materializedRoot = mount.materializedRoot,
+            };
+        }
+
+        return std::nullopt;
+    }
+
+    std::optional<std::filesystem::path> MaterializeReadableArtifact(const ResolvedReadableArtifact &artifact,
+                                                                     std::string *errorMessage)
+    {
+        switch (artifact.backend)
+        {
+        case MountBackendKind::Directory:
+            return artifact.mountRoot / artifact.relativePath;
+        case MountBackendKind::PakArchive:
+            return MaterializePakEntry(artifact.mountRoot, artifact.relativePath, artifact.materializedRoot, errorMessage);
+        }
+
+        return std::nullopt;
+    }
+
+    std::optional<std::string> ReadReadableArtifactText(const ResolvedReadableArtifact &artifact,
+                                                        std::string *errorMessage)
+    {
+        switch (artifact.backend)
+        {
+        case MountBackendKind::Directory:
+        {
+            const auto text = ReadTextFile(artifact.mountRoot / artifact.relativePath);
+            if (!text.has_value() && errorMessage != nullptr)
+                *errorMessage = "failed to read text file: " + (artifact.mountRoot / artifact.relativePath).string();
+            return text;
+        }
+        case MountBackendKind::PakArchive:
+        {
+            const auto bytes = ReadPakEntry(artifact.mountRoot, artifact.relativePath, errorMessage);
+            if (!bytes.has_value())
+                return std::nullopt;
+
+            return std::string(bytes->begin(), bytes->end());
+        }
+        }
+
+        return std::nullopt;
+    }
+
+    std::optional<std::vector<uint8_t>> ReadReadableArtifactBinary(const ResolvedReadableArtifact &artifact,
+                                                                   std::string *errorMessage)
+    {
+        switch (artifact.backend)
+        {
+        case MountBackendKind::Directory:
+        {
+            const auto bytes = ReadBinaryFile(artifact.mountRoot / artifact.relativePath);
+            if (!bytes.has_value() && errorMessage != nullptr)
+                *errorMessage = "failed to read binary file: " + (artifact.mountRoot / artifact.relativePath).string();
+            return bytes;
+        }
+        case MountBackendKind::PakArchive:
+            return ReadPakEntry(artifact.mountRoot, artifact.relativePath, errorMessage);
         }
 
         return std::nullopt;

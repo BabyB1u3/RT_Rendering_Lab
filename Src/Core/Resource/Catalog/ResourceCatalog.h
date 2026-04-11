@@ -50,6 +50,14 @@ namespace Resource
         std::vector<ArtifactRecord> artifacts;
     };
 
+    struct ResolvedReadableArtifact
+    {
+        MountBackendKind backend = MountBackendKind::Directory;
+        std::filesystem::path mountRoot;
+        std::filesystem::path relativePath;
+        std::filesystem::path materializedRoot;
+    };
+
     class CatalogRegistry
     {
     public:
@@ -74,6 +82,13 @@ namespace Resource
         };
 
         void Reset();
+
+        std::optional<ResolvedReadableArtifact> ResolveArtifact(const std::filesystem::path &rootPath,
+                                                                const std::filesystem::path &engineDir,
+                                                                const std::filesystem::path &cacheDir,
+                                                                const VirtualPath &virtualPath,
+                                                                std::string_view logicalPath,
+                                                                std::string_view projectContentDirName);
 
         std::optional<std::filesystem::path> ResolvePath(const std::filesystem::path &rootPath,
                                                          const std::filesystem::path &engineDir,

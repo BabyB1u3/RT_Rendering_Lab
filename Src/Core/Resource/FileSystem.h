@@ -49,5 +49,6 @@ private:
     static bool s_Initialized;
     static bool s_WritableDirsResolved;
 
+    static std::optional<Resource::ResolvedReadableArtifact> ResolveCatalogArtifact(std::string_view virtualPath);
     static void ResolveWritableDirs();
 };

@@ -46,6 +46,26 @@ std::optional<FileSystem::VirtualPath> FileSystem::ParseVirtualPath(std::string_
     return Resource::ParseVirtualPath(path);
 }
 
+std::optional<Resource::ResolvedReadableArtifact> FileSystem::ResolveCatalogArtifact(std::string_view virtualPathString)
+{
+    const auto virtualPath = Resource::ParseVirtualPath(virtualPathString);
+    if (!virtualPath.has_value())
+        return std::nullopt;
+
+    switch (virtualPath->domain)
+    {
+    case Resource::PathDomain::Project:
+    case Resource::PathDomain::Engine:
+        return s_CatalogRegistry.ResolveArtifact(
+            s_RootPath, s_EngineDir, GetCacheDir(), *virtualPath, virtualPathString, kProjectContentDirName);
+    case Resource::PathDomain::Saved:
+    case Resource::PathDomain::Cache:
+        return std::nullopt;
+    }
+
+    return std::nullopt;
+}
+
 std::optional<std::filesystem::path> FileSystem::ResolveReadPath(std::string_view virtualPathString)
 {
     const auto virtualPath = Resource::ParseVirtualPath(virtualPathString);
@@ -56,10 +76,9 @@ std::optional<std::filesystem::path> FileSystem::ResolveReadPath(std::string_vie
     {
     case Resource::PathDomain::Project:
     case Resource::PathDomain::Engine:
-        if (const auto resolved = s_CatalogRegistry.ResolvePath(
-                s_RootPath, s_EngineDir, GetCacheDir(), *virtualPath, virtualPathString, kProjectContentDirName))
+        if (const auto artifact = ResolveCatalogArtifact(virtualPathString))
         {
-            return resolved;
+            return Resource::MaterializeReadableArtifact(*artifact);
         }
 
         return std::nullopt;
@@ -104,6 +123,9 @@ bool FileSystem::Exists(std::string_view virtualPath)
 
 std::optional<std::string> FileSystem::ReadText(std::string_view virtualPath)
 {
+    if (const auto artifact = ResolveCatalogArtifact(virtualPath))
+        return Resource::ReadReadableArtifactText(*artifact);
+
     const auto resolved = ResolveReadPath(virtualPath);
     if (!resolved.has_value())
         return std::nullopt;
@@ -113,6 +135,9 @@ std::optional<std::string> FileSystem::ReadText(std::string_view virtualPath)
 
 std::optional<std::vector<uint8_t>> FileSystem::ReadBinary(std::string_view virtualPath)
 {
+    if (const auto artifact = ResolveCatalogArtifact(virtualPath))
+        return Resource::ReadReadableArtifactBinary(*artifact);
+
     const auto resolved = ResolveReadPath(virtualPath);
     if (!resolved.has_value())
         return std::nullopt;
