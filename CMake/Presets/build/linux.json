@@ -1,0 +1,46 @@
+{
+  "version": 6,
+  "include": [
+    "../configure/linux.json"
+  ],
+  "buildPresets": [
+    {
+      "name": "build-linux-debug",
+      "configurePreset": "linux-debug"
+    },
+    {
+      "name": "build-linux-relwithdebinfo",
+      "configurePreset": "linux-relwithdebinfo"
+    },
+    {
+      "name": "build-linux-release",
+      "configurePreset": "linux-release"
+    },
+    {
+      "name": "build-linux-release-package-content",
+      "configurePreset": "linux-release",
+      "targets": [
+        "rtrlab_package_content"
+      ]
+    },
+    {
+      "name": "build-linux-release-stage-runtime",
+      "configurePreset": "linux-release",
+      "targets": [
+        "rtrlab_stage_runtime"
+      ]
+    },
+    {
+      "name": "build-linux-release-with-tests",
+      "configurePreset": "linux-release-with-tests"
+    },
+    {
+      "name": "build-ci-linux-debug",
+      "configurePreset": "ci-linux-debug"
+    },
+    {
+      "name": "build-ci-linux-release",
+      "configurePreset": "ci-linux-release"
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 ﻿# Build output
-build
-install
-out
+/build/
+/install/
+/out/
 
 # IDE
 .vs

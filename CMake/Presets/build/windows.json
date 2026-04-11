@@ -1,0 +1,46 @@
+{
+  "version": 6,
+  "include": [
+    "../configure/windows.json"
+  ],
+  "buildPresets": [
+    {
+      "name": "build-windows-debug",
+      "configurePreset": "windows-debug"
+    },
+    {
+      "name": "build-windows-relwithdebinfo",
+      "configurePreset": "windows-relwithdebinfo"
+    },
+    {
+      "name": "build-windows-release",
+      "configurePreset": "windows-release"
+    },
+    {
+      "name": "build-windows-release-with-tests",
+      "configurePreset": "windows-release-with-tests"
+    },
+    {
+      "name": "build-windows-release-package-content",
+      "configurePreset": "windows-release",
+      "targets": [
+        "rtrlab_package_content"
+      ]
+    },
+    {
+      "name": "build-windows-release-stage-runtime",
+      "configurePreset": "windows-release",
+      "targets": [
+        "rtrlab_stage_runtime"
+      ]
+    },
+    {
+      "name": "build-ci-windows-debug",
+      "configurePreset": "ci-windows-debug"
+    },
+    {
+      "name": "build-ci-windows-release",
+      "configurePreset": "ci-windows-release"
+    }
+  ]
+}

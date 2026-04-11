@@ -1,0 +1,46 @@
+{
+  "version": 6,
+  "include": [
+    "../configure/macos.json"
+  ],
+  "buildPresets": [
+    {
+      "name": "build-macos-debug",
+      "configurePreset": "macos-debug"
+    },
+    {
+      "name": "build-macos-relwithdebinfo",
+      "configurePreset": "macos-relwithdebinfo"
+    },
+    {
+      "name": "build-macos-release",
+      "configurePreset": "macos-release"
+    },
+    {
+      "name": "build-macos-release-package-content",
+      "configurePreset": "macos-release",
+      "targets": [
+        "rtrlab_package_content"
+      ]
+    },
+    {
+      "name": "build-macos-release-stage-runtime",
+      "configurePreset": "macos-release",
+      "targets": [
+        "rtrlab_stage_runtime"
+      ]
+    },
+    {
+      "name": "build-macos-release-with-tests",
+      "configurePreset": "macos-release-with-tests"
+    },
+    {
+      "name": "build-ci-macos-debug",
+      "configurePreset": "ci-macos-debug"
+    },
+    {
+      "name": "build-ci-macos-release",
+      "configurePreset": "ci-macos-release"
+    }
+  ]
+}
