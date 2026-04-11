@@ -177,8 +177,8 @@ Offset  Size  Field
 - Entry: `src/Tools/AssetPackMain.cpp` -> `Resource::PackageCookedRepositoryCatalogs()`
 - Implementation: `src/Core/Resource/Package/PakArchive.cpp`
 
-**What it does**: bundles all files under each cooked mount (including its catalog) into a
-single `.rtrpak` binary archive.
+**What it does**: merges cooked `Project/` and `Engine/` content into a single
+`Game.rtrpak`, including one merged cooked catalog at `.rtr/catalog.json`.
 
 **`.rtrpak` binary layout** (`PakArchive.cpp:14-21`):
 
@@ -196,7 +196,7 @@ single `.rtrpak` binary archive.
 +------------------------+
 ```
 
-**Output**: `Saved/Cache/Packaged/Project.rtrpak`, `Engine.rtrpak`.
+**Output**: `Saved/Cache/Packaged/Game.rtrpak`.
 
 ---
 
@@ -301,9 +301,11 @@ builder-time rule produced it.
    - Other directory backends: read `{mountRoot}/.rtr/catalog.json` from disk.
    - PakArchive backend: extract `.rtr/catalog.json` from inside the `.rtrpak` file.
 
-3. Parse the catalog JSON, validate version (v1 = source, v2 = cooked), and verify that
-   every entry's `logicalPath` belongs to the mount's domain. Both extensionless asset
-   paths and extension-preserving document paths are valid for Project / Engine mounts.
+3. Parse the catalog JSON, validate version (v1 = source, v2 = cooked), and filter the
+   merged entry set by mount domain. In packaged mode, both the Project and Engine
+   mounts may read from the same shared `Game.rtrpak` catalog, but each mount only
+   keeps entries for its own logical domain. Both extensionless asset paths and
+   extension-preserving document paths are valid for Project / Engine mounts.
 
 4. **Merge into global table** (`ResourceCatalog.cpp:334-388`):
    - A higher-priority mount's entry replaces a lower-priority one
@@ -384,7 +386,8 @@ User calls: FileSystem::ReadBinary("/Project/Textures/Grassy_Square")
        +- [first call] DiscoverReadableMountBackends
        |    +- Project/ exists           -> register Source:Project    (priority=0)
        |    +- Cooked/Project/ has cat   -> register Cooked:Project   (priority=100)
-       |    +- Packaged/Project.rtrpak   -> register Packaged:Project (priority=200)
+       |    +- Game.rtrpak               -> register Packaged:Project (priority=200)
+       |    +- Game.rtrpak               -> register Packaged:Engine  (priority=200)
        |    +- Overrides/Project/ has cat-> register Overlay:Project  (priority=300)
        |
        +- [first call] Load catalog for each mount -> parse JSON -> merge into global table

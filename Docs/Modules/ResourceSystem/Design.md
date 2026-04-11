@@ -539,11 +539,14 @@ Runtime can also be pointed at an explicit packaged root through `RTRLAB_PACKAGE
 
 The current packaged convention is:
 
-- `Project.rtrpak`
-- `Engine.rtrpak`
+- `Game.rtrpak`
 
-Each archive contains the cooked catalog for that mount plus the cooked artifacts it
-references.
+The archive contains a merged cooked catalog plus both `Project/...` and `Engine/...`
+payloads under a single pak.
+
+At runtime, packaged Project and Engine reads are still resolved as separate logical
+domains, but in packaged/shipping profiles they both mount the same shared
+`Game.rtrpak` and filter its merged catalog by domain.
 
 ### 10.4 Current Cooked Texture Format
 
