@@ -9,6 +9,8 @@
 #include "Core/Resource/Mount/RootDiscovery.h"
 #include "Core/Resource/Path/PathParser.h"
 
+#include <fstream>
+
 std::filesystem::path FileSystem::s_RootPath;
 std::filesystem::path FileSystem::s_EngineDir;
 std::filesystem::path FileSystem::s_SavedDir;
@@ -154,6 +156,22 @@ std::optional<std::vector<uint8_t>> FileSystem::ReadBinary(std::string_view virt
         return std::nullopt;
 
     return Resource::ReadBinaryFile(*resolved);
+}
+
+std::unique_ptr<std::istream> FileSystem::OpenReadStream(std::string_view virtualPath)
+{
+    if (const auto artifact = ResolveCatalogArtifact(virtualPath))
+        return Resource::OpenReadableArtifactStream(*artifact);
+
+    const auto resolved = ResolveReadPath(virtualPath);
+    if (!resolved.has_value())
+        return nullptr;
+
+    auto fileStream = std::make_unique<std::ifstream>(*resolved, std::ios::binary);
+    if (!fileStream->is_open())
+        return nullptr;
+
+    return std::unique_ptr<std::istream>(std::move(fileStream));
 }
 
 bool FileSystem::WriteText(std::string_view virtualPath, std::string_view data)

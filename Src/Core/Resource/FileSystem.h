@@ -9,6 +9,8 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <istream>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -32,6 +34,7 @@ public:
     static bool Exists(std::string_view virtualPath);
     static std::optional<std::string> ReadText(std::string_view virtualPath);
     static std::optional<std::vector<uint8_t>> ReadBinary(std::string_view virtualPath);
+    static std::unique_ptr<std::istream> OpenReadStream(std::string_view virtualPath);
     static bool WriteText(std::string_view virtualPath, std::string_view data);
     static bool WriteBinary(std::string_view virtualPath, std::span<const uint8_t> data);
 
