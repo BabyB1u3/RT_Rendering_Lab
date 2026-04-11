@@ -2,7 +2,7 @@
 # Source inventory
 # -----------------------------------------------------------------------------
 set(GLAB_APP_SOURCES
-    Core/Time.cpp
+    Core/Util/Time.cpp
     Core/App/Application.cpp
     Core/App/Window.cpp
     Core/App/Layer.cpp
@@ -10,8 +10,8 @@ set(GLAB_APP_SOURCES
 )
 
 set(GLAB_APP_HEADERS
-    Core/Base.h
-    Core/Time.h
+    Core/Util/Base.h
+    Core/Util/Time.h
     Core/App/Application.h
     Core/App/Layer.h
     Core/App/LayerStack.h
