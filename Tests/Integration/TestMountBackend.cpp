@@ -56,7 +56,7 @@ TEST_F(MountBackendTests, ResolveReadableMountArtifactReturnsPakBackedDescriptor
 {
     const auto sourceRoot = TestRoot() / "pak-source";
     const auto packagedRoot = TestRoot() / "out";
-    const auto pakPath = test_support::ProjectPackagedArchivePath(packagedRoot);
+    const auto pakPath = test_support::GamePackagedArchivePath(packagedRoot);
 
     test_support::WriteTextFileOrFail(test_support::MountCatalogPath(sourceRoot), "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": []\n}\n");
     test_support::WriteMountFileOrFail(sourceRoot, "Materials/Checker.json", "{\n  \"name\": \"pak\"\n}\n");

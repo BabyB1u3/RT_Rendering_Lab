@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -10,9 +11,46 @@
 
 namespace test_support
 {
+    inline uint64_t StableComponentHash(std::string_view text)
+    {
+        uint64_t hash = 14695981039346656037ull;
+        for (const unsigned char ch : std::string(text))
+        {
+            hash ^= ch;
+            hash *= 1099511628211ull;
+        }
+
+        return hash;
+    }
+
+    inline std::string Hex64(uint64_t value)
+    {
+        static constexpr char kHexDigits[] = "0123456789abcdef";
+        std::string text(16, '0');
+        for (int i = 15; i >= 0; --i)
+        {
+            text[static_cast<size_t>(i)] = kHexDigits[value & 0xfu];
+            value >>= 4u;
+        }
+
+        return text;
+    }
+
+    inline std::string ShortPathComponent(std::string_view text)
+    {
+        constexpr size_t kReadablePrefixLength = 20;
+        constexpr size_t kMaxComponentLength = kReadablePrefixLength + 1 + 16;
+
+        if (text.size() <= kMaxComponentLength)
+            return std::string(text);
+
+        return std::string(text.substr(0, kReadablePrefixLength)) + "-" + Hex64(StableComponentHash(text));
+    }
+
     inline std::filesystem::path WorkingRoot()
     {
-        return std::filesystem::current_path() / "test-output";
+        // Keep test artifact roots short enough for Windows CI path limits.
+        return std::filesystem::current_path() / "t";
     }
 
     inline const ::testing::TestInfo &CurrentTestInfo()
@@ -38,12 +76,12 @@ namespace test_support
 
     inline std::filesystem::path CurrentSuiteRoot(std::string_view category)
     {
-        return CategoryRoot(category) / CurrentTestSuiteName();
+        return CategoryRoot(category) / ShortPathComponent(CurrentTestSuiteName());
     }
 
     inline std::filesystem::path CurrentTestRoot(std::string_view category)
     {
-        return CurrentSuiteRoot(category) / CurrentTestName();
+        return CurrentSuiteRoot(category) / ShortPathComponent(CurrentTestName());
     }
 
     inline std::filesystem::path CurrentTestPath(std::string_view category, std::string_view relativePath)

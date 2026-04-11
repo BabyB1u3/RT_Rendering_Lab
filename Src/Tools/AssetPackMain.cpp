@@ -118,6 +118,6 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    std::cout << "Packaged archives under " << packagedRootPath.string() << "\n";
+    std::cout << "Packaged archive: " << Resource::GetGamePackagedArchivePath(packagedRootPath).string() << "\n";
     return 0;
 }

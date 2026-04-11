@@ -13,6 +13,20 @@
 
 namespace Resource
 {
+    namespace
+    {
+        std::filesystem::path GetPackagedArchiveSearchPathForMount(const std::filesystem::path &packagedRoot,
+                                                                   std::string_view currentProfile,
+                                                                   const VirtualPath & /*mountPath*/,
+                                                                   const std::filesystem::path &legacyArchiveRelativePath)
+        {
+            if (currentProfile == "shipping" || currentProfile == "packaged")
+                return GetGamePackagedArchivePath(packagedRoot);
+
+            return packagedRoot / legacyArchiveRelativePath;
+        }
+    } // namespace
+
     std::vector<ReadableMount> DiscoverReadableMountBackends(const std::filesystem::path &rootPath,
                                                              const std::filesystem::path &engineDir,
                                                              const std::filesystem::path &cacheDir,
@@ -63,11 +77,13 @@ namespace Resource
             return {};
         };
 
-        auto findPackagedMountArchive = [&](const std::filesystem::path &archiveRelativePath) -> std::filesystem::path
+        auto findPackagedMountArchive = [&](const VirtualPath &mountPath,
+                                            const std::filesystem::path &archiveRelativePath) -> std::filesystem::path
         {
             for (const auto &packagedRoot : packagedRootSearchOrder)
             {
-                const auto candidate = packagedRoot / archiveRelativePath;
+                const auto candidate = GetPackagedArchiveSearchPathForMount(
+                    packagedRoot, currentProfile, mountPath, archiveRelativePath);
                 std::string errorMessage;
                 if (std::filesystem::exists(candidate) && PakEntryExists(candidate, ".rtr/catalog.json", &errorMessage))
                     return candidate;
@@ -116,7 +132,7 @@ namespace Resource
         {
             const auto overlayRoot = findOverlayMountRoot(cookedMountRelativePath);
             const auto cookedRoot = findCookedMountRoot(cookedMountRelativePath);
-            const auto packagedArchive = findPackagedMountArchive(packagedArchiveRelativePath);
+            const auto packagedArchive = findPackagedMountArchive(mountPath, packagedArchiveRelativePath);
             const bool hasOverlayCatalog = !overlayRoot.empty();
             const bool hasCookedCatalog = !cookedRoot.empty();
             const bool hasPackagedCatalog = !packagedArchive.empty();

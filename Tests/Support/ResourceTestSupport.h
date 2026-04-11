@@ -129,14 +129,9 @@ namespace test_support
         return extractedRoot / "Project";
     }
 
-    inline std::filesystem::path ProjectPackagedArchivePath(const std::filesystem::path &packagedRoot)
+    inline std::filesystem::path GamePackagedArchivePath(const std::filesystem::path &packagedRoot)
     {
-        return packagedRoot / "Project.rtrpak";
-    }
-
-    inline std::filesystem::path EnginePackagedArchivePath(const std::filesystem::path &packagedRoot)
-    {
-        return packagedRoot / "Engine.rtrpak";
+        return packagedRoot / "Game.rtrpak";
     }
 
 } // namespace test_support

@@ -313,8 +313,7 @@ can be added at that time as isolated code — there is no reason to design for 
 ├── Content/                          # empty, just to satisfy root discovery
 └── build/
     └── Packaged/
-        ├── Project.rtrpak
-        ├── Engine.rtrpak
+        └── Game.rtrpak
         └── Plugins/
             └── MyPlugin.rtrpak
 ```

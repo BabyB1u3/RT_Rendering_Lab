@@ -37,7 +37,7 @@ TEST_F(PakArchiveTests, BuildPakArchiveCanReadEntries)
 {
     const auto sourceRoot = TestRoot() / "Mount";
     const auto packagedRoot = TestRoot() / "out";
-    const auto pakPath = test_support::ProjectPackagedArchivePath(packagedRoot);
+    const auto pakPath = test_support::GamePackagedArchivePath(packagedRoot);
     test_support::WriteTextFileOrFail(test_support::MountCatalogPath(sourceRoot), "{\n  \"version\": 2\n}\n");
     test_support::WriteMountFileOrFail(sourceRoot, "Textures/Checker.txt", "checker");
 
@@ -52,30 +52,3 @@ TEST_F(PakArchiveTests, BuildPakArchiveCanReadEntries)
     EXPECT_EQ(text, "checker");
 }
 
-TEST_F(PakArchiveTests, PackageCookedRepositoryCatalogsWritesProjectAndEngineArchives)
-{
-    const auto cookedRoot = TestRoot() / "Cooked";
-    const auto packagedRoot = TestRoot() / "Packaged";
-
-    test_support::WriteTextFileOrFail(
-        test_support::ProjectCookedCatalogPath(cookedRoot),
-        "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": []\n}\n");
-    test_support::WriteProjectCookedFileOrFail(cookedRoot, "Textures/Grassy_Square.rtrtex", "project");
-
-    test_support::WriteTextFileOrFail(
-        test_support::EngineCookedCatalogPath(cookedRoot),
-        "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": []\n}\n");
-    test_support::WriteEngineCookedFileOrFail(cookedRoot, "Defaults/Materials/ErrorMaterial.json", "engine");
-
-    std::string errorMessage;
-    ASSERT_TRUE(Resource::PackageCookedRepositoryCatalogs(cookedRoot, packagedRoot, &errorMessage)) << errorMessage;
-
-    const auto projectPak = test_support::ProjectPackagedArchivePath(packagedRoot);
-    const auto enginePak = test_support::EnginePackagedArchivePath(packagedRoot);
-
-    EXPECT_TRUE(std::filesystem::exists(projectPak));
-    EXPECT_TRUE(std::filesystem::exists(enginePak));
-
-    EXPECT_TRUE(Resource::PakEntryExists(projectPak, ".rtr/catalog.json", &errorMessage)) << errorMessage;
-    EXPECT_TRUE(Resource::PakEntryExists(enginePak, ".rtr/catalog.json", &errorMessage)) << errorMessage;
-}

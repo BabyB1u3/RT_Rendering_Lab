@@ -7,18 +7,18 @@
 
 namespace
 {
-    class MountBackendDevTests : public ::testing::Test
+    class MountDiscoveryDevTests : public ::testing::Test
     {
     protected:
         void SetUp() override
         {
-            m_TestRoot = test_support::CurrentTestRoot("mount-backend-dev");
-            test_support::ResetCurrentTestRoot("mount-backend-dev");
+            m_TestRoot = test_support::CurrentTestRoot("mount-discovery-dev");
+            test_support::ResetCurrentTestRoot("mount-discovery-dev");
         }
 
         void TearDown() override
         {
-            test_support::RemoveCurrentTestArtifacts("mount-backend-dev");
+            test_support::RemoveCurrentTestArtifacts("mount-discovery-dev");
         }
 
         std::filesystem::path TestRoot() const
@@ -31,7 +31,7 @@ namespace
     };
 } // namespace
 
-TEST_F(MountBackendDevTests, DiscoverReadableMountBackendsFindsSourceDirectoryMounts)
+TEST_F(MountDiscoveryDevTests, DiscoverReadableMountBackendsFindsSourceDirectoryMounts)
 {
     const auto repoRoot = TestRoot() / "repo";
     test_support::WriteProjectMarkerOrFail(repoRoot);
