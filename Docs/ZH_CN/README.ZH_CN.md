@@ -41,31 +41,46 @@
 
 ```text
 RT_Rendering_Lab/
+├─ .github/                 # GitHub Actions 工作流与 PR 元数据
+├─ Archive/                 # 上一代渲染器遗留代码
+├─ CMake/                   # 共享 CMake 模块、presets、测试辅助脚本
+├─ Docs/
+│  ├─ EN/
+│  ├─ Modules/              # 设计、实现细节、计划与 code review
+│  └─ ZH_CN/
+├─ Engine/                  # 引擎侧源资源与配置内容
+├─ Project/                 # 项目侧源资源与配置内容
 ├─ Src/
 │  ├─ Core/
-│  │  ├─ App/            # Application、Window、Layer、LayerStack
-│  │  ├─ Event/          # EventBus、Events、ScopedConnection
-│  │  ├─ Input/          # InputAction、KeyCode、MouseCode、Replay
-│  │  ├─ Resource/       # Logical Path、Catalog、Cook、Pack、Mount、IO
-│  │  ├─ Diagnostics/    # Logging、Assert、Crash
-│  │  └─ Serialization/
-│  ├─ GUI/
-│  │  ├─ Backends/Metal/
-│  │  └─ Panels/
-│  ├─ Scene/             # Camera、Light、Transform、SceneData
+│  │  ├─ App/               # Application、Window、Layer、LayerStack
+│  │  ├─ Diagnostics/       # Assert、Crash、Logging
+│  │  ├─ Event/             # EventBus、Events、ScopedConnection
+│  │  ├─ Input/             # Action、Device、Code、Replay
+│  │  ├─ Resource/          # Catalog、Cook、IO、Mount、Package、Path
+│  │  ├─ Serialization/     # PropertyTree、JSON backend、traits
+│  │  └─ Util/              # Base、CommandLine、Time
 │  ├─ Demos/
 │  │  └─ 01_HelloWindow/
-│  ├─ Tools/             # Asset indexing、cooking、packaging
-│  └─ main.cpp
-├─ Archive/              # 上一代渲染器遗留代码
-├─ Docs/
-├─ Content/              # 运行时资源
+│  ├─ GUI/
+│  │  ├─ Backends/
+│  │  └─ Panels/
+│  ├─ Scene/                # Camera、Controller、Transform、SceneData
+│  ├─ Tools/                # `rtr_asset_cook`、`rtr_asset_pack`
+│  ├─ main.cpp
+│  └─ pch.h
 ├─ Tests/
-│  ├─ Unit/
 │  ├─ Integration/
-│  └─ Support/
-├─ Vendor/               # GLFW、GLM、ImGui、Glad、STB、spdlog
-└─ CMakeLists.txt
+│  ├─ Smoke/
+│  ├─ Support/
+│  ├─ Unit/
+│  ├─ CMakeLists.txt
+│  └─ pch.h
+├─ Tools/                   # 仓库级辅助脚本与工具
+├─ Vendor/                  # 第三方依赖
+├─ .rtrproject              # 项目标记文件
+├─ CMakeLists.txt
+├─ CMakePresets.json
+└─ README.md
 ```
 
 ---
@@ -76,7 +91,10 @@ RT_Rendering_Lab/
 
 - 支持 C++20 的编译器（MSVC、GCC、Clang）
 - CMake 3.20+
-- 支持 OpenGL 4.6 的 GPU 与驱动（OpenGL 相关测试会依赖）
+- Ninja
+- 在 Windows 上，请从 Developer PowerShell / Developer Command Prompt 启动，以确保 MSVC 工具链在 `PATH` 中
+- 在 Linux 上，请安装 GLFW/CI 所需依赖：`libgl-dev`、`libxrandr-dev`、`libxinerama-dev`、`libxcursor-dev`、`libxi-dev`、`libxkbcommon-dev`、`libwayland-dev`
+- 在 macOS 上，请先执行 `brew install ninja`
 
 其他依赖要么已经包含在 `Vendor/` 中，要么由 CMake 自动获取。
 
@@ -102,46 +120,66 @@ git submodule update --init --recursive
 ### 使用 Presets 构建
 
 ```bash
-# Visual Studio 2026 - Debug
-cmake --preset windows-vs
-cmake --build --preset build-windows-vs-debug
+# Windows - Debug
+cmake --preset windows-debug
+cmake --build --preset build-windows-debug --parallel
 
-# Visual Studio 2026 - RelWithDebInfo
-cmake --preset windows-vs
-cmake --build --preset build-windows-vs-relwithdebinfo
+# Windows - RelWithDebInfo
+cmake --preset windows-relwithdebinfo
+cmake --build --preset build-windows-relwithdebinfo --parallel
 
-# Visual Studio 2026 - Fast debug iteration without tests
-cmake --preset windows-vs-fast
-cmake --build --preset build-windows-vs-fast-debug --parallel
+# Windows - Release
+cmake --preset windows-release
+cmake --build --preset build-windows-release --parallel
 
-# Ninja - Release
-cmake --preset linux-ninja-release
-cmake --build --preset build-linux-ninja-release
+# Windows - Release（包含测试）
+cmake --preset windows-release-with-tests
+cmake --build --preset build-windows-release-with-tests --parallel
 
-# Ninja - RelWithDebInfo
-cmake --preset linux-ninja-relwithdebinfo
-cmake --build --preset build-linux-ninja-relwithdebinfo
+# Linux - Debug
+cmake --preset linux-debug
+cmake --build --preset build-linux-debug --parallel
 
-# Ninja - Fast debug iteration
-cmake --preset linux-ninja-debug-fast
-cmake --build --preset build-linux-ninja-debug-fast
+# Linux - Release
+cmake --preset linux-release
+cmake --build --preset build-linux-release --parallel
 
-# macOS Ninja - Release
-cmake --preset macos-ninja-release
-cmake --build --preset build-macos-ninja-release
+# Linux - Release（包含测试）
+cmake --preset linux-release-with-tests
+cmake --build --preset build-linux-release-with-tests --parallel
 
-# macOS Ninja - RelWithDebInfo
-cmake --preset macos-ninja-relwithdebinfo
-cmake --build --preset build-macos-ninja-relwithdebinfo
+# macOS - Debug
+cmake --preset macos-debug
+cmake --build --preset build-macos-debug --parallel
 
-# macOS Ninja - Fast debug iteration
-cmake --preset macos-ninja-debug-fast
-cmake --build --preset build-macos-ninja-debug-fast
+# macOS - Release
+cmake --preset macos-release
+cmake --build --preset build-macos-release --parallel
+
+# macOS - Release（包含测试）
+cmake --preset macos-release-with-tests
+cmake --build --preset build-macos-release-with-tests --parallel
 ```
 
-在 Windows 上，`windows-vs` 是一棵共享的 multi-config 工程树；真正使用 `Debug`、`RelWithDebInfo` 还是 `Release`，由对应的 `build preset` 或 `test preset` 决定。
+当前仓库提供的本地 preset 都是单配置的 `Ninja` 构建树。configure preset 名称会直接映射到构建目录，例如 `windows-release -> build/windows-release`。
 
-`windows-vs-fast`、`linux-ninja-debug-fast` 和 `macos-ninja-debug-fast` 会关闭测试并启用 unity build，用于缩短日常 edit-build-run 循环。
+`*-release` preset 默认会设置 `GLAB_BUILD_TESTS=OFF`，并启用 `GLAB_ENABLE_UNITY_BUILD=ON`，用于更快的优化构建。如果你需要在 Release 下编译并运行测试，请使用 `*-release-with-tests`。
+
+`ci-*` preset 主要用于与 GitHub Actions 保持一致，它们对应 CI 矩阵中的 debug / release 配置和测试范围。
+
+### 打包与运行时 Stage
+
+```bash
+# 以 Windows Release 为例
+cmake --preset windows-release
+cmake --build --preset build-windows-release-package-content
+cmake --build --preset build-windows-release-stage-runtime
+cmake --install build/windows-release
+```
+
+`build-*-release-package-content` 会运行 `rtr_asset_cook` 和 `rtr_asset_pack`，将运行时内容输出到 `build/<preset>/Stage/Release`。
+
+`build-*-release-stage-runtime` 会在同一目录下额外放入 `RTRLab` 可执行文件。执行 `cmake --install` 之前，需要先完成这个 stage 目标。
 
 ### 手动构建
 
@@ -153,8 +191,15 @@ cmake --build build
 ### 运行
 
 ```bash
-./build/<config>/RTRLab
+./build/<preset>/bin/<Debug|RelWithDebInfo|Release>/RTRLab
 ```
+
+例如：
+
+- `build/windows-debug/bin/Debug/RTRLab.exe`
+- `build/windows-release/bin/Release/RTRLab.exe`
+- `build/linux-debug/bin/Debug/RTRLab`
+- `build/macos-release/bin/Release/RTRLab`
 
 ---
 
@@ -163,12 +208,27 @@ cmake --build build
 项目使用 **Google Test**，通过 CMake `FetchContent` 自动获取。
 
 ```bash
-cmake --preset windows-vs
-cmake --build --preset build-windows-vs-debug
-ctest --preset test-windows-vs-debug
+# Debug 测试
+cmake --preset windows-debug
+cmake --build --preset build-windows-debug --parallel
+ctest --preset test-windows-debug
+
+# Release 测试
+cmake --preset windows-release-with-tests
+cmake --build --preset build-windows-release-with-tests --parallel
+ctest --preset test-windows-release
 ```
 
-测试可执行文件包括：`rtrlab_unit_tests`、`rtrlab_integration_tests`。
+测试可执行文件包括：`rtrlab_unit_tests`、`rtrlab_integration_tests`、`rtrlab_dev_profile_tests`、`rtrlab_shipping_profile_tests`。
+
+常用测试 preset 分组：
+
+- `test-<platform>-debug`、`test-<platform>-relwithdebinfo`、`test-<platform>-release`
+- `test-<platform>-*-unit`
+- `test-<platform>-*-integration`
+- `test-<platform>-debug-dev-profile`
+- `test-<platform>-release-shipping-profile`
+- `test-ci-<platform>-debug` 与 `test-ci-<platform>-release`
 
 ### CMake 选项
 
@@ -182,6 +242,8 @@ ctest --preset test-windows-vs-debug
 | `GLAB_ENABLE_MSVC_MP` | `ON` | 在 MSVC 下启用多进程编译（`/MP`） |
 | `GLAB_ENABLE_RELEASE_SYMBOLS` | `OFF` | 为 MSVC `Release` 构建输出调试符号 |
 | `GLAB_BUILD_IMGUI_DEMO` | `OFF` | 是否将 `imgui_demo.cpp` 编译进 Dear ImGui 静态库 |
+
+注意：上表描述的是项目级默认值，具体 preset 还会覆盖它们。当前仓库自带的 `*-release` 和 `ci-*-release` preset 会启用 unity build，而普通 `*-release` preset 默认关闭测试；如需 Release 测试，请改用 `*-release-with-tests`。
 
 ---
 
