@@ -3,11 +3,9 @@
 #include "Core/Resource/IO/PhysicalIO.h"
 #include "Core/Resource/Package/PakArchive.h"
 #include "Core/Resource/Path/PathParser.h"
-#include "Core/Util/CommandLine.h"
 
 #include <algorithm>
 #include <cctype>
-#include <cstdlib>
 #include <fstream>
 #include <iterator>
 #include <sstream>
@@ -16,42 +14,6 @@ namespace Resource
 {
     namespace
     {
-        std::optional<std::filesystem::path> GetDevelopmentOverridePath(std::string_view optionName, const char *envVarName)
-        {
-#ifdef RTRLAB_CONFIG_RELEASE
-            (void)envVarName;
-            if (!Util::ProcessHasOption("dev-mode"))
-                return std::nullopt;
-
-            if (const auto cliOverride = Util::GetProcessOptionValue(optionName); cliOverride.has_value() && !cliOverride->empty())
-                return std::filesystem::path(std::string(*cliOverride));
-
-            return std::nullopt;
-#else
-            if (const auto cliOverride = Util::GetProcessOptionValue(optionName); cliOverride.has_value() && !cliOverride->empty())
-                return std::filesystem::path(std::string(*cliOverride));
-
-            if (const char *overrideValue = std::getenv(envVarName))
-            {
-                const std::filesystem::path overrideRoot = overrideValue;
-                if (!overrideRoot.empty())
-                    return overrideRoot;
-            }
-
-            return std::nullopt;
-#endif
-        }
-
-        std::filesystem::path GetPackagedArchiveSearchPath(const std::filesystem::path &packagedRoot,
-                                                           std::string_view currentProfile,
-                                                           const std::filesystem::path &legacyArchiveRelativePath)
-        {
-            if (currentProfile == "shipping" || currentProfile == "packaged")
-                return GetGamePackagedArchivePath(packagedRoot);
-
-            return packagedRoot / legacyArchiveRelativePath;
-        }
-
         std::vector<std::filesystem::path> CollectPakArchives(const std::filesystem::path &directory)
         {
             std::vector<std::filesystem::path> archives;
@@ -84,48 +46,9 @@ namespace Resource
                                                              std::string_view projectContentDirName,
                                                              std::string_view currentProfile)
     {
+        (void)cacheDir;
+
         std::vector<ReadableMount> mounts;
-        const bool preferCookedArtifacts = currentProfile == "cooked";
-        const bool preferPackagedArtifacts = currentProfile == "packaged" || currentProfile == "shipping";
-        std::vector<std::filesystem::path> cookedRootSearchOrder;
-        std::vector<std::filesystem::path> packagedRootSearchOrder;
-
-        if (const auto cookedOverride = GetDevelopmentOverridePath("cooked-root", "RTRLAB_COOKED_ROOT"))
-            cookedRootSearchOrder.push_back(*cookedOverride);
-        if (const auto packagedOverride = GetDevelopmentOverridePath("package-root", "RTRLAB_PACKAGE_ROOT"))
-            packagedRootSearchOrder.push_back(*packagedOverride);
-
-        if (currentProfile == "shipping")
-            packagedRootSearchOrder.push_back(rootPath);
-        cookedRootSearchOrder.push_back(cacheDir / "Cooked");
-        cookedRootSearchOrder.push_back(rootPath / "build" / "Cooked");
-        packagedRootSearchOrder.push_back(cacheDir / "Packaged");
-        packagedRootSearchOrder.push_back(rootPath / "build" / "Packaged");
-
-        auto findCookedMountRoot = [&](const std::filesystem::path &mountRelativePath) -> std::filesystem::path
-        {
-            for (const auto &cookedRoot : cookedRootSearchOrder)
-            {
-                const auto candidate = cookedRoot / mountRelativePath;
-                if (std::filesystem::exists(candidate / ".rtr" / "catalog.json"))
-                    return candidate;
-            }
-
-            return {};
-        };
-
-        auto findPackagedMountArchive = [&](const std::filesystem::path &archiveRelativePath) -> std::filesystem::path
-        {
-            for (const auto &packagedRoot : packagedRootSearchOrder)
-            {
-                const auto candidate = GetPackagedArchiveSearchPath(packagedRoot, currentProfile, archiveRelativePath);
-                std::string errorMessage;
-                if (std::filesystem::exists(candidate) && PakEntryExists(candidate, ".rtr/catalog.json", &errorMessage))
-                    return candidate;
-            }
-
-            return {};
-        };
 
         const auto appendReadableMount = [&](std::string cacheKey,
                                              const std::string &sourceKey,
@@ -183,120 +106,26 @@ namespace Resource
                 archivePath);
         };
 
-        const auto addReadableMount = [&](const std::string &sourceKey,
-                                          const VirtualPath &mountPath,
-                                          const std::filesystem::path &sourceRoot,
-                                          const std::filesystem::path &cookedMountRelativePath,
-                                          const std::filesystem::path &packagedArchiveRelativePath)
+        if (currentProfile == "shipping")
         {
-            const auto cookedRoot = findCookedMountRoot(cookedMountRelativePath);
-            const auto packagedArchive = findPackagedMountArchive(packagedArchiveRelativePath);
-            const bool hasCookedCatalog = !cookedRoot.empty();
-            const bool hasPackagedCatalog = !packagedArchive.empty();
-            const bool hasSourceRoot = std::filesystem::exists(sourceRoot);
-
-            if (preferPackagedArtifacts)
+            const auto packagedArchive = GetGamePackagedArchivePath(rootPath);
+            std::string errorMessage;
+            if (std::filesystem::exists(packagedArchive) && PakEntryExists(packagedArchive, ".rtr/catalog.json", &errorMessage))
             {
-                if (hasPackagedCatalog)
-                {
-                    appendReadableMount("Packaged:" + sourceKey,
-                                        sourceKey,
-                                        mountPath,
-                                        MountPriority::Packaged,
-                                        MountBackendKind::PakArchive,
-                                        packagedArchive);
-                }
-                if (hasCookedCatalog)
-                {
-                    appendReadableMount("Cooked:" + sourceKey,
-                                        sourceKey,
-                                        mountPath,
-                                        MountPriority::Cooked,
-                                        MountBackendKind::Directory,
-                                        cookedRoot);
-                }
-                if (hasSourceRoot)
-                {
-                    appendReadableMount(sourceKey,
-                                        sourceKey,
-                                        mountPath,
-                                        MountPriority::Source,
-                                        MountBackendKind::Directory,
-                                        sourceRoot);
-                }
-                return;
-            }
-
-            if (preferCookedArtifacts)
-            {
-                if (hasCookedCatalog)
-                {
-                    appendReadableMount("Cooked:" + sourceKey,
-                                        sourceKey,
-                                        mountPath,
-                                        MountPriority::Cooked,
-                                        MountBackendKind::Directory,
-                                        cookedRoot);
-                }
-                if (hasSourceRoot)
-                {
-                    appendReadableMount(sourceKey,
-                                        sourceKey,
-                                        mountPath,
-                                        MountPriority::Source,
-                                        MountBackendKind::Directory,
-                                        sourceRoot);
-                }
-                return;
-            }
-
-            if (hasSourceRoot)
-            {
-                appendReadableMount(sourceKey,
-                                    sourceKey,
-                                    mountPath,
-                                    MountPriority::Source,
-                                    MountBackendKind::Directory,
-                                    sourceRoot);
-                return;
-            }
-
-            if (hasPackagedCatalog)
-            {
-                appendReadableMount("Packaged:" + sourceKey,
-                                    sourceKey,
-                                    mountPath,
+                appendReadableMount("Packaged:Project",
+                                    "Project",
+                                    VirtualPath{PathDomain::Project, std::nullopt, {}},
+                                    MountPriority::Packaged,
+                                    MountBackendKind::PakArchive,
+                                    packagedArchive);
+                appendReadableMount("Packaged:Engine",
+                                    "Engine",
+                                    VirtualPath{PathDomain::Engine, std::nullopt, {}},
                                     MountPriority::Packaged,
                                     MountBackendKind::PakArchive,
                                     packagedArchive);
             }
-            if (hasCookedCatalog)
-            {
-                appendReadableMount("Cooked:" + sourceKey,
-                                    sourceKey,
-                                    mountPath,
-                                    MountPriority::Cooked,
-                                    MountBackendKind::Directory,
-                                    cookedRoot);
-            }
-        };
 
-        addReadableMount(
-            "Project",
-            VirtualPath{PathDomain::Project, std::nullopt, {}},
-            rootPath / projectContentDirName,
-            "Project",
-            std::filesystem::path(std::string("Project") + std::string(kPakArchiveExtension)));
-
-        addReadableMount(
-            "Engine",
-            VirtualPath{PathDomain::Engine, std::nullopt, {}},
-            engineDir,
-            "Engine",
-            std::filesystem::path(std::string("Engine") + std::string(kPakArchiveExtension)));
-
-        if (preferPackagedArtifacts)
-        {
             const auto appendOverlayArchives = [&](const std::filesystem::path &directory,
                                                    std::string_view layerName,
                                                    const MountPriority priority,
@@ -316,6 +145,29 @@ namespace Resource
             appendOverlayArchives(rootPath / "DLC", "DLC", MountPriority::DLC, PathDomain::DLC);
             appendOverlayArchives(rootPath / "Patches", "Patch", MountPriority::Patch, std::nullopt);
             appendOverlayArchives(rootPath / "Mods", "Mod", MountPriority::Mod, PathDomain::Mod);
+
+            return mounts;
+        }
+
+        const auto projectRoot = rootPath / projectContentDirName;
+        if (std::filesystem::exists(projectRoot))
+        {
+            appendReadableMount("Project",
+                                "Project",
+                                VirtualPath{PathDomain::Project, std::nullopt, {}},
+                                MountPriority::Source,
+                                MountBackendKind::Directory,
+                                projectRoot);
+        }
+
+        if (std::filesystem::exists(engineDir))
+        {
+            appendReadableMount("Engine",
+                                "Engine",
+                                VirtualPath{PathDomain::Engine, std::nullopt, {}},
+                                MountPriority::Source,
+                                MountBackendKind::Directory,
+                                engineDir);
         }
 
         return mounts;

@@ -398,23 +398,72 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES
 # -----------------------------------------------------------------------------
 # Tools
 # -----------------------------------------------------------------------------
-glab_add_tool_target(rtr_asset_index Tools/AssetIndexMain.cpp)
 glab_add_tool_target(rtr_asset_cook Tools/AssetCookMain.cpp)
 glab_add_tool_target(rtr_asset_pack Tools/AssetPackMain.cpp)
+
+set(GLAB_STAGE_SHIPPING_COOKED_DIR "${CMAKE_BINARY_DIR}/Packaging/$<CONFIG>/Cooked")
+set(GLAB_STAGE_SHIPPING_DIR "${CMAKE_BINARY_DIR}/Stage/$<CONFIG>")
+set(GLAB_STAGE_SHIPPING_RUNTIME_NAME "$<TARGET_FILE_NAME:RTRLab>")
+
+add_custom_target(rtrlab_stage_shipping_assets
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${GLAB_STAGE_SHIPPING_COOKED_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${GLAB_STAGE_SHIPPING_DIR}"
+    COMMAND $<TARGET_FILE:rtr_asset_cook>
+            --root "${CMAKE_SOURCE_DIR}"
+            --out "${GLAB_STAGE_SHIPPING_COOKED_DIR}"
+    COMMAND $<TARGET_FILE:rtr_asset_pack>
+            --source "${GLAB_STAGE_SHIPPING_COOKED_DIR}"
+            --out "${GLAB_STAGE_SHIPPING_DIR}"
+    DEPENDS
+        rtr_asset_cook
+        rtr_asset_pack
+    COMMENT "Cooking and packaging shipping assets into ${GLAB_STAGE_SHIPPING_DIR}"
+)
+
+add_custom_target(rtrlab_stage_shipping
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${GLAB_STAGE_SHIPPING_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:RTRLab>
+            "${GLAB_STAGE_SHIPPING_DIR}/$<TARGET_FILE_NAME:RTRLab>"
+    DEPENDS
+        RTRLab
+        rtrlab_stage_shipping_assets
+    COMMENT "Staging shipping runtime into ${GLAB_STAGE_SHIPPING_DIR}"
+)
 
 # -----------------------------------------------------------------------------
 # Install rules
 # -----------------------------------------------------------------------------
-install(TARGETS RTRLab RUNTIME DESTINATION .)
-install(TARGETS rtr_asset_index RUNTIME DESTINATION tools)
-install(TARGETS rtr_asset_cook RUNTIME DESTINATION tools)
-install(TARGETS rtr_asset_pack RUNTIME DESTINATION tools)
+install(CODE "
+    set(stage_config \"\${CMAKE_INSTALL_CONFIG_NAME}\")
+    if(NOT stage_config)
+        set(stage_config \"${CMAKE_BUILD_TYPE}\")
+    endif()
 
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/Project/
-        DESTINATION Project
-        PATTERN "*.slang" EXCLUDE)
+    set(stage_dir \"${CMAKE_BINARY_DIR}/Stage/\${stage_config}\")
+    set(stage_runtime \"${GLAB_STAGE_SHIPPING_RUNTIME_NAME}\")
+    set(stage_pak \"\${stage_dir}/Game.rtrpak\")
+    set(stage_runtime_path \"\${stage_dir}/\${stage_runtime}\")
 
-if(EXISTS ${CMAKE_SOURCE_DIR}/Engine)
-    install(DIRECTORY ${CMAKE_SOURCE_DIR}/Engine/
-            DESTINATION Engine)
-endif()
+    if(NOT EXISTS \"\${stage_pak}\")
+        message(FATAL_ERROR
+            \"Missing staged shipping assets at '\${stage_pak}'. Build target 'rtrlab_stage_shipping' before running install.\")
+    endif()
+
+    if(NOT EXISTS \"\${stage_runtime_path}\")
+        message(FATAL_ERROR
+            \"Missing staged runtime at '\${stage_runtime_path}'. Build target 'rtrlab_stage_shipping' before running install.\")
+    endif()
+
+    file(INSTALL DESTINATION \"${CMAKE_INSTALL_PREFIX}\" TYPE EXECUTABLE
+         FILES \"\${stage_runtime_path}\")
+    file(INSTALL DESTINATION \"${CMAKE_INSTALL_PREFIX}\" TYPE FILE
+         FILES \"\${stage_pak}\")
+
+    foreach(stage_overlay_dir IN ITEMS DLC Patches Mods)
+        if(EXISTS \"\${stage_dir}/\${stage_overlay_dir}\")
+            file(INSTALL DESTINATION \"${CMAKE_INSTALL_PREFIX}\" TYPE DIRECTORY
+                 FILES \"\${stage_dir}/\${stage_overlay_dir}\")
+        endif()
+    endforeach()
+")

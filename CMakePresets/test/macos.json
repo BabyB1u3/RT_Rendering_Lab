@@ -80,6 +80,13 @@
       ]
     },
     {
+      "name": "test-macos-ninja-debug-dev-profile",
+      "inherits": [
+        "test-macos-ninja-debug-base",
+        "test-label-dev-profile"
+      ]
+    },
+    {
       "name": "test-macos-ninja-relwithdebinfo-integration",
       "inherits": [
         "test-macos-ninja-relwithdebinfo-base",
@@ -87,10 +94,24 @@
       ]
     },
     {
+      "name": "test-macos-ninja-relwithdebinfo-dev-profile",
+      "inherits": [
+        "test-macos-ninja-relwithdebinfo-base",
+        "test-label-dev-profile"
+      ]
+    },
+    {
       "name": "test-macos-ninja-release-integration",
       "inherits": [
         "test-macos-ninja-release-base",
         "test-label-integration"
+      ]
+    },
+    {
+      "name": "test-macos-ninja-release-shipping-profile",
+      "inherits": [
+        "test-macos-ninja-release-base",
+        "test-label-shipping-profile"
       ]
     }
   ]

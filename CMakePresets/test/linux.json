@@ -80,6 +80,13 @@
       ]
     },
     {
+      "name": "test-linux-ninja-debug-dev-profile",
+      "inherits": [
+        "test-linux-ninja-debug-base",
+        "test-label-dev-profile"
+      ]
+    },
+    {
       "name": "test-linux-ninja-relwithdebinfo-integration",
       "inherits": [
         "test-linux-ninja-relwithdebinfo-base",
@@ -87,10 +94,24 @@
       ]
     },
     {
+      "name": "test-linux-ninja-relwithdebinfo-dev-profile",
+      "inherits": [
+        "test-linux-ninja-relwithdebinfo-base",
+        "test-label-dev-profile"
+      ]
+    },
+    {
       "name": "test-linux-ninja-release-integration",
       "inherits": [
         "test-linux-ninja-release-base",
         "test-label-integration"
+      ]
+    },
+    {
+      "name": "test-linux-ninja-release-shipping-profile",
+      "inherits": [
+        "test-linux-ninja-release-base",
+        "test-label-shipping-profile"
       ]
     }
   ]

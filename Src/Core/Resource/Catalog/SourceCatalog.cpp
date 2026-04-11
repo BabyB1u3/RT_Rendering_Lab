@@ -4,15 +4,11 @@
 
 #include <algorithm>
 #include <cctype>
-#include <fstream>
-#include <json.hpp>
 #include <unordered_set>
 #include <unordered_map>
 
 namespace
 {
-    using Json = nlohmann::json;
-
     std::string CatalogPathToGenericString(const std::filesystem::path &path)
     {
         return path.generic_string();
@@ -128,32 +124,16 @@ namespace
         return extension == "ini" || extension == "txt" || extension == "xml" || extension == "toml";
     }
 
-    std::vector<std::pair<Resource::VirtualPath, std::filesystem::path>> DiscoverReadableSourceMounts(
-        const std::filesystem::path &rootPath,
-        std::string_view projectContentDirName)
-    {
-        std::vector<std::pair<Resource::VirtualPath, std::filesystem::path>> mounts;
+} // namespace
 
-        const auto projectRoot = rootPath / projectContentDirName;
-        if (std::filesystem::exists(projectRoot))
-            mounts.emplace_back(Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, {}}, projectRoot);
-
-        const auto engineRoot = rootPath / "Engine";
-        if (std::filesystem::exists(engineRoot))
-            mounts.emplace_back(Resource::VirtualPath{Resource::PathDomain::Engine, std::nullopt, {}}, engineRoot);
-
-        return mounts;
-    }
-
-    bool BuildSourceCatalogEntriesInternal(const std::filesystem::path &mountRoot,
-                                           const Resource::VirtualPath &mountPath,
-                                           std::vector<Resource::ResourceCatalogEntry> &entries,
-                                           std::unordered_map<std::string, Resource::ResourceCatalogEntry> *entryMap,
-                                           std::string *errorMessage)
+namespace Resource
+{
+    bool BuildSourceCatalogEntries(const std::filesystem::path &mountRoot,
+                                   const VirtualPath &mountPath,
+                                   std::vector<ResourceCatalogEntry> &entries,
+                                   std::string *errorMessage)
     {
         entries.clear();
-        if (entryMap != nullptr)
-            entryMap->clear();
 
         std::unordered_map<std::string, size_t> entryIndexByLogicalPath;
         std::error_code ec;
@@ -219,10 +199,10 @@ namespace
                 return false;
             }
 
-            Resource::ResourceCatalogEntry catalogEntry;
+            ResourceCatalogEntry catalogEntry;
             catalogEntry.logicalPath = logicalPath;
             catalogEntry.sourceRelativePath = CatalogPathToGenericString(relativePath);
-            catalogEntry.artifacts.push_back(Resource::ArtifactRecord{
+            catalogEntry.artifacts.push_back(ArtifactRecord{
                 .relativePath = CatalogPathToGenericString(relativePath),
                 .format = isDocument ? "document" : DetectFormat(relativePath),
                 .platformTag = "any",
@@ -232,112 +212,7 @@ namespace
             });
 
             entryIndexByLogicalPath.emplace(logicalPath, entries.size());
-            entries.push_back(catalogEntry);
-            if (entryMap != nullptr)
-                entryMap->emplace(logicalPath, std::move(catalogEntry));
-        }
-
-        return true;
-    }
-} // namespace
-
-namespace Resource
-{
-    bool BuildSourceCatalogMap(const std::filesystem::path &mountRoot,
-                               const VirtualPath &mountPath,
-                               std::unordered_map<std::string, ResourceCatalogEntry> &entries,
-                               std::string *errorMessage)
-    {
-        std::vector<ResourceCatalogEntry> orderedEntries;
-        return BuildSourceCatalogEntriesInternal(mountRoot, mountPath, orderedEntries, &entries, errorMessage);
-    }
-
-    bool BuildSourceCatalogEntries(const std::filesystem::path &mountRoot,
-                                   const VirtualPath &mountPath,
-                                   std::vector<ResourceCatalogEntry> &entries,
-                                   std::string *errorMessage)
-    {
-        return BuildSourceCatalogEntriesInternal(mountRoot, mountPath, entries, nullptr, errorMessage);
-    }
-
-    bool WriteSourceCatalogJson(const std::filesystem::path &catalogPath,
-                                const std::vector<ResourceCatalogEntry> &entries,
-                                std::string *errorMessage)
-    {
-        Json root;
-        root["version"] = 1;
-        root["entries"] = Json::array();
-
-        for (const auto &entry : entries)
-        {
-            if (!entry.sourceRelativePath.has_value())
-            {
-                if (errorMessage != nullptr)
-                    *errorMessage = "source catalog entry is missing sourceRelativePath: " + entry.logicalPath;
-                return false;
-            }
-
-            Json entryJson;
-            entryJson["logicalPath"] = entry.logicalPath;
-            entryJson["sourceRelativePath"] = *entry.sourceRelativePath;
-            entryJson["artifacts"] = Json::array();
-
-            for (const auto &artifact : entry.artifacts)
-            {
-                Json artifactJson;
-                artifactJson["relativePath"] = artifact.relativePath;
-                artifactJson["format"] = artifact.format;
-                artifactJson["platformTag"] = artifact.platformTag;
-                artifactJson["backendTag"] = artifact.backendTag;
-                artifactJson["profileTag"] = artifact.profileTag;
-                if (artifact.contentHash != 0)
-                    artifactJson["contentHash"] = artifact.contentHash;
-                entryJson["artifacts"].push_back(std::move(artifactJson));
-            }
-
-            root["entries"].push_back(std::move(entryJson));
-        }
-
-        std::error_code ec;
-        std::filesystem::create_directories(catalogPath.parent_path(), ec);
-        if (ec)
-        {
-            if (errorMessage != nullptr)
-                *errorMessage = "failed to create catalog directory: " + ec.message();
-            return false;
-        }
-
-        std::ofstream out(catalogPath, std::ios::out | std::ios::trunc | std::ios::binary);
-        if (!out.is_open())
-        {
-            if (errorMessage != nullptr)
-                *errorMessage = "failed to open catalog for writing: " + catalogPath.string();
-            return false;
-        }
-
-        out << root.dump(2) << '\n';
-        if (!out.good())
-        {
-            if (errorMessage != nullptr)
-                *errorMessage = "failed to write catalog: " + catalogPath.string();
-            return false;
-        }
-
-        return true;
-    }
-
-    bool IndexRepositorySourceCatalogs(const std::filesystem::path &rootPath,
-                                       std::string_view projectContentDirName,
-                                       std::string *errorMessage)
-    {
-        for (const auto &[mountPath, mountRoot] : DiscoverReadableSourceMounts(rootPath, projectContentDirName))
-        {
-            std::vector<ResourceCatalogEntry> entries;
-            if (!BuildSourceCatalogEntries(mountRoot, mountPath, entries, errorMessage))
-                return false;
-
-            if (!WriteSourceCatalogJson(mountRoot / ".rtr" / "catalog.json", entries, errorMessage))
-                return false;
+            entries.push_back(std::move(catalogEntry));
         }
 
         return true;

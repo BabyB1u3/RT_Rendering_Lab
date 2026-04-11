@@ -5,10 +5,8 @@
 #include "Core/Resource/Catalog/SourceCatalog.h"
 #include "Core/Resource/Mount/MountBackend.h"
 #include "Core/Resource/Path/PathParser.h"
-#include "Core/Util/CommandLine.h"
 
 #include <algorithm>
-#include <cstdlib>
 #include <json.hpp>
 #include <unordered_set>
 
@@ -309,24 +307,8 @@ namespace
     std::string_view GetCurrentProfileTag()
     {
 #ifdef RTRLAB_CONFIG_RELEASE
-        if (Util::ProcessHasOption("dev-mode"))
-        {
-            if (const auto cliOverride = Util::GetProcessOptionValue("resource-profile"); cliOverride.has_value() && !cliOverride->empty())
-                return *cliOverride;
-        }
-
         return "shipping";
 #else
-        if (const auto cliOverride = Util::GetProcessOptionValue("resource-profile"); cliOverride.has_value() && !cliOverride->empty())
-            return *cliOverride;
-
-        if (const char *overrideValue = std::getenv("RTRLAB_RESOURCE_PROFILE"))
-        {
-            const std::string_view value = overrideValue;
-            if (!value.empty())
-                return value;
-        }
-
 #if defined(GLAB_ROOT_DIR)
         return "dev";
 #else
@@ -338,7 +320,7 @@ namespace
     std::string_view GetCurrentArtifactProfileTag()
     {
         const auto profile = GetCurrentProfileTag();
-        if (profile == "packaged" || profile == "shipping")
+        if (profile == "shipping")
             return "cooked";
         return profile;
     }
@@ -484,8 +466,8 @@ namespace Resource
                     {
                         cache.kind = CatalogKind::Source;
                         cache.version = 1;
-                        std::unordered_map<std::string, ResourceCatalogEntry> loadedEntries;
-                        if (!Resource::BuildSourceCatalogMap(mount.mountRoot, mount.mountPath, loadedEntries))
+                        std::vector<ResourceCatalogEntry> loadedEntries;
+                        if (!Resource::BuildSourceCatalogEntries(mount.mountRoot, mount.mountPath, loadedEntries))
                         {
                             cache.entries.clear();
                             LOG_ERROR_CAT(LogCategory::FileSystem,
@@ -494,7 +476,10 @@ namespace Resource
                         }
                         else
                         {
-                            cache.entries = std::move(loadedEntries);
+                            cache.entries.clear();
+                            cache.entries.reserve(loadedEntries.size());
+                            for (auto &entry : loadedEntries)
+                                cache.entries.emplace(entry.logicalPath, std::move(entry));
                             LOG_INFO_CAT(LogCategory::FileSystem,
                                          "Built in-memory source catalog '{}'",
                                          mount.mountRoot.string());

@@ -84,7 +84,6 @@ set(GLAB_INTEGRATION_TEST_SOURCES
     Integration/TestMountBackend.cpp
     Integration/TestInputRecordingIO.cpp
     Integration/TestPackagePipeline.cpp
-    Integration/TestSourceIndexPipeline.cpp
 )
 
 glab_add_test_executable(rtrlab_integration_tests "Integration." "integration;common"

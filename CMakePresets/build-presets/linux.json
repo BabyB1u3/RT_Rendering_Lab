@@ -17,6 +17,20 @@
       "configurePreset": "linux-ninja-release"
     },
     {
+      "name": "build-linux-ninja-release-stage-assets",
+      "configurePreset": "linux-ninja-release",
+      "targets": [
+        "rtrlab_stage_shipping_assets"
+      ]
+    },
+    {
+      "name": "build-linux-ninja-release-stage",
+      "configurePreset": "linux-ninja-release",
+      "targets": [
+        "rtrlab_stage_shipping"
+      ]
+    },
+    {
       "name": "build-linux-ninja-release-tests",
       "configurePreset": "linux-ninja-release-tests"
     },

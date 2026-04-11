@@ -7,7 +7,8 @@ lays out the phased implementation work required to land them.
 > **Goal**: Reshape the resource system around a single catalog-driven read path,
 > a Godot-style flat shipping layout, and a unified mount-priority mechanism for
 > DLC / Patch / Mod overlays. The end state is simpler, has fewer special cases,
-> and makes dev-mode behavior representative of shipping-mode behavior.
+> and gives runtime a clear split between source-only `dev` behavior and pak-only
+> `shipping` behavior.
 
 ---
 
@@ -129,8 +130,8 @@ state, not content.
   uses a text format such as `.json`. This classification remains a builder-time
   rule, not a runtime branch.
 - On `FileSystem::Init`, dev builds catalogs **in memory** for Engine and Project
-  source trees and installs them into `CatalogRegistry` alongside any on-disk
-  cooked / packaged catalogs that exist.
+  source trees and installs them into `CatalogRegistry`. Dev runtime mounts only
+  loose source content; cooked and packaged outputs remain offline build products.
 - `FileSystem::ResolveReadPath` always goes through `CatalogRegistry::ResolvePath`
   for Project / Engine domains, and through `ResolveWritableMount` for Saved /
   Cache domains. No document-vs-catalog bifurcation inside either branch.
@@ -188,7 +189,6 @@ to cover them:
 
 ```
 Source    = 0     (dev-only: in-memory source catalog)
-Cooked    = 100   (dev-only: cook output)
 Packaged  = 200   (base game pak)
 DLC       = 300   (first-party DLC paks)
 Patch     = 400   (patch paks — override base and DLC)
@@ -209,11 +209,11 @@ When multiple mounts provide the same logical path, the highest-priority mount w
 See [section 3](#3-before--after) for the before/after diagrams. Key points:
 
 - **`build/` exists only in the dev tree**, as a CMake-style build artifact directory.
-  It contains `build/Cooked/` and `build/Packaged/`, which are the intermediate outputs
-  of the cook and package steps.
-- **Shipping install is flat**. The package step copies `build/Packaged/Game.rtrpak`
-  (and any DLC paks) next to the exe. The `build/` directory is never part of a
-  shipping distribution.
+  Shipping asset staging uses `build/Packaging/<Config>/Cooked/` for cooked
+  intermediates and `build/Stage/<Config>/` for the final staged runtime layout.
+- **Shipping install is flat**. `cmake --install` copies from `build/Stage/<Config>/`
+  (including `Game.rtrpak` and any staged overlay pak directories) into the final
+  install tree. The `build/` directory is never part of a shipping distribution.
 - **Writable data always lives in a platform user directory**, not under the install
   directory. Shipping builds never assume the install directory is writable.
 
@@ -247,16 +247,12 @@ can be added at that time as isolated code — there is no reason to design for 
 
 ### 2.8 Env Vars and CLI Overrides
 
-- **Dev mode**: env vars (`RTRL_ROOT`, `RTRLAB_COOKED_ROOT`, `RTRLAB_PACKAGE_ROOT`,
-  `RTRLAB_RESOURCE_PROFILE`) and dev-only CLI args (`--root`, `--cooked-root`,
-  `--package-root`, `--resource-profile`) remain supported.
-- **Shipping mode**: path-related overrides (`RTRL_ROOT`, cooked/package roots)
-  and `RTRLAB_RESOURCE_PROFILE` are ignored entirely. This prevents an attacker from
-  redirecting resource loads via a malicious shortcut.
+- **Dev mode**: only `RTRL_ROOT` and `--root` remain as resource-location overrides.
+- **Shipping mode**: `RTRL_ROOT` is ignored entirely unless `--dev-mode` is present.
+  This prevents an attacker from redirecting resource loads via a malicious shortcut.
 - **Shipping whitelist**: only a small set of player-facing overrides survives
   (`--help`, `--language`, `--windowed`, `--fullscreen`, `--dev-mode`). Dev-only
-  overrides such as `--root`, `--cooked-root`, `--package-root`, and
-  `--resource-profile` are silently dropped unless `--dev-mode` is present.
+  overrides such as `--root` are silently dropped unless `--dev-mode` is present.
 - **Precedence**: CLI > env var > marker file search > compile-time default.
 
 ---
@@ -299,12 +295,11 @@ can be added at that time as isolated code — there is no reason to design for 
         └── Game.rtrpak               # merged Engine + Project pak
 ```
 
-- `.rtr/catalog.json` files under source directories are **gone**. Dev builds catalogs
-  in memory from the source tree at startup.
+- `.rtr/catalog.json` files under source directories are **gone**. Dev runtime and
+  cook both build source catalogs in memory from the source tree.
 - `Plugins/` directory is gone. The DLC / Mod concept replaces it.
-- `Saved/Overrides/` is gone. The dev workflow for testing overrides is to drop a
-  `.rtrpak` into `build/Packaged/` with a Mod-priority manifest, or to use a
-  dedicated dev-only mount configured via env var.
+- `Saved/Overrides/` is gone. DLC / Patch / Mod overlay behavior is now exercised
+  through staged shipping layouts rather than dev-runtime override mounts.
 
 ### 3.2 Shipping Install Layout
 
@@ -425,8 +420,8 @@ old Plugin concept; Mod replaces it in a later phase).
 **Scope**: build source catalogs in memory at startup from source trees.
 
 - Add `SourceCatalogBuilder` in `Src/Core/Resource/Catalog/`. It takes a source root
-  path and a mount prefix (e.g. `/Engine/`, `/Project/`), walks the tree, and emits a
-  `unordered_map<string, ResourceCatalogEntry>` with one entry per file.
+  path and a mount prefix (e.g. `/Engine/`, `/Project/`), walks the tree, and emits
+  source `ResourceCatalogEntry` records with one entry per file.
 - Each synthesized entry has one `ArtifactRecord` pointing at the source file,
   `format="source"`, tags all `"any"`.
 - Modify `CatalogRegistry::ResolvePath` so that on first use in dev mode, it calls
@@ -523,12 +518,12 @@ exe in shipping.
 
 **Scope**: add mount discovery for DLC, Patch, and Mod overlay directories.
 
-**Status (2026-04-11)**: completed in the current codebase. Shipping/profiled packaged
-mount discovery now scans `Game.rtrpak` plus optional `DLC/`, `Patches/`, and `Mods/`
-pak directories, `MountPriority` includes `DLC` / `Patch` / `Mod`, `/DLC/<Name>/` and
-`/Mod/<Name>/` virtual paths are parsed and resolved through the catalog system, and
-shipping-profile tests now cover base reads, additive DLC/mod namespaces, and
-`Mod > Patch > DLC > Packaged > Cooked > Source` precedence.
+**Status (2026-04-11)**: completed in the current codebase. Shipping mount discovery
+now scans `Game.rtrpak` plus optional `DLC/`, `Patches/`, and `Mods/` pak directories,
+`MountPriority` includes `DLC` / `Patch` / `Mod`, `/DLC/<Name>/` and `/Mod/<Name>/`
+virtual paths are parsed and resolved through the catalog system, and shipping-profile
+tests now cover base reads, additive DLC/mod namespaces, and
+`Mod > Patch > DLC > Packaged > Source` precedence.
 
 - Extend `MountPriority` enum with `DLC = 300`, `Patch = 400`, `Mod = 500`.
 - Extend `DiscoverReadableMountBackends` to scan `<install>/DLC/`,
@@ -549,7 +544,8 @@ shipping-profile tests now cover base reads, additive DLC/mod namespaces, and
 
 **Scope**: tidy up `Src/Core/` by introducing a `Util/` subdirectory for
 cross-cutting helpers, add a small in-house CLI parser, and lock down path
-overrides in shipping builds. This phase bundles three related small cleanups.
+overrides in shipping builds while removing runtime-only validation profiles.
+This phase bundles three related small cleanups.
 
 **Status (2026-04-11)**: completed in the current codebase. `Base.h` and
 `Time.{h,cpp}` now live under `Src/Core/Util/`, `CommandLine.{h,cpp}` provides a
@@ -557,8 +553,7 @@ shared option-registration parser used by `RTRLab` and the asset tools, shipping
 help now shows only the runtime whitelist (`--help`, `--language`,
 `--windowed`, `--fullscreen`, `--dev-mode`), and release/shipping builds ignore
 environment-based resource overrides unless `--dev-mode` is explicitly used with
-dev-only CLI overrides such as `--root`, `--cooked-root`, `--package-root`, or
-`--resource-profile`.
+the remaining dev-only CLI override `--root`.
 
 **8a. Core/Util reorganization**:
 
@@ -578,8 +573,8 @@ moves the loose files into it, so that `Src/Core/` contains only subdirectories.
 **8b. In-house CLI parser**:
 
 No CLI parser currently exists in the codebase. `Src/main.cpp` does not parse
-`argc`/`argv` at all, and the three tool entry points (`AssetCookMain`,
-`AssetIndexMain`, `AssetPackMain`) each do ad-hoc manual parsing. This phase adds
+`argc`/`argv` at all, and the tool entry points (`AssetCookMain`,
+`AssetPackMain`) each do ad-hoc manual parsing. This phase adds
 a small shared parser.
 
 - Add `Src/Core/Util/CommandLine.{h,cpp}`, implementing a minimal parser for
@@ -587,24 +582,21 @@ a small shared parser.
   dependency; expected size is ~150-300 LoC.
 - Provide a simple `CommandLineOption` registration API so different subsystems
   can declare their flags independently.
-- Migrate the three tool entry points under `Src/Tools/*Main.cpp` to use the new
+- Migrate the tool entry points under `Src/Tools/*Main.cpp` to use the new
   parser. Delete the ad-hoc parsing code.
 - Wire `Src/main.cpp` to parse `argc`/`argv` at startup and expose the parsed
   result to downstream subsystems (e.g. the resource system consults it for
-  `--root` / `--cooked-root` / `--package-root` / `--resource-profile`
-  overrides in dev builds).
+  `--root` overrides in dev builds).
 
 **8c. Override hardening**:
 
-- Gate `RTRL_ROOT`, `RTRLAB_COOKED_ROOT`, `RTRLAB_PACKAGE_ROOT`,
-  and `RTRLAB_RESOURCE_PROFILE` behind the existing release/shipping build
-  configuration. In shipping builds, these environment variables are ignored
-  entirely.
+- Gate `RTRL_ROOT` behind the existing release/shipping build configuration. In
+  shipping builds, this environment variable is ignored entirely unless
+  `--dev-mode` is present.
 - Define a shipping-mode CLI whitelist inside the new parser: only
   player-facing options (`--help`, `--language`, `--windowed`, `--fullscreen`,
-  `--dev-mode`) are accepted. Dev-only resource overrides (`--root`,
-  `--cooked-root`, `--package-root`, `--resource-profile`) are silently dropped
-  in shipping builds.
+  `--dev-mode`) are accepted. The remaining dev-only resource override
+  (`--root`) is silently dropped in shipping builds.
 - Add a `--dev-mode` flag that, when present in a shipping build, re-enables the
   dev whitelist. Useful for internal QA builds that need override capability
   while still being compiled as "shipping" profile.
@@ -708,8 +700,8 @@ case appears later, a small isolated helper can be added at that time.
 for the mechanical details.
 
 **Reasoning**: No CLI parser currently exists. `Src/main.cpp` does not even
-consume `argc`/`argv` today, and the three tools (`AssetCookMain`,
-`AssetIndexMain`, `AssetPackMain`) each do ad-hoc manual parsing. Requirements
+consume `argc`/`argv` today, and the tools (`AssetCookMain`,
+`AssetPackMain`) each do ad-hoc manual parsing. Requirements
 are small: a handful of `--key=value` and `--flag` options, shipping whitelist
 enforcement, and a registration mechanism for subsystems to declare their own
 options. A ~200-LoC hand-written parser is cheaper than integrating a third-party
