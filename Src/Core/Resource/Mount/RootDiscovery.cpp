@@ -2,6 +2,7 @@
 
 #include "Core/Diagnostics/Logging/LogCategories.h"
 #include "Core/Diagnostics/Logging/LogMacros.h"
+#include "Core/Util/CommandLine.h"
 
 #include <cstdlib>
 
@@ -17,6 +18,31 @@
 namespace
 {
     constexpr std::string_view kProjectMarkerFileName = ".rtrproject";
+
+    std::optional<std::string_view> GetRootOverride()
+    {
+#ifdef RTRLAB_CONFIG_RELEASE
+        if (!Util::ProcessHasOption("dev-mode"))
+            return std::nullopt;
+
+        if (const auto cliOverride = Util::GetProcessOptionValue("root"); cliOverride.has_value() && !cliOverride->empty())
+            return cliOverride;
+
+        return std::nullopt;
+#else
+        if (const auto cliOverride = Util::GetProcessOptionValue("root"); cliOverride.has_value() && !cliOverride->empty())
+            return cliOverride;
+
+        if (const char *envRoot = std::getenv("RTRL_ROOT"))
+        {
+            const std::string_view value = envRoot;
+            if (!value.empty())
+                return value;
+        }
+
+        return std::nullopt;
+#endif
+    }
 
     std::filesystem::path GetExecutableDirectory()
     {
@@ -79,19 +105,28 @@ namespace Resource
     std::filesystem::path DiscoverRootPath()
     {
 #ifdef RTRLAB_CONFIG_RELEASE
+        if (const auto rootOverride = GetRootOverride(); rootOverride.has_value())
+        {
+            std::filesystem::path overridePath{std::string(*rootOverride)};
+            if (HasProjectMarker(overridePath))
+                return std::filesystem::canonical(overridePath);
+            LOG_WARN_CAT(LogCategory::FileSystem, "Root override is set to '{}' but no '{}' marker file found there",
+                         *rootOverride, kProjectMarkerFileName);
+        }
+
         if (const auto exeDir = GetExecutableDirectory(); !exeDir.empty())
             return std::filesystem::canonical(exeDir);
 
         LOG_ERROR_CAT(LogCategory::FileSystem, "FileSystem: shipping build could not resolve executable directory");
         return std::filesystem::current_path();
 #else
-        if (const char *envRoot = std::getenv("RTRL_ROOT"))
+        if (const auto rootOverride = GetRootOverride(); rootOverride.has_value())
         {
-            std::filesystem::path path(envRoot);
-            if (HasProjectMarker(path))
-                return std::filesystem::canonical(path);
-            LOG_WARN_CAT(LogCategory::FileSystem, "RTRL_ROOT is set to '{}' but no '{}' marker file found there",
-                         envRoot, kProjectMarkerFileName);
+            std::filesystem::path overridePath{std::string(*rootOverride)};
+            if (HasProjectMarker(overridePath))
+                return std::filesystem::canonical(overridePath);
+            LOG_WARN_CAT(LogCategory::FileSystem, "Root override is set to '{}' but no '{}' marker file found there",
+                         *rootOverride, kProjectMarkerFileName);
         }
 
         {

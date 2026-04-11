@@ -60,7 +60,8 @@ namespace Util
                                         CommandLineOptionVisibility visibility = CommandLineOptionVisibility::Always);
 
         const std::vector<CommandLineOption> &GetOptions() const;
-        std::string BuildUsage(std::string_view programName) const;
+        std::string BuildUsage(std::string_view programName,
+                               CommandLineParseMode mode = CommandLineParseMode::Development) const;
         const CommandLineOption *FindLongOption(std::string_view longName) const;
         const CommandLineOption *FindShortOption(char shortName) const;
 
@@ -75,6 +76,9 @@ namespace Util
                           std::string *errorMessage = nullptr,
                           CommandLineParseMode mode = CommandLineParseMode::Development);
 
+    bool HasRawCommandLineFlag(int argc, char **argv, std::string_view longName);
+    bool ProcessHasOption(std::string_view name);
+    std::optional<std::string_view> GetProcessOptionValue(std::string_view name);
     void SetProcessCommandLine(ParsedCommandLine commandLine);
     const ParsedCommandLine &GetProcessCommandLine();
     void ClearProcessCommandLine();

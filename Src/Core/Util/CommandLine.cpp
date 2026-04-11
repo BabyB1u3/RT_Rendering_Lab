@@ -206,12 +206,15 @@ namespace Util
         return m_Options;
     }
 
-    std::string CommandLineSpec::BuildUsage(std::string_view programName) const
+    std::string CommandLineSpec::BuildUsage(std::string_view programName, CommandLineParseMode mode) const
     {
         std::ostringstream stream;
         stream << "Usage: " << programName;
         for (const auto &option : m_Options)
         {
+            if (!IsOptionVisible(option.visibility, mode))
+                continue;
+
             stream << " [--" << option.longName;
             if (option.kind == CommandLineOptionKind::Value)
                 stream << " <" << option.valueName << ">";
@@ -221,6 +224,9 @@ namespace Util
 
         for (const auto &option : m_Options)
         {
+            if (!IsOptionVisible(option.visibility, mode))
+                continue;
+
             stream << "  ";
             if (option.shortName.has_value())
                 stream << "-" << *option.shortName << ", ";
@@ -297,6 +303,31 @@ namespace Util
         }
 
         return true;
+    }
+
+    bool HasRawCommandLineFlag(int argc, char **argv, std::string_view longName)
+    {
+        const std::string prefix = "--" + std::string(longName);
+        for (int i = 1; i < argc; ++i)
+        {
+            const std::string_view argument = argv[i];
+            if (argument == prefix)
+                return true;
+            if (argument.starts_with(prefix) && argument.size() > prefix.size() && argument[prefix.size()] == '=')
+                return true;
+        }
+
+        return false;
+    }
+
+    bool ProcessHasOption(std::string_view name)
+    {
+        return g_ProcessCommandLine.HasOption(name);
+    }
+
+    std::optional<std::string_view> GetProcessOptionValue(std::string_view name)
+    {
+        return g_ProcessCommandLine.GetOptionValue(name);
     }
 
     void SetProcessCommandLine(ParsedCommandLine commandLine)

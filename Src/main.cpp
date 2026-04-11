@@ -39,15 +39,21 @@ int main(int argc, char **argv)
     const auto commandLineSpec = BuildMainCommandLineSpec();
     Util::ParsedCommandLine commandLine;
     std::string errorMessage;
-    if (!Util::ParseCommandLine(argc, argv, commandLineSpec, commandLine, &errorMessage))
+    auto parseMode = Util::CommandLineParseMode::Development;
+#ifdef RTRLAB_CONFIG_RELEASE
+    if (!Util::HasRawCommandLineFlag(argc, argv, "dev-mode"))
+        parseMode = Util::CommandLineParseMode::Shipping;
+#endif
+
+    if (!Util::ParseCommandLine(argc, argv, commandLineSpec, commandLine, &errorMessage, parseMode))
     {
-        std::cerr << errorMessage << "\n\n" << commandLineSpec.BuildUsage("RTRLab");
+        std::cerr << errorMessage << "\n\n" << commandLineSpec.BuildUsage("RTRLab", parseMode);
         return 1;
     }
 
     if (commandLine.HasOption("help"))
     {
-        std::cout << commandLineSpec.BuildUsage("RTRLab");
+        std::cout << commandLineSpec.BuildUsage("RTRLab", parseMode);
         return 0;
     }
 

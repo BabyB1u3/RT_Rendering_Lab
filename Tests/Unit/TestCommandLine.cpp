@@ -8,10 +8,10 @@ namespace
     {
         Util::CommandLineSpec spec;
         spec.AddFlag("help", 'h', "Show help.")
-            .AddValueOption("root", std::nullopt, "path", "Override root path.")
+            .AddValueOption("root", std::nullopt, "path", "Override root path.",
+                            Util::CommandLineOptionVisibility::DevelopmentOnly)
             .AddValueOption("layout", std::nullopt, "name", "Select output layout.")
-            .AddFlag("dev-mode", std::nullopt, "Enable development-only behavior.",
-                     Util::CommandLineOptionVisibility::DevelopmentOnly);
+            .AddFlag("dev-mode", std::nullopt, "Enable development-only behavior.");
         return spec;
     }
 }
@@ -91,4 +91,41 @@ TEST(CommandLineTests, ProcessCommandLineStorageRoundTripsParsedState)
     EXPECT_EQ(stored.positionals[0], "scene.rtr");
 
     Util::ClearProcessCommandLine();
+}
+
+TEST(CommandLineTests, ShippingModeDropsDevelopmentOnlyOptions)
+{
+    auto spec = BuildCommandLineSpec();
+    Util::ParsedCommandLine parsed;
+    std::string errorMessage;
+
+    std::vector<char *> argv{
+        const_cast<char *>("tool"),
+        const_cast<char *>("--root"),
+        const_cast<char *>("D:/Repo"),
+        const_cast<char *>("--help"),
+        const_cast<char *>("--dev-mode"),
+    };
+
+    ASSERT_TRUE(Util::ParseCommandLine(
+        static_cast<int>(argv.size()),
+        argv.data(),
+        spec,
+        parsed,
+        &errorMessage,
+        Util::CommandLineParseMode::Shipping))
+        << errorMessage;
+    EXPECT_TRUE(parsed.HasOption("help"));
+    EXPECT_FALSE(parsed.HasOption("root"));
+    EXPECT_TRUE(parsed.HasOption("dev-mode"));
+}
+
+TEST(CommandLineTests, ShippingUsageHidesDevelopmentOnlyOptions)
+{
+    const auto spec = BuildCommandLineSpec();
+    const std::string usage = spec.BuildUsage("tool", Util::CommandLineParseMode::Shipping);
+
+    EXPECT_NE(usage.find("--help"), std::string::npos);
+    EXPECT_NE(usage.find("--dev-mode"), std::string::npos);
+    EXPECT_EQ(usage.find("--root"), std::string::npos);
 }
