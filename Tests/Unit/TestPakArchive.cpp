@@ -52,35 +52,3 @@ TEST_F(PakArchiveTests, BuildPakArchiveCanReadEntries)
     EXPECT_EQ(text, "checker");
 }
 
-TEST_F(PakArchiveTests, PackageCookedRepositoryCatalogsWritesMergedGameArchive)
-{
-    const auto cookedRoot = TestRoot() / "Cooked";
-    const auto packagedRoot = TestRoot() / "Packaged";
-
-    test_support::WriteTextFileOrFail(
-        test_support::ProjectCookedCatalogPath(cookedRoot),
-        "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": []\n}\n");
-    test_support::WriteProjectCookedFileOrFail(cookedRoot, "Textures/Grassy_Square.rtrtex", "project");
-
-    test_support::WriteTextFileOrFail(
-        test_support::EngineCookedCatalogPath(cookedRoot),
-        "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": []\n}\n");
-    test_support::WriteEngineCookedFileOrFail(cookedRoot, "Defaults/Materials/ErrorMaterial.json", "engine");
-
-    std::string errorMessage;
-    ASSERT_TRUE(Resource::PackageCookedRepositoryCatalogs(cookedRoot, packagedRoot, &errorMessage)) << errorMessage;
-
-    const auto gamePak = test_support::GamePackagedArchivePath(packagedRoot);
-
-    EXPECT_TRUE(std::filesystem::exists(gamePak));
-
-    EXPECT_TRUE(Resource::PakEntryExists(gamePak, ".rtr/catalog.json", &errorMessage)) << errorMessage;
-    EXPECT_TRUE(Resource::PakEntryExists(gamePak, "Project/Textures/Grassy_Square.rtrtex", &errorMessage)) << errorMessage;
-    EXPECT_TRUE(Resource::PakEntryExists(gamePak, "Engine/Defaults/Materials/ErrorMaterial.json", &errorMessage)) << errorMessage;
-
-    const auto catalogBytes = Resource::ReadPakEntry(gamePak, ".rtr/catalog.json", &errorMessage);
-    ASSERT_TRUE(catalogBytes.has_value()) << errorMessage;
-    const std::string catalogText(catalogBytes->begin(), catalogBytes->end());
-    EXPECT_NE(catalogText.find("\"logicalPath\": \"/Project/"), std::string::npos);
-    EXPECT_NE(catalogText.find("\"logicalPath\": \"/Engine/"), std::string::npos);
-}

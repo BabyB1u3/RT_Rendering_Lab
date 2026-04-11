@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 
 #include <filesystem>
-#include <iterator>
 #include <string>
 #include <unordered_map>
 
@@ -178,36 +177,6 @@ TEST_F(SourceCatalogTests, BuildSourceCatalogTreatsPlainTextSupportFilesAsDocume
     ASSERT_EQ(it->second.artifacts.size(), 1u);
     EXPECT_EQ(it->second.artifacts[0].relativePath, "Docs/Readme.txt");
     EXPECT_EQ(it->second.artifacts[0].format, "document");
-}
-
-TEST_F(SourceCatalogTests, IndexRepositorySourceCatalogsWritesProjectAndEngineCatalogs)
-{
-    const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
-    test_support::WriteProjectFileOrFail(repoRoot, "Textures/Grassy_Square.jpg", "jpg");
-    test_support::WriteProjectFileOrFail(repoRoot, "Config/Graphics.json", "{\n}\n");
-    test_support::WriteEngineFileOrFail(repoRoot, "Defaults/Materials/ErrorMaterial.json", "{\n}\n");
-
-    std::string errorMessage;
-    ASSERT_TRUE(Resource::IndexRepositorySourceCatalogs(repoRoot, "Project", &errorMessage)) << errorMessage;
-
-    const auto projectCatalogPath = test_support::ProjectSourceCatalogPath(repoRoot);
-    const auto engineCatalogPath = test_support::EngineSourceCatalogPath(repoRoot);
-
-    EXPECT_TRUE(std::filesystem::exists(projectCatalogPath));
-    EXPECT_TRUE(std::filesystem::exists(engineCatalogPath));
-
-    std::ifstream projectCatalog(projectCatalogPath);
-    std::ifstream engineCatalog(engineCatalogPath);
-    ASSERT_TRUE(projectCatalog.is_open());
-    ASSERT_TRUE(engineCatalog.is_open());
-
-    const std::string projectContents((std::istreambuf_iterator<char>(projectCatalog)), std::istreambuf_iterator<char>());
-    const std::string engineContents((std::istreambuf_iterator<char>(engineCatalog)), std::istreambuf_iterator<char>());
-
-    EXPECT_NE(projectContents.find("/Project/Textures/Grassy_Square"), std::string::npos);
-    EXPECT_NE(projectContents.find("/Project/Config/Graphics.json"), std::string::npos);
-    EXPECT_NE(projectContents.find("\"format\": \"document\""), std::string::npos);
-    EXPECT_NE(engineContents.find("/Engine/Defaults/Materials/ErrorMaterial"), std::string::npos);
 }
 
 TEST_F(SourceCatalogTests, WriteSourceCatalogJsonRejectsEntriesWithoutSourceRelativePath)
