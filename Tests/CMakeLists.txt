@@ -87,6 +87,7 @@ glab_add_test_executable(rtrlab_integration_tests "Integration." "integration;co
 )
 
 set(GLAB_DEV_PROFILE_TEST_SOURCES
+    Integration/TestMountBackendDev.cpp
     Integration/TestSourceCatalogDev.cpp
     Integration/TestRootDiscoveryDev.cpp
 )
