@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <filesystem>
 #include <string>
-#include <unordered_map>
 
 #include "Core/Resource/Catalog/SourceCatalog.h"
 #include "ResourceTestSupport.h"
@@ -79,14 +79,14 @@ TEST_F(SourceCatalogTests, BuildProjectSourceCatalogIncludesConfigDocumentsAndSk
     EXPECT_EQ(configEntry->artifacts[0].profileTag, "dev");
 }
 
-TEST_F(SourceCatalogTests, BuildSourceCatalogMapReturnsEntriesByLogicalPath)
+TEST_F(SourceCatalogTests, BuildSourceCatalogEntriesCanBeIndexedByLogicalPath)
 {
     test_support::WriteMountFileOrFail(TestRoot(), "Textures/Grassy_Square.jpg", "jpg");
 
-    std::unordered_map<std::string, Resource::ResourceCatalogEntry> entries;
+    std::vector<Resource::ResourceCatalogEntry> entries;
     std::string errorMessage;
 
-    ASSERT_TRUE(Resource::BuildSourceCatalogMap(
+    ASSERT_TRUE(Resource::BuildSourceCatalogEntries(
         TestRoot(),
         Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, {}},
         entries,
@@ -94,16 +94,18 @@ TEST_F(SourceCatalogTests, BuildSourceCatalogMapReturnsEntriesByLogicalPath)
         << errorMessage;
 
     ASSERT_EQ(entries.size(), 1u);
-    const auto it = entries.find("/Project/Textures/Grassy_Square");
+    const auto it = std::find_if(entries.begin(), entries.end(), [](const auto &entry) {
+        return entry.logicalPath == "/Project/Textures/Grassy_Square";
+    });
     ASSERT_NE(it, entries.end());
-    ASSERT_TRUE(it->second.sourceRelativePath.has_value());
-    EXPECT_EQ(*it->second.sourceRelativePath, "Textures/Grassy_Square.jpg");
-    ASSERT_EQ(it->second.artifacts.size(), 1u);
-    EXPECT_EQ(it->second.artifacts[0].relativePath, "Textures/Grassy_Square.jpg");
-    EXPECT_EQ(it->second.artifacts[0].format, "jpg");
-    EXPECT_EQ(it->second.artifacts[0].platformTag, "any");
-    EXPECT_EQ(it->second.artifacts[0].backendTag, "any");
-    EXPECT_EQ(it->second.artifacts[0].profileTag, "dev");
+    ASSERT_TRUE(it->sourceRelativePath.has_value());
+    EXPECT_EQ(*it->sourceRelativePath, "Textures/Grassy_Square.jpg");
+    ASSERT_EQ(it->artifacts.size(), 1u);
+    EXPECT_EQ(it->artifacts[0].relativePath, "Textures/Grassy_Square.jpg");
+    EXPECT_EQ(it->artifacts[0].format, "jpg");
+    EXPECT_EQ(it->artifacts[0].platformTag, "any");
+    EXPECT_EQ(it->artifacts[0].backendTag, "any");
+    EXPECT_EQ(it->artifacts[0].profileTag, "dev");
 }
 
 TEST_F(SourceCatalogTests, BuildSourceCatalogRejectsDuplicateLogicalPaths)
@@ -122,15 +124,15 @@ TEST_F(SourceCatalogTests, BuildSourceCatalogRejectsDuplicateLogicalPaths)
     EXPECT_NE(errorMessage.find("duplicate logical path"), std::string::npos);
 }
 
-TEST_F(SourceCatalogTests, BuildSourceCatalogMapRejectsDuplicateLogicalPaths)
+TEST_F(SourceCatalogTests, BuildSourceCatalogEntriesRejectsDuplicateLogicalPaths)
 {
     test_support::WriteMountFileOrFail(TestRoot(), "Textures/Grassy_Square.jpg", "jpg");
     test_support::WriteMountFileOrFail(TestRoot(), "Textures/Grassy_Square.png", "png");
 
-    std::unordered_map<std::string, Resource::ResourceCatalogEntry> entries;
+    std::vector<Resource::ResourceCatalogEntry> entries;
     std::string errorMessage;
 
-    EXPECT_FALSE(Resource::BuildSourceCatalogMap(
+    EXPECT_FALSE(Resource::BuildSourceCatalogEntries(
         TestRoot(),
         Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, {}},
         entries,
@@ -138,14 +140,14 @@ TEST_F(SourceCatalogTests, BuildSourceCatalogMapRejectsDuplicateLogicalPaths)
     EXPECT_NE(errorMessage.find("duplicate logical path"), std::string::npos);
 }
 
-TEST_F(SourceCatalogTests, BuildEngineSourceCatalogMapUsesEngineNamespace)
+TEST_F(SourceCatalogTests, BuildEngineSourceCatalogEntriesUseEngineNamespace)
 {
     test_support::WriteMountFileOrFail(TestRoot(), "Defaults/Materials/ErrorMaterial.json", "{\n}\n");
 
-    std::unordered_map<std::string, Resource::ResourceCatalogEntry> entries;
+    std::vector<Resource::ResourceCatalogEntry> entries;
     std::string errorMessage;
 
-    ASSERT_TRUE(Resource::BuildSourceCatalogMap(
+    ASSERT_TRUE(Resource::BuildSourceCatalogEntries(
         TestRoot(),
         Resource::VirtualPath{Resource::PathDomain::Engine, std::nullopt, {}},
         entries,
@@ -153,29 +155,31 @@ TEST_F(SourceCatalogTests, BuildEngineSourceCatalogMapUsesEngineNamespace)
         << errorMessage;
 
     ASSERT_EQ(entries.size(), 1u);
-    EXPECT_TRUE(entries.contains("/Engine/Defaults/Materials/ErrorMaterial"));
+    EXPECT_EQ(entries[0].logicalPath, "/Engine/Defaults/Materials/ErrorMaterial");
 }
 
 TEST_F(SourceCatalogTests, BuildSourceCatalogTreatsPlainTextSupportFilesAsDocuments)
 {
     test_support::WriteMountFileOrFail(TestRoot(), "Docs/Readme.txt", "hello");
 
-    std::unordered_map<std::string, Resource::ResourceCatalogEntry> entries;
+    std::vector<Resource::ResourceCatalogEntry> entries;
     std::string errorMessage;
 
-    ASSERT_TRUE(Resource::BuildSourceCatalogMap(
+    ASSERT_TRUE(Resource::BuildSourceCatalogEntries(
         TestRoot(),
         Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, {}},
         entries,
         &errorMessage))
         << errorMessage;
 
-    const auto it = entries.find("/Project/Docs/Readme.txt");
+    const auto it = std::find_if(entries.begin(), entries.end(), [](const auto &entry) {
+        return entry.logicalPath == "/Project/Docs/Readme.txt";
+    });
     ASSERT_NE(it, entries.end());
-    ASSERT_TRUE(it->second.sourceRelativePath.has_value());
-    EXPECT_EQ(*it->second.sourceRelativePath, "Docs/Readme.txt");
-    ASSERT_EQ(it->second.artifacts.size(), 1u);
-    EXPECT_EQ(it->second.artifacts[0].relativePath, "Docs/Readme.txt");
-    EXPECT_EQ(it->second.artifacts[0].format, "document");
+    ASSERT_TRUE(it->sourceRelativePath.has_value());
+    EXPECT_EQ(*it->sourceRelativePath, "Docs/Readme.txt");
+    ASSERT_EQ(it->artifacts.size(), 1u);
+    EXPECT_EQ(it->artifacts[0].relativePath, "Docs/Readme.txt");
+    EXPECT_EQ(it->artifacts[0].format, "document");
 }
 

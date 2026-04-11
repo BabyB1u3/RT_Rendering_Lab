@@ -466,8 +466,8 @@ namespace Resource
                     {
                         cache.kind = CatalogKind::Source;
                         cache.version = 1;
-                        std::unordered_map<std::string, ResourceCatalogEntry> loadedEntries;
-                        if (!Resource::BuildSourceCatalogMap(mount.mountRoot, mount.mountPath, loadedEntries))
+                        std::vector<ResourceCatalogEntry> loadedEntries;
+                        if (!Resource::BuildSourceCatalogEntries(mount.mountRoot, mount.mountPath, loadedEntries))
                         {
                             cache.entries.clear();
                             LOG_ERROR_CAT(LogCategory::FileSystem,
@@ -476,7 +476,10 @@ namespace Resource
                         }
                         else
                         {
-                            cache.entries = std::move(loadedEntries);
+                            cache.entries.clear();
+                            cache.entries.reserve(loadedEntries.size());
+                            for (auto &entry : loadedEntries)
+                                cache.entries.emplace(entry.logicalPath, std::move(entry));
                             LOG_INFO_CAT(LogCategory::FileSystem,
                                          "Built in-memory source catalog '{}'",
                                          mount.mountRoot.string());
