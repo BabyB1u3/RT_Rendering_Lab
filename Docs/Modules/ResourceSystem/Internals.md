@@ -53,7 +53,7 @@ The system operates in two phases: an **offline toolchain** (index, cook, pack) 
 Offline phase (build time)                Runtime phase
 +---------------+                        +----------------------+
 | rtr_asset_    |  scan source files     | FileSystem::         |
-|   index       |-> generate catalog.json| ResolveReadPath      |
+|   index       |-> generate catalog.json| ReadText / ReadBinary|
 +---------------+                        +----------+-----------+
        |                                            |
        v                                            v
@@ -235,7 +235,7 @@ use platform-specific user data paths:
 
 #### 3.2 Path Parsing and Domain Dispatch
 
-When `ResolveReadPath("/Project/Textures/Grassy_Square")` is called:
+When `ReadBinary("/Project/Textures/Grassy_Square")` is called:
 
 **Step 1: Parse the virtual path**
 - Validate: must start with `/`, must not contain `\`, must not contain `.` or `..`
@@ -246,7 +246,7 @@ When `ResolveReadPath("/Project/Textures/Grassy_Square")` is called:
 Result: `VirtualPath { domain=Project, mountName=nullopt, relativePath="Textures/Grassy_Square" }`
 
 **Step 2: Dispatch by domain**
-- `Project` / `Engine`: always resolve through `CatalogRegistry::ResolvePath()`
+- `Project` / `Engine`: always resolve through `CatalogRegistry::ResolveArtifact()`
 - `Saved` / `Cache`: resolve through writable mounts directly
 
 The runtime no longer branches on "has extension" versus "no extension". Document vs
@@ -254,7 +254,7 @@ asset classification now exists only inside the source catalog builder.
 
 #### 3.3 Unified Project / Engine Read Resolution
 
-`FileSystem.cpp` routes every Project / Engine read through `CatalogRegistry::ResolvePath()`.
+`FileSystem.cpp` routes every Project / Engine read through `CatalogRegistry::ResolveArtifact()`.
 
 This includes both kinds of logical path:
 
@@ -341,12 +341,15 @@ Runtime tag sources:
   compile-time default (`dev` / `shipping`). For packaged/shipping profiles, the
   artifact profile tag is mapped to `"cooked"`.
 
-**Step D: Artifact physical path resolution** (`MountBackend.cpp:395-408`)
+**Step D: Artifact descriptor resolution** (`MountBackend.cpp`)
 
-- Directory backend: return `mountRoot / artifact.relativePath`.
-- PakArchive backend: extract the entry from the pak to
-  `{cacheDir}/PackagedExtracted/{sanitizedKey}/{relativePath}`, and return the extracted
-  physical path.
+- Directory backend: return a descriptor with `backend=Directory`,
+  `mountRoot`, and `relativePath`.
+- PakArchive backend: return a descriptor with `backend=PakArchive`,
+  `mountRoot`, and `relativePath`.
+- `FileSystem::ReadText`, `ReadBinary`, and `OpenReadStream` consume that
+  descriptor directly. Directory-backed reads use normal file I/O; pak-backed
+  reads use `ReadPakEntry()` or an in-memory stream wrapper.
 
 #### 3.4 Writable Domain Resolution
 
@@ -376,7 +379,7 @@ User calls: FileSystem::ReadBinary("/Project/Textures/Grassy_Square")
   +- ParseVirtualPath -> {Project, "Textures/Grassy_Square"}
   +- Domain dispatch -> Project => catalog path
   |
-  +- CatalogRegistry::ResolvePath
+  +- CatalogRegistry::ResolveArtifact
        |
        +- [first call] DiscoverReadableMountBackends
        |    +- Project/ exists           -> register Source:Project    (priority=0)
@@ -393,10 +396,13 @@ User calls: FileSystem::ReadBinary("/Project/Textures/Grassy_Square")
        |    e.g. {relativePath: "Textures/Grassy_Square.rtrtex", profileTag: "cooked"}
        |
        +- ResolveReadableMountArtifact
-            +- Directory backend -> return mountRoot/Textures/Grassy_Square.rtrtex
-            +- PakArchive backend -> extract from .rtrpak to cache -> return extracted path
+            +- Directory backend -> {mountRoot, relativePath}
+            +- PakArchive backend -> {pak archive path, relativePath}
 
-  ReadBinary receives the physical path, calls Resource::ReadBinaryFile, returns bytes.
+  ReadBinary consumes the descriptor:
+    +- Directory backend -> Resource::ReadBinaryFile(mountRoot / relativePath)
+    +- PakArchive backend -> Resource::ReadPakEntry(pakPath, relativePath)
+  -> returns bytes.
 ```
 
 ---
@@ -405,12 +411,12 @@ User calls: FileSystem::ReadBinary("/Project/Textures/Grassy_Square")
 
 | Mechanism | Implementation Location | Key Point |
 |-----------|------------------------|-----------|
-| Project / Engine reads are always catalog-backed | `FileSystem::ResolveReadPath` | Runtime dispatch is by domain, not by filename extension |
+| Project / Engine reads are always catalog-backed | `FileSystem::ReadText` / `ReadBinary` / `OpenReadStream` | Runtime dispatch is by domain, not by filename extension |
 | Document vs asset classification is builder-time | `SourceCatalog.cpp` | Source catalog synthesis decides whether a logical path keeps its extension |
 | Overlay overrides everything | `MountPriority::Overlay = 300` | Development-time `Saved/Overrides/` can replace any resource |
 | Equal-priority conflict = removal | `MergeMountEntriesIntoGlobalTable` | No implicit choice; the path becomes unavailable |
-| Catalog is lazily built | `m_GlobalTableBuilt` flag | All mounts are scanned on the first `ResolvePath` call |
-| Pak entries materialize to cache | `MaterializePakEntry` | Runtime still works with physical file paths, avoiding consumer changes |
+| Catalog is lazily built | `m_GlobalTableBuilt` flag | All mounts are scanned on the first Project / Engine read |
+| Pak entries are read directly | `ReadPakEntry` / `OpenReadableArtifactStream` | No extraction cache or temp-file materialization remains in the normal read path |
 | Profile determines mount registration order | `DiscoverReadableMountBackends` | `dev` prefers source; `shipping` prefers packaged |
 | Writable dirs are lazily resolved | `FileSystem::ResolveWritableDirs` | First call to `GetSavedDir()` / `GetCacheDir()` triggers resolution |
 | Dev root discovery walks up from executable | `FindRootFromExecutable` | Up to 5 parent directories, looking for `.rtrproject` |
@@ -545,7 +551,7 @@ support or runtime content downloads.
 | Alignment | **None** | Configurable (sector-aligned for HDD/SSD) | Yes | None |
 | Index location | End of file | End of file | Header | End of file |
 | Single-entry read | Re-opens file + re-reads full index every time | Index resident in memory, direct seek+read | Resident | Index resident |
-| Streaming | Materialize to cache, then read file | Direct stream from pak | Direct stream | Direct stream |
+| Streaming | Direct stream from resolved artifact | Direct stream from pak | Direct stream | Direct stream |
 
 **Analysis**:
 
@@ -559,11 +565,11 @@ large storage sizes. This is acceptable with only a few textures but grows linea
 and keeps it resident; subsequent reads require only a single seek+read. RTRLab reopens
 the file and reads the full header+index on every `FindPakEntry` call.
 
-**c) Materialization vs streaming**. RTRLab extracts pak entries to cache-backed physical
-files and then lets consumers read those files. Unreal and Unity support streaming
-directly from inside the pak without materialization. The design document (section 12.5)
-explicitly acknowledges this as an intentional trade-off: current runtime consumers
-expect physical file paths, and materialization avoids rewriting all consumers.
+**c) Data-returning reads vs streaming**. RTRLab now resolves readable artifacts into a
+small descriptor and lets the `FileSystem` facade serve bytes or streams directly from
+directory-backed files or pak-backed entries. Unreal and Unity also support direct
+streaming from archives; RTRLab now follows the same broad direction, though its higher-
+level runtime consumers are still largely synchronous.
 
 ### 11. Mechanisms Present in Mature Engines but Absent in RTRLab
 

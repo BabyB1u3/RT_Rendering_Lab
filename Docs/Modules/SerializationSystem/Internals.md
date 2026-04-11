@@ -67,13 +67,13 @@ The serialization system is organized as a four-layer stack. Each layer has a si
 responsibility and depends only on the layer below it:
 
 ```
-Layer 3 — File I/O Integration        Serialization.h
-           ↕ (filesystem paths)
-Layer 2 — Format Backends              IFormatBackend.h, JsonBackend.h/.cpp
-           ↕ (string ↔ PropertyTree)
-Layer 1 — Serialization Traits         SerializationTraits.h, BuiltinTraits.h
-           ↕ (T ↔ PropertyTree)
-Layer 0 — Intermediate Representation  PropertyTree.h/.cpp
+Layer 3 -- File I/O Integration        Serialization.h
+           -> (logical paths + text I/O)
+Layer 2 -- Format Backends             IFormatBackend.h, JsonBackend.h/.cpp
+           -> (string -> PropertyTree)
+Layer 1 -- Serialization Traits        SerializationTraits.h, BuiltinTraits.h
+           -> (T -> PropertyTree)
+Layer 0 -- Intermediate Representation PropertyTree.h/.cpp
 ```
 
 Data flows bidirectionally through the stack:
@@ -524,11 +524,12 @@ not enforced by the `Serializable` concept — it is an implicit requirement of
 `SaveToVirtualPath` and `LoadFromVirtualPath` bridge the serialization system with
 the Resource System's logical path model:
 
-- Save: `FileSystem::ResolveWritePath(virtualPath)` → physical path → `SaveToFile`
-- Load: `FileSystem::ResolveReadPath(virtualPath)` → physical path → `LoadFromFile`
+- Save: `FileSystem::ResolveWritePath(virtualPath)` -> physical path -> `SaveToFile`
+- Load: `FileSystem::ReadText(virtualPath)` -> backend parse -> deserialize
 
-Both come in two overloads: explicit backend and auto-detect (which resolves write
-path then delegates to `SaveToFile`/`LoadFromFile` with extension-based detection).
+Both come in two overloads: explicit backend and auto-detect. Save still resolves a
+writable physical path before delegating to `SaveToFile`, while load uses the resource
+system's text-returning API and deserializes directly from the returned string.
 
 #### 5.4 Config Path Fallback Chain
 
@@ -538,46 +539,46 @@ The config path functions implement a three-tier fallback for configuration file
 LoadFromConfigPath("input/ShadowMapping.json")
 
     1. Try /Saved/Config/input/ShadowMapping.json
-       → if exists: return (user has saved config)
+       -> if readable: return its text (user has saved config)
 
     2. Try /Project/Config/input/ShadowMapping.json
-       → if exists: copy to /Saved/Config/..., return saved copy
+       -> if readable: write the same text to /Saved/Config/... and return the text
        (auto-seeding: project defaults become user-editable saved configs)
 
     3. Try /Engine/Config/input/ShadowMapping.json
-       → if exists: copy to /Saved/Config/..., return saved copy
+       -> if readable: write the same text to /Saved/Config/... and return the text
        (engine defaults as last resort)
 
     4. All three miss: return false
 ```
 
 **Auto-seeding**: When a config is found in Project or Engine but not in Saved, the
-system automatically copies it to the Saved directory. This means:
+system automatically writes the resolved text to the Saved directory. This means:
 
-- First run: engine defaults are copied to Saved, where users can edit them
+- First run: engine defaults are copied into Saved, where users can edit them
 - Subsequent runs: the Saved copy is used directly
 - The Project/Engine originals are never modified
 
-`SaveToConfigPath` always writes to `/Saved/Config/...` — the Project and Engine tiers
+`SaveToConfigPath` always writes to `/Saved/Config/...` -- the Project and Engine tiers
 are read-only sources.
 
-The implementation lives in `detail::ResolveConfigReadPath()`, which encapsulates the
-three-tier lookup and seeding logic. The `seedToSaved` lambda handles the copy with
-error handling:
+The implementation lives in `detail::ResolveConfigReadText()`, which encapsulates the
+three-tier lookup and seeding logic. The `seedToSaved` lambda handles the Saved write
+with error handling:
 
 ```cpp
 auto seedToSaved = [&](std::string_view sourceVirtualPath, std::string_view label)
-    -> std::optional<std::filesystem::path>
+    -> std::optional<std::string>
 {
-    // Resolve source and target paths
-    // copy_file with error handling
-    // Return saved path on success, source path on copy failure
+    // Read source text via FileSystem::ReadText
+    // Write the same text to /Saved/Config/... via FileSystem::WriteText
+    // Return the source text either way
 };
 ```
 
-If the copy fails (e.g., permissions), the function falls back to reading from the
-source directly and logs a warning. This ensures the system degrades gracefully rather
-than failing outright.
+If the Saved write fails (e.g., permissions), the function still returns the source
+text and logs a warning. This ensures the system degrades gracefully rather than
+failing outright.
 
 ---
 
@@ -589,25 +590,25 @@ Tracing `Serialization::SaveToConfigPath(inputMap, "input/ShadowMapping.json")`:
 
 ```
 1. SaveToConfigPath
-   → builds virtualPath = "/Saved/Config/input/ShadowMapping.json"
-   → calls SaveToVirtualPath(inputMap, virtualPath)
+   -> builds virtualPath = "/Saved/Config/input/ShadowMapping.json"
+   -> calls SaveToVirtualPath(inputMap, virtualPath)
 
 2. SaveToVirtualPath
-   → FileSystem::ResolveWritePath("/Saved/Config/input/ShadowMapping.json")
-   → returns e.g. "C:/Users/name/AppData/Local/RTRLab/Saved/Config/input/ShadowMapping.json"
-   → calls SaveToFile(inputMap, resolvedPath)
+   -> FileSystem::ResolveWritePath("/Saved/Config/input/ShadowMapping.json")
+   -> returns e.g. "C:/Users/name/AppData/Local/RTRLab/Saved/Config/input/ShadowMapping.json"
+   -> calls SaveToFile(inputMap, resolvedPath)
 
 3. SaveToFile
-   → Serialize(tree, inputMap)
-     → InputActionSerialization.h Serialize trait runs
-     → builds PropertyTree::Object{} with "actions" and "axes" subtrees
-     → each InputSource serializes its Type (magic_enum) and Code (InputNames.h)
-   → GetBackendForExtension(".json") → JsonBackend instance
-   → JsonBackend::WriteToString(tree)
-     → TreeToJson: recursive std::visit converts PropertyTree → nlohmann::json
-     → nlohmann::json::dump(2): produces pretty-printed JSON string
-   → create_directories for parent path
-   → write string to file via ofstream
+   -> Serialize(tree, inputMap)
+      -> InputActionSerialization.h Serialize trait runs
+      -> builds PropertyTree::Object{} with "actions" and "axes" subtrees
+      -> each InputSource serializes its Type (magic_enum) and Code (InputNames.h)
+   -> GetBackendForExtension(".json") -> JsonBackend instance
+   -> JsonBackend::WriteToString(tree)
+      -> TreeToJson: recursive std::visit converts PropertyTree -> nlohmann::json
+      -> nlohmann::json::dump(2): produces pretty-printed JSON string
+   -> create_directories for parent path
+   -> write string to file via ofstream
 ```
 
 #### 6.2 Load Path
@@ -616,26 +617,25 @@ Tracing `Serialization::LoadFromConfigPath(inputMap, "input/ShadowMapping.json")
 
 ```
 1. LoadFromConfigPath
-   → detail::ResolveConfigReadPath("input/ShadowMapping.json")
-   → tries /Saved/Config/input/ShadowMapping.json — found
-   → calls LoadFromFile(inputMap, resolvedPath)
+   -> detail::ResolveConfigReadText("input/ShadowMapping.json")
+   -> tries /Saved/Config/input/ShadowMapping.json -> found
+   -> returns file contents as text
 
-2. LoadFromFile
-   → read entire file into string via ifstream + ostringstream
-   → GetBackendForExtension(".json") → JsonBackend instance
-   → JsonBackend::ReadFromString(data, tree)
-     → nlohmann::json::parse(data): tokenize + parse JSON
-     → JsonToTree: recursive switch converts nlohmann::json → PropertyTree
-     → uint64 overflow check for large unsigned integers
-   → InputActionMap temp{};  // default-constructed temporary
-   → Deserialize(tree, temp)
-     → InputActionSerialization.h Deserialize trait runs
-     → reads "actions" object: for each action name, tries each array
-       element as ChordBinding then InputSource
-     → reads "axes" object: switches on "kind" string ("KeyPair",
-       "MouseAxis", "GamepadAxis")
-     → unknown entries produce LOG_WARN and continue (not fail)
-   → inputMap = std::move(temp);  // atomic commit
+2. LoadFromConfigPath
+   -> GetBackendForExtension(".json") -> JsonBackend instance
+   -> JsonBackend::ReadFromString(data, tree)
+      -> nlohmann::json::parse(data): tokenize + parse JSON
+      -> JsonToTree: recursive switch converts nlohmann::json -> PropertyTree
+      -> uint64 overflow check for large unsigned integers
+   -> InputActionMap temp{};  // default-constructed temporary
+   -> Deserialize(tree, temp)
+      -> InputActionSerialization.h Deserialize trait runs
+      -> reads "actions" object: for each action name, tries each array
+         element as ChordBinding then InputSource
+      -> reads "axes" object: switches on "kind" string ("KeyPair",
+         "MouseAxis", "GamepadAxis")
+      -> unknown entries produce LOG_WARN and continue (not fail)
+   -> inputMap = std::move(temp);  // atomic commit
 ```
 
 ---

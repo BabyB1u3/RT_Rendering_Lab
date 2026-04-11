@@ -49,7 +49,7 @@ paths.
     - [Why logical paths are case-sensitive on every platform](#why-logical-paths-are-case-sensitive-on-every-platform)
     - [Why config files are mounted documents, not extensionless assets](#why-config-files-are-mounted-documents-not-extensionless-assets)
     - [Why source and cooked catalogs are separate schemas](#why-source-and-cooked-catalogs-are-separate-schemas)
-    - [Why packaged archives materialize into cache-backed files today](#why-packaged-archives-materialize-into-cache-backed-files-today)
+    - [Why packaged archives return data and streams instead of temporary files](#why-packaged-archives-return-data-and-streams-instead-of-temporary-files)
 
 ---
 
@@ -197,7 +197,7 @@ Read APIs may accept any logical domain, but write APIs only accept `/Saved/` an
 
 That means:
 
-- `FileSystem::ResolveReadPath("/Project/Textures/Grassy_Square")` is valid
+- `FileSystem::ReadBinary("/Project/Textures/Grassy_Square")` is valid
 - `FileSystem::ResolveWritePath("/Saved/Config/input/Foo.json")` is valid
 - `FileSystem::ResolveWritePath("/Project/Config/Foo.json")` is rejected
 
@@ -392,8 +392,8 @@ The backend layer is responsible for:
 - discovering readable mounts for the current profile
 - checking whether a mount exposes a catalog
 - reading mount-local catalog bytes
-- resolving a selected artifact to a physical file path
-- materializing pak entries when the runtime still expects a file path
+- resolving a selected artifact to a readable descriptor
+- serving bytes or streams for directory-backed and pak-backed artifacts
 - resolving writable mount roots for `/Saved/` and `/Cache/`
 
 This keeps `ResourceCatalog` focused on catalog semantics and keeps `FileSystem`
@@ -409,9 +409,9 @@ Key public responsibilities:
 
 - initialize root discovery and writable roots
 - parse logical paths and dispatch by domain
-- resolve read and write paths
-- expose logical-path-based `Exists`, `ReadText`, `ReadBinary`, `WriteText`,
-  and `WriteBinary`
+- resolve writable paths
+- expose logical-path-based `Exists`, `ReadText`, `ReadBinary`,
+  `OpenReadStream`, `WriteText`, and `WriteBinary`
 - refresh the catalog registry when mount state changes
 
 Current root discovery behavior is now:
@@ -422,9 +422,9 @@ Current root discovery behavior is now:
 
 The facade is now fully logical-path-first. Runtime systems are expected to use:
 
-- `ResolveReadPath()` / `ResolveWritePath()`
+- `ResolveWritePath()` for writable-domain path creation
 - `Exists()`
-- `ReadText()` / `ReadBinary()`
+- `ReadText()` / `ReadBinary()` / `OpenReadStream()`
 - `WriteText()` / `WriteBinary()`
 
 Low-level physical I/O still exists in `Resource::ReadTextFile()` and
@@ -663,14 +663,16 @@ Near-term plan:
 
 ### 12.5 Streaming versus materialized archive entries
 
-Packaged archive entries currently materialize into cache-backed files so the rest of
-the runtime can keep consuming physical file paths.
+Packaged archive entries no longer materialize into cache-backed files as part of the
+normal read path. The resource system now resolves a readable artifact descriptor and
+serves text, bytes, or streams directly from either a directory-backed file or a
+pak-backed entry.
 
 Near-term plan:
 
-- keep materialization because it minimizes churn for current systems
-- revisit direct stream-style resource access only when higher-level runtime loaders are
-  in place and the cost of temporary extraction becomes meaningful
+- keep `ReadText()` / `ReadBinary()` / `OpenReadStream()` as the primary read surface
+- migrate more high-level runtime consumers toward stream-friendly loading where it
+  meaningfully reduces memory spikes for large payloads
 
 ---
 
@@ -745,8 +747,10 @@ Source catalogs need provenance like `sourceRelativePath`; cooked catalogs do no
 Keeping the schemas separate prevents runtime code from accidentally depending on
 authoring-only details and makes the transition to richer cooked metadata cleaner.
 
-### Why packaged archives materialize into cache-backed files today
+### Why packaged archives return data and streams instead of temporary files
 
-Most of the current runtime still wants a physical file path after resource resolution.
-Materializing pak entries into cache-backed files lets packaged mounts participate in
-the same path-based consumers without forcing a larger streaming/IO API redesign first.
+The current resource API is data-first: callers are expected to consume text, binary
+buffers, or `istream` objects instead of asking the resource system for a physical file
+path. That lets packaged mounts read directly from `.rtrpak` entries without extracting
+temporary files into a cache directory first, and it keeps directory-backed and
+pak-backed reads behind the same public contract.
