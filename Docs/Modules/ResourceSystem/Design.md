@@ -8,8 +8,8 @@ paths.
 > **Design Philosophy**: Public resource identity is logical, not physical. The same
 > logical path should work across loose source content, loose cooked output, packaged
 > archives, and higher-priority override layers. Config and other document-style files
-> remain first-class mounted resources, but they are intentionally distinct from
-> catalog-backed imported assets.
+> remain first-class mounted resources, but in the Project / Engine domains they are
+> now represented as catalog entries rather than bypassing the catalog at runtime.
 
 ---
 
@@ -25,8 +25,8 @@ paths.
     - [3.3 Path Syntax Contract](#33-path-syntax-contract)
   - [4. Resolution Model](#4-resolution-model)
     - [4.1 Read Domains and Write Domains](#41-read-domains-and-write-domains)
-    - [4.2 Document-Style Resolution](#42-document-style-resolution)
-    - [4.3 Catalog-Backed Resolution](#43-catalog-backed-resolution)
+    - [4.2 Unified Project / Engine Read Resolution](#42-unified-project--engine-read-resolution)
+    - [4.3 Writable Domain Resolution](#43-writable-domain-resolution)
     - [4.4 Mount Precedence](#44-mount-precedence)
   - [5. Catalog System](#5-catalog-system)
     - [5.1 Source Catalogs](#51-source-catalogs)
@@ -92,14 +92,14 @@ stay stable while the storage backend evolves.
              +------------+------------+
              |                         |
              v                         v
-      Document-style paths       Catalog-backed paths
-      (/Saved/Config/...)        (/Project/Textures/...)
+      Project / Engine reads      Saved / Cache reads
+      (catalog-backed)            (direct writable mounts)
              |                         |
              v                         v
-     Mounted directory roots    CatalogRegistry
-                                + artifact selection
-                                + mount precedence
-                                + backend resolution
+                         CatalogRegistry         Mounted directory roots
+                         + artifact selection
+                         + mount precedence
+                         + backend resolution
                                           |
                                 +---------+---------+
                                 |                   |
@@ -112,15 +112,16 @@ stay stable while the storage backend evolves.
 At a high level, the system has four cooperating pieces:
 
 1. **Logical path parsing**
-   Validates and classifies public paths such as `/Project/...` and `/Saved/...`.
+   Validates public paths such as `/Project/...` and `/Saved/...` and extracts the
+   logical domain.
 
-2. **Mounted filesystem resolution**
-   Handles document-style resources that map directly to files, especially config,
-   logs, save data, and cache data.
+2. **Unified catalog-backed read resolution**
+   Handles every Project / Engine read, including both extensionless asset paths and
+   extension-preserving document paths such as `/Project/Config/*.json`.
 
-3. **Catalog-backed asset resolution**
-   Handles extensionless asset paths by loading catalogs from active readable mounts and
-   selecting the best artifact for the current runtime.
+3. **Mounted writable-domain resolution**
+   Handles `/Saved/...` and `/Cache/...` reads/writes by mapping them directly to
+   writable roots.
 
 4. **Tooling**
    Generates source catalogs, loose cooked output, and packaged `.rtrpak` archives so
@@ -168,8 +169,9 @@ filenames and extensions:
 /Saved/logs/RTRLab.log
 ```
 
-These resolve through mounted backends directly and do not participate in extensionless
-asset lookup.
+These retain explicit filenames and extensions. In the Project / Engine domains, they
+are represented as document entries in the source/cooked catalog. In the Saved / Cache
+domains, they resolve through writable mounts directly.
 
 ### 3.3 Path Syntax Contract
 
@@ -201,9 +203,40 @@ That means:
 
 This rule is enforced centrally by the resource system rather than by each caller.
 
-### 4.2 Document-Style Resolution
+### 4.2 Unified Project / Engine Read Resolution
 
-Document-style paths resolve through mounted backends directly.
+`/Project/...` and `/Engine/...` reads are resolved uniformly through the catalog
+system, regardless of whether the logical path is an extensionless asset path or an
+extension-preserving document path.
+
+That means:
+
+- `/Project/Textures/Grassy_Square` resolves through a catalog entry whose selected
+  artifact may be a source file, cooked file, packaged archive entry, or overlay
+- `/Project/Config/Graphics.json` also resolves through a catalog entry, but keeps its
+  explicit filename and extension
+- the runtime no longer branches on "has extension" versus "no extension" when deciding
+  whether to use the catalog
+
+The catalog entry type is decided at **source catalog build time**:
+
+- **asset entries** strip the source extension from the logical path
+- **document entries** preserve the logical filename and extension and use a single
+  artifact with `format="document"`
+
+This builder-time classification is based primarily on content role:
+
+- `Config/` files are documents
+- plain-text support files such as `.ini`, `.txt`, `.xml`, and `.toml` may also be
+  treated as documents
+- content directories such as `Textures/`, `Shaders/`, `Materials/`, `Scenes/`, and
+  `Defaults/` remain assets even if the source representation is text-based, such as
+  `.json`
+
+### 4.3 Writable Domain Resolution
+
+`/Saved/...` and `/Cache/...` are not catalog-backed. They resolve through mounted
+writable roots directly.
 
 In the current repository layout:
 
@@ -223,9 +256,9 @@ The current config chain is layered on top of those mounts:
 Missing saved overrides may be auto-seeded from project or engine defaults, but shipped
 defaults are never modified in place.
 
-### 4.3 Catalog-Backed Resolution
+### 4.4 Mount Precedence
 
-Catalog-backed logical paths resolve in two stages:
+Catalog-backed Project / Engine logical paths resolve in two stages:
 
 1. **Catalog lookup**
    Find a `ResourceCatalogEntry` for the requested logical path in the merged global
@@ -243,8 +276,6 @@ The caller never sees whether the chosen artifact came from:
 - a higher-priority overlay directory
 
 The public path stays the same.
-
-### 4.4 Mount Precedence
 
 Readable mounts are merged with explicit precedence. For the current implementation,
 the order is:
@@ -264,8 +295,9 @@ next available lower layer.
 
 ### 5.1 Source Catalogs
 
-Source catalogs describe loose authoring-time content. They are generated under each
-mount root as `.rtr/catalog.json`.
+Source catalogs describe loose authoring-time content. At runtime in development builds,
+they are built in memory from the source tree. `rtr_asset_index` can also emit them as
+`.rtr/catalog.json` for inspection or tooling.
 
 Current source catalogs:
 
@@ -376,7 +408,7 @@ focused on public API behavior.
 Key public responsibilities:
 
 - initialize root discovery and writable roots
-- parse and classify logical paths
+- parse logical paths and dispatch by domain
 - resolve read and write paths
 - expose logical-path-based `Exists`, `ReadText`, `ReadBinary`, `WriteText`,
   and `WriteBinary`
@@ -403,13 +435,14 @@ the public `FileSystem` facade.
 
 ## 8. Config Integration
 
-Config files are treated as mounted documents, not imported assets.
+Config files are treated as mounted documents, not extensionless imported assets.
 
 That means:
 
 - they keep their explicit filenames and extensions
-- they resolve directly through mounted filesystems
-- they participate in override order, not extensionless catalog lookup
+- Project / Engine defaults are represented as document entries in the catalog
+- Saved overrides resolve directly through writable mounts
+- they participate in override order, not extensionless asset lookup
 
 Current config locations:
 
@@ -472,8 +505,8 @@ or this:
 - `Project/`
 - `Engine/`
 
-It skips document-style config subtrees for extensionless asset indexing and enforces
-logical-path uniqueness.
+It applies the same builder-time content-role classification used by the runtime source
+catalog builder and enforces logical-path uniqueness.
 
 At runtime in development builds, and during cooking, source catalogs are built in
 memory from the source trees rather than being read back from `Project/.rtr/catalog.json`
@@ -542,13 +575,15 @@ active engine subsystem with the following implemented behavior:
 
 - `src/Core/Resource/` is the home of the module
 - `FileSystem` is the public facade
-- logical path parsing and classification are implemented
+- logical path parsing and domain dispatch are implemented
 - read/write domain enforcement is implemented
 - `/Project/`, `/Engine/`, `/Saved/`, and `/Cache/` are active
 - config fallback resolution is implemented through serialization-facing helpers
 - logical-path-based file I/O is implemented
 - source catalogs can be generated for inspection or tooling, while dev runtime and cook
   build source catalogs in memory
+- Project / Engine reads now share a single catalog-driven path for both assets and
+  document entries
 - loose cooked catalogs are generated and consumed
 - packaged `.rtrpak` archives are generated and consumed
 - overlay precedence over packaged/cooked/source mounts is implemented
@@ -654,7 +689,7 @@ src/Core/Resource/
     Catalog/
         AssetPath.h             - Validated serialized asset reference type
         ResourceCatalog.h / .cpp - Catalog registry, merge logic, artifact selection
-        SourceCatalog.h / .cpp  - Source catalog indexing and generation
+        SourceCatalog.h / .cpp  - Source catalog indexing, generation, and document/asset classification
     Cook/
         CookedCatalog.h / .cpp  - Loose cook output + `.rtrtex` helpers
     Package/
@@ -700,7 +735,9 @@ runtime lottery.
 
 Config files are consumed as documents, not imported as opaque runtime artifacts. Their
 format is part of their contract, so keeping explicit filenames and extensions is more
-useful than pretending they are catalog-backed assets.
+useful than pretending they are catalog-backed extensionless assets. In the current
+architecture they still participate in the Project / Engine catalog path, but they do
+so as explicit document entries rather than as extensionless assets.
 
 ### Why source and cooked catalogs are separate schemas
 
