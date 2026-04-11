@@ -34,13 +34,13 @@
       }
     },
     {
-      "name": "linux-release-tests",
-      "displayName": "Linux Release Tests",
+      "name": "linux-release-with-tests",
+      "displayName": "Linux Release With Tests",
       "inherits": "linux-release",
-      "binaryDir": "${sourceDir}/build/linux-release-tests",
+      "binaryDir": "${sourceDir}/build/linux-release-with-tests",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/linux-release-tests",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/linux-release-with-tests",
         "GLAB_BUILD_TESTS": "ON"
       }
     },

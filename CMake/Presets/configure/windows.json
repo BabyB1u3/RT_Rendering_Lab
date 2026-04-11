@@ -34,13 +34,13 @@
       }
     },
     {
-      "name": "windows-release-tests",
-      "displayName": "Windows Release Tests",
+      "name": "windows-release-with-tests",
+      "displayName": "Windows Release With Tests",
       "inherits": "windows-release",
-      "binaryDir": "${sourceDir}/build/windows-release-tests",
+      "binaryDir": "${sourceDir}/build/windows-release-with-tests",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/windows-release-tests",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/windows-release-with-tests",
         "GLAB_BUILD_TESTS": "ON"
       }
     },

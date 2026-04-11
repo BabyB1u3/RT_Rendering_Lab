@@ -21,7 +21,7 @@
       "name": "test-macos-release-base",
       "hidden": true,
       "inherits": "test-base",
-      "configurePreset": "macos-release-tests"
+      "configurePreset": "macos-release-with-tests"
     },
     {
       "name": "test-ci-macos-debug",

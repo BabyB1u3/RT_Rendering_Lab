@@ -34,13 +34,13 @@
       }
     },
     {
-      "name": "macos-release-tests",
-      "displayName": "macOS Release Tests",
+      "name": "macos-release-with-tests",
+      "displayName": "macOS Release With Tests",
       "inherits": "macos-release",
-      "binaryDir": "${sourceDir}/build/macos-release-tests",
+      "binaryDir": "${sourceDir}/build/macos-release-with-tests",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-release-tests",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-release-with-tests",
         "GLAB_BUILD_TESTS": "ON"
       }
     },

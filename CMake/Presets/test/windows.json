@@ -21,7 +21,7 @@
       "name": "test-windows-release-base",
       "hidden": true,
       "inherits": "test-base",
-      "configurePreset": "windows-release-tests"
+      "configurePreset": "windows-release-with-tests"
     },
     {
       "name": "test-ci-windows-debug",

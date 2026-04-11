@@ -21,7 +21,7 @@
       "name": "test-linux-release-base",
       "hidden": true,
       "inherits": "test-base",
-      "configurePreset": "linux-release-tests"
+      "configurePreset": "linux-release-with-tests"
     },
     {
       "name": "test-ci-linux-release",
