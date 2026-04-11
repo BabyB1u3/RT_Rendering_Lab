@@ -30,7 +30,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: build/ci-windows-vs-${{ matrix.profile }}
-          key: ci-windows-${{ matrix.profile }}-${{ hashFiles('CMakeLists.txt', 'Src/CMakeLists.txt', 'Vendor/CMakeLists.txt', 'Tests/CMakeLists.txt', 'CMakePresets/configure/windows.json', 'CMakePresets/build-presets/windows.json', 'CMakePresets/test/windows.json', 'CMakePresets/test/common.json') }}
+          key: ci-windows-${{ matrix.profile }}-${{ hashFiles('CMakeLists.txt', 'CMake/**/*.cmake', 'Src/CMakeLists.txt', 'Src/CMake/**/*.cmake', 'Vendor/CMakeLists.txt', 'Tests/CMakeLists.txt', 'CMakePresets/configure/windows.json', 'CMakePresets/build-presets/windows.json', 'CMakePresets/test/windows.json', 'CMakePresets/test/common.json') }}
           restore-keys: ci-windows-
 
       - name: Configure
@@ -65,7 +65,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: build/ci-linux-ninja-${{ matrix.profile }}
-          key: ci-linux-${{ matrix.profile }}-${{ hashFiles('CMakeLists.txt', 'Src/CMakeLists.txt', 'Vendor/CMakeLists.txt', 'Tests/CMakeLists.txt', 'CMakePresets/configure/linux.json', 'CMakePresets/build-presets/linux.json', 'CMakePresets/test/linux.json', 'CMakePresets/test/common.json') }}
+          key: ci-linux-${{ matrix.profile }}-${{ hashFiles('CMakeLists.txt', 'CMake/**/*.cmake', 'Src/CMakeLists.txt', 'Src/CMake/**/*.cmake', 'Vendor/CMakeLists.txt', 'Tests/CMakeLists.txt', 'CMakePresets/configure/linux.json', 'CMakePresets/build-presets/linux.json', 'CMakePresets/test/linux.json', 'CMakePresets/test/common.json') }}
           restore-keys: ci-linux-
 
       - name: Configure
@@ -96,7 +96,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: build/ci-macos-ninja-${{ matrix.profile }}
-          key: ci-macos-${{ matrix.profile }}-${{ hashFiles('CMakeLists.txt', 'Src/CMakeLists.txt', 'Vendor/CMakeLists.txt', 'Tests/CMakeLists.txt', 'CMakePresets/configure/macos.json', 'CMakePresets/build-presets/macos.json', 'CMakePresets/test/macos.json', 'CMakePresets/test/common.json') }}
+          key: ci-macos-${{ matrix.profile }}-${{ hashFiles('CMakeLists.txt', 'CMake/**/*.cmake', 'Src/CMakeLists.txt', 'Src/CMake/**/*.cmake', 'Vendor/CMakeLists.txt', 'Tests/CMakeLists.txt', 'CMakePresets/configure/macos.json', 'CMakePresets/build-presets/macos.json', 'CMakePresets/test/macos.json', 'CMakePresets/test/common.json') }}
           restore-keys: ci-macos-
 
       - name: Configure
