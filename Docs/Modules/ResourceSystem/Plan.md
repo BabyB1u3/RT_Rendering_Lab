@@ -85,7 +85,8 @@ The decisions below address each of these points.
   but there is no justification to add content preemptively.
 - **Shipping mode**: the executable's directory *is* the root. No search performed.
   No marker file is required in the install tree. Selected via a compile-time macro
-  (`RTRL_SHIPPING` or equivalent) flipping the discovery strategy.
+  (currently the existing `RTRLAB_CONFIG_RELEASE` define) flipping the discovery
+  strategy.
 - **Fallbacks**: if dev-mode search fails, fall back to the current working directory
   with a loud warning. Never silently succeed against an unrelated directory.
 - **`Content/`-based discovery is removed entirely.**
@@ -247,13 +248,15 @@ can be added at that time as isolated code — there is no reason to design for 
 ### 2.8 Env Vars and CLI Overrides
 
 - **Dev mode**: env vars (`RTRL_ROOT`, `RTRLAB_COOKED_ROOT`, `RTRLAB_PACKAGE_ROOT`,
-  `RTRLAB_RESOURCE_PROFILE`) and CLI args remain supported.
+  `RTRLAB_RESOURCE_PROFILE`) and dev-only CLI args (`--root`, `--cooked-root`,
+  `--package-root`, `--resource-profile`) remain supported.
 - **Shipping mode**: path-related overrides (`RTRL_ROOT`, cooked/package roots)
-  are **compiled out** or return `nullptr` unconditionally. This prevents an attacker
-  from redirecting resource loads via a malicious shortcut.
+  and `RTRLAB_RESOURCE_PROFILE` are ignored entirely. This prevents an attacker from
+  redirecting resource loads via a malicious shortcut.
 - **Shipping whitelist**: only a small set of player-facing overrides survives
-  (`--language`, `--windowed`, etc.). `--content-root` and friends require
-  `--dev-mode` (or are absent entirely).
+  (`--help`, `--language`, `--windowed`, `--fullscreen`, `--dev-mode`). Dev-only
+  overrides such as `--root`, `--cooked-root`, `--package-root`, and
+  `--resource-profile` are silently dropped unless `--dev-mode` is present.
 - **Precedence**: CLI > env var > marker file search > compile-time default.
 
 ---
@@ -383,17 +386,18 @@ A phase should be landable as its own PR.
 
 **Status (2026-04-10)**: completed in the current codebase. `.rtrproject` now
 exists at the repo root, development discovery uses the marker, the obsolete
-`assetDirName` parameter has been removed, `RTRL_SHIPPING` switches shipping
-builds to executable-directory roots, and temporary test repo fixtures now create
-their own `.rtrproject` marker.
+`assetDirName` parameter has been removed, release/shipping builds use the
+existing `RTRLAB_CONFIG_RELEASE` configuration to switch to executable-directory
+roots, and temporary test repo fixtures now create their own `.rtrproject`
+marker.
 
 - Add `.rtrproject` file at repo root (empty or minimal JSON with project name).
 - Update `RootDiscovery::DiscoverRootPath` to search for `.rtrproject` instead of
   `assetDirName`.
 - Remove the `assetDirName` parameter plumbing from `FileSystem::Init` — it is no
   longer needed.
-- Add a `RTRL_SHIPPING` compile-time switch. In shipping mode, `DiscoverRootPath`
-  returns `executable_dir()` unconditionally.
+- Use a compile-time shipping/release switch. In shipping mode,
+  `DiscoverRootPath` returns `executable_dir()` unconditionally.
 - Update tests that construct temp project trees to drop a `.rtrproject` marker.
 
 **Not yet**: naming changes, layout changes, catalog unification.
@@ -547,6 +551,15 @@ shipping-profile tests now cover base reads, additive DLC/mod namespaces, and
 cross-cutting helpers, add a small in-house CLI parser, and lock down path
 overrides in shipping builds. This phase bundles three related small cleanups.
 
+**Status (2026-04-11)**: completed in the current codebase. `Base.h` and
+`Time.{h,cpp}` now live under `Src/Core/Util/`, `CommandLine.{h,cpp}` provides a
+shared option-registration parser used by `RTRLab` and the asset tools, shipping
+help now shows only the runtime whitelist (`--help`, `--language`,
+`--windowed`, `--fullscreen`, `--dev-mode`), and release/shipping builds ignore
+environment-based resource overrides unless `--dev-mode` is explicitly used with
+dev-only CLI overrides such as `--root`, `--cooked-root`, `--package-root`, or
+`--resource-profile`.
+
 **8a. Core/Util reorganization**:
 
 Currently `Src/Core/` has three loose files at its root (`Base.h`, `Time.h`,
@@ -578,17 +591,20 @@ a small shared parser.
   parser. Delete the ad-hoc parsing code.
 - Wire `Src/main.cpp` to parse `argc`/`argv` at startup and expose the parsed
   result to downstream subsystems (e.g. the resource system consults it for
-  `--content-root` overrides in dev builds).
+  `--root` / `--cooked-root` / `--package-root` / `--resource-profile`
+  overrides in dev builds).
 
 **8c. Override hardening**:
 
 - Gate `RTRL_ROOT`, `RTRLAB_COOKED_ROOT`, `RTRLAB_PACKAGE_ROOT`,
-  and `RTRLAB_RESOURCE_PROFILE` behind `#ifndef RTRL_SHIPPING`.
-  In shipping builds, these environment variables are ignored entirely.
+  and `RTRLAB_RESOURCE_PROFILE` behind the existing release/shipping build
+  configuration. In shipping builds, these environment variables are ignored
+  entirely.
 - Define a shipping-mode CLI whitelist inside the new parser: only
-  player-facing options (`--language`, `--windowed`, `--fullscreen`, etc.) are
-  accepted. Path-related overrides (`--content-root`, `--mod-dir`, etc.) are
-  silently dropped in shipping builds.
+  player-facing options (`--help`, `--language`, `--windowed`, `--fullscreen`,
+  `--dev-mode`) are accepted. Dev-only resource overrides (`--root`,
+  `--cooked-root`, `--package-root`, `--resource-profile`) are silently dropped
+  in shipping builds.
 - Add a `--dev-mode` flag that, when present in a shipping build, re-enables the
   dev whitelist. Useful for internal QA builds that need override capability
   while still being compiled as "shipping" profile.

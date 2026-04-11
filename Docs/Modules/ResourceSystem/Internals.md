@@ -215,15 +215,18 @@ The public entry point is always a static method on the `FileSystem` class.
 `DiscoverRootPath()` now has two compile-time strategies:
 
 - **Development builds**:
+  - CLI `--root`, if present
   - `RTRL_ROOT` environment variable, but only if that directory contains a
     `.rtrproject` marker
   - walk up from the executable location (max 5 levels) looking for `.rtrproject`
   - `GLAB_ROOT_DIR` compile-time fallback, again requiring `.rtrproject`
   - current working directory, if it contains `.rtrproject`
   - otherwise log loudly and fall back to `current_path()`
-- **Shipping builds** (`RTRL_SHIPPING`):
-  - treat the executable directory as the install root
-  - skip marker search and path override logic entirely
+- **Release/shipping builds** (`RTRLAB_CONFIG_RELEASE`):
+  - treat the executable directory as the install root by default
+  - ignore `RTRL_ROOT`
+  - honor `--root` only when `--dev-mode` is present, still requiring a
+    `.rtrproject` marker at that override path
 
 Writable directories (`s_SavedDir`, `s_CacheDir`) are **lazily initialized** on first
 access via `GetSavedDir()` / `GetCacheDir()`. In development mode (`GLAB_ROOT_DIR`
@@ -351,9 +354,11 @@ Scoring rules:
 Runtime tag sources:
 - `platformTag`: determined at compile time (`windows` / `macos` / `linux`).
 - `backendTag`: determined at compile time (`metal` or `opengl`).
-- `profileTag`: from the `RTRLAB_RESOURCE_PROFILE` environment variable, or
-  compile-time default (`dev` / `shipping`). For packaged/shipping profiles, the
-  artifact profile tag is mapped to `"cooked"`.
+- `profileTag`: from CLI `--resource-profile` or `RTRLAB_RESOURCE_PROFILE` in
+  development builds; in release/shipping builds, the environment variable is
+  ignored and only `--dev-mode --resource-profile <name>` can override the
+  default `shipping` profile. For packaged/shipping profiles, the artifact
+  profile tag is mapped to `"cooked"`.
 
 **Step D: Artifact descriptor resolution** (`MountBackend.cpp`)
 
@@ -437,9 +442,10 @@ User calls: FileSystem::ReadBinary("/Project/Textures/Grassy_Square")
 | Catalog is lazily built | `m_GlobalTableBuilt` flag | All mounts are scanned on the first Project / Engine read |
 | Pak entries are read directly | `ReadPakEntry` / `OpenReadableArtifactStream` | No extraction cache or temp-file materialization remains in the normal read path |
 | Profile determines mount registration order | `DiscoverReadableMountBackends` | `dev` prefers source; `shipping` prefers packaged |
+| Shipping CLI surface is explicit | `Core/Util/CommandLine` + `main.cpp` | Release help shows `--help`, `--language`, `--windowed`, `--fullscreen`, and `--dev-mode`; dev-only resource overrides are dropped unless `--dev-mode` is present |
 | Writable dirs are lazily resolved | `FileSystem::ResolveWritableDirs` | First call to `GetSavedDir()` / `GetCacheDir()` triggers resolution |
 | Dev root discovery walks up from executable | `FindRootFromExecutable` | Up to 5 parent directories, looking for `.rtrproject` |
-| Shipping root discovery uses install dir | `DiscoverRootPath` under `RTRL_SHIPPING` | Executable directory is treated as the root |
+| Shipping root discovery uses install dir | `DiscoverRootPath` under `RTRLAB_CONFIG_RELEASE` | Executable directory is treated as the root unless `--dev-mode --root <path>` is explicitly provided |
 
 ---
 

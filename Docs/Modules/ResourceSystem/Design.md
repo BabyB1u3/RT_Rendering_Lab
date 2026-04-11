@@ -434,8 +434,12 @@ Key public responsibilities:
 
 Current root discovery behavior is now:
 
-- development builds locate the repo root through a `.rtrproject` marker file
-- shipping builds treat the executable directory as the install root
+- development builds locate the repo root through a `.rtrproject` marker file,
+  with CLI `--root` taking precedence over `RTRL_ROOT`
+- release/shipping builds treat the executable directory as the install root by
+  default and ignore `RTRL_ROOT`
+- `--dev-mode --root <path>` re-enables an explicit development override in
+  release/shipping builds, still requiring a `.rtrproject` marker at that path
 - `GLAB_ROOT_DIR` remains a development-only compile-time fallback
 
 The facade is now fully logical-path-first. Runtime systems are expected to use:
@@ -539,7 +543,9 @@ Current supported loose cooked layouts:
 - `Saved/Cache/Cooked/`
 - `build/Cooked/`
 
-Runtime can also be pointed at an explicit cooked root through `RTRLAB_COOKED_ROOT`.
+In development mode, runtime can also be pointed at an explicit cooked root through
+CLI `--cooked-root` or `RTRLAB_COOKED_ROOT`. Release/shipping builds ignore the
+environment variable and only honor `--cooked-root` when `--dev-mode` is present.
 
 Loose cooked output preserves the same public logical paths as source content. Only the
 artifact representation changes.
@@ -553,7 +559,10 @@ Current packaged layouts:
 - `Saved/Cache/Packaged/`
 - `build/Packaged/`
 
-Runtime can also be pointed at an explicit packaged root through `RTRLAB_PACKAGE_ROOT`.
+In development mode, runtime can also be pointed at an explicit packaged root
+through CLI `--package-root` or `RTRLAB_PACKAGE_ROOT`. Release/shipping builds
+ignore the environment variable and only honor `--package-root` when
+`--dev-mode` is present.
 
 The current packaged convention is:
 
@@ -623,10 +632,13 @@ active engine subsystem with the following implemented behavior:
   `DLC`, `Patch`, and `Mod` pak priorities
 - mount handling now goes through a backend layer rather than being inlined inside the
   catalog resolver
+- `Src/Core/Util/CommandLine.{h,cpp}` now provides shared CLI parsing for `RTRLab`
+  and the asset tools
 - development root discovery uses a repo-root `.rtrproject` marker instead of
   searching for `Project/`
-- shipping builds use the executable directory as the install root via
-  `RTRL_SHIPPING`
+- release/shipping builds use the executable directory as the install root via the
+  existing `RTRLAB_CONFIG_RELEASE` configuration, while `--dev-mode` re-enables
+  dev-only CLI resource overrides
 - shipping installs scan optional `DLC/`, `Patches/`, and `Mods/` directories for
   additional pak mounts
 
@@ -717,6 +729,11 @@ Near-term plan:
 ## 13. File Layout
 
 ```
+src/Core/Util/
+    Base.h                    - Core-wide foundational aliases/helpers
+    Time.h / .cpp             - Global frame-timing helpers
+    CommandLine.h / .cpp      - Shared CLI option registration and parsing
+
 src/Core/Resource/
     FileSystem.h / .cpp         - Public facade and logical-path I/O entry points
     Path/
