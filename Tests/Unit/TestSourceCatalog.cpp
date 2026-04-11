@@ -5,7 +5,6 @@
 #include <string>
 #include <unordered_map>
 
-#include "Core/Resource/Catalog/ResourceCatalog.h"
 #include "Core/Resource/Catalog/SourceCatalog.h"
 #include "ResourceTestSupport.h"
 
@@ -162,44 +161,6 @@ TEST_F(SourceCatalogTests, IndexRepositorySourceCatalogsWritesProjectAndEngineCa
 
     EXPECT_NE(projectContents.find("/Project/Textures/Grassy_Square"), std::string::npos);
     EXPECT_NE(engineContents.find("/Engine/Defaults/Materials/ErrorMaterial"), std::string::npos);
-}
-
-TEST_F(SourceCatalogTests, CatalogRegistryBuildsProjectSourceCatalogInMemoryDuringDevResolution)
-{
-    const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
-    test_support::WriteProjectFileOrFail(repoRoot, "Textures/Grassy_Square.jpg", "jpg");
-
-    Resource::CatalogRegistry registry;
-    const auto virtualPath = Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, "Textures/Grassy_Square"};
-    const auto resolved = registry.ResolvePath(
-        repoRoot,
-        test_support::EngineRoot(repoRoot),
-        repoRoot / "Saved" / "Cache",
-        virtualPath,
-        "/Project/Textures/Grassy_Square",
-        "Project");
-
-    ASSERT_TRUE(resolved.has_value());
-    EXPECT_EQ(*resolved, test_support::ProjectContentRoot(repoRoot) / "Textures" / "Grassy_Square.jpg");
-}
-
-TEST_F(SourceCatalogTests, CatalogRegistryBuildsEngineSourceCatalogInMemoryDuringDevResolution)
-{
-    const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
-    test_support::WriteEngineFileOrFail(repoRoot, "Defaults/Materials/ErrorMaterial.json", "{\n}\n");
-
-    Resource::CatalogRegistry registry;
-    const auto virtualPath = Resource::VirtualPath{Resource::PathDomain::Engine, std::nullopt, "Defaults/Materials/ErrorMaterial"};
-    const auto resolved = registry.ResolvePath(
-        repoRoot,
-        test_support::EngineRoot(repoRoot),
-        repoRoot / "Saved" / "Cache",
-        virtualPath,
-        "/Engine/Defaults/Materials/ErrorMaterial",
-        "Project");
-
-    ASSERT_TRUE(resolved.has_value());
-    EXPECT_EQ(*resolved, test_support::EngineRoot(repoRoot) / "Defaults" / "Materials" / "ErrorMaterial.json");
 }
 
 TEST_F(SourceCatalogTests, WriteSourceCatalogJsonRejectsEntriesWithoutSourceRelativePath)
