@@ -4,95 +4,65 @@
     {
       "name": "linux-debug",
       "displayName": "Linux Debug",
-      "inherits": "linux-ninja-debug"
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/linux-debug"
+      }
     },
     {
       "name": "linux-relwithdebinfo",
       "displayName": "Linux RelWithDebInfo",
-      "inherits": "linux-ninja-relwithdebinfo"
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-relwithdebinfo",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/linux-relwithdebinfo"
+      }
     },
     {
       "name": "linux-release",
       "displayName": "Linux Release",
-      "inherits": "linux-ninja-release"
-    },
-    {
-      "name": "linux-release-tests",
-      "displayName": "Linux Release Tests",
-      "inherits": "linux-ninja-release-tests"
-    },
-    {
-      "name": "ci-linux-debug",
-      "displayName": "CI Linux Debug",
-      "inherits": "ci-linux-ninja-debug"
-    },
-    {
-      "name": "ci-linux-release",
-      "displayName": "CI Linux Release",
-      "inherits": "ci-linux-ninja-release"
-    },
-    {
-      "name": "linux-ninja-debug",
-      "displayName": "Linux Ninja Debug",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/linux-ninja-debug",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/linux-ninja-debug"
-      }
-    },
-    {
-      "name": "linux-ninja-relwithdebinfo",
-      "displayName": "Linux Ninja RelWithDebInfo",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/linux-ninja-relwithdebinfo",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/linux-ninja-relwithdebinfo"
-      }
-    },
-    {
-      "name": "linux-ninja-release",
-      "displayName": "Linux Ninja Release",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/linux-ninja-release",
+      "binaryDir": "${sourceDir}/build/linux-release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/linux-ninja-release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/linux-release",
         "GLAB_BUILD_TESTS": "OFF",
         "GLAB_ENABLE_UNITY_BUILD": "ON"
       }
     },
     {
-      "name": "linux-ninja-release-tests",
-      "displayName": "Linux Ninja Release Tests",
-      "inherits": "linux-ninja-release",
-      "binaryDir": "${sourceDir}/build/linux-ninja-release-tests",
+      "name": "linux-release-tests",
+      "displayName": "Linux Release Tests",
+      "inherits": "linux-release",
+      "binaryDir": "${sourceDir}/build/linux-release-tests",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/linux-ninja-release-tests",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/linux-release-tests",
         "GLAB_BUILD_TESTS": "ON"
       }
     },
     {
-      "name": "ci-linux-ninja-debug",
-      "displayName": "CI Linux Ninja Debug",
+      "name": "ci-linux-debug",
+      "displayName": "CI Linux Debug",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/ci-linux-ninja-debug",
+      "binaryDir": "${sourceDir}/build/ci-linux-debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-linux-ninja-debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-linux-debug",
         "GLAB_BUILD_TESTS": "ON"
       }
     },
     {
-      "name": "ci-linux-ninja-release",
-      "displayName": "CI Linux Ninja Release",
+      "name": "ci-linux-release",
+      "displayName": "CI Linux Release",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/ci-linux-ninja-release",
+      "binaryDir": "${sourceDir}/build/ci-linux-release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-linux-ninja-release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-linux-release",
         "GLAB_BUILD_TESTS": "ON",
         "GLAB_ENABLE_UNITY_BUILD": "ON"
       }

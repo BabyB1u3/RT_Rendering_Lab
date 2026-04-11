@@ -4,95 +4,65 @@
     {
       "name": "macos-debug",
       "displayName": "macOS Debug",
-      "inherits": "macos-ninja-debug"
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/macos-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-debug"
+      }
     },
     {
       "name": "macos-relwithdebinfo",
       "displayName": "macOS RelWithDebInfo",
-      "inherits": "macos-ninja-relwithdebinfo"
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/macos-relwithdebinfo",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-relwithdebinfo"
+      }
     },
     {
       "name": "macos-release",
       "displayName": "macOS Release",
-      "inherits": "macos-ninja-release"
-    },
-    {
-      "name": "macos-release-tests",
-      "displayName": "macOS Release Tests",
-      "inherits": "macos-ninja-release-tests"
-    },
-    {
-      "name": "ci-macos-debug",
-      "displayName": "CI macOS Debug",
-      "inherits": "ci-macos-ninja-debug"
-    },
-    {
-      "name": "ci-macos-release",
-      "displayName": "CI macOS Release",
-      "inherits": "ci-macos-ninja-release"
-    },
-    {
-      "name": "macos-ninja-debug",
-      "displayName": "macOS Ninja Debug",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/macos-ninja-debug",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-ninja-debug"
-      }
-    },
-    {
-      "name": "macos-ninja-relwithdebinfo",
-      "displayName": "macOS Ninja RelWithDebInfo",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/macos-ninja-relwithdebinfo",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-ninja-relwithdebinfo"
-      }
-    },
-    {
-      "name": "macos-ninja-release",
-      "displayName": "macOS Ninja Release",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/macos-ninja-release",
+      "binaryDir": "${sourceDir}/build/macos-release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-ninja-release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-release",
         "GLAB_BUILD_TESTS": "OFF",
         "GLAB_ENABLE_UNITY_BUILD": "ON"
       }
     },
     {
-      "name": "macos-ninja-release-tests",
-      "displayName": "macOS Ninja Release Tests",
-      "inherits": "macos-ninja-release",
-      "binaryDir": "${sourceDir}/build/macos-ninja-release-tests",
+      "name": "macos-release-tests",
+      "displayName": "macOS Release Tests",
+      "inherits": "macos-release",
+      "binaryDir": "${sourceDir}/build/macos-release-tests",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-ninja-release-tests",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-release-tests",
         "GLAB_BUILD_TESTS": "ON"
       }
     },
     {
-      "name": "ci-macos-ninja-debug",
-      "displayName": "CI macOS Ninja Debug",
+      "name": "ci-macos-debug",
+      "displayName": "CI macOS Debug",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/ci-macos-ninja-debug",
+      "binaryDir": "${sourceDir}/build/ci-macos-debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-macos-ninja-debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-macos-debug",
         "GLAB_BUILD_TESTS": "ON"
       }
     },
     {
-      "name": "ci-macos-ninja-release",
-      "displayName": "CI macOS Ninja Release",
+      "name": "ci-macos-release",
+      "displayName": "CI macOS Release",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/ci-macos-ninja-release",
+      "binaryDir": "${sourceDir}/build/ci-macos-release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-macos-ninja-release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-macos-release",
         "GLAB_BUILD_TESTS": "ON",
         "GLAB_ENABLE_UNITY_BUILD": "ON"
       }
