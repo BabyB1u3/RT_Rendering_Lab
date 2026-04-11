@@ -401,6 +401,24 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES
 glab_add_tool_target(rtr_asset_cook Tools/AssetCookMain.cpp)
 glab_add_tool_target(rtr_asset_pack Tools/AssetPackMain.cpp)
 
+set(GLAB_STAGE_SHIPPING_COOKED_DIR "${CMAKE_BINARY_DIR}/Packaging/$<CONFIG>/Cooked")
+set(GLAB_STAGE_SHIPPING_DIR "${CMAKE_BINARY_DIR}/Stage/$<CONFIG>")
+
+add_custom_target(rtrlab_stage_shipping_assets
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${GLAB_STAGE_SHIPPING_COOKED_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${GLAB_STAGE_SHIPPING_DIR}"
+    COMMAND $<TARGET_FILE:rtr_asset_cook>
+            --root "${CMAKE_SOURCE_DIR}"
+            --out "${GLAB_STAGE_SHIPPING_COOKED_DIR}"
+    COMMAND $<TARGET_FILE:rtr_asset_pack>
+            --source "${GLAB_STAGE_SHIPPING_COOKED_DIR}"
+            --out "${GLAB_STAGE_SHIPPING_DIR}"
+    DEPENDS
+        rtr_asset_cook
+        rtr_asset_pack
+    COMMENT "Cooking and packaging shipping assets into ${GLAB_STAGE_SHIPPING_DIR}"
+)
+
 # -----------------------------------------------------------------------------
 # Install rules
 # -----------------------------------------------------------------------------
