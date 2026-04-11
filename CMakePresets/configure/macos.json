@@ -80,6 +80,17 @@
       }
     },
     {
+      "name": "ci-macos-ninja-debug",
+      "displayName": "CI macOS Ninja Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/ci-macos-ninja-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-macos-ninja-debug",
+        "GLAB_BUILD_TESTS": "ON"
+      }
+    },
+    {
       "name": "ci-macos-ninja-release",
       "displayName": "CI macOS Ninja Release",
       "generator": "Ninja",

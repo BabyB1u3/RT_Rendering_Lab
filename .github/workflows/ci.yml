@@ -20,8 +20,12 @@ concurrency:
 
 jobs:
   windows:
-    name: Windows MSVC
+    name: Windows MSVC (${{ matrix.profile }})
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [release, debug]
     steps:
       - uses: actions/checkout@v5
         with:
@@ -30,22 +34,26 @@ jobs:
       - name: Cache build
         uses: actions/cache@v5
         with:
-          path: build/ci-windows-vs
-          key: ci-windows-${{ hashFiles('CMakeLists.txt', 'Src/CMakeLists.txt', 'Vendor/CMakeLists.txt', 'Tests/CMakeLists.txt') }}
+          path: build/ci-windows-vs-${{ matrix.profile }}
+          key: ci-windows-${{ matrix.profile }}-${{ hashFiles('CMakeLists.txt', 'Src/CMakeLists.txt', 'Vendor/CMakeLists.txt', 'Tests/CMakeLists.txt', 'CMakePresets/configure/windows.json', 'CMakePresets/build-presets/windows.json', 'CMakePresets/test/windows.json', 'CMakePresets/test/common.json') }}
           restore-keys: ci-windows-
 
       - name: Configure
-        run: cmake --preset ci-windows-vs
+        run: cmake --preset ci-windows-vs-${{ matrix.profile }}
 
       - name: Build
-        run: cmake --build --preset build-ci-windows-vs-release --parallel
+        run: cmake --build --preset build-ci-windows-vs-${{ matrix.profile }} --parallel
 
       - name: Test
-        run: ctest --preset test-ci-windows-vs-release
+        run: ctest --preset test-ci-windows-vs-${{ matrix.profile }}
 
   linux:
-    name: Linux GCC
+    name: Linux GCC (${{ matrix.profile }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [release, debug]
     steps:
       - uses: actions/checkout@v5
         with:
@@ -61,22 +69,26 @@ jobs:
       - name: Cache build
         uses: actions/cache@v5
         with:
-          path: build/ci-linux-ninja-release
-          key: ci-linux-${{ hashFiles('CMakeLists.txt', 'Src/CMakeLists.txt', 'Vendor/CMakeLists.txt', 'Tests/CMakeLists.txt') }}
+          path: build/ci-linux-ninja-${{ matrix.profile }}
+          key: ci-linux-${{ matrix.profile }}-${{ hashFiles('CMakeLists.txt', 'Src/CMakeLists.txt', 'Vendor/CMakeLists.txt', 'Tests/CMakeLists.txt', 'CMakePresets/configure/linux.json', 'CMakePresets/build-presets/linux.json', 'CMakePresets/test/linux.json', 'CMakePresets/test/common.json') }}
           restore-keys: ci-linux-
 
       - name: Configure
-        run: cmake --preset ci-linux-ninja-release
+        run: cmake --preset ci-linux-ninja-${{ matrix.profile }}
 
       - name: Build
-        run: cmake --build --preset build-ci-linux-ninja-release --parallel
+        run: cmake --build --preset build-ci-linux-ninja-${{ matrix.profile }} --parallel
 
       - name: Test
-        run: ctest --preset test-ci-linux-ninja-release
+        run: ctest --preset test-ci-linux-ninja-${{ matrix.profile }}
 
   macos:
-    name: macOS Clang
+    name: macOS Clang (${{ matrix.profile }})
     runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [release, debug]
     steps:
       - uses: actions/checkout@v5
         with:
@@ -88,15 +100,15 @@ jobs:
       - name: Cache build
         uses: actions/cache@v5
         with:
-          path: build/ci-macos-ninja-release
-          key: ci-macos-${{ hashFiles('CMakeLists.txt', 'Src/CMakeLists.txt', 'Vendor/CMakeLists.txt', 'Tests/CMakeLists.txt') }}
+          path: build/ci-macos-ninja-${{ matrix.profile }}
+          key: ci-macos-${{ matrix.profile }}-${{ hashFiles('CMakeLists.txt', 'Src/CMakeLists.txt', 'Vendor/CMakeLists.txt', 'Tests/CMakeLists.txt', 'CMakePresets/configure/macos.json', 'CMakePresets/build-presets/macos.json', 'CMakePresets/test/macos.json', 'CMakePresets/test/common.json') }}
           restore-keys: ci-macos-
 
       - name: Configure
-        run: cmake --preset ci-macos-ninja-release
+        run: cmake --preset ci-macos-ninja-${{ matrix.profile }}
 
       - name: Build
-        run: cmake --build --preset build-ci-macos-ninja-release --parallel
+        run: cmake --build --preset build-ci-macos-ninja-${{ matrix.profile }} --parallel
 
       - name: Test
-        run: ctest --preset test-ci-macos-ninja-release
+        run: ctest --preset test-ci-macos-ninja-${{ matrix.profile }}

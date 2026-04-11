@@ -9,6 +9,51 @@
       }
     },
     {
+      "name": "test-label-common",
+      "hidden": true,
+      "filter": {
+        "include": {
+          "label": "common"
+        }
+      }
+    },
+    {
+      "name": "test-label-dev-profile",
+      "hidden": true,
+      "filter": {
+        "include": {
+          "label": "dev-profile"
+        }
+      }
+    },
+    {
+      "name": "test-label-shipping-profile",
+      "hidden": true,
+      "filter": {
+        "include": {
+          "label": "shipping-profile"
+        }
+      }
+    },
+    {
+      "name": "test-label-debug-matrix",
+      "hidden": true,
+      "filter": {
+        "include": {
+          "label": "common|dev-profile"
+        }
+      }
+    },
+    {
+      "name": "test-label-release-matrix",
+      "hidden": true,
+      "filter": {
+        "include": {
+          "label": "common|shipping-profile"
+        }
+      }
+    },
+    {
       "name": "test-label-unit",
       "hidden": true,
       "filter": {

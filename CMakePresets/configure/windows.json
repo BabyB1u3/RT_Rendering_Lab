@@ -32,16 +32,29 @@
       }
     },
     {
-      "name": "ci-windows-vs",
+      "name": "ci-windows-vs-debug",
+      "displayName": "CI Windows VS2022 Debug",
+      "generator": "Visual Studio 17 2022",
+      "architecture": {
+        "value": "x64",
+        "strategy": "set"
+      },
+      "binaryDir": "${sourceDir}/build/ci-windows-vs-debug",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-windows-vs-debug"
+      }
+    },
+    {
+      "name": "ci-windows-vs-release",
       "displayName": "CI Windows VS2022 Release",
       "generator": "Visual Studio 17 2022",
       "architecture": {
         "value": "x64",
         "strategy": "set"
       },
-      "binaryDir": "${sourceDir}/build/ci-windows-vs",
+      "binaryDir": "${sourceDir}/build/ci-windows-vs-release",
       "cacheVariables": {
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-windows-vs"
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-windows-vs-release"
       }
     }
   ]

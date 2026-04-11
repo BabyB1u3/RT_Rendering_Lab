@@ -25,8 +25,19 @@
     },
     {
       "name": "test-ci-linux-ninja-release",
-      "inherits": "test-base",
+      "inherits": [
+        "test-base",
+        "test-label-release-matrix"
+      ],
       "configurePreset": "ci-linux-ninja-release"
+    },
+    {
+      "name": "test-ci-linux-ninja-debug",
+      "inherits": [
+        "test-base",
+        "test-label-debug-matrix"
+      ],
+      "configurePreset": "ci-linux-ninja-debug"
     },
     {
       "name": "test-linux-ninja-debug",

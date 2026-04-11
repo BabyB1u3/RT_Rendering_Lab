@@ -1,6 +1,9 @@
 include(GoogleTest)
 
-function(glab_configure_test_target target_name test_prefix test_label)
+function(glab_configure_test_target target_name test_prefix test_labels)
+    set(escaped_test_labels "${test_labels}")
+    string(REPLACE ";" "\\;" escaped_test_labels "${escaped_test_labels}")
+
     target_link_libraries(${target_name}
         PRIVATE
             RTRLabCore
@@ -22,16 +25,16 @@ function(glab_configure_test_target target_name test_prefix test_label)
     gtest_discover_tests(${target_name}
         TEST_PREFIX "${test_prefix}"
         PROPERTIES
-            LABELS "${test_label}"
+            LABELS "${escaped_test_labels}"
     )
 endfunction()
 
-function(glab_add_test_executable target_name test_prefix test_label)
+function(glab_add_test_executable target_name test_prefix test_labels)
     add_executable(${target_name}
         ${ARGN}
     )
 
-    glab_configure_test_target(${target_name} "${test_prefix}" "${test_label}")
+    glab_configure_test_target(${target_name} "${test_prefix}" "${test_labels}")
 endfunction()
 
 # -----------------------------------------------------------------------------
@@ -66,7 +69,7 @@ set(GLAB_UNIT_TEST_SOURCES
     Unit/TestTransform.cpp
 )
 
-glab_add_test_executable(rtrlab_unit_tests "Unit." "unit"
+glab_add_test_executable(rtrlab_unit_tests "Unit." "unit;common"
     ${GLAB_UNIT_TEST_SOURCES}
 )
 
@@ -77,11 +80,26 @@ set(GLAB_INTEGRATION_TEST_SOURCES
     Integration/TestLoggerConsoleSink.cpp
     Integration/TestMountBackend.cpp
     Integration/TestInputRecordingIO.cpp
-    Integration/TestRootDiscovery.cpp
 )
 
-glab_add_test_executable(rtrlab_integration_tests "Integration." "integration"
+glab_add_test_executable(rtrlab_integration_tests "Integration." "integration;common"
     ${GLAB_INTEGRATION_TEST_SOURCES}
+)
+
+set(GLAB_DEV_PROFILE_TEST_SOURCES
+    Integration/TestRootDiscoveryDev.cpp
+)
+
+glab_add_test_executable(rtrlab_dev_profile_tests "DevProfile." "integration;dev-profile"
+    ${GLAB_DEV_PROFILE_TEST_SOURCES}
+)
+
+set(GLAB_SHIPPING_PROFILE_TEST_SOURCES
+    Integration/TestRootDiscoveryShipping.cpp
+)
+
+glab_add_test_executable(rtrlab_shipping_profile_tests "ShippingProfile." "integration;shipping-profile"
+    ${GLAB_SHIPPING_PROFILE_TEST_SOURCES}
 )
 
 # -----------------------------------------------------------------------------
