@@ -1,6 +1,10 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <filesystem>
+#include <string>
+#include <string_view>
+#include <vector>
 
 #include "Core/Resource/Catalog/ResourceCatalog.h"
 #include "Core/Resource/Mount/MountBackend.h"
@@ -12,10 +16,16 @@ namespace
 {
     using MountDiscoveryShippingTests = test_support::RootDiscoveryTestsBase;
 
+    struct ArchiveEntry
+    {
+        std::string logicalPath;
+        std::string relativePath;
+        std::string contents;
+    };
+
     void BuildSharedGameArchiveFixture(const std::filesystem::path &repoRoot)
     {
         const auto cookedRoot = test_support::CookedRoot(repoRoot);
-        const auto packagedRoot = repoRoot / "Saved" / "Cache" / "Packaged";
 
         test_support::WriteTextFileOrFail(
             test_support::ProjectCookedCatalogPath(cookedRoot),
@@ -28,42 +38,164 @@ namespace
         test_support::WriteEngineCookedFileOrFail(cookedRoot, "Defaults/Materials/ErrorMaterial.json", "engine");
 
         std::string errorMessage;
-        ASSERT_TRUE(Resource::PackageCookedRepositoryCatalogs(cookedRoot, packagedRoot, &errorMessage)) << errorMessage;
+        ASSERT_TRUE(Resource::PackageCookedRepositoryCatalogs(cookedRoot, repoRoot, &errorMessage)) << errorMessage;
+    }
+
+    void BuildArchiveFixture(const std::filesystem::path &archiveRoot,
+                             const std::filesystem::path &archivePath,
+                             const std::vector<ArchiveEntry> &entries)
+    {
+        std::string catalog = "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": [\n";
+        for (size_t i = 0; i < entries.size(); ++i)
+        {
+            const auto &entry = entries[i];
+            if (i != 0)
+                catalog += ",\n";
+
+            catalog +=
+                "    {\n"
+                "      \"logicalPath\": \"" + entry.logicalPath + "\",\n"
+                "      \"artifacts\": [\n"
+                "        {\n"
+                "          \"relativePath\": \"" + entry.relativePath + "\",\n"
+                "          \"format\": \"bin\",\n"
+                "          \"profileTag\": \"cooked\",\n"
+                "          \"backendTag\": \"any\",\n"
+                "          \"platformTag\": \"any\"\n"
+                "        }\n"
+                "      ]\n"
+                "    }";
+        }
+        catalog += "\n  ]\n}\n";
+
+        test_support::WriteTextFileOrFail(test_support::MountCatalogPath(archiveRoot), catalog);
+        for (const auto &entry : entries)
+            test_support::WriteMountFileOrFail(archiveRoot, entry.relativePath, entry.contents);
+
+        std::string errorMessage;
+        ASSERT_TRUE(Resource::BuildPakArchive(archiveRoot, archivePath, &errorMessage)) << errorMessage;
+    }
+
+    bool ContainsMount(const std::vector<Resource::ReadableMount> &mounts,
+                       std::string_view sourceKey,
+                       Resource::MountPriority priority,
+                       const std::filesystem::path &mountRoot)
+    {
+        return std::any_of(mounts.begin(), mounts.end(), [&](const auto &mount) {
+            return mount.sourceKey == sourceKey &&
+                   mount.priority == priority &&
+                   mount.backend == Resource::MountBackendKind::PakArchive &&
+                   mount.mountRoot == mountRoot;
+        });
     }
 } // namespace
 
-TEST_F(MountDiscoveryShippingTests, DiscoverReadableMountBackendsUsesGameArchiveForPackagedProfile)
+TEST_F(MountDiscoveryShippingTests, DiscoverReadableMountBackendsUsesGameArchiveForShippingProfile)
 {
     const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
-    const auto packagedRoot = repoRoot / "Saved" / "Cache" / "Packaged";
     BuildSharedGameArchiveFixture(repoRoot);
 
     const auto mounts = Resource::DiscoverReadableMountBackends(
-        repoRoot, test_support::EngineRoot(repoRoot), repoRoot / "Saved" / "Cache", "Project", "packaged");
+        repoRoot, test_support::EngineRoot(repoRoot), repoRoot / "Saved" / "Cache", "Project", "shipping");
 
     ASSERT_EQ(mounts.size(), 4u);
     EXPECT_EQ(mounts[0].sourceKey, "Project");
     EXPECT_EQ(mounts[0].priority, Resource::MountPriority::Packaged);
     EXPECT_EQ(mounts[0].backend, Resource::MountBackendKind::PakArchive);
-    EXPECT_EQ(mounts[0].mountRoot, test_support::GamePackagedArchivePath(packagedRoot));
+    EXPECT_EQ(mounts[0].mountRoot, test_support::GamePackagedArchivePath(repoRoot));
     EXPECT_EQ(mounts[1].sourceKey, "Project");
     EXPECT_EQ(mounts[1].priority, Resource::MountPriority::Cooked);
     EXPECT_EQ(mounts[1].backend, Resource::MountBackendKind::Directory);
     EXPECT_EQ(mounts[2].sourceKey, "Engine");
     EXPECT_EQ(mounts[2].priority, Resource::MountPriority::Packaged);
     EXPECT_EQ(mounts[2].backend, Resource::MountBackendKind::PakArchive);
-    EXPECT_EQ(mounts[2].mountRoot, test_support::GamePackagedArchivePath(packagedRoot));
+    EXPECT_EQ(mounts[2].mountRoot, test_support::GamePackagedArchivePath(repoRoot));
     EXPECT_EQ(mounts[3].sourceKey, "Engine");
     EXPECT_EQ(mounts[3].priority, Resource::MountPriority::Cooked);
     EXPECT_EQ(mounts[3].backend, Resource::MountBackendKind::Directory);
 }
 
-TEST_F(MountDiscoveryShippingTests, CatalogRegistryResolvesProjectAndEngineEntriesFromSharedGameArchive)
+TEST_F(MountDiscoveryShippingTests, DiscoverReadableMountBackendsFindsDlcPatchAndModArchives)
 {
     const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
-    const auto packagedRoot = repoRoot / "Saved" / "Cache" / "Packaged";
     BuildSharedGameArchiveFixture(repoRoot);
-    test_support::ScopedEnvVar packagedProfile("RTRLAB_RESOURCE_PROFILE", "packaged");
+
+    BuildArchiveFixture(
+        repoRoot / "DLC" / "Expansion1_Source",
+        repoRoot / "DLC" / "Expansion1.rtrpak",
+        {ArchiveEntry{
+            .logicalPath = "/Project/Textures/Grassy_Square",
+            .relativePath = "Project/Textures/Grassy_Square.rtrtex",
+            .contents = "dlc",
+        }});
+    BuildArchiveFixture(
+        repoRoot / "Patches" / "Patch_001_Source",
+        repoRoot / "Patches" / "Patch_001.rtrpak",
+        {ArchiveEntry{
+            .logicalPath = "/Project/Textures/Grassy_Square",
+            .relativePath = "Project/Textures/Grassy_Square.rtrtex",
+            .contents = "patch",
+        }});
+    BuildArchiveFixture(
+        repoRoot / "Mods" / "CoolMod_Source",
+        repoRoot / "Mods" / "CoolMod.rtrpak",
+        {ArchiveEntry{
+            .logicalPath = "/Project/Textures/Grassy_Square",
+            .relativePath = "Project/Textures/Grassy_Square.rtrtex",
+            .contents = "mod",
+        }});
+
+    const auto mounts = Resource::DiscoverReadableMountBackends(
+        repoRoot, test_support::EngineRoot(repoRoot), repoRoot / "Saved" / "Cache", "Project", "shipping");
+
+    ASSERT_EQ(mounts.size(), 10u);
+    EXPECT_TRUE(ContainsMount(
+        mounts,
+        "DLC:Expansion1:Project",
+        Resource::MountPriority::DLC,
+        repoRoot / "DLC" / "Expansion1.rtrpak"));
+    EXPECT_TRUE(ContainsMount(
+        mounts,
+        "Patch:Patch_001:Project",
+        Resource::MountPriority::Patch,
+        repoRoot / "Patches" / "Patch_001.rtrpak"));
+    EXPECT_TRUE(ContainsMount(
+        mounts,
+        "Mod:CoolMod:Project",
+        Resource::MountPriority::Mod,
+        repoRoot / "Mods" / "CoolMod.rtrpak"));
+}
+
+TEST_F(MountDiscoveryShippingTests, CatalogRegistryPrefersModOverPatchDlcAndBaseInShippingProfile)
+{
+    const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
+    BuildSharedGameArchiveFixture(repoRoot);
+    test_support::ScopedEnvVar shippingProfile("RTRLAB_RESOURCE_PROFILE", "shipping");
+
+    BuildArchiveFixture(
+        repoRoot / "DLC" / "Expansion1_Source",
+        repoRoot / "DLC" / "Expansion1.rtrpak",
+        {ArchiveEntry{
+            .logicalPath = "/Project/Textures/Grassy_Square",
+            .relativePath = "Project/Textures/Grassy_Square.rtrtex",
+            .contents = "dlc",
+        }});
+    BuildArchiveFixture(
+        repoRoot / "Patches" / "Patch_001_Source",
+        repoRoot / "Patches" / "Patch_001.rtrpak",
+        {ArchiveEntry{
+            .logicalPath = "/Project/Textures/Grassy_Square",
+            .relativePath = "Project/Textures/Grassy_Square.rtrtex",
+            .contents = "patch",
+        }});
+    BuildArchiveFixture(
+        repoRoot / "Mods" / "CoolMod_Source",
+        repoRoot / "Mods" / "CoolMod.rtrpak",
+        {ArchiveEntry{
+            .logicalPath = "/Project/Textures/Grassy_Square",
+            .relativePath = "Project/Textures/Grassy_Square.rtrtex",
+            .contents = "mod",
+        }});
 
     Resource::CatalogRegistry registry;
 
@@ -77,7 +209,34 @@ TEST_F(MountDiscoveryShippingTests, CatalogRegistryResolvesProjectAndEngineEntri
         "Project");
     ASSERT_TRUE(projectResolved.has_value());
     EXPECT_EQ(projectResolved->backend, Resource::MountBackendKind::PakArchive);
-    EXPECT_EQ(projectResolved->mountRoot, test_support::GamePackagedArchivePath(packagedRoot));
+    EXPECT_EQ(projectResolved->mountRoot, repoRoot / "Mods" / "CoolMod.rtrpak");
+    EXPECT_EQ(projectResolved->relativePath, std::filesystem::path("Project/Textures/Grassy_Square.rtrtex"));
+
+    std::string errorMessage;
+    const auto projectBytes = Resource::ReadReadableArtifactBinary(*projectResolved, &errorMessage);
+    ASSERT_TRUE(projectBytes.has_value()) << errorMessage;
+    EXPECT_EQ(std::string(projectBytes->begin(), projectBytes->end()), "mod");
+}
+
+TEST_F(MountDiscoveryShippingTests, CatalogRegistryResolvesProjectAndEngineEntriesFromSharedGameArchive)
+{
+    const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
+    BuildSharedGameArchiveFixture(repoRoot);
+    test_support::ScopedEnvVar shippingProfile("RTRLAB_RESOURCE_PROFILE", "shipping");
+
+    Resource::CatalogRegistry registry;
+
+    const auto projectVirtualPath = Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, "Textures/Grassy_Square"};
+    const auto projectResolved = registry.ResolveArtifact(
+        repoRoot,
+        test_support::EngineRoot(repoRoot),
+        repoRoot / "Saved" / "Cache",
+        projectVirtualPath,
+        "/Project/Textures/Grassy_Square",
+        "Project");
+    ASSERT_TRUE(projectResolved.has_value());
+    EXPECT_EQ(projectResolved->backend, Resource::MountBackendKind::PakArchive);
+    EXPECT_EQ(projectResolved->mountRoot, test_support::GamePackagedArchivePath(repoRoot));
     EXPECT_EQ(projectResolved->relativePath, std::filesystem::path("Project/Textures/Grassy_Square.rtrtex"));
     std::string errorMessage;
     const auto projectBytes = Resource::ReadReadableArtifactBinary(*projectResolved, &errorMessage);
@@ -94,7 +253,7 @@ TEST_F(MountDiscoveryShippingTests, CatalogRegistryResolvesProjectAndEngineEntri
         "Project");
     ASSERT_TRUE(engineResolved.has_value());
     EXPECT_EQ(engineResolved->backend, Resource::MountBackendKind::PakArchive);
-    EXPECT_EQ(engineResolved->mountRoot, test_support::GamePackagedArchivePath(packagedRoot));
+    EXPECT_EQ(engineResolved->mountRoot, test_support::GamePackagedArchivePath(repoRoot));
     EXPECT_EQ(engineResolved->relativePath, std::filesystem::path("Engine/Defaults/Materials/ErrorMaterial.json"));
     const auto engineText = Resource::ReadReadableArtifactText(*engineResolved, &errorMessage);
     ASSERT_TRUE(engineText.has_value()) << errorMessage;
