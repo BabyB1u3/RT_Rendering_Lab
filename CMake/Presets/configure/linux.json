@@ -1,0 +1,71 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "linux-debug",
+      "displayName": "Linux Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/linux-debug"
+      }
+    },
+    {
+      "name": "linux-relwithdebinfo",
+      "displayName": "Linux RelWithDebInfo",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-relwithdebinfo",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/linux-relwithdebinfo"
+      }
+    },
+    {
+      "name": "linux-release",
+      "displayName": "Linux Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/linux-release",
+        "GLAB_BUILD_TESTS": "OFF",
+        "GLAB_ENABLE_UNITY_BUILD": "ON"
+      }
+    },
+    {
+      "name": "linux-release-with-tests",
+      "displayName": "Linux Release With Tests",
+      "inherits": "linux-release",
+      "binaryDir": "${sourceDir}/build/linux-release-with-tests",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/linux-release-with-tests",
+        "GLAB_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "ci-linux-debug",
+      "displayName": "Linux CI Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/ci-linux-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-linux-debug",
+        "GLAB_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "ci-linux-release",
+      "displayName": "Linux CI Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/ci-linux-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-linux-release",
+        "GLAB_BUILD_TESTS": "ON",
+        "GLAB_ENABLE_UNITY_BUILD": "ON"
+      }
+    }
+  ]
+}

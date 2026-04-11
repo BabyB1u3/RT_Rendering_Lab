@@ -1,0 +1,71 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "macos-debug",
+      "displayName": "macOS Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/macos-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-debug"
+      }
+    },
+    {
+      "name": "macos-relwithdebinfo",
+      "displayName": "macOS RelWithDebInfo",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/macos-relwithdebinfo",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-relwithdebinfo"
+      }
+    },
+    {
+      "name": "macos-release",
+      "displayName": "macOS Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/macos-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-release",
+        "GLAB_BUILD_TESTS": "OFF",
+        "GLAB_ENABLE_UNITY_BUILD": "ON"
+      }
+    },
+    {
+      "name": "macos-release-with-tests",
+      "displayName": "macOS Release With Tests",
+      "inherits": "macos-release",
+      "binaryDir": "${sourceDir}/build/macos-release-with-tests",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-release-with-tests",
+        "GLAB_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "ci-macos-debug",
+      "displayName": "macOS CI Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/ci-macos-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-macos-debug",
+        "GLAB_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "ci-macos-release",
+      "displayName": "macOS CI Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/ci-macos-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-macos-release",
+        "GLAB_BUILD_TESTS": "ON",
+        "GLAB_ENABLE_UNITY_BUILD": "ON"
+      }
+    }
+  ]
+}

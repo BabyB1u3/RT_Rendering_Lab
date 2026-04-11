@@ -39,44 +39,48 @@ Render demos will be added once the new system reaches a usable state.
 
 ## Project Structure
 
-```
+```text
 RT_Rendering_Lab/
-├── Src/
-|  ├── Core/
-|  |  ├── App/            # Application, Window, Layer, LayerStack
-|  |  ├── Event/          # EventBus, Events, ScopedConnection
-|  |  ├── Input/          # InputAction, KeyCode, MouseCode, replay
-|  |  ├── Resource/       # Logical paths, catalog, cook, pack, mount, IO
-|  |  ├── Diagnostics/    # Logging, Assert, Crash
-|  |  └── Serialization/
-|  ├── GUI/
-|  |  ├── Backends/Metal/
-|  |  └── Panels/
-|  ├── Scene/              # Camera, Light, Transform, SceneData
-|  ├── Demos/
-|  |  └── 01_HelloWindow/
-|  ├── Tools/              # Asset indexing, cooking, packaging
-|  └── main.cpp
-|  ├── Archive/                # Retired code from the previous renderer iteration
-|  ├── graphics/           # Old IShader / ITexture2D / IFramebuffer + OpenGL backend
-|  ├── renderer/           # Old SceneRenderer, ForwardPass, ShadowPass
-|  └── shaders/            # Old GLSL source + SPIR-V
-|  ├── Docs/
-|  ├── Modules/
-|  |  ├── RenderSystem/Design/   # RHI.md, ShaderSystem.md, backend docs
-|  |  ├── ResourceSystem/
-|  |  ├── DiagnosticsSystem/
-|  |  ├── SerializationSystem/
-|  |  └── InputEventSystem/
-|  ├── EN/
-|  └── ZH_CN/
-|  ├── Project/                # Runtime assets (models, textures, scenes)
-├── Tests/
-|  ├── Unit/
-|  ├── Integration/
-|  └── Support/
-├── Vendor/                 # GLFW, GLM, ImGui, Glad, STB, spdlog
-└── CMakeLists.txt
+├─ .github/                 # GitHub Actions workflows and PR metadata
+├─ Archive/                 # Retired code from the previous renderer iteration
+├─ CMake/                   # Shared CMake modules, presets, test helpers
+├─ Docs/
+│  ├─ EN/
+│  ├─ Modules/              # Design, internals, plans, code reviews
+│  └─ ZH_CN/
+├─ Engine/                  # Engine-side source assets and config content
+├─ Project/                 # Project-side source assets and config content
+├─ Src/
+│  ├─ Core/
+│  │  ├─ App/               # Application, Window, Layer, LayerStack
+│  │  ├─ Diagnostics/       # Assert, crash handling, logging
+│  │  ├─ Event/             # EventBus, events, scoped connections
+│  │  ├─ Input/             # Actions, devices, codes, replay
+│  │  ├─ Resource/          # Catalog, cook, IO, mount, package, path
+│  │  ├─ Serialization/     # PropertyTree, JSON backend, traits
+│  │  └─ Util/              # Base helpers, command line, time
+│  ├─ Demos/
+│  │  └─ 01_HelloWindow/
+│  ├─ GUI/
+│  │  ├─ Backends/
+│  │  └─ Panels/
+│  ├─ Scene/                # Camera, controller, transform, scene data
+│  ├─ Tools/                # `rtr_asset_cook`, `rtr_asset_pack`
+│  ├─ main.cpp
+│  └─ pch.h
+├─ Tests/
+│  ├─ Integration/
+│  ├─ Smoke/
+│  ├─ Support/
+│  ├─ Unit/
+│  ├─ CMakeLists.txt
+│  └─ pch.h
+├─ Tools/                   # Repository-level helper scripts and utilities
+├─ Vendor/                  # Third-party dependencies
+├─ .rtrproject              # Project marker file
+├─ CMakeLists.txt
+├─ CMakePresets.json
+└─ README.md
 ```
 
 ---
@@ -87,7 +91,10 @@ RT_Rendering_Lab/
 
 - C++20 compatible compiler (MSVC, GCC, Clang)
 - CMake 3.20+
-- OpenGL 4.6 capable GPU & driver (for OpenGL-dependent tests)
+- Ninja
+- On Windows, run CMake from a Developer PowerShell / Developer Command Prompt so MSVC tools are on `PATH`
+- On Linux, install the windowing dependencies used by GLFW and the CI matrix (`libgl-dev`, `libxrandr-dev`, `libxinerama-dev`, `libxcursor-dev`, `libxi-dev`, `libxkbcommon-dev`, `libwayland-dev`)
+- On macOS, install Ninja with `brew install ninja`
 
 All other dependencies are included in `Vendor/` or fetched automatically by CMake.
 
@@ -109,46 +116,66 @@ Current pinned submodule versions:
 ### Build with Presets
 
 ```bash
-# Visual Studio 2026 - Debug
-cmake --preset windows-vs
-cmake --build --preset build-windows-vs-debug
+# Windows - Debug
+cmake --preset windows-debug
+cmake --build --preset build-windows-debug --parallel
 
-# Visual Studio 2026 - RelWithDebInfo
-cmake --preset windows-vs
-cmake --build --preset build-windows-vs-relwithdebinfo
+# Windows - RelWithDebInfo
+cmake --preset windows-relwithdebinfo
+cmake --build --preset build-windows-relwithdebinfo --parallel
 
-# Visual Studio 2026 - Fast debug iteration without tests
-cmake --preset windows-vs-fast
-cmake --build --preset build-windows-vs-fast-debug --parallel
+# Windows - Release
+cmake --preset windows-release
+cmake --build --preset build-windows-release --parallel
 
-# Ninja - Release
-cmake --preset linux-ninja-release
-cmake --build --preset build-linux-ninja-release
+# Windows - Release with tests enabled
+cmake --preset windows-release-with-tests
+cmake --build --preset build-windows-release-with-tests --parallel
 
-# Ninja - RelWithDebInfo
-cmake --preset linux-ninja-relwithdebinfo
-cmake --build --preset build-linux-ninja-relwithdebinfo
+# Linux - Debug
+cmake --preset linux-debug
+cmake --build --preset build-linux-debug --parallel
 
-# Ninja - Fast debug iteration
-cmake --preset linux-ninja-debug-fast
-cmake --build --preset build-linux-ninja-debug-fast
+# Linux - Release
+cmake --preset linux-release
+cmake --build --preset build-linux-release --parallel
 
-# macOS Ninja - Release
-cmake --preset macos-ninja-release
-cmake --build --preset build-macos-ninja-release
+# Linux - Release with tests enabled
+cmake --preset linux-release-with-tests
+cmake --build --preset build-linux-release-with-tests --parallel
 
-# macOS Ninja - RelWithDebInfo
-cmake --preset macos-ninja-relwithdebinfo
-cmake --build --preset build-macos-ninja-relwithdebinfo
+# macOS - Debug
+cmake --preset macos-debug
+cmake --build --preset build-macos-debug --parallel
 
-# macOS Ninja - Fast debug iteration
-cmake --preset macos-ninja-debug-fast
-cmake --build --preset build-macos-ninja-debug-fast
+# macOS - Release
+cmake --preset macos-release
+cmake --build --preset build-macos-release --parallel
+
+# macOS - Release with tests enabled
+cmake --preset macos-release-with-tests
+cmake --build --preset build-macos-release-with-tests --parallel
 ```
 
-On Windows, the `windows-vs` configure preset is a shared multi-config build tree; choose `Debug`, `RelWithDebInfo`, or `Release` through the matching build or test preset.
+All shipped local presets are single-config `Ninja` build trees. The configure preset name maps directly to its build directory, for example `windows-release -> build/windows-release`.
 
-`windows-vs-fast`, `linux-ninja-debug-fast`, and `macos-ninja-debug-fast` disable tests and enable unity build - tuned for shorter edit-build-run loops.
+`*-release` presets currently default to `GLAB_BUILD_TESTS=OFF` and `GLAB_ENABLE_UNITY_BUILD=ON` for faster optimized builds. Use `*-release-with-tests` when you want a Release build that also compiles and runs the test targets.
+
+`ci-*` presets are reserved for CI parity. They enable the same test coverage and release/debug profile split used by the GitHub Actions matrix.
+
+### Package and Stage Runtime
+
+```bash
+# Example: Windows release packaging flow
+cmake --preset windows-release
+cmake --build --preset build-windows-release-package-content
+cmake --build --preset build-windows-release-stage-runtime
+cmake --install build/windows-release
+```
+
+`build-*-release-package-content` runs `rtr_asset_cook` and `rtr_asset_pack`, producing packaged runtime content under `build/<preset>/Stage/Release`.
+
+`build-*-release-stage-runtime` additionally copies the `RTRLab` executable into the same staged runtime directory. `cmake --install` expects that staging target to have been built first.
 
 ### Build Manually
 
@@ -160,8 +187,15 @@ cmake --build build
 ### Run
 
 ```bash
-./build/<config>/RTRLab
+./build/<preset>/bin/<Debug|RelWithDebInfo|Release>/RTRLab
 ```
+
+Examples:
+
+- `build/windows-debug/bin/Debug/RTRLab.exe`
+- `build/windows-release/bin/Release/RTRLab.exe`
+- `build/linux-debug/bin/Debug/RTRLab`
+- `build/macos-release/bin/Release/RTRLab`
 
 ---
 
@@ -170,12 +204,27 @@ cmake --build build
 The project uses **Google Test** (fetched automatically via CMake FetchContent).
 
 ```bash
-cmake --preset windows-vs
-cmake --build --preset build-windows-vs-debug
-ctest --preset test-windows-vs-debug
+# Debug test pass
+cmake --preset windows-debug
+cmake --build --preset build-windows-debug --parallel
+ctest --preset test-windows-debug
+
+# Release test pass
+cmake --preset windows-release-with-tests
+cmake --build --preset build-windows-release-with-tests --parallel
+ctest --preset test-windows-release
 ```
 
-Test executables: `rtrlab_unit_tests`, `rtrlab_integration_tests`.
+Available test executables include `rtrlab_unit_tests`, `rtrlab_integration_tests`, `rtrlab_dev_profile_tests`, and `rtrlab_shipping_profile_tests`.
+
+Preset families:
+
+- `test-<platform>-debug`, `test-<platform>-relwithdebinfo`, `test-<platform>-release`
+- `test-<platform>-*-unit`
+- `test-<platform>-*-integration`
+- `test-<platform>-debug-dev-profile`
+- `test-<platform>-release-shipping-profile`
+- `test-ci-<platform>-debug` and `test-ci-<platform>-release`
 
 ### CMake Options
 
@@ -189,6 +238,8 @@ Test executables: `rtrlab_unit_tests`, `rtrlab_integration_tests`.
 | `GLAB_ENABLE_MSVC_MP`         | `ON`    | Enable MSVC multi-processor compilation (`/MP`)             |
 | `GLAB_ENABLE_RELEASE_SYMBOLS` | `OFF`   | Emit MSVC debug symbols for `Release` builds                |
 | `GLAB_BUILD_IMGUI_DEMO`       | `OFF`   | Compile `imgui_demo.cpp` into the Dear ImGui static library |
+
+Preset defaults can override these project-level defaults. In particular, the shipped `*-release` and `ci-*-release` presets enable unity build, and the plain `*-release` presets disable tests unless you opt into `*-release-with-tests`.
 
 ---
 

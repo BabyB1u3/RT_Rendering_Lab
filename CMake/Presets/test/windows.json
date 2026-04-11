@@ -1,0 +1,118 @@
+{
+  "version": 6,
+  "include": [
+    "../configure/windows.json",
+    "common.json"
+  ],
+  "testPresets": [
+    {
+      "name": "test-windows-debug-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "windows-debug"
+    },
+    {
+      "name": "test-windows-relwithdebinfo-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "windows-relwithdebinfo"
+    },
+    {
+      "name": "test-windows-release-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "windows-release-with-tests"
+    },
+    {
+      "name": "test-ci-windows-debug",
+      "inherits": [
+        "test-base",
+        "test-filter-debug-matrix"
+      ],
+      "configurePreset": "ci-windows-debug"
+    },
+    {
+      "name": "test-ci-windows-release",
+      "inherits": [
+        "test-base",
+        "test-filter-release-matrix"
+      ],
+      "configurePreset": "ci-windows-release"
+    },
+    {
+      "name": "test-windows-debug",
+      "inherits": "test-windows-debug-base"
+    },
+    {
+      "name": "test-windows-relwithdebinfo",
+      "inherits": "test-windows-relwithdebinfo-base"
+    },
+    {
+      "name": "test-windows-release",
+      "inherits": "test-windows-release-base"
+    },
+    {
+      "name": "test-windows-debug-unit",
+      "inherits": [
+        "test-windows-debug-base",
+        "test-label-unit"
+      ]
+    },
+    {
+      "name": "test-windows-relwithdebinfo-unit",
+      "inherits": [
+        "test-windows-relwithdebinfo-base",
+        "test-label-unit"
+      ]
+    },
+    {
+      "name": "test-windows-release-unit",
+      "inherits": [
+        "test-windows-release-base",
+        "test-label-unit"
+      ]
+    },
+    {
+      "name": "test-windows-debug-integration",
+      "inherits": [
+        "test-windows-debug-base",
+        "test-label-integration"
+      ]
+    },
+    {
+      "name": "test-windows-debug-dev-profile",
+      "inherits": [
+        "test-windows-debug-base",
+        "test-label-dev-profile"
+      ]
+    },
+    {
+      "name": "test-windows-relwithdebinfo-integration",
+      "inherits": [
+        "test-windows-relwithdebinfo-base",
+        "test-label-integration"
+      ]
+    },
+    {
+      "name": "test-windows-relwithdebinfo-dev-profile",
+      "inherits": [
+        "test-windows-relwithdebinfo-base",
+        "test-label-dev-profile"
+      ]
+    },
+    {
+      "name": "test-windows-release-integration",
+      "inherits": [
+        "test-windows-release-base",
+        "test-label-integration"
+      ]
+    },
+    {
+      "name": "test-windows-release-shipping-profile",
+      "inherits": [
+        "test-windows-release-base",
+        "test-label-shipping-profile"
+      ]
+    }
+  ]
+}
