@@ -320,7 +320,7 @@ namespace
     std::string_view GetCurrentArtifactProfileTag()
     {
         const auto profile = GetCurrentProfileTag();
-        if (profile == "packaged" || profile == "shipping")
+        if (profile == "shipping")
             return "cooked";
         return profile;
     }
