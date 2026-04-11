@@ -38,7 +38,7 @@ paths.
   - [8. Config Integration](#8-config-integration)
   - [9. Serialization Integration](#9-serialization-integration)
   - [10. Cooking and Packaging](#10-cooking-and-packaging)
-    - [10.1 Source Indexing](#101-source-indexing)
+    - [10.1 Source Catalog Construction](#101-source-catalog-construction)
     - [10.2 Loose Cooked Output](#102-loose-cooked-output)
     - [10.3 Packaged Output](#103-packaged-output)
     - [10.4 Current Cooked Texture Format](#104-current-cooked-texture-format)
@@ -105,7 +105,7 @@ stay stable while the storage backend evolves.
                                 |                   |
                                 v                   v
                         Readable mount backends   Tooling
-                        directory / pak /         source index / cook / pack
+                        directory / pak /         source scan / cook / pack / stage
                         overlay layers
 ```
 
@@ -124,8 +124,8 @@ At a high level, the system has four cooperating pieces:
    writable roots.
 
 4. **Tooling**
-   Generates source catalogs, loose cooked output, and packaged `.rtrpak` archives so
-   runtime code does not have to guess how an asset is stored.
+   Builds source catalogs in memory, generates loose cooked output, and stages packaged
+   `.rtrpak` archives so runtime code does not have to guess how an asset is stored.
 
 ---
 
@@ -298,11 +298,10 @@ the order is:
 2. patch mounts
 3. DLC mounts
 4. packaged mounts
-5. loose cooked mounts
-6. loose source mounts
+5. loose source mounts
 
 If a mod pak supplies `/Project/Textures/Grassy_Square`, it overrides lower-priority
-patch, DLC, packaged, cooked, and source mounts for that logical path. Unrelated
+patch, DLC, packaged, and source mounts for that logical path. Unrelated
 entries still fall back to the next available lower layer. DLC and Mod paks may also
 publish additive content under their own `/DLC/<Name>/...` and `/Mod/<Name>/...`
 namespaces.
@@ -314,8 +313,8 @@ namespaces.
 ### 5.1 Source Catalogs
 
 Source catalogs describe loose authoring-time content. At runtime in development builds,
-they are built in memory from the source tree. `rtr_asset_index` can also emit them as
-`.rtr/catalog.json` for inspection or tooling.
+and during cooking, they are built in memory from the source tree rather than being
+persisted as a standalone on-disk source-catalog artifact.
 
 Current source catalogs:
 
@@ -374,9 +373,9 @@ The current scoring rule is:
 - explicit mismatch rejects the artifact
 - profile dominates backend, which dominates platform
 
-Packaged and shipping profiles currently select cooked artifacts rather than a distinct
-third artifact family. In other words, packaged storage changes the mount backend, not
-the logical asset identity.
+Shipping currently selects cooked artifacts rather than a distinct third artifact
+family. In other words, packaged storage changes the mount backend, not the logical
+asset identity.
 
 ### 5.4 Conflict Handling
 
@@ -520,32 +519,23 @@ or this:
 
 ## 10. Cooking and Packaging
 
-### 10.1 Source Indexing
+### 10.1 Source Catalog Construction
 
-`rtr_asset_index` can scan readable loose content roots and export source catalogs for:
+Source catalog construction is now an in-memory step shared by dev runtime and cook.
 
-- `Project/`
-- `Engine/`
-
-It applies the same builder-time content-role classification used by the runtime source
-catalog builder and enforces logical-path uniqueness.
-
-At runtime in development builds, and during cooking, source catalogs are built in
-memory from the source trees rather than being read back from `Project/.rtr/catalog.json`
-or `Engine/.rtr/catalog.json`.
+- Dev runtime scans `Project/` and `Engine/` and builds source entries in memory.
+- `rtr_asset_cook` performs the same source scan in memory before producing cooked
+  artifacts and cooked catalogs.
+- The standalone source-index export tool was removed; source catalogs are no longer
+  written back to `Project/.rtr/catalog.json` or `Engine/.rtr/catalog.json`.
 
 ### 10.2 Loose Cooked Output
 
 `rtr_asset_cook` transforms source catalogs into loose cooked output.
 
-Current supported loose cooked layouts:
+Current staging-oriented cooked layout:
 
-- `Saved/Cache/Cooked/`
-- `build/Cooked/`
-
-In development mode, runtime can also be pointed at an explicit cooked root through
-CLI `--cooked-root` or `RTRLAB_COOKED_ROOT`. Release/shipping builds ignore the
-environment variable and only honor `--cooked-root` when `--dev-mode` is present.
+- `build/Packaging/<Config>/Cooked/`
 
 Loose cooked output preserves the same public logical paths as source content. Only the
 artifact representation changes.
@@ -554,15 +544,9 @@ artifact representation changes.
 
 `rtr_asset_pack` packages cooked mounts into `.rtrpak` archives.
 
-Current packaged layouts:
+Current staged packaged layout:
 
-- `Saved/Cache/Packaged/`
-- `build/Packaged/`
-
-In development mode, runtime can also be pointed at an explicit packaged root
-through CLI `--package-root` or `RTRLAB_PACKAGE_ROOT`. Release/shipping builds
-ignore the environment variable and only honor `--package-root` when
-`--dev-mode` is present.
+- `build/Stage/<Config>/Game.rtrpak`
 
 The current packaged convention is:
 
@@ -572,8 +556,8 @@ The archive contains a merged cooked catalog plus both `Project/...` and `Engine
 payloads under a single pak.
 
 At runtime, packaged Project and Engine reads are still resolved as separate logical
-domains, but in packaged/shipping profiles they both mount the same shared
-`Game.rtrpak` and filter its merged catalog by domain.
+domains, but in shipping they both mount the same shared `Game.rtrpak` and filter its
+merged catalog by domain.
 
 Shipping installs may also provide optional overlay pak directories next to the base
 archive:
@@ -622,13 +606,12 @@ active engine subsystem with the following implemented behavior:
   are active
 - config fallback resolution is implemented through serialization-facing helpers
 - logical-path-based file I/O is implemented
-- source catalogs can be generated for inspection or tooling, while dev runtime and cook
-  build source catalogs in memory
+- dev runtime and cook both build source catalogs in memory
 - Project / Engine reads now share a single catalog-driven path for both assets and
   document entries
 - loose cooked catalogs are generated and consumed
 - packaged `.rtrpak` archives are generated and consumed
-- shipping overlay precedence over packaged/cooked/source mounts is implemented through
+- shipping overlay precedence over packaged/source mounts is implemented through
   `DLC`, `Patch`, and `Mod` pak priorities
 - mount handling now goes through a backend layer rather than being inlined inside the
   catalog resolver
@@ -638,7 +621,7 @@ active engine subsystem with the following implemented behavior:
   searching for `Project/`
 - release/shipping builds use the executable directory as the install root via the
   existing `RTRLAB_CONFIG_RELEASE` configuration, while `--dev-mode` re-enables
-  dev-only CLI resource overrides
+  the remaining dev-only CLI resource override `--root`
 - shipping installs scan optional `DLC/`, `Patches/`, and `Mods/` directories for
   additional pak mounts
 
@@ -755,7 +738,6 @@ src/Core/Resource/
         PhysicalIO.h / .cpp     - Low-level text/binary filesystem I/O
 
 src/Tools/
-    AssetIndexMain.cpp          - `rtr_asset_index`
     AssetCookMain.cpp           - `rtr_asset_cook`
     AssetPackMain.cpp           - `rtr_asset_pack`
 
@@ -767,13 +749,15 @@ Project/
 Engine/
     ...                         - Engine source files (catalog built in memory in dev)
 
-Saved/Cache/Cooked/
-    ...                         - Loose cooked output
+build/Packaging/<Config>/Cooked/
+    ...                         - Staged loose cooked output
 
-Saved/Cache/Packaged/
-    ...                         - Packaged `.rtrpak` output
+build/Stage/<Config>/
+    RTRLab(.exe)                - Staged shipping executable
+    Game.rtrpak                 - Staged packaged output
 
 <install>/
+    RTRLab(.exe)                - Shipping executable
     Game.rtrpak                 - Base packaged content
     DLC/                        - Optional DLC pak directory
     Patches/                    - Optional patch pak directory

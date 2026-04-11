@@ -19,7 +19,7 @@ industry context.
   - [Part I: How the System Works](#part-i-how-the-system-works)
     - [1. End-to-End Flow Overview](#1-end-to-end-flow-overview)
     - [2. Offline Toolchain](#2-offline-toolchain)
-      - [2.1 Source Indexing (rtr\_asset\_index)](#21-source-indexing-rtr_asset_index)
+      - [2.1 Source Catalog Construction](#21-source-catalog-construction)
       - [2.2 Cooking (rtr\_asset\_cook)](#22-cooking-rtr_asset_cook)
       - [2.3 Packaging (rtr\_asset\_pack)](#23-packaging-rtr_asset_pack)
     - [3. Runtime Resolution](#3-runtime-resolution)
@@ -46,17 +46,12 @@ industry context.
 
 ### 1. End-to-End Flow Overview
 
-The system operates in two phases: an **offline toolchain** (index, cook, pack) and a
+The system operates in two phases: an **offline toolchain** (source scan, cook, pack,
+stage) and a
 **runtime resolution** layer (FileSystem API).
 
 ```
 Offline phase (build time)                Runtime phase
-+---------------+                        +----------------------+
-| rtr_asset_    |  scan source files     | FileSystem::         |
-|   index       |-> generate catalog.json| ReadText / ReadBinary|
-+---------------+                        +----------+-----------+
-       |                                            |
-       v                                            v
 +---------------+                        +----------------------+
 | rtr_asset_    |  decode images->.rtrtex | Which domain?        |
 |   cook        |-> generate cooked cat   | Project/Engine       |
@@ -73,13 +68,12 @@ Offline phase (build time)                Runtime phase
 
 ### 2. Offline Toolchain
 
-#### 2.1 Source Indexing (`rtr_asset_index`)
+#### 2.1 Source Catalog Construction
 
-- Entry: `src/Tools/AssetIndexMain.cpp` -> `Resource::IndexRepositorySourceCatalogs()`
 - Implementation: `src/Core/Resource/Catalog/SourceCatalog.cpp`
 
-**What it does**: recursively scans mount roots and can generate a `.rtr/catalog.json`
-per mount.
+**What it does**: recursively scans source mount roots and builds source catalog
+entries in memory.
 
 **Steps** (`SourceCatalog.cpp:304-319`):
 
@@ -102,15 +96,14 @@ per mount.
      `Project/Textures/Grassy_Square.jpg` -> `/Project/Textures/Grassy_Square`
 
 4. **Enforce uniqueness**: if two source files generate the same logical path (e.g.
-   `foo.jpg` and `foo.png` in the same directory), the indexer rejects the catalog with
-   an error.
+   `foo.jpg` and `foo.png` in the same directory), source catalog construction rejects
+   the catalog with an error.
 
-5. **Write JSON** (`SourceCatalog.cpp:238-302`): produce a version-1 `catalog.json` with
-   one entry per file. Each entry contains `logicalPath`, `sourceRelativePath`, and an
-   `artifacts` array (default tags: `profileTag="dev"`, `backendTag="any"`,
-   `platformTag="any"`).
+5. **Return entries in memory**: each entry contains `logicalPath`,
+   `sourceRelativePath`, and an `artifacts` array (default tags:
+   `profileTag="dev"`, `backendTag="any"`, `platformTag="any"`).
 
-**Example output** (`Project/.rtr/catalog.json`):
+**Example entry shape**:
 
 ```json
 {
@@ -142,7 +135,7 @@ runtime-ready artifacts, and writes them to a cooked output directory.
 **Steps** (`CookedCatalog.cpp:644-703`):
 
 1. Discover all source mounts and determine the corresponding cooked output directory
-   (e.g. `Saved/Cache/Cooked/Project/`).
+   (e.g. `build/Packaging/<Config>/Cooked/Project/`).
 
 2. Build source catalog entries in memory for each mount.
 
@@ -196,7 +189,8 @@ Offset  Size  Field
 +------------------------+
 ```
 
-**Output**: `Saved/Cache/Packaged/Game.rtrpak`.
+**Output**: `build/Stage/<Config>/Game.rtrpak` (with cooked intermediates staged under
+`build/Packaging/<Config>/Cooked/`).
 
 ---
 
@@ -285,23 +279,21 @@ builder-time rule produced it.
 **Step A: Lazily build the global table** (first call only)
 
 1. Call `DiscoverReadableMountBackends()` to discover all readable mounts. This function
-   decides which backends to register based on the current profile:
+   now has only two runtime behaviors:
 
-   **Profile decision logic** (`MountBackend.cpp:39-40`):
-   - `"dev"` profile (default): register source mount only; fall back to
-     packaged/cooked only if source does not exist.
-   - `"cooked"` profile: prefer cooked, then source.
-   - `"packaged"` / `"shipping"` profile: prefer packaged, then cooked, then source.
+   **Profile decision logic**:
+   - `"dev"` profile (default): register `Project/` and `Engine/` source mounts only.
+   - `"shipping"` profile: register pak-backed mounts only.
 
    For each catalog-backed domain, register mounts according to the profile strategy,
    assigning priorities:
 
    ```
    Mod      (500)  >  Patch    (400)  >  DLC      (300)
-   > Packaged (200) > Cooked   (100)  >  Source   (0)
+   > Packaged (200) > Source   (0)
    ```
 
-   In shipping/profiled packaged installs, the runtime scans:
+   In shipping installs, the runtime scans:
 
    - `<install>/Game.rtrpak` for the base packaged Project / Engine content
    - `<install>/DLC/*.rtrpak` for DLC overlays and `/DLC/<Name>/...` namespace mounts
@@ -311,11 +303,10 @@ builder-time rule produced it.
 2. For each discovered mount, acquire its catalog:
    - Dev source directory backend (`Project/` or `Engine/`, source priority): build the
      source catalog in memory from the source tree.
-   - Other directory backends: read `{mountRoot}/.rtr/catalog.json` from disk.
    - PakArchive backend: extract `.rtr/catalog.json` from inside the `.rtrpak` file.
 
 3. Parse the catalog JSON, validate version (v1 = source, v2 = cooked), and filter the
-   merged entry set by mount domain. In packaged mode, both the Project and Engine
+   merged entry set by mount domain. In shipping, both the Project and Engine
    mounts may read from the same shared `Game.rtrpak` catalog, but each mount only
    keeps entries for its own logical domain. DLC and Mod namespace mounts perform the
    same filtering, but also require the catalog path's `mountName` to match the
@@ -324,7 +315,7 @@ builder-time rule produced it.
 
 4. **Merge into global table** (`ResourceCatalog.cpp:334-388`):
    - A higher-priority mount's entry replaces a lower-priority one
-     (mod > patch > DLC > packaged > cooked > source).
+     (mod > patch > DLC > packaged > source).
    - Two equal-priority mounts providing the same `logicalPath` are treated as a
      **conflict**: the path is removed from the global table and recorded in
      `m_ConflictedLogicalPaths`. Future lookups for that path return `nullopt`.
@@ -354,11 +345,10 @@ Scoring rules:
 Runtime tag sources:
 - `platformTag`: determined at compile time (`windows` / `macos` / `linux`).
 - `backendTag`: determined at compile time (`metal` or `opengl`).
-- `profileTag`: from CLI `--resource-profile` or `RTRLAB_RESOURCE_PROFILE` in
-  development builds; in release/shipping builds, the environment variable is
-  ignored and only `--dev-mode --resource-profile <name>` can override the
-  default `shipping` profile. For packaged/shipping profiles, the artifact
-  profile tag is mapped to `"cooked"`.
+- `profileTag`: development builds use the default `dev` profile. Release/shipping
+  builds default to `shipping`, which maps artifact selection to `"cooked"`. The
+  only remaining dev-mode override is `--dev-mode --root <path>`, which changes root
+  discovery but does not reintroduce extra runtime profiles.
 
 **Step D: Artifact descriptor resolution** (`MountBackend.cpp`)
 
@@ -401,15 +391,17 @@ User calls: FileSystem::ReadBinary("/Project/Textures/Grassy_Square")
   +- CatalogRegistry::ResolveArtifact
        |
        +- [first call] DiscoverReadableMountBackends
-       |    +- Project/ exists           -> register Source:Project    (priority=0)
-       |    +- Cooked/Project/ has cat   -> register Cooked:Project   (priority=100)
-       |    +- Game.rtrpak               -> register Packaged:Project (priority=200)
-       |    +- Game.rtrpak               -> register Packaged:Engine  (priority=200)
-       |    +- DLC/Expansion1.rtrpak     -> register DLC:Expansion1:Project (priority=300)
-       |    +- DLC/Expansion1.rtrpak     -> register DLC:Expansion1         (priority=300)
-       |    +- Patches/Patch_001.rtrpak  -> register Patch:Patch_001:Project(priority=400)
-       |    +- Mods/CoolMod.rtrpak       -> register Mod:CoolMod:Project    (priority=500)
-       |    +- Mods/CoolMod.rtrpak       -> register Mod:CoolMod            (priority=500)
+       |    +- dev profile:
+       |    |    +- Project/ exists      -> register Source:Project    (priority=0)
+       |    |    +- Engine/ exists       -> register Source:Engine     (priority=0)
+       |    +- shipping profile:
+       |         +- Game.rtrpak          -> register Packaged:Project  (priority=200)
+       |         +- Game.rtrpak          -> register Packaged:Engine   (priority=200)
+       |         +- DLC/Expansion1.rtrpak -> register DLC:Expansion1:Project (priority=300)
+       |         +- DLC/Expansion1.rtrpak -> register DLC:Expansion1         (priority=300)
+       |         +- Patches/Patch_001.rtrpak -> register Patch:Patch_001:Project (priority=400)
+       |         +- Mods/CoolMod.rtrpak  -> register Mod:CoolMod:Project    (priority=500)
+       |         +- Mods/CoolMod.rtrpak  -> register Mod:CoolMod            (priority=500)
        |
        +- [first call] Load catalog for each mount -> parse JSON -> merge into global table
        |
@@ -417,7 +409,8 @@ User calls: FileSystem::ReadBinary("/Project/Textures/Grassy_Square")
        |    -> found entry from the highest-priority mount
        |
        +- ChooseArtifact -> select best artifact
-       |    e.g. {relativePath: "Textures/Grassy_Square.rtrtex", profileTag: "cooked"}
+       |    e.g. dev -> {relativePath: "Textures/Grassy_Square.jpg", profileTag: "dev"}
+       |         shipping -> {relativePath: "Textures/Grassy_Square.rtrtex", profileTag: "cooked"}
        |
        +- ResolveReadableMountArtifact
             +- Directory backend -> {mountRoot, relativePath}
@@ -441,7 +434,7 @@ User calls: FileSystem::ReadBinary("/Project/Textures/Grassy_Square")
 | Equal-priority conflict = removal | `MergeMountEntriesIntoGlobalTable` | No implicit choice; the path becomes unavailable |
 | Catalog is lazily built | `m_GlobalTableBuilt` flag | All mounts are scanned on the first Project / Engine read |
 | Pak entries are read directly | `ReadPakEntry` / `OpenReadableArtifactStream` | No extraction cache or temp-file materialization remains in the normal read path |
-| Profile determines mount registration order | `DiscoverReadableMountBackends` | `dev` prefers source; `shipping` prefers packaged |
+| Profile determines mount registration order | `DiscoverReadableMountBackends` | `dev` registers source only; `shipping` registers pak mounts only |
 | Shipping CLI surface is explicit | `Core/Util/CommandLine` + `main.cpp` | Release help shows `--help`, `--language`, `--windowed`, `--fullscreen`, and `--dev-mode`; dev-only resource overrides are dropped unless `--dev-mode` is present |
 | Writable dirs are lazily resolved | `FileSystem::ResolveWritableDirs` | First call to `GetSavedDir()` / `GetCacheDir()` triggers resolution |
 | Dev root discovery walks up from executable | `FindRootFromExecutable` | Up to 5 parent directories, looking for `.rtrproject` |
@@ -484,7 +477,7 @@ mechanisms that Unreal and Unity both have:
 
 | Dimension | RTRLab | Unreal Engine | Unity |
 |-----------|--------|---------------|-------|
-| Import trigger | Manual `rtr_asset_index` | Automatic on editor launch / file change | Automatic on file drop into Assets/ |
+| Import trigger | Manual cook/pack staging step | Automatic on editor launch / file change | Automatic on file drop into Assets/ |
 | Cook trigger | Manual `rtr_asset_cook` | Automatic (`Cook Content` or on package) | Automatic on build |
 | Incremental cook | **None** -- full rebuild every time | Yes -- DDC (Derived Data Cache) keyed by content hash | Yes -- Library cache keyed by hash |
 | Dependency tracking | **None** | Yes -- Asset Registry tracks dependency graph | Yes -- `.meta` + dependency graph |
@@ -550,7 +543,7 @@ more flexible conflict policy as overlay/mod scenarios grow more complex.
 | Dimension | RTRLab | Unreal Engine | Unity | id Tech / Source |
 |-----------|--------|---------------|-------|------------------|
 | Mount hierarchy | Project > Engine > Saved > Cache | /Game, /Engine, /Plugin, /Temp | No hierarchy concept | Search-path-based pak stack |
-| Override mechanism | 6-level priority (Mod > Patch > DLC > Packaged > Cooked > Source) | Pak priority + patch pak | AssetBundle variants | Later-mounted pak overrides earlier |
+| Override mechanism | 5-level priority (Mod > Patch > DLC > Packaged > Source) | Pak priority + patch pak | AssetBundle variants | Later-mounted pak overrides earlier |
 | Runtime dynamic mount | **Not supported** | Supported (`MountPak` / `UnmountPak`) | Supported (`LoadAssetBundle`) | Supported |
 | Write domain isolation | Hard-coded: only Saved/Cache writable | Similar (Saved/ writable) | `Application.persistentDataPath` | Dedicated write path |
 
