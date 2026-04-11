@@ -5,7 +5,12 @@
 #include "Core/Resource/Mount/RootDiscovery.h"
 #include "RootDiscoveryTestSupport.h"
 
-TEST_F(test_support::RootDiscoveryTestsBase, DiscoverRootPathUsesEnvOverrideWhenProjectMarkerExistsInDev)
+namespace
+{
+    using RootDiscoveryTests = test_support::RootDiscoveryTestsBase;
+}
+
+TEST_F(RootDiscoveryTests, DiscoverRootPathUsesEnvOverrideWhenProjectMarkerExistsInDev)
 {
 #ifdef RTRLAB_CONFIG_RELEASE
     GTEST_SKIP() << "Dev-profile root discovery coverage runs in non-release builds only.";

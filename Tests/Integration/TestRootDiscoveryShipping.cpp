@@ -5,7 +5,12 @@
 #include "Core/Resource/Mount/RootDiscovery.h"
 #include "RootDiscoveryTestSupport.h"
 
-TEST_F(test_support::RootDiscoveryTestsBase, DiscoverRootPathIgnoresEnvOverrideInShipping)
+namespace
+{
+    using RootDiscoveryTests = test_support::RootDiscoveryTestsBase;
+}
+
+TEST_F(RootDiscoveryTests, DiscoverRootPathIgnoresEnvOverrideInShipping)
 {
 #ifndef RTRLAB_CONFIG_RELEASE
     GTEST_SKIP() << "Shipping-profile root discovery coverage runs in release builds only.";

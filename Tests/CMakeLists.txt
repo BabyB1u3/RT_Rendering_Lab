@@ -1,6 +1,9 @@
 include(GoogleTest)
 
 function(glab_configure_test_target target_name test_prefix test_labels)
+    set(escaped_test_labels "${test_labels}")
+    string(REPLACE ";" "\\;" escaped_test_labels "${escaped_test_labels}")
+
     target_link_libraries(${target_name}
         PRIVATE
             RTRLabCore
@@ -22,7 +25,7 @@ function(glab_configure_test_target target_name test_prefix test_labels)
     gtest_discover_tests(${target_name}
         TEST_PREFIX "${test_prefix}"
         PROPERTIES
-            LABELS "${test_labels}"
+            LABELS "${escaped_test_labels}"
     )
 endfunction()
 
