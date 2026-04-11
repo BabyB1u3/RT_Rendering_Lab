@@ -10,6 +10,7 @@
 
 #include "Core/Serialization/BuiltinTraits.h"
 #include "Core/Resource/Catalog/AssetPath.h"
+#include "MathTestUtils.h"
 
 using namespace Serialization;
 
@@ -43,14 +44,6 @@ namespace
         EXPECT_FLOAT_EQ(lhs.w, rhs.w);
     }
 
-    void ExpectMat4Near(const glm::mat4 &lhs, const glm::mat4 &rhs)
-    {
-        for (int col = 0; col < 4; ++col)
-        {
-            for (int row = 0; row < 4; ++row)
-                EXPECT_NEAR(lhs[col][row], rhs[col][row], 1e-5f);
-        }
-    }
 } // namespace
 
 TEST(BuiltinTraitsTests, BoolRoundTrip)
@@ -332,7 +325,7 @@ TEST(BuiltinTraitsTests, Mat4RoundTripUsesColumnMajorLayout)
 
     glm::mat4 output(0.0f);
     ASSERT_TRUE(Deserialize(tree, output));
-    ExpectMat4Near(output, input);
+    ExpectMat4Near(output, input, 1e-5f);
 }
 
 TEST(BuiltinTraitsTests, Vec3DeserializeFromTooShortArrayReturnsFalseAndLeavesOutputUnchanged)
@@ -361,7 +354,7 @@ TEST(BuiltinTraitsTests, Mat4DeserializeFromTooShortArrayReturnsFalseAndLeavesOu
     const glm::mat4 original = value;
 
     EXPECT_FALSE(Deserialize(tree, value));
-    ExpectMat4Near(value, original);
+    ExpectMat4Near(value, original, 1e-5f);
 }
 
 TEST(BuiltinTraitsTests, Mat4DeserializeFromTooLongArrayReturnsFalseAndLeavesOutputUnchanged)
@@ -372,7 +365,7 @@ TEST(BuiltinTraitsTests, Mat4DeserializeFromTooLongArrayReturnsFalseAndLeavesOut
     const glm::mat4 original = value;
 
     EXPECT_FALSE(Deserialize(tree, value));
-    ExpectMat4Near(value, original);
+    ExpectMat4Near(value, original, 1e-5f);
 }
 
 TEST(BuiltinTraitsTests, VectorIntRoundTrip)
