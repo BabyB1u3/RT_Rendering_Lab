@@ -35,6 +35,22 @@
       "configuration": "Release"
     },
     {
+      "name": "build-windows-vs-notests-release-stage-assets",
+      "configurePreset": "windows-vs-notests",
+      "configuration": "Release",
+      "targets": [
+        "rtrlab_stage_shipping_assets"
+      ]
+    },
+    {
+      "name": "build-windows-vs-notests-release-stage",
+      "configurePreset": "windows-vs-notests",
+      "configuration": "Release",
+      "targets": [
+        "rtrlab_stage_shipping"
+      ]
+    },
+    {
       "name": "build-windows-vs-fast-debug",
       "configurePreset": "windows-vs-fast",
       "configuration": "Debug"

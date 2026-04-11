@@ -17,6 +17,20 @@
       "configurePreset": "macos-ninja-release"
     },
     {
+      "name": "build-macos-ninja-release-stage-assets",
+      "configurePreset": "macos-ninja-release",
+      "targets": [
+        "rtrlab_stage_shipping_assets"
+      ]
+    },
+    {
+      "name": "build-macos-ninja-release-stage",
+      "configurePreset": "macos-ninja-release",
+      "targets": [
+        "rtrlab_stage_shipping"
+      ]
+    },
+    {
       "name": "build-macos-ninja-release-tests",
       "configurePreset": "macos-ninja-release-tests"
     },
