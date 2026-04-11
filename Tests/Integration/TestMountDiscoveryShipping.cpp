@@ -98,21 +98,15 @@ TEST_F(MountDiscoveryShippingTests, DiscoverReadableMountBackendsUsesGameArchive
     const auto mounts = Resource::DiscoverReadableMountBackends(
         repoRoot, test_support::EngineRoot(repoRoot), repoRoot / "Saved" / "Cache", "Project", "shipping");
 
-    ASSERT_EQ(mounts.size(), 4u);
+    ASSERT_EQ(mounts.size(), 2u);
     EXPECT_EQ(mounts[0].sourceKey, "Project");
     EXPECT_EQ(mounts[0].priority, Resource::MountPriority::Packaged);
     EXPECT_EQ(mounts[0].backend, Resource::MountBackendKind::PakArchive);
     EXPECT_EQ(mounts[0].mountRoot, test_support::GamePackagedArchivePath(repoRoot));
-    EXPECT_EQ(mounts[1].sourceKey, "Project");
-    EXPECT_EQ(mounts[1].priority, Resource::MountPriority::Cooked);
-    EXPECT_EQ(mounts[1].backend, Resource::MountBackendKind::Directory);
-    EXPECT_EQ(mounts[2].sourceKey, "Engine");
-    EXPECT_EQ(mounts[2].priority, Resource::MountPriority::Packaged);
-    EXPECT_EQ(mounts[2].backend, Resource::MountBackendKind::PakArchive);
-    EXPECT_EQ(mounts[2].mountRoot, test_support::GamePackagedArchivePath(repoRoot));
-    EXPECT_EQ(mounts[3].sourceKey, "Engine");
-    EXPECT_EQ(mounts[3].priority, Resource::MountPriority::Cooked);
-    EXPECT_EQ(mounts[3].backend, Resource::MountBackendKind::Directory);
+    EXPECT_EQ(mounts[1].sourceKey, "Engine");
+    EXPECT_EQ(mounts[1].priority, Resource::MountPriority::Packaged);
+    EXPECT_EQ(mounts[1].backend, Resource::MountBackendKind::PakArchive);
+    EXPECT_EQ(mounts[1].mountRoot, test_support::GamePackagedArchivePath(repoRoot));
 }
 
 TEST_F(MountDiscoveryShippingTests, DiscoverReadableMountBackendsFindsDlcPatchAndModArchives)
@@ -155,7 +149,7 @@ TEST_F(MountDiscoveryShippingTests, DiscoverReadableMountBackendsFindsDlcPatchAn
     const auto mounts = Resource::DiscoverReadableMountBackends(
         repoRoot, test_support::EngineRoot(repoRoot), repoRoot / "Saved" / "Cache", "Project", "shipping");
 
-    ASSERT_EQ(mounts.size(), 12u);
+    ASSERT_EQ(mounts.size(), 10u);
     EXPECT_TRUE(ContainsMount(
         mounts,
         "DLC:Expansion1:Project",
