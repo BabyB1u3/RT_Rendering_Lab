@@ -46,7 +46,7 @@
     },
     {
       "name": "ci-linux-debug",
-      "displayName": "CI Linux Debug",
+      "displayName": "Linux CI Debug",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/ci-linux-debug",
       "cacheVariables": {
@@ -57,7 +57,7 @@
     },
     {
       "name": "ci-linux-release",
-      "displayName": "CI Linux Release",
+      "displayName": "Linux CI Release",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/ci-linux-release",
       "cacheVariables": {

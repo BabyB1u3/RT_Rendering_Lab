@@ -46,7 +46,7 @@
     },
     {
       "name": "ci-macos-debug",
-      "displayName": "CI macOS Debug",
+      "displayName": "macOS CI Debug",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/ci-macos-debug",
       "cacheVariables": {
@@ -57,7 +57,7 @@
     },
     {
       "name": "ci-macos-release",
-      "displayName": "CI macOS Release",
+      "displayName": "macOS CI Release",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/ci-macos-release",
       "cacheVariables": {

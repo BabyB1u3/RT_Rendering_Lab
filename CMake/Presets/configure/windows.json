@@ -46,7 +46,7 @@
     },
     {
       "name": "ci-windows-debug",
-      "displayName": "CI Windows Debug",
+      "displayName": "Windows CI Debug",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/ci-windows-debug",
       "cacheVariables": {
@@ -57,7 +57,7 @@
     },
     {
       "name": "ci-windows-release",
-      "displayName": "CI Windows Release",
+      "displayName": "Windows CI Release",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/ci-windows-release",
       "cacheVariables": {
