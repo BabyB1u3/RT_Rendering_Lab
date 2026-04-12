@@ -13,7 +13,6 @@ if(GLAB_ENABLE_PCH)
     target_precompile_headers(RTRLab REUSE_FROM RTRLabCore)
 endif()
 
-glab_copy_runtime_content(RTRLab)
 glab_configure_local_target(RTRLab)
 
 set_target_properties(RTRLab PROPERTIES
