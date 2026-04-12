@@ -1,11 +1,13 @@
 # Resource System Code Review
 
-Code review of the `src/Core/Resource/` module and associated tooling, based on the
-implementation as of 2026-04-09.
+Status update for the original `ResourceSystem` code review findings after the
+resource-system refactor work that landed through 2026-04-11.
 
-> **Overall assessment**: code quality is high -- clean layering, consistent error
-> handling, and good alignment between design document and implementation. The findings
-> below are organized by severity.
+> **Overall assessment**: the refactor materially improved the module. The
+> biggest architectural changes from the original review are real: source
+> catalogs are now built in memory, the public read API is data-returning,
+> pak-entry materialization has been removed, and the old Plugin mount model is
+> gone. That said, a meaningful subset of the original findings still remains.
 
 ---
 
@@ -15,15 +17,15 @@ implementation as of 2026-04-09.
   - [Table of Contents](#table-of-contents)
   - [Summary](#summary)
   - [1. Bug: Tautological Check (Dead Code)](#1-bug-tautological-check-dead-code)
-  - [2. Performance: Double Path Parsing in ResolveReadPath](#2-performance-double-path-parsing-in-resolvereadpath)
+  - [2. Performance: Double Path Parsing in Read Resolution](#2-performance-double-path-parsing-in-read-resolution)
   - [3. Performance: PakArchive Index Re-Read on Every Access](#3-performance-pakarchive-index-re-read-on-every-access)
   - [4. Performance: MaterializePakEntry Does Not Cache](#4-performance-materializepakentry-does-not-cache)
   - [5. Thread Safety: All-Static State Without Synchronization](#5-thread-safety-all-static-state-without-synchronization)
-  - [6. DRY Violation: Mount Discovery Logic Duplicated Three Times](#6-dry-violation-mount-discovery-logic-duplicated-three-times)
+  - [6. DRY Violation: Source Mount Discovery Logic Still Duplicated](#6-dry-violation-source-mount-discovery-logic-still-duplicated)
   - [7. DRY Violation: SanitizeKeyForPath Duplicated](#7-dry-violation-sanitizekeyforpath-duplicated)
   - [8. Robustness: getenv Return Value Held as string\_view](#8-robustness-getenv-return-value-held-as-string_view)
-  - [9. Redundancy: Unused GetMountRoot Call in ResolvePath](#9-redundancy-unused-getmountroot-call-in-resolvepath)
-  - [10. DRY: Catalog JSON Parsing Duplicated Between Runtime and Cook](#10-dry-catalog-json-parsing-duplicated-between-runtime-and-cook)
+  - [9. Redundancy: Defensive GetMountRoot Check in ResolveArtifact](#9-redundancy-defensive-getmountroot-check-in-resolveartifact)
+  - [10. DRY: Catalog JSON Parsing Duplication Between Runtime and Packaging](#10-dry-catalog-json-parsing-duplication-between-runtime-and-packaging)
   - [11. Security: Catalog Artifact Paths Are Not Validated as Safe Relative Paths](#11-security-catalog-artifact-paths-are-not-validated-as-safe-relative-paths)
   - [12. Robustness: PakArchive Does Not Validate Index/Data Ranges Against File Size](#12-robustness-pakarchive-does-not-validate-indexdata-ranges-against-file-size)
   - [13. Correctness: Source Catalog Physical Path Casing Can Drift from the Real Filesystem](#13-correctness-source-catalog-physical-path-casing-can-drift-from-the-real-filesystem)
@@ -32,24 +34,37 @@ implementation as of 2026-04-09.
 
 ## Summary
 
-| Category | Count |
-|----------|-------|
-| Bug (dead code) | 1 |
-| Performance (optimizable, non-blocking) | 3 |
-| Thread safety (constraint needs documenting) | 1 |
-| DRY / maintainability | 3 |
-| Security / robustness | 3 |
-| Correctness | 1 |
-| Style / defensive redundancy | 2 |
+| Status | Count |
+|--------|-------|
+| Still present | 8 |
+| Partially resolved | 3 |
+| Resolved | 2 |
 
-The core architecture (logical path model, mount precedence, catalog merge, artifact
-selection scoring) is solid and matches the design document faithfully.
+| # | Finding | Current status |
+|---|---------|----------------|
+| 1 | Tautological check in cooked catalog generation | Still present |
+| 2 | Double path parsing in read resolution | Partially resolved |
+| 3 | Pak index re-read on every access | Still present |
+| 4 | `MaterializePakEntry` extraction cache inefficiency | Resolved |
+| 5 | Static state without synchronization | Still present |
+| 6 | Mount discovery logic duplicated | Partially resolved |
+| 7 | `SanitizeKeyForPath` duplicated | Resolved |
+| 8 | `getenv` value returned as `string_view` | Still present |
+| 9 | Redundant `GetMountRoot` check in catalog resolver | Still present |
+| 10 | Catalog JSON parsing duplicated | Partially resolved |
+| 11 | Catalog artifact paths not validated as safe relative paths | Still present |
+| 12 | Pak index/data ranges not validated against file size | Still present |
+| 13 | Source catalog physical-path casing drift | Still present |
 
 ---
 
 ## 1. Bug: Tautological Check (Dead Code)
 
-**File**: `src/Core/Resource/Cook/CookedCatalog.cpp:675-681`
+**Status**: still present
+
+**File**: `Src/Core/Resource/Cook/CookedCatalog.cpp:529-536`
+
+The original dead-code check remains unchanged:
 
 ```cpp
 ResourceCatalogEntry cookedEntry;
@@ -61,238 +76,285 @@ if (cookedEntry.logicalPath.empty() || cookedEntry.logicalPath != sourceEntry.lo
 }
 ```
 
-`cookedEntry.logicalPath` was just assigned from `sourceEntry.logicalPath` on the
-previous line. The `!= sourceEntry.logicalPath` sub-expression is always `false`. The
-only way this branch can trigger is if `sourceEntry.logicalPath` itself is empty, which
-makes the second condition dead code.
+After the assignment on the previous line, the `!= sourceEntry.logicalPath`
+sub-expression is still tautologically false. The branch still only checks
+whether the logical path is empty.
 
-**Recommendation**: either remove the tautological sub-expression, or replace it with
-the actual invariant that was intended to be checked.
+**Recommendation**: remove the tautological comparison or replace it with the
+actual invariant that was intended to be checked.
 
 ---
 
-## 2. Performance: Double Path Parsing in ResolveReadPath
+## 2. Performance: Double Path Parsing in Read Resolution
 
-**File**: `src/Core/Resource/FileSystem.cpp:59-65`
+**Status**: partially resolved
 
-```cpp
-const auto virtualPath = Resource::ParseVirtualPath(virtualPathString);
-// ...
-if (Resource::IsCatalogBackedPath(virtualPathString))  // internally calls ParseVirtualPath again
-```
+**Files**:
 
-`IsCatalogBackedPath` internally calls `ParseVirtualPath` a second time on the same
-input string. The already-parsed `VirtualPath` result contains all the information
-needed to determine catalog-backed status (domain + whether the relative path has an
-extension).
+- `Src/Core/Resource/FileSystem.cpp:51-99`
+- `Src/Core/Resource/FileSystem.cpp:136-173`
 
-The same double-parse also occurs indirectly through `Exists`, `ReadText`, `ReadBinary`,
-`WriteText`, and `WriteBinary`, since they all delegate to `ResolveReadPath` or
-`ResolveWritePath`.
+The original `ResolveReadPath()` plus `IsCatalogBackedPath()` double-parse is
+gone. The refactor removed the old document-vs-catalog branch entirely, and
+Project / Engine / DLC / Mod reads now resolve through `ResolveCatalogArtifact()`
+only once.
 
-**Recommendation**: add an overload or internal helper that accepts the already-parsed
-`VirtualPath` and checks domain + extension directly, avoiding the redundant parse.
+However, there is still residual duplicate parsing on writable-domain reads:
+
+- `ReadText()`, `ReadBinary()`, `OpenReadStream()`, and `Exists()` first call
+  `ResolveCatalogArtifact(virtualPath)`, which parses the path.
+- If that fails, they call `ResolveWritableReadPath(virtualPath)`, which parses
+  the same string again.
+
+That means `/Saved/...` and `/Cache/...` reads still pay two parses even though
+their domain could be dispatched once up front.
+
+**Recommendation**: parse once at the `FileSystem` entry point, dispatch on the
+already-parsed `VirtualPath`, and route to catalog-backed vs writable-backed
+resolution without reparsing.
 
 ---
 
 ## 3. Performance: PakArchive Index Re-Read on Every Access
 
-**File**: `src/Core/Resource/Package/PakArchive.cpp:141-157`
+**Status**: still present
 
-`FindPakEntry` opens the pak file, reads the full header, seeks to the index, and parses
-every index entry on every call. `ReadPakEntry` then opens the same file a second time to
-read the actual entry data. `MaterializePakEntry` calls `ReadPakEntry`, repeating the
-entire process again.
+**Files**:
 
-The current `MountCatalogCache` in `CatalogRegistry` only caches the parsed catalog JSON
-results. The pak's internal index (entry offset/size table) is never cached.
+- `Src/Core/Resource/Package/PakArchive.cpp:307-403`
+- `Src/Core/Resource/Package/PakArchive.cpp:548-589`
 
-**Recommendation**: cache the parsed pak index (the `vector<PakIndexEntry>`) on first
-access, keyed by pak file path. This avoids re-reading the index on subsequent lookups.
+`FindPakEntry()` still calls `LoadPakIndex()` on every lookup. `ReadPakEntry()`
+then reopens the pak and reads the payload. No parsed pak-index cache has been
+introduced.
+
+This means repeated access to the same pak still repeatedly:
+
+1. opens the pak
+2. rereads the header
+3. reparses the full index
+4. scans for the target entry
+5. reopens the pak again to read the payload
+
+**Recommendation**: cache parsed pak indices by pak path, ideally behind a small
+shared runtime helper so repeated `PakEntryExists()` and `ReadPakEntry()` calls
+reuse the same index data.
 
 ---
 
 ## 4. Performance: MaterializePakEntry Does Not Cache
 
-**File**: `src/Core/Resource/Package/PakArchive.cpp:354-390`
+**Status**: resolved
 
-Every call re-reads the entry from the pak and re-writes it to disk, even if the same
-entry was already extracted to the same output path.
+The original issue no longer applies. The refactor removed the materialization
+model entirely:
 
-**Recommendation**: before extracting, check whether the target file already exists and
-has the expected size. This avoids redundant I/O on repeated accesses to the same
-packaged asset.
+- no public path-returning packaged read path remains
+- no `MaterializePakEntry` helper remains
+- no `PackagedExtracted/` cache remains in the normal read path
+
+Pak-backed reads now return bytes or streams directly through
+`ReadReadableArtifactBinary()`, `ReadReadableArtifactText()`, and
+`OpenReadableArtifactStream()`.
+
+**Recommendation**: none for the original finding.
 
 ---
 
 ## 5. Thread Safety: All-Static State Without Synchronization
 
-**File**: `src/Core/Resource/FileSystem.h` (entire class)
+**Status**: still present
 
-All state in `FileSystem` is static with no mutex or atomic protection.
-`CatalogRegistry::ResolvePath` lazily builds the global table on its first call
-(`m_GlobalTableBuilt` flag + populating `m_GlobalEntries`). If multiple threads issue
-their first `ResolveReadPath` concurrently, they will race on the flag and on the global
-table contents.
+**Files**:
 
-This is not a bug if the system is only used from a single thread, but that constraint
-is not documented anywhere.
+- `Src/Core/Resource/FileSystem.h:20-56`
+- `Src/Core/Resource/Catalog/ResourceCatalog.cpp:432-544`
 
-**Recommendation**: either add a `// Not thread-safe` comment and document the
-single-threaded usage constraint, or protect the lazy initialization with a
-`std::call_once` / mutex.
+`FileSystem` still owns static mutable state with no synchronization:
+
+- `s_RootPath`
+- `s_EngineDir`
+- `s_SavedDir`
+- `s_CacheDir`
+- `s_CatalogRegistry`
+- `s_Initialized`
+- `s_WritableDirsResolved`
+
+`CatalogRegistry::ResolveArtifact()` still lazily builds the global table using
+`m_GlobalTableBuilt` with no mutex or `std::call_once`. Concurrent first-use
+reads would still race on both the flag and the maps being populated.
+
+**Recommendation**: either document the single-threaded initialization contract
+explicitly, or protect lazy initialization and writable-dir resolution with
+proper synchronization.
 
 ---
 
-## 6. DRY Violation: Mount Discovery Logic Duplicated Three Times
+## 6. DRY Violation: Source Mount Discovery Logic Still Duplicated
 
-The pattern "scan Project/Engine/Plugins directories, sort by name, validate with
-`IsValidPluginMountName`" is implemented independently in three places:
+**Status**: partially resolved
 
-1. `src/Core/Resource/Catalog/SourceCatalog.cpp:99-144`
-   (`DiscoverReadableSourceMounts`)
-2. `src/Core/Resource/Cook/CookedCatalog.cpp:227-286`
-   (`DiscoverReadableSourceMounts`, same name, different anonymous namespace)
-3. `src/Core/Resource/Mount/MountBackend.cpp:244-342`
-   (`DiscoverReadableMountBackends`, the Project/Engine/Plugins portion)
+**Files**:
 
-All three have the same iteration structure, the same sort-by-filename, and the same
-`IsValidPluginMountName` check. If mount discovery rules change in the future, all three
-must be updated in sync.
+- `Src/Core/Resource/Mount/MountBackend.cpp:152-173`
+- `Src/Core/Resource/Cook/CookedCatalog.cpp:227-254`
 
-**Recommendation**: extract a shared helper that returns a list of
-`(VirtualPath, filesystem::path)` pairs for all discovered source mounts. The three
-callsites can then consume this list and add their own context (cooked output roots,
-backend tags, etc.).
+The old three-way duplication around Project / Engine / Plugins scanning has
+improved significantly:
+
+- the Plugin concept is gone
+- the Plugin-specific validation helpers are gone
+- source-catalog building no longer has its own mount-discovery copy
+
+But the remaining Project / Engine source-mount discovery rules still exist in
+more than one place:
+
+- runtime dev mount discovery in `MountBackend.cpp`
+- cook-time source mount discovery in `CookedCatalog.cpp`
+
+Today the duplication is smaller and lower risk, but it still means directory
+discovery rules must be kept in sync manually.
+
+**Recommendation**: extract a shared helper that enumerates source mounts and
+returns `(VirtualPath, filesystem::path)` pairs for Project / Engine roots.
 
 ---
 
 ## 7. DRY Violation: SanitizeKeyForPath Duplicated
 
-`SanitizeMountKeyForPath` in `src/Core/Resource/Mount/MountBackend.cpp:15-27` and
-`SanitizeKeyForPath` in `src/Core/Resource/Package/PakArchive.cpp:159-171` are
-functionally identical (replace non-alphanumeric/underscore/hyphen characters with `_`).
+**Status**: resolved
 
-The copy in `PakArchive.cpp` appears to be unused.
+The duplicate sanitize helpers called out in the original review are no longer
+present in the current codebase. The unused copy in `PakArchive.cpp` is gone,
+and there is no longer an active duplicated-path-sanitization finding here.
 
-**Recommendation**: remove the unused copy in `PakArchive.cpp`. If both are actually
-needed, move the function to a shared utility.
+**Recommendation**: none for the original finding.
 
 ---
 
 ## 8. Robustness: getenv Return Value Held as string_view
 
-**File**: `src/Core/Resource/Catalog/ResourceCatalog.cpp:263-266`
+**Status**: still present
+
+**File**: `Src/Core/Resource/Mount/RootDiscovery.cpp:36-40`
+
+The original specific site moved, but the pattern still exists:
 
 ```cpp
-if (const char *overrideValue = std::getenv("RTRLAB_RESOURCE_PROFILE"))
+if (const char *envRoot = std::getenv("RTRL_ROOT"))
 {
-    const std::string_view value = overrideValue;
-    if (!value.empty()) return value;
+    const std::string_view value = envRoot;
+    if (!value.empty())
+        return value;
 }
 ```
 
-The returned `string_view` points to memory owned by the `getenv` implementation. In the
-current usage pattern (the value is consumed immediately within `ChooseArtifact`), this
-is safe. However, if any code between this return and the final consumption calls
-`putenv` / `setenv`, the `string_view` would dangle.
+This remains safe only as long as no environment mutation invalidates the
+returned storage before consumption. The current usage is short-lived, but the
+non-owning lifetime hazard still exists.
 
-**Recommendation**: either add a comment documenting the lifetime constraint, or change
-the return type to `std::string` to own the value.
+**Recommendation**: return `std::string` instead of `std::string_view`, or add
+an explicit comment documenting the lifetime assumption.
 
 ---
 
-## 9. Redundancy: Unused GetMountRoot Call in ResolvePath
+## 9. Redundancy: Defensive GetMountRoot Check in ResolveArtifact
 
-**File**: `src/Core/Resource/Catalog/ResourceCatalog.cpp:408-409`
+**Status**: still present
+
+**File**: `Src/Core/Resource/Catalog/ResourceCatalog.cpp:440-449`
+
+`CatalogRegistry::ResolveArtifact()` still computes:
 
 ```cpp
 const auto mountRoot = GetMountRoot(rootPath, engineDir, virtualPath, projectContentDirName);
-if (mountRoot.empty()) return std::nullopt;
+if (mountRoot.empty())
+    return std::nullopt;
 ```
 
-This computation is only used as an empty check to early-return for `Saved` / `Cache`
-domains. But those domains should never reach `ResolvePath` in the first place, because
-`FileSystem::ResolveReadPath` already filters them out via `IsCatalogBackedPath`.
+That is effectively a defensive domain filter for `Saved` / `Cache`, but the
+public caller (`FileSystem`) already routes those domains through writable-mount
+resolution instead of catalog resolution.
 
-This is defensive redundancy, not a bug, but it adds cognitive overhead for readers
-trying to understand the flow.
+This is not incorrect, but it is still defensive redundancy that makes the flow
+harder to read than an explicit domain assertion would.
 
-**Recommendation**: replace with an explicit domain check or add a comment explaining
-that this is a defense-in-depth guard.
+**Recommendation**: replace it with an explicit domain precondition or document
+that this is deliberate defense-in-depth.
 
 ---
 
-## 10. DRY: Catalog JSON Parsing Duplicated Between Runtime and Cook
+## 10. DRY: Catalog JSON Parsing Duplication Between Runtime and Packaging
 
-`LoadCatalogEntries` in `src/Core/Resource/Cook/CookedCatalog.cpp:288-392` implements a
-complete catalog JSON parser (version check, entries iteration, artifact parsing) that
-substantially overlaps with `ParseCatalogFromJson` in
-`src/Core/Resource/Catalog/ResourceCatalog.cpp:82-206`.
+**Status**: partially resolved
 
-The cook-side parser is simpler because it only handles version-1 source catalogs, but
-the JSON field names and parsing rules must be kept in sync across both implementations.
+**Files**:
 
-**Recommendation**: consider extracting the shared parsing logic into a common helper.
-The cook-side could call the shared parser with a version filter, or the shared parser
-could accept a mode flag to skip cooked-only validation.
+- `Src/Core/Resource/Catalog/ResourceCatalog.cpp:102-237`
+- `Src/Core/Resource/Package/PakArchive.cpp:101-139`
+
+This finding has improved compared with the original review.
+
+The old cook-side duplication of full source-catalog parsing is gone because
+cook now builds source catalogs in memory through `BuildSourceCatalogEntries()`
+instead of reparsing a source `catalog.json` on disk.
+
+There is still some JSON-parsing duplication, though:
+
+- runtime has the general `ParseCatalogFromJson()` path for source/cooked mounts
+- packaging still has `LoadCookedCatalogEntries()` for cooked catalog validation
+  and extraction before merging `Game.rtrpak`
+
+The remaining duplication is smaller than before, but version checks and cooked
+catalog field expectations are still split across two implementations.
+
+**Recommendation**: if cooked-catalog validation grows further, extract a shared
+parser or validator so cooked catalog rules live in one place.
 
 ---
 
 ## 11. Security: Catalog Artifact Paths Are Not Validated as Safe Relative Paths
 
+**Status**: still present
+
 **Files**:
 
-- `src/Core/Resource/Catalog/ResourceCatalog.cpp:56-79`
-- `src/Core/Resource/Mount/MountBackend.cpp:395-405`
-- `src/Core/Resource/Cook/CookedCatalog.cpp:453-562`
+- `Src/Core/Resource/Catalog/ResourceCatalog.cpp:76-99`
+- `Src/Core/Resource/Catalog/ResourceCatalog.cpp:185-223`
+- `Src/Core/Resource/Mount/MountBackend.cpp:258-289`
+- `Src/Core/Resource/Cook/CookedCatalog.cpp:315-424`
 
-`ParseArtifactRecord()` accepts any string as `artifact.relativePath` and does not check
-that it is a safe mount-relative path. That becomes a correctness and security issue
-because directory-backed mounts later trust the string and join it directly:
+`ParseArtifactRecord()` still accepts arbitrary `relativePath` strings from
+catalog JSON and stores them without validating that they are safe mount-relative
+paths. Source-catalog parsing likewise accepts `sourceRelativePath` as-is.
 
-```cpp
-case MountBackendKind::Directory:
-    return mount.mountRoot / artifact.relativePath;
-```
+Those paths are later trusted and joined directly:
 
-The cook path has the same problem:
+- runtime directory-backed reads use `artifact.mountRoot / artifact.relativePath`
+- cook copies use `sourceMountRoot / sourceArtifact.relativePath`
 
-```cpp
-const auto sourcePath = sourceMountRoot / sourceArtifact.relativePath;
-```
+So a malformed or hand-edited catalog can still attempt mount-escape reads via
+absolute paths or `..` traversal.
 
-As a result, a malformed or hand-edited catalog could reference `../...` or an absolute
-filesystem path and escape the mount root. For loose source/cooked/overlay mounts this
-can turn catalog resolution into arbitrary file reads outside the intended resource
-domain. For cooking, it can also copy files from outside the source mount into cooked
-output.
-
-This is notably different from `.rtrpak` handling, where archive entry paths are checked
-with `IsSafeRelativePath()` before use.
-
-**Recommendation**: add a shared validation helper for catalog artifact/source-relative
-paths and apply it in both runtime and cook parsing. The helper should reject:
-
-- absolute paths
-- `.` / `..` segments
-- empty paths
-- any path that does not remain strictly mount-relative after normalization
+**Recommendation**: add a shared safe-relative-path validator for catalog fields
+and apply it to both `artifact.relativePath` and `sourceRelativePath` during
+parsing/loading.
 
 ---
 
 ## 12. Robustness: PakArchive Does Not Validate Index/Data Ranges Against File Size
 
+**Status**: still present
+
 **Files**:
 
-- `src/Core/Resource/Package/PakArchive.cpp:60-139`
-- `src/Core/Resource/Package/PakArchive.cpp:311-345`
+- `Src/Core/Resource/Package/PakArchive.cpp:307-386`
+- `Src/Core/Resource/Package/PakArchive.cpp:548-582`
 
-`LoadPakIndex()` validates the pak magic/version and checks that entry paths are safe,
-but it does not validate the structural ranges in the archive against the actual file
-size.
+`LoadPakIndex()` still validates magic/version and safe entry paths, but it does
+not validate structural offsets and sizes against the actual pak file size.
 
-Examples of unchecked fields:
+Unchecked values still include:
 
 - `header.indexOffset`
 - `header.indexSize`
@@ -301,68 +363,36 @@ Examples of unchecked fields:
 - per-entry `dataSize`
 - per-entry `pathLength`
 
-`ReadPakEntry()` then trusts the parsed `dataSize` and allocates a buffer of that size
-before reading the payload. A corrupted or malicious pak can therefore trigger huge
-allocations, invalid seeks, or repeated parse failures deep into the read path instead of
-being rejected at archive validation time.
+`ReadPakEntry()` still trusts `dataSize` enough to allocate a buffer before the
+payload read has proved that the range is sane.
 
-The current code does detect some truncation when the final read fails, but that happens
-too late. The archive format already stores enough metadata to reject impossible ranges
-up front.
-
-**Recommendation**: validate pak structure against the physical file size during index
-load:
-
-- ensure `indexOffset <= fileSize`
-- ensure `indexOffset + indexSize <= fileSize`
-- ensure each index record stays within the declared index range
-- ensure each payload range `dataOffset + dataSize` stays within the file
-- guard all additions against integer overflow before comparing ranges
-
-That keeps packaged mounts robust even when the input archive is damaged or externally
-supplied.
+**Recommendation**: validate the full archive structure against the physical file
+size during index load, including overflow-safe range checks for index and data
+regions.
 
 ---
 
 ## 13. Correctness: Source Catalog Physical Path Casing Can Drift from the Real Filesystem
 
-**Files**:
+**Status**: still present
 
-- `src/Core/Resource/Catalog/SourceCatalog.cpp:44-89`
-- `src/Core/Resource/Catalog/SourceCatalog.cpp:197-233`
+**File**: `Src/Core/Resource/Catalog/SourceCatalog.cpp:37-57, 202-207`
 
-The design document explicitly states that public logical paths are case-sensitive across
-all platforms. The implementation mostly follows that rule for logical paths, but the
-physical path strings stored in source catalogs (`sourceRelativePath` and artifact
-`relativePath`) can drift from the real on-disk casing.
+The underlying asymmetry remains:
 
-The key asymmetry is:
+- logical paths are canonicalized through `MakeLogicalPath()` for known segment
+  names such as `textures -> Textures`
+- physical stored paths (`sourceRelativePath` and artifact `relativePath`) keep
+  the scanned filesystem spelling
 
-- logical path generation canonicalizes known directory names such as
-  `textures -> Textures`
-- physical relative paths are emitted using the raw scanned relative path text
-
-That means the same catalog entry can encode:
+That still allows a catalog entry such as:
 
 - logical path: `/Project/Textures/Grassy_Square`
-- physical artifact path: `textures/Grassy_Square.jpg`
+- physical path: `textures/Grassy_Square.jpg`
 
-while the real file on disk is `Content/Textures/Grassy_Square.jpg`.
+On case-insensitive filesystems this often works silently. On case-sensitive
+filesystems or exact-path comparisons, the inconsistency remains observable.
 
-On Windows this often still "works" because the filesystem is case-insensitive, so the
-mismatch can stay hidden. On case-sensitive filesystems, or in tests that compare exact
-resolved physical paths, the inconsistency becomes observable. In practice this already
-shows up as contract-test failures when the runtime content tree uses `Textures/` but the
-checked-in/generated catalog still references `textures/`.
-
-This is not just a test nuisance. It weakens the design goal that logical identity and
-resolved storage should behave consistently across platforms.
-
-**Recommendation**: tighten the physical-path casing policy. Good options are:
-
-- always regenerate catalogs from the current filesystem and avoid relying on stale
-  checked-in catalog casing
-- add validation that catalog physical paths match the real filesystem casing exactly
-- if canonical directory casing is part of the contract, normalize physical artifact
-  paths to that same casing during indexing/cooking instead of only normalizing the
-  logical path
+**Recommendation**: either enforce exact physical-path casing, or define and
+apply a consistent normalization rule for physical artifact paths during source
+catalog construction.
