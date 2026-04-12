@@ -67,16 +67,6 @@ TEST_F(CookedCatalogTests, LoadCookedTextureRejectsInvalidMagic)
     EXPECT_NE(errorMessage.find("invalid magic"), std::string::npos);
 }
 
-TEST_F(CookedCatalogTests, GetCookOutputRootSupportsCacheAndBuildLayouts)
-{
-    const auto repoRoot = TestRoot() / "Repo";
-
-    EXPECT_EQ(Resource::GetCookOutputRoot(repoRoot, Resource::CookOutputLayout::Cache),
-              test_support::CookedRoot(repoRoot));
-    EXPECT_EQ(Resource::GetCookOutputRoot(repoRoot, Resource::CookOutputLayout::Build),
-              test_support::BuildCookedRoot(repoRoot));
-}
-
 TEST_F(CookedCatalogTests, LoadCookedTextureSupportsLegacyVersion1Artifacts)
 {
     const auto cookedArtifactPath = TestRoot() / "legacy.rtrtex";

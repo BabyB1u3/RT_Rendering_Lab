@@ -83,11 +83,6 @@ namespace test_support
         return repoRoot / "Saved" / "Cache" / "Cooked";
     }
 
-    inline std::filesystem::path BuildCookedRoot(const std::filesystem::path &repoRoot)
-    {
-        return repoRoot / "build" / "Cooked";
-    }
-
     inline std::filesystem::path ProjectCookedRoot(const std::filesystem::path &cookedRoot)
     {
         return cookedRoot / "Project";

@@ -427,19 +427,6 @@ namespace
 
 namespace Resource
 {
-    std::filesystem::path GetCookOutputRoot(const std::filesystem::path &rootPath, CookOutputLayout layout)
-    {
-        switch (layout)
-        {
-        case CookOutputLayout::Cache:
-            return rootPath / "Saved" / "Cache" / "Cooked";
-        case CookOutputLayout::Build:
-            return rootPath / "build" / "Cooked";
-        }
-
-        return rootPath / "Saved" / "Cache" / "Cooked";
-    }
-
     std::optional<CookedTextureMetadata> ReadCookedTextureMetadata(const std::filesystem::path &artifactPath,
                                                                    std::string *errorMessage)
     {
