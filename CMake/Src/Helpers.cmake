@@ -9,24 +9,6 @@ function(glab_enable_local_pch target_name)
     endif()
 endfunction()
 
-function(glab_copy_runtime_content target_name)
-    add_custom_command(TARGET ${target_name} POST_BUILD
-        # Copy source content (textures, config defaults, etc.)
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-                ${CMAKE_SOURCE_DIR}/Project
-                $<TARGET_FILE_DIR:${target_name}>/Project
-    )
-
-    if(EXISTS ${CMAKE_SOURCE_DIR}/Engine)
-        add_custom_command(TARGET ${target_name} POST_BUILD
-            # Copy engine-shipped defaults and shared resources.
-            COMMAND ${CMAKE_COMMAND} -E copy_directory
-                    ${CMAKE_SOURCE_DIR}/Engine
-                    $<TARGET_FILE_DIR:${target_name}>/Engine
-        )
-    endif()
-endfunction()
-
 function(glab_add_tool_target target_name source_file)
     add_executable(${target_name}
         ${source_file}
