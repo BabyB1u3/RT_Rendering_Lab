@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Core/Resource/Cook/CookedCatalog.h"
-
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -12,7 +10,6 @@ namespace Resource
 {
     inline constexpr std::string_view kPakArchiveExtension = ".rtrpak";
 
-    std::filesystem::path GetPackagedOutputRoot(const std::filesystem::path &rootPath, CookOutputLayout layout);
     std::filesystem::path GetGamePackagedArchivePath(const std::filesystem::path &packagedRootPath);
 
     bool BuildPakArchive(const std::filesystem::path &sourceRoot,

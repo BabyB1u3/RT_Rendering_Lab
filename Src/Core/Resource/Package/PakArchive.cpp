@@ -406,19 +406,6 @@ namespace
 
 namespace Resource
 {
-    std::filesystem::path GetPackagedOutputRoot(const std::filesystem::path &rootPath, CookOutputLayout layout)
-    {
-        switch (layout)
-        {
-        case CookOutputLayout::Cache:
-            return rootPath / "Saved" / "Cache" / "Packaged";
-        case CookOutputLayout::Build:
-            return rootPath / "build" / "Packaged";
-        }
-
-        return rootPath / "Saved" / "Cache" / "Packaged";
-    }
-
     std::filesystem::path GetGamePackagedArchivePath(const std::filesystem::path &packagedRootPath)
     {
         return packagedRootPath / "Game.rtrpak";

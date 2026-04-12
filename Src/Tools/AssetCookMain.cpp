@@ -13,8 +13,7 @@ namespace
         Util::CommandLineSpec spec;
         spec.AddFlag("help", 'h', "Show command-line help and exit.")
             .AddValueOption("root", std::nullopt, "path", "Repository root to cook.")
-            .AddValueOption("out", std::nullopt, "path", "Explicit cooked output root.")
-            .AddValueOption("layout", std::nullopt, "name", "Cook output layout: cache or build.");
+            .AddValueOption("out", std::nullopt, "path", "Cooked output root.");
         return spec;
     }
 }
@@ -36,38 +35,24 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    std::filesystem::path rootPath = std::filesystem::current_path();
-    std::filesystem::path cookedRootPath;
-    Resource::CookOutputLayout layout = Resource::CookOutputLayout::Cache;
-    bool layoutExplicitlySet = false;
-    if (const auto rootOverride = commandLine.GetOptionValue("root"))
-        rootPath = std::string(*rootOverride);
-    if (const auto outputOverride = commandLine.GetOptionValue("out"))
-        cookedRootPath = std::string(*outputOverride);
-    if (const auto layoutValue = commandLine.GetOptionValue("layout"))
+    const auto rootOverride = commandLine.GetOptionValue("root");
+    if (!rootOverride.has_value() || rootOverride->empty())
     {
-        if (*layoutValue == "cache")
-            layout = Resource::CookOutputLayout::Cache;
-        else if (*layoutValue == "build")
-            layout = Resource::CookOutputLayout::Build;
-        else
-        {
-            std::cerr << "Unknown cook layout: " << *layoutValue << "\n\n"
-                      << commandLineSpec.BuildUsage("rtr_asset_cook");
-            return 1;
-        }
-
-        layoutExplicitlySet = true;
-    }
-
-    if (cookedRootPath.empty())
-        cookedRootPath = Resource::GetCookOutputRoot(rootPath, layout);
-    else if (layoutExplicitlySet)
-    {
-        std::cerr << "Use either --out or --layout, not both\n\n"
+        std::cerr << "Missing required argument: --root\n\n"
                   << commandLineSpec.BuildUsage("rtr_asset_cook");
         return 1;
     }
+
+    const auto outputOverride = commandLine.GetOptionValue("out");
+    if (!outputOverride.has_value() || outputOverride->empty())
+    {
+        std::cerr << "Missing required argument: --out\n\n"
+                  << commandLineSpec.BuildUsage("rtr_asset_cook");
+        return 1;
+    }
+
+    const std::filesystem::path rootPath = std::string(*rootOverride);
+    const std::filesystem::path cookedRootPath = std::string(*outputOverride);
 
     if (!Resource::CookRepositoryCatalogs(rootPath, cookedRootPath, kProjectContentDirName, &errorMessage))
     {

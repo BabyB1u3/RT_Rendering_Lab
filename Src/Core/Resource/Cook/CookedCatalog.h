@@ -9,12 +9,6 @@
 
 namespace Resource
 {
-    enum class CookOutputLayout
-    {
-        Cache,
-        Build,
-    };
-
     inline constexpr std::string_view kCookedTextureArtifactExtension = ".rtrtex";
     inline constexpr std::string_view kCookedTextureArtifactFormat = "rtrtex";
 
@@ -51,8 +45,6 @@ namespace Resource
 
     std::optional<CookedTextureData> LoadCookedTexture(const std::filesystem::path &artifactPath,
                                                        std::string *errorMessage = nullptr);
-
-    std::filesystem::path GetCookOutputRoot(const std::filesystem::path &rootPath, CookOutputLayout layout);
 
     bool CookRepositoryCatalogs(const std::filesystem::path &rootPath,
                                 const std::filesystem::path &cookedRootPath,

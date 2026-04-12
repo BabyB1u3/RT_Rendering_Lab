@@ -10,7 +10,7 @@ namespace
         spec.AddFlag("help", 'h', "Show help.")
             .AddValueOption("root", std::nullopt, "path", "Override root path.",
                             Util::CommandLineOptionVisibility::DevelopmentOnly)
-            .AddValueOption("layout", std::nullopt, "name", "Select output layout.")
+            .AddValueOption("out", std::nullopt, "path", "Select output path.")
             .AddFlag("dev-mode", std::nullopt, "Enable development-only behavior.");
         return spec;
     }
@@ -27,7 +27,7 @@ TEST(CommandLineTests, ParseSupportsFlagsValueOptionsAndShortAliases)
         const_cast<char *>("-h"),
         const_cast<char *>("--root"),
         const_cast<char *>("D:/Repo"),
-        const_cast<char *>("--layout=build"),
+        const_cast<char *>("--out=D:/Cooked"),
     };
 
     ASSERT_TRUE(Util::ParseCommandLine(
@@ -36,8 +36,8 @@ TEST(CommandLineTests, ParseSupportsFlagsValueOptionsAndShortAliases)
     EXPECT_TRUE(parsed.HasOption("help"));
     ASSERT_TRUE(parsed.GetOptionValue("root").has_value());
     EXPECT_EQ(*parsed.GetOptionValue("root"), "D:/Repo");
-    ASSERT_TRUE(parsed.GetOptionValue("layout").has_value());
-    EXPECT_EQ(*parsed.GetOptionValue("layout"), "build");
+    ASSERT_TRUE(parsed.GetOptionValue("out").has_value());
+    EXPECT_EQ(*parsed.GetOptionValue("out"), "D:/Cooked");
 }
 
 TEST(CommandLineTests, ParseRejectsUnknownArguments)
