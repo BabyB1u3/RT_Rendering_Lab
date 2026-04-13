@@ -57,7 +57,6 @@ int main(int argc, char **argv)
     spec.Name = "RTRLab";
     spec.Width = 1600;
     spec.Height = 900;
-    spec.VSync = true;
 
     Application app(spec);
     app.PushLayer(CreateScope<LabLayer>());

@@ -31,7 +31,6 @@ Application::Application(const ApplicationSpecification &spec)
     props.Title = spec.Name;
     props.Width = spec.Width;
     props.Height = spec.Height;
-    props.VSync = spec.VSync;
 
     m_Window = CreateScope<Window>(props);
     m_Window->SetRefreshCallback([this]()
@@ -77,7 +76,7 @@ void Application::RenderFrame()
 {
     Diagnostics::IncrementFrameNumber();
 
-    // P1: Begin frame - Metal/Vulkan create command buffer here.
+    BeginFrame();
 
     // Phase 1: logic update (input, physics, animation, etc.)
     for (auto &layer : m_LayerStack)
@@ -94,9 +93,8 @@ void Application::RenderFrame()
     //     layer->OnImGuiRender();
     // m_ImGuiLayer->End();
 
-    // P1: End frame - Metal/Vulkan commit command buffer and present here.
-
-    m_Window->SwapBuffers();
+    EndFrame();
+    PresentFrame();
 }
 
 void Application::Run()
@@ -113,7 +111,7 @@ void Application::Run()
         // and some drivers return a 0x0 framebuffer which would cause GL errors.
         // Also skip if the window refresh callback already rendered a frame this tick
         // (happens on macOS during live resize).
-        if (!m_Minimized && !m_FrameRenderedThisTick)
+        if (ShouldRenderFrame())
             RenderFrame();
 
         m_FrameRenderedThisTick = false;
@@ -147,4 +145,30 @@ void Application::OnWindowResize(uint32_t width, uint32_t height)
 
     for (auto &layer : m_LayerStack)
         layer->OnResize(width, height);
+}
+
+bool Application::ShouldRenderFrame() const
+{
+    return !m_Minimized && !m_FrameRenderedThisTick;
+}
+
+void Application::BeginFrame()
+{
+    // Explicit-RHI frame begin work will live here:
+    // - swapchain image acquire
+    // - Device::beginFrame()
+    // - Device::beginCommandList()
+}
+
+void Application::EndFrame()
+{
+    // Explicit-RHI frame end work will live here:
+    // - command submission
+    // - Device::endFrame()
+}
+
+void Application::PresentFrame()
+{
+    // Explicit-RHI present work will live here:
+    // - swapchain->present()
 }

@@ -160,18 +160,52 @@ set(GLAB_SCENE_HEADERS
 )
 
 set(GLAB_RENDER_SOURCES
+    Render/RHI/RHIFactory.cpp
     Render/RHI/ResourceStateTracker.cpp
+    Render/RHI/Backends/Common/RHIShellCommon.cpp
 )
 
 set(GLAB_RENDER_HEADERS
     Render/RHI/NativeWindowHandle.h
     Render/RHI/RHI.h
+    Render/RHI/RHIFactory.h
     Render/RHI/RHIResources.h
     Render/RHI/RHIPipeline.h
     Render/RHI/RHICommandList.h
     Render/RHI/RHIDevice.h
+    Render/RHI/Backends/Common/RHIShellCommon.h
     Render/Shader/ShaderTypes.h
 )
+
+if(GLAB_BACKEND_VULKAN)
+    list(APPEND GLAB_RENDER_SOURCES
+        Render/RHI/Backends/Vulkan/VulkanDevice.cpp
+    )
+
+    list(APPEND GLAB_RENDER_HEADERS
+        Render/RHI/Backends/Vulkan/VulkanDevice.h
+    )
+endif()
+
+if(GLAB_BACKEND_METAL)
+    list(APPEND GLAB_RENDER_SOURCES
+        Render/RHI/Backends/Metal/MetalDevice.cpp
+    )
+
+    list(APPEND GLAB_RENDER_HEADERS
+        Render/RHI/Backends/Metal/MetalDevice.h
+    )
+endif()
+
+if(GLAB_BACKEND_OPENGL)
+    list(APPEND GLAB_RENDER_SOURCES
+        Render/RHI/Backends/OpenGL/OpenGLDevice.cpp
+    )
+
+    list(APPEND GLAB_RENDER_HEADERS
+        Render/RHI/Backends/OpenGL/OpenGLDevice.h
+    )
+endif()
 
 set(GLAB_DEMO_SOURCES
     Demos/DemoRegistry.cpp

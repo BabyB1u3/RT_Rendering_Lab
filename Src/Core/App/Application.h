@@ -9,9 +9,10 @@
 /// Main loop (Application::Run):
 ///   1. Poll OS events
 ///   2. Update frame time
-///   3. For each layer: OnUpdate(dt) -> OnRender()
-///   4. ImGuiLayer::Begin() -> For each layer: OnImGuiRender() 鈫?ImGuiLayer::End()
-///   5. Swap buffers
+///   3. Begin frame
+///   4. For each layer: OnUpdate(dt) -> OnRender()
+///   5. ImGuiLayer::Begin() -> For each layer: OnImGuiRender() 鈫?ImGuiLayer::End()
+///   6. End frame -> present
 ///
 /// Only one Application instance may exist at a time (enforced by s_Instance).
 
@@ -31,7 +32,6 @@ struct ApplicationSpecification
     std::string Name = "RTRLab";
     uint32_t Width = 1600;
     uint32_t Height = 900;
-    bool VSync = true;
 };
 
 class Application
@@ -63,9 +63,17 @@ public:
 private:
     /// Handles window resize: updates viewport and notifies all layers.
     void OnWindowResize(uint32_t width, uint32_t height);
-    /// Render one full frame (update -> render -> ImGui). Called from Run() and
+    /// Render one full frame (begin frame -> update -> render -> ImGui -> end/present). Called from Run() and
     /// the window refresh callback (macOS live resize).
     void RenderFrame();
+    /// Return whether the current loop tick should render a frame.
+    bool ShouldRenderFrame() const;
+    /// Begin the graphics frame. Future explicit-RHI acquire/beginFrame work lands here.
+    void BeginFrame();
+    /// End the graphics frame. Future explicit-RHI submit/endFrame work lands here.
+    void EndFrame();
+    /// Present the completed frame. Future explicit-RHI swapchain present lands here.
+    void PresentFrame();
 
 private:
     // Non-owning singleton-style pointer. Lifetime is managed externally by the actual Application object.
