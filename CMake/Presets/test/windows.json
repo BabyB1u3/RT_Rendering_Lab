@@ -12,6 +12,12 @@
       "configurePreset": "windows-debug"
     },
     {
+      "name": "test-windows-opengl-debug-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "windows-opengl-debug"
+    },
+    {
       "name": "test-windows-relwithdebinfo-base",
       "hidden": true,
       "inherits": "test-base",
@@ -32,6 +38,14 @@
       "configurePreset": "ci-windows-debug"
     },
     {
+      "name": "test-ci-windows-opengl-debug",
+      "inherits": [
+        "test-base",
+        "test-filter-debug-matrix"
+      ],
+      "configurePreset": "ci-windows-opengl-debug"
+    },
+    {
       "name": "test-ci-windows-release",
       "inherits": [
         "test-base",
@@ -42,6 +56,10 @@
     {
       "name": "test-windows-debug",
       "inherits": "test-windows-debug-base"
+    },
+    {
+      "name": "test-windows-opengl-debug",
+      "inherits": "test-windows-opengl-debug-base"
     },
     {
       "name": "test-windows-relwithdebinfo",

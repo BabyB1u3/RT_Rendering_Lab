@@ -8,7 +8,8 @@
       "binaryDir": "${sourceDir}/build/macos-debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-debug"
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-debug",
+        "GLAB_GRAPHICS_BACKEND": "Metal"
       }
     },
     {
@@ -18,7 +19,8 @@
       "binaryDir": "${sourceDir}/build/macos-relwithdebinfo",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-relwithdebinfo"
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-relwithdebinfo",
+        "GLAB_GRAPHICS_BACKEND": "Metal"
       }
     },
     {
@@ -29,6 +31,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/macos-release",
+        "GLAB_GRAPHICS_BACKEND": "Metal",
         "GLAB_BUILD_TESTS": "OFF",
         "GLAB_ENABLE_UNITY_BUILD": "ON"
       }
@@ -52,6 +55,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-macos-debug",
+        "GLAB_GRAPHICS_BACKEND": "Metal",
         "GLAB_BUILD_TESTS": "ON"
       }
     },
@@ -63,6 +67,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-macos-release",
+        "GLAB_GRAPHICS_BACKEND": "Metal",
         "GLAB_BUILD_TESTS": "ON",
         "GLAB_ENABLE_UNITY_BUILD": "ON"
       }

@@ -9,6 +9,10 @@
       "configurePreset": "linux-debug"
     },
     {
+      "name": "build-linux-opengl-debug",
+      "configurePreset": "linux-opengl-debug"
+    },
+    {
       "name": "build-linux-relwithdebinfo",
       "configurePreset": "linux-relwithdebinfo"
     },
@@ -37,6 +41,10 @@
     {
       "name": "build-ci-linux-debug",
       "configurePreset": "ci-linux-debug"
+    },
+    {
+      "name": "build-ci-linux-opengl-debug",
+      "configurePreset": "ci-linux-opengl-debug"
     },
     {
       "name": "build-ci-linux-release",
