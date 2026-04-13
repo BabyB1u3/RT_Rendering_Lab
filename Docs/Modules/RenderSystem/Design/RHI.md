@@ -1369,49 +1369,86 @@ This renderer code is backend-agnostic — no backend-specific types or calls ap
 
 ## 16. Recommended Implementation Order
 
-To reduce complexity and validate the architecture early, implementation should proceed in a vertical slice.
+To reduce complexity and validate the architecture early, implementation should proceed in **shared milestones**, not as three completely separate backend projects.
 
-### Phase 1: Core architecture
+### 16.1 Shared implementation policy
+
+- define and freeze the public RHI interface first
+- advance **Vulkan, Metal, and OpenGL together at the milestone level**
+- use **Vulkan as the reference backend** for semantics and edge-case resolution
+- allow Vulkan to land slightly ahead of the others inside a milestone, but do not let Metal/OpenGL drift across multiple milestones
+
+This is a lockstep strategy, not a Vulkan-only strategy. The goal is to keep one coherent public abstraction while ensuring every milestone is exercised by all three backends.
+
+### 16.2 Milestone 1: Public API and backend shells
 Implement:
 
-- Device
+- header-level RHI API draft
+- backend selection / factory plumbing
+- backend-private `Device`, `Swapchain`, and `CommandList` shells for Vulkan / Metal / OpenGL
+- `NativeWindowHandle` extraction boundary between the platform window layer and the RHI
+
+Exit criteria:
+
+- all three backends compile against the same public headers
+- all three backends can create a device and a swapchain-compatible presentation path
+
+### 16.3 Milestone 2: Clear and present on all backends
+Implement:
+
+- frame lifecycle (`acquireNextImage()` / `beginFrame()` / `beginCommandList()` / `submit()` / `present()`)
+- minimal render pass / dynamic rendering path sufficient to clear the backbuffer
+- resize handling
+
+Exit criteria:
+
+- the same "clear backbuffer and present" demo runs on Vulkan, Metal, and OpenGL
+
+### 16.4 Milestone 3: Core resources and graphics pipeline
+Implement:
+
 - Buffer
 - Texture
+- TextureView
 - Sampler
-- ShaderProgram
-- PipelineLayout
-- ResourceSet
 - VertexInputLayout
 - GraphicsPipeline
-- CommandList
 
-### Phase 2: Shader pipeline
+Exit criteria:
+
+- the same simple mesh draw path works on all three backends
+
+### 16.5 Milestone 4: Shader pipeline and binding model
 Implement:
 
 - Slang compilation
 - reflection extraction
 - neutral reflection conversion
+- `ShaderProgram`
+- `PipelineLayout`
+- `ResourceSet`
 - parameter writer
-- backend code generation
+- backend code generation / module creation
 
-### Phase 3: Vulkan first
-Implement the full Vulkan path first because it is the cleanest mapping to the public model.
+Exit criteria:
 
-### Phase 4: Metal
-Implement Metal direct-slot mode first.
+- one shader program with `Frame` / `Material` / `Object` parameter groups works on all three backends
 
-### Phase 5: OpenGL
-Implement OpenGL compatibility layer for the first supported shader subset.
-
-### Phase 6: Renderer demo
+### 16.6 Milestone 5: Minimal renderer demo
 Create a minimal renderer test:
+
 - textured mesh
 - camera
 - one material
 - multiple objects
 
-### Phase 7: Optional improvements
+Exit criteria:
+
+- identical renderer-side code path above the RHI boundary for all backends
+
+### 16.7 Optional improvements
 After first end-to-end success:
+
 - Metal argument buffers for material sets
 - shader hot reload
 - compute pipeline path
@@ -1482,5 +1519,7 @@ The next implementation artifacts after this document should be:
    - `MaterialParams`
    - `ObjectParams`
    - one unlit or PBR-lite shader
+4. a **platform window-handle extraction layer** that converts `GLFWwindow*` into `NativeWindowHandle`
+5. a **backend lockstep bring-up checklist** for the first clear/present milestone across Vulkan / Metal / OpenGL
 
-These three together will turn this design from architecture into a buildable skeleton.
+These artifacts together will turn this design from architecture into a buildable skeleton.
