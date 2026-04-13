@@ -139,7 +139,9 @@ set(GLAB_SCENE_HEADERS
     Scene/Transform.h
 )
 
-set(GLAB_RENDER_SOURCES)
+set(GLAB_RENDER_SOURCES
+    Render/RHI/ResourceStateTracker.cpp
+)
 
 set(GLAB_RENDER_HEADERS
     Render/RHI/RHI.h

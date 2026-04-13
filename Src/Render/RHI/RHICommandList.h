@@ -4,6 +4,7 @@
 /// @brief Public RHI command-recording and render-pass description types.
 
 #include <cstdint>
+#include <unordered_map>
 #include <vector>
 
 #include "Render/RHI/RHIPipeline.h"
@@ -127,4 +128,24 @@ public:
     void transition(Buffer *buffer, BufferState newState);
     void flushBarriers(CommandList *commandList);
     void reset();
+
+private:
+    struct PendingTextureTransition
+    {
+        Texture *texture = nullptr;
+        TextureState oldState = TextureState::Undefined;
+        TextureState newState = TextureState::Undefined;
+    };
+
+    struct PendingBufferTransition
+    {
+        Buffer *buffer = nullptr;
+        BufferState oldState = BufferState::Undefined;
+        BufferState newState = BufferState::Undefined;
+    };
+
+    std::unordered_map<Texture *, TextureState> m_TextureStates;
+    std::unordered_map<Buffer *, BufferState> m_BufferStates;
+    std::vector<PendingTextureTransition> m_PendingTextureTransitions;
+    std::vector<PendingBufferTransition> m_PendingBufferTransitions;
 };
