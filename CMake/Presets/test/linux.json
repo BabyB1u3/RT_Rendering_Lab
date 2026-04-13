@@ -12,6 +12,12 @@
       "configurePreset": "linux-debug"
     },
     {
+      "name": "test-linux-opengl-debug-base",
+      "hidden": true,
+      "inherits": "test-base",
+      "configurePreset": "linux-opengl-debug"
+    },
+    {
       "name": "test-linux-relwithdebinfo-base",
       "hidden": true,
       "inherits": "test-base",
@@ -40,8 +46,20 @@
       "configurePreset": "ci-linux-debug"
     },
     {
+      "name": "test-ci-linux-opengl-debug",
+      "inherits": [
+        "test-base",
+        "test-filter-debug-matrix"
+      ],
+      "configurePreset": "ci-linux-opengl-debug"
+    },
+    {
       "name": "test-linux-debug",
       "inherits": "test-linux-debug-base"
+    },
+    {
+      "name": "test-linux-opengl-debug",
+      "inherits": "test-linux-opengl-debug-base"
     },
     {
       "name": "test-linux-relwithdebinfo",

@@ -8,7 +8,19 @@
       "binaryDir": "${sourceDir}/build/linux-debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/linux-debug"
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/linux-debug",
+        "GLAB_GRAPHICS_BACKEND": "Vulkan"
+      }
+    },
+    {
+      "name": "linux-opengl-debug",
+      "displayName": "Linux OpenGL Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-opengl-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/linux-opengl-debug",
+        "GLAB_GRAPHICS_BACKEND": "OpenGL"
       }
     },
     {
@@ -18,7 +30,8 @@
       "binaryDir": "${sourceDir}/build/linux-relwithdebinfo",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/linux-relwithdebinfo"
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/linux-relwithdebinfo",
+        "GLAB_GRAPHICS_BACKEND": "Vulkan"
       }
     },
     {
@@ -29,6 +42,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/linux-release",
+        "GLAB_GRAPHICS_BACKEND": "Vulkan",
         "GLAB_BUILD_TESTS": "OFF",
         "GLAB_ENABLE_UNITY_BUILD": "ON"
       }
@@ -52,6 +66,19 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-linux-debug",
+        "GLAB_GRAPHICS_BACKEND": "Vulkan",
+        "GLAB_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "ci-linux-opengl-debug",
+      "displayName": "Linux CI OpenGL Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/ci-linux-opengl-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-linux-opengl-debug",
+        "GLAB_GRAPHICS_BACKEND": "OpenGL",
         "GLAB_BUILD_TESTS": "ON"
       }
     },
@@ -63,6 +90,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-linux-release",
+        "GLAB_GRAPHICS_BACKEND": "Vulkan",
         "GLAB_BUILD_TESTS": "ON",
         "GLAB_ENABLE_UNITY_BUILD": "ON"
       }
