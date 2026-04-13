@@ -4,9 +4,9 @@
 /// @brief Platform window abstraction backed by GLFW.
 ///
 /// Responsibilities:
-///   - Create an OS window with an OpenGL context
-///   - Initialize GLFW (once) and load GL functions via Glad
-///   - Register an OpenGL debug callback (non-Apple platforms)
+///   - Create an OS window suitable for the active graphics backend
+///   - Initialize GLFW (once)
+///   - Configure backend-specific window integration details during creation
 ///   - Publish framebuffer-resize and other events via EventBus
 ///
 /// The Window does NOT own the Input system - Input is initialized separately
@@ -26,7 +26,6 @@ struct WindowProps
     std::string Title = "RTRLab";
     uint32_t Width = 1600;
     uint32_t Height = 900;
-    bool VSync = true;
 };
 
 class Window
@@ -42,13 +41,8 @@ public:
 
     /// Process pending OS/input events (non-blocking).
     void PollEvents();
-    /// Present the back buffer to the screen.
-    void SwapBuffers();
     /// True if the user requested the window to close (e.g., clicked the X button).
     bool ShouldClose() const;
-
-    void SetVSync(bool enabled);
-    bool IsVSync() const { return m_VSync; }
 
     uint32_t GetWidth() const { return m_Width; }
     uint32_t GetHeight() const { return m_Height; }
@@ -78,7 +72,6 @@ private:
     GLFWwindow *m_Handle = nullptr; // Non-owning; destroyed manually in Shutdown().
     uint32_t m_Width = 0;
     uint32_t m_Height = 0;
-    bool m_VSync = true;
 
     RefreshCallback m_RefreshCallback;
     EventBus *m_EventBus = nullptr; // Non-owning. Lifetime managed by Application.

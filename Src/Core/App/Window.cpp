@@ -48,7 +48,6 @@ void Window::Init(const WindowProps &props)
 {
     m_Width = props.Width;
     m_Height = props.Height;
-    m_VSync = props.VSync;
 
     if (!s_GLFWInitialized)
     {
@@ -147,8 +146,6 @@ void Window::Init(const WindowProps &props)
     glfwSetScrollCallback(m_Handle, [](GLFWwindow * /*window*/, double /*xoffset*/, double yoffset)
                           { Input::AccumulateScroll(static_cast<float>(yoffset)); });
 
-    SetVSync(props.VSync);
-
 #if defined(GLAB_BACKEND_OPENGL)
     LOG_INFO_CAT(LogCategory::Window, "OpenGL Vendor   : {}", reinterpret_cast<const char *>(glGetString(GL_VENDOR)));
     LOG_INFO_CAT(LogCategory::Window, "OpenGL Renderer : {}", reinterpret_cast<const char *>(glGetString(GL_RENDERER)));
@@ -170,18 +167,6 @@ void Window::PollEvents()
     glfwPollEvents();
 }
 
-void Window::SwapBuffers()
-{
-#if defined(GLAB_BACKEND_OPENGL)
-    glfwSwapBuffers(m_Handle);
-#endif
-}
-
-bool Window::ShouldClose() const
-{
-    return glfwWindowShouldClose(m_Handle) != 0;
-}
-
 NativeWindowHandle Window::GetNativeWindowHandle() const
 {
     RTRLAB_ASSERT_MSG(m_Handle != nullptr, "Window handle is null.");
@@ -200,12 +185,9 @@ NativeWindowHandle Window::GetNativeWindowHandle() const
 #endif
 }
 
-void Window::SetVSync(bool enabled)
+bool Window::ShouldClose() const
 {
-#if defined(GLAB_BACKEND_OPENGL)
-    glfwSwapInterval(enabled ? 1 : 0);
-#endif
-    m_VSync = enabled;
+    return glfwWindowShouldClose(m_Handle) != 0;
 }
 
 void Window::SetRefreshCallback(RefreshCallback callback)
