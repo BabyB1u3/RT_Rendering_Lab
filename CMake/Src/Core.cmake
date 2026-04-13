@@ -10,6 +10,18 @@ target_include_directories(RTRLabCore PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+set_source_files_properties(
+    ${CMAKE_CURRENT_SOURCE_DIR}/Core/App/Window.cpp
+    PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON
+)
+
+if(APPLE)
+    set_source_files_properties(
+        ${CMAKE_CURRENT_SOURCE_DIR}/Core/App/CocoaNativeWindow.mm
+        PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON
+    )
+endif()
+
 target_link_libraries(RTRLabCore PUBLIC
     glfw
     glm
@@ -44,9 +56,15 @@ if(GLAB_BACKEND_OPENGL)
 
     set_source_files_properties(
         ${CMAKE_CURRENT_SOURCE_DIR}/Core/App/Application.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/Core/App/Window.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/Core/Input/Input.cpp
         PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON
+    )
+endif()
+
+if(APPLE)
+    target_link_libraries(RTRLabCore PUBLIC
+        "-framework AppKit"
+        "-framework QuartzCore"
     )
 endif()
 
@@ -61,9 +79,7 @@ if(GLAB_BACKEND_METAL)
     )
 
     target_link_libraries(RTRLabCore PUBLIC
-        "-framework AppKit"
         "-framework Metal"
-        "-framework QuartzCore"
     )
 
     target_compile_definitions(RTRLabCore PUBLIC
@@ -75,6 +91,20 @@ if(GLAB_BACKEND_VULKAN)
     target_compile_definitions(RTRLabCore PUBLIC
         GLAB_BACKEND_VULKAN
     )
+endif()
+
+if(UNIX AND NOT APPLE)
+    if(GLFW_BUILD_WAYLAND)
+        target_compile_definitions(RTRLabCore PRIVATE
+            GLAB_GLFW_WAYLAND_NATIVE
+        )
+    endif()
+
+    if(GLFW_BUILD_X11)
+        target_compile_definitions(RTRLabCore PRIVATE
+            GLAB_GLFW_X11_NATIVE
+        )
+    endif()
 endif()
 
 target_compile_definitions(RTRLabCore PUBLIC

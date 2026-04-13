@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "Core/Util/Base.h"
+#include "Render/RHI/NativeWindowHandle.h"
 
 class PipelineLayout;
 
@@ -239,23 +240,6 @@ public:
 
     virtual Texture *getTexture() const = 0;
     virtual const TextureViewDesc &getDesc() const = 0;
-};
-
-enum class NativeWindowSystem
-{
-    Win32,
-    Cocoa,
-    Xlib,
-    Xcb,
-    Wayland,
-};
-
-struct NativeWindowHandle
-{
-    NativeWindowSystem system = NativeWindowSystem::Win32;
-    uintptr_t window = 0;
-    void *display = nullptr;
-    void *layer = nullptr;
 };
 
 struct SwapchainDesc

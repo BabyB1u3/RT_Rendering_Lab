@@ -16,6 +16,8 @@
 #include <functional>
 #include <cstdint>
 
+#include "Render/RHI/NativeWindowHandle.h"
+
 struct GLFWwindow;
 class EventBus;
 
@@ -53,6 +55,8 @@ public:
 
     /// Return the underlying GLFW window pointer (needed by Input, ImGui, etc.).
     GLFWwindow *GetNativeHandle() const { return m_Handle; }
+    /// Return the platform-native presentation handle package for the RHI.
+    NativeWindowHandle GetNativeWindowHandle() const;
 
     /// Register a callback invoked when the window needs to be redrawn
     /// (e.g., during live resize on macOS).
