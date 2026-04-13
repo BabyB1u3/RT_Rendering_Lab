@@ -206,8 +206,6 @@ public:
 
     virtual const ShaderReflectionData &getReflection() const = 0;
     virtual PipelineLayoutDesc derivePipelineLayoutDesc() const = 0;
-    virtual const void *getBackendCode(BackendType backend, ShaderStage stage) const = 0;
-    virtual size_t getBackendCodeSize(BackendType backend, ShaderStage stage) const = 0;
 };
 
 class GraphicsPipeline
