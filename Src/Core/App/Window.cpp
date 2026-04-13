@@ -2,25 +2,20 @@
 
 #if defined(_WIN32)
 #define GLFW_EXPOSE_NATIVE_WIN32
-#elif defined(__APPLE__)
-#define GLFW_EXPOSE_NATIVE_COCOA
-#elif defined(__linux__)
-#if defined(GLAB_GLFW_WAYLAND_NATIVE)
-#define GLFW_EXPOSE_NATIVE_WAYLAND
-#endif
-#if defined(GLAB_GLFW_X11_NATIVE)
-#define GLFW_EXPOSE_NATIVE_X11
-#endif
 #endif
 
 #if defined(GLAB_BACKEND_OPENGL)
 #include <glad/glad.h>
 #endif
 #include <GLFW/glfw3.h>
+#if defined(_WIN32)
 #include <GLFW/glfw3native.h>
+#endif
 
 #if defined(__APPLE__)
 #include "Core/App/CocoaNativeWindow.h"
+#elif defined(__linux__)
+#include "Core/App/LinuxNativeWindow.h"
 #endif
 #include "Core/Diagnostics/Assert/Assert.h"
 #include "Core/Event/EventBus.h"
@@ -199,31 +194,7 @@ NativeWindowHandle Window::GetNativeWindowHandle() const
 #elif defined(__APPLE__)
     return CreateCocoaNativeWindowHandle(m_Handle);
 #elif defined(__linux__)
-    NativeWindowHandle nativeWindowHandle{};
-    const int platform = glfwGetPlatform();
-
-#if defined(GLAB_GLFW_WAYLAND_NATIVE)
-    if (platform == GLFW_PLATFORM_WAYLAND)
-    {
-        nativeWindowHandle.system = NativeWindowSystem::Wayland;
-        nativeWindowHandle.window = reinterpret_cast<uintptr_t>(glfwGetWaylandWindow(m_Handle));
-        nativeWindowHandle.display = glfwGetWaylandDisplay();
-        return nativeWindowHandle;
-    }
-#endif
-
-#if defined(GLAB_GLFW_X11_NATIVE)
-    if (platform == GLFW_PLATFORM_X11)
-    {
-        nativeWindowHandle.system = NativeWindowSystem::Xlib;
-        nativeWindowHandle.window = static_cast<uintptr_t>(glfwGetX11Window(m_Handle));
-        nativeWindowHandle.display = glfwGetX11Display();
-        return nativeWindowHandle;
-    }
-#endif
-
-    RTRLAB_ASSERT_MSG(false, "Unsupported GLFW native platform.");
-    return nativeWindowHandle;
+    return CreateLinuxNativeWindowHandle(m_Handle);
 #else
 #error Unsupported platform
 #endif

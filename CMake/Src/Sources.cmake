@@ -33,6 +33,16 @@ if(APPLE)
     )
 endif()
 
+if(UNIX AND NOT APPLE)
+    list(APPEND GLAB_APP_SOURCES
+        Core/App/LinuxNativeWindow.cpp
+    )
+
+    list(APPEND GLAB_APP_HEADERS
+        Core/App/LinuxNativeWindow.h
+    )
+endif()
+
 set(GLAB_RESOURCE_SOURCES
     Core/Resource/Cook/CookedCatalog.cpp
     Core/Resource/FileSystem.cpp

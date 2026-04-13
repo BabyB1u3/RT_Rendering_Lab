@@ -22,6 +22,13 @@ if(APPLE)
     )
 endif()
 
+if(UNIX AND NOT APPLE)
+    set_source_files_properties(
+        ${CMAKE_CURRENT_SOURCE_DIR}/Core/App/LinuxNativeWindow.cpp
+        PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON
+    )
+endif()
+
 target_link_libraries(RTRLabCore PUBLIC
     glfw
     glm
