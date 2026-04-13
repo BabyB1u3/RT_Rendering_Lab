@@ -205,12 +205,14 @@ The Vulkan backend implements the `CommandList::textureBarrier()` / `bufferBarri
 
 ## 7. Swapchain
 
-`Device::createSwapchain()` uses the `void* nativeWindowHandle` to create a `VkSurfaceKHR` via the appropriate platform extension:
+`Device::createSwapchain()` consumes `NativeWindowHandle` (see RHI.md §6.6) and uses it to create a `VkSurfaceKHR` via the appropriate platform extension:
 
-- **Windows**: `VK_KHR_win32_surface` — handle is a `HWND`
-- **macOS/iOS**: `VK_EXT_metal_surface` — handle is a `CAMetalLayer*`
-- **Linux (Xlib)**: `VK_KHR_xlib_surface` — handle encodes a `Display*` and an Xlib `Window`
-- **Linux (XCB)**: `VK_KHR_xcb_surface` — handle encodes an `xcb_connection_t*` and an `xcb_window_t`
+- **Windows**: `system = NativeWindowSystem::Win32`, `window = HWND`
+- **macOS/iOS**: `system = NativeWindowSystem::Cocoa`, `layer = CAMetalLayer*`, then create the surface with `VK_EXT_metal_surface`
+- **Linux (Xlib)**: `system = NativeWindowSystem::Xlib`, `display = Display*`, `window = X11 Window`
+- **Linux (XCB)**: `system = NativeWindowSystem::Xcb`, `display = xcb_connection_t*`, `window = xcb_window_t`
+
+The Vulkan backend should validate that the required fields are present for the selected `NativeWindowSystem` before attempting surface creation and fail loudly if the handle is incomplete.
 
 These are separate Vulkan extensions with separate `VkSurfaceKHR` creation paths (`vkCreateXlibSurfaceKHR` vs. `vkCreateXcbSurfaceKHR`). Choose one per platform layer; do not mix them.
 

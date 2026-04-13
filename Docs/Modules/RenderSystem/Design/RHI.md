@@ -460,6 +460,41 @@ struct SwapchainDesc
     bool     vsync      = true;
 };
 
+enum class NativeWindowSystem
+{
+    Win32,
+    Cocoa,
+    Xlib,
+    Xcb,
+    Wayland,
+};
+
+struct NativeWindowHandle
+{
+    NativeWindowSystem system;
+
+    // Platform-native top-level window or surface handle:
+    // - Win32:   HWND
+    // - Cocoa:   NSWindow*
+    // - Xlib:    X11 Window value cast to uintptr_t
+    // - Xcb:     xcb_window_t value cast to uintptr_t
+    // - Wayland: wl_surface*
+    uintptr_t window = 0;
+
+    // Optional companion native object:
+    // - Xlib:    Display*
+    // - Xcb:     xcb_connection_t*
+    // - Wayland: wl_display*
+    // - Win32 / Cocoa: null
+    void* display = nullptr;
+
+    // Optional presentation layer object when required by a backend:
+    // - Metal:   CAMetalLayer*
+    // - Vulkan on Apple platforms: CAMetalLayer*
+    // - others:  null
+    void* layer = nullptr;
+};
+
 class Swapchain
 {
 public:
@@ -490,7 +525,15 @@ public:
 
 **Image ownership rule**: `getImage()` / `getImageView()` return non-owning pointers. The swapchain owns all its images and views; callers must not delete them or wrap them in `Scope<T>`.
 
-**Native window handle**: `Device::createSwapchain()` takes a `void* nativeWindowHandle` whose interpretation is backend-specific — see the relevant backend document for details.
+**Native window handle**: `Device::createSwapchain()` takes a strongly typed `NativeWindowHandle`, not a `GLFWwindow*` and not a raw `void*`.
+
+This is an intentional abstraction boundary:
+
+- the **windowing layer** may use GLFW internally
+- the **RHI public API** should remain independent from any particular window library
+- the windowing layer is responsible for extracting platform-native handles from `GLFWwindow*` and packaging them into `NativeWindowHandle`
+
+This keeps GLFW from leaking into the public renderer API and makes future platform-layer changes low-friction.
 
 ---
 
@@ -1216,7 +1259,7 @@ All factory methods return `Scope<T>` (see §12.1). `CommandList` and `FrameCont
 class Device
 {
 public:
-    virtual Scope<Swapchain>          createSwapchain         (const SwapchainDesc&, void* nativeWindowHandle) = 0;
+    virtual Scope<Swapchain>          createSwapchain         (const SwapchainDesc&, const NativeWindowHandle&) = 0;
 
     virtual Scope<Buffer>             createBuffer            (const BufferDesc&) = 0;
     virtual Scope<Texture>            createTexture           (const TextureDesc&) = 0;
