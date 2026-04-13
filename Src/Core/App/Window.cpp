@@ -1,10 +1,22 @@
 #include "Core/App/Window.h"
 
+#if defined(_WIN32)
+#define GLFW_EXPOSE_NATIVE_WIN32
+#endif
+
 #if defined(GLAB_BACKEND_OPENGL)
 #include <glad/glad.h>
 #endif
 #include <GLFW/glfw3.h>
+#if defined(_WIN32)
+#include <GLFW/glfw3native.h>
+#endif
 
+#if defined(__APPLE__)
+#include "Core/App/CocoaNativeWindow.h"
+#elif defined(__linux__)
+#include "Core/App/LinuxNativeWindow.h"
+#endif
 #include "Core/Diagnostics/Assert/Assert.h"
 #include "Core/Event/EventBus.h"
 #include "Core/Event/Events.h"
@@ -168,6 +180,24 @@ void Window::SwapBuffers()
 bool Window::ShouldClose() const
 {
     return glfwWindowShouldClose(m_Handle) != 0;
+}
+
+NativeWindowHandle Window::GetNativeWindowHandle() const
+{
+    RTRLAB_ASSERT_MSG(m_Handle != nullptr, "Window handle is null.");
+
+#if defined(_WIN32)
+    NativeWindowHandle nativeWindowHandle{};
+    nativeWindowHandle.system = NativeWindowSystem::Win32;
+    nativeWindowHandle.window = reinterpret_cast<uintptr_t>(glfwGetWin32Window(m_Handle));
+    return nativeWindowHandle;
+#elif defined(__APPLE__)
+    return CreateCocoaNativeWindowHandle(m_Handle);
+#elif defined(__linux__)
+    return CreateLinuxNativeWindowHandle(m_Handle);
+#else
+#error Unsupported platform
+#endif
 }
 
 void Window::SetVSync(bool enabled)

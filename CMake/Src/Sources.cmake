@@ -23,6 +23,26 @@ set(GLAB_APP_HEADERS
     Core/Event/ScopedConnection.h
 )
 
+if(APPLE)
+    list(APPEND GLAB_APP_SOURCES
+        Core/App/CocoaNativeWindow.mm
+    )
+
+    list(APPEND GLAB_APP_HEADERS
+        Core/App/CocoaNativeWindow.h
+    )
+endif()
+
+if(UNIX AND NOT APPLE)
+    list(APPEND GLAB_APP_SOURCES
+        Core/App/LinuxNativeWindow.cpp
+    )
+
+    list(APPEND GLAB_APP_HEADERS
+        Core/App/LinuxNativeWindow.h
+    )
+endif()
+
 set(GLAB_RESOURCE_SOURCES
     Core/Resource/Cook/CookedCatalog.cpp
     Core/Resource/FileSystem.cpp
@@ -144,6 +164,7 @@ set(GLAB_RENDER_SOURCES
 )
 
 set(GLAB_RENDER_HEADERS
+    Render/RHI/NativeWindowHandle.h
     Render/RHI/RHI.h
     Render/RHI/RHIResources.h
     Render/RHI/RHIPipeline.h
