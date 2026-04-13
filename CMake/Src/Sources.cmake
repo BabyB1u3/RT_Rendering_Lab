@@ -139,6 +139,17 @@ set(GLAB_SCENE_HEADERS
     Scene/Transform.h
 )
 
+set(GLAB_RENDER_SOURCES)
+
+set(GLAB_RENDER_HEADERS
+    Render/RHI/RHI.h
+    Render/RHI/RHIResources.h
+    Render/RHI/RHIPipeline.h
+    Render/RHI/RHICommandList.h
+    Render/RHI/RHIDevice.h
+    Render/Shader/ShaderTypes.h
+)
+
 set(GLAB_DEMO_SOURCES
     Demos/DemoRegistry.cpp
     Demos/LabLayer.cpp
@@ -190,6 +201,7 @@ set(GLAB_CORE_SOURCES
     ${GLAB_DIAGNOSTICS_SOURCES}
     ${GLAB_SERIALIZATION_SOURCES}
     ${GLAB_SCENE_SOURCES}
+    ${GLAB_RENDER_SOURCES}
     ${GLAB_DEMO_SOURCES}
     ${GLAB_GUI_SOURCES}
     ${GLAB_PLATFORM_SOURCES}
@@ -202,6 +214,7 @@ set(GLAB_CORE_HEADERS
     ${GLAB_DIAGNOSTICS_HEADERS}
     ${GLAB_SERIALIZATION_HEADERS}
     ${GLAB_SCENE_HEADERS}
+    ${GLAB_RENDER_HEADERS}
     ${GLAB_DEMO_HEADERS}
     ${GLAB_GUI_HEADERS}
 )
