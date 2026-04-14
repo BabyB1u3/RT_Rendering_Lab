@@ -37,6 +37,54 @@ target_include_directories(glad PUBLIC
 glab_enable_parallel_compilation(glad)
 
 # -----------------------------------------------------------------------------
+# Volk
+# -----------------------------------------------------------------------------
+if(GLAB_BACKEND_VULKAN)
+    set(GLAB_VULKAN_SDK_INCLUDE_DIR "${Vulkan_INCLUDE_DIR}")
+    if(NOT GLAB_VULKAN_SDK_INCLUDE_DIR AND Vulkan_INCLUDE_DIRS)
+        list(GET Vulkan_INCLUDE_DIRS 0 GLAB_VULKAN_SDK_INCLUDE_DIR)
+    endif()
+
+    set(GLAB_VOLK_HEADER "${GLAB_VULKAN_SDK_INCLUDE_DIR}/Volk/volk.h")
+    set(GLAB_VOLK_SOURCE "${GLAB_VULKAN_SDK_INCLUDE_DIR}/Volk/volk.c")
+
+    if(NOT EXISTS "${GLAB_VOLK_HEADER}" OR NOT EXISTS "${GLAB_VOLK_SOURCE}")
+        message(FATAL_ERROR
+            "The selected Vulkan SDK does not provide Volk. "
+            "Install the Volk SDK component (com.lunarg.vulkan.volk)."
+        )
+    endif()
+
+    add_library(volk STATIC
+        ${GLAB_VOLK_SOURCE}
+    )
+
+    target_include_directories(volk PUBLIC
+        ${GLAB_VULKAN_SDK_INCLUDE_DIR}
+    )
+
+    if(WIN32)
+        target_compile_definitions(volk PUBLIC
+            VK_USE_PLATFORM_WIN32_KHR
+        )
+    elseif(UNIX AND NOT APPLE)
+        if(GLFW_BUILD_X11)
+            target_compile_definitions(volk PUBLIC
+                VK_USE_PLATFORM_XLIB_KHR
+            )
+        endif()
+
+        if(GLFW_BUILD_WAYLAND)
+            target_compile_definitions(volk PUBLIC
+                VK_USE_PLATFORM_WAYLAND_KHR
+            )
+        endif()
+    endif()
+
+    glab_enable_parallel_compilation(volk)
+endif()
+
+# -----------------------------------------------------------------------------
 # Header-only dependencies
 # -----------------------------------------------------------------------------
 glab_add_header_only_vendor(glm glm)
