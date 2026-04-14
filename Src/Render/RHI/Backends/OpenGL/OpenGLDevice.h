@@ -1,7 +1,7 @@
 #pragma once
 
 /// @file OpenGLDevice.h
-/// @brief Backend-private OpenGL RHI skeleton classes for Milestone 1 bring-up.
+/// @brief Backend-private OpenGL RHI classes for the early clear/present bring-up path.
 
 #include "Render/RHI/Backends/Common/RHIShellCommon.h"
 

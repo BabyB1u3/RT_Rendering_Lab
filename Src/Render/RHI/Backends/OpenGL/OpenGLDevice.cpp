@@ -13,6 +13,9 @@ void OpenGLSwapchain::present(uint32_t imageIndex)
 {
     ShellSwapchainBase::present(imageIndex);
 
+    // v1 relies on the current single-window/single-context invariant:
+    // the GLFW current context is expected to belong to this swapchain's window.
+    // Revisit this path before adding multi-window or multi-context OpenGL support.
     GLFWwindow *currentContext = glfwGetCurrentContext();
     RTRLAB_ASSERT_MSG(currentContext != nullptr,
                       "OpenGLSwapchain::present requires a current GLFW OpenGL context.");
