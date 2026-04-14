@@ -95,6 +95,15 @@ if(GLAB_BACKEND_METAL)
 endif()
 
 if(GLAB_BACKEND_VULKAN)
+    set_source_files_properties(
+        ${CMAKE_CURRENT_SOURCE_DIR}/Render/RHI/Backends/Vulkan/VulkanDevice.cpp
+        PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON
+    )
+
+    target_link_libraries(RTRLabCore PUBLIC
+        Vulkan::Vulkan
+    )
+
     target_compile_definitions(RTRLabCore PUBLIC
         GLAB_BACKEND_VULKAN
     )

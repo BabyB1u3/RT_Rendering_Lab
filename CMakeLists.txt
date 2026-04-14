@@ -18,6 +18,10 @@ if(GLAB_BACKEND_OPENGL)
     find_package(OpenGL REQUIRED)
 endif()
 
+if(GLAB_BACKEND_VULKAN)
+    find_package(Vulkan REQUIRED)
+endif()
+
 add_subdirectory(Vendor)
 add_subdirectory(Src)
 
