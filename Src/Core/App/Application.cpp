@@ -160,8 +160,7 @@ bool Application::ShouldRenderFrame() const
 
 void Application::BeginFrame()
 {
-    if (!m_Device || !m_Swapchain)
-        return;
+    RTRLAB_ASSERT_MSG(m_Device && m_Swapchain, "Application RHI must be initialized before beginning a frame.");
 
     m_SwapchainImageIndex = m_Swapchain->acquireNextImage();
     m_SwapchainImage = m_Swapchain->getImage(m_SwapchainImageIndex);
@@ -188,8 +187,8 @@ void Application::BeginFrame()
 
 void Application::EndFrame()
 {
-    if (!m_Device || !m_Swapchain || !m_CommandList || !m_FrameContext)
-        return;
+    RTRLAB_ASSERT_MSG(m_Device && m_Swapchain, "Application RHI must remain valid until the frame ends.");
+    RTRLAB_ASSERT_MSG(m_CommandList && m_FrameContext, "EndFrame requires an active frame and command list.");
 
     m_CommandList->endRendering();
 
@@ -205,8 +204,8 @@ void Application::EndFrame()
 
 void Application::PresentFrame()
 {
-    if (!m_Swapchain || !m_SwapchainImageView)
-        return;
+    RTRLAB_ASSERT_MSG(m_Swapchain, "Application swapchain must remain valid until presentation.");
+    RTRLAB_ASSERT_MSG(m_SwapchainImageView, "PresentFrame requires a valid swapchain image view from BeginFrame.");
 
     m_Swapchain->present(m_SwapchainImageIndex);
     m_ResourceStateTracker.reset();
