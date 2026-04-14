@@ -113,7 +113,34 @@ OpenGL must use a separate vertex input path:
 
 ---
 
-## 8. Support scope
+## 8. Swapchain and present ownership
+
+The OpenGL compatibility backend must still treat present as a **backend-owned swapchain responsibility**, not as a public `Window` API.
+
+Version 1 may rely on the GLFW-created OpenGL context internally, but that dependency remains backend-private:
+
+- the public RHI still creates the swapchain from `NativeWindowHandle`
+- renderer/application code still calls `Swapchain::present()`
+- the OpenGL backend may use the current GLFW OpenGL context to perform the actual buffer swap
+
+This preserves the public abstraction boundary while accepting that OpenGL presentation is fundamentally tied to the active context/window pair.
+
+---
+
+## 9. Early clear/present limitations
+
+The first clear/present bring-up on the OpenGL backend intentionally accepts a few temporary constraints:
+
+- clear is executed at `beginRendering()` time, matching the public load-op semantics and aligning with an immediate-style OpenGL path
+- the current clear-only path assumes today's full-window `renderArea` usage; once partial render areas are exercised, the backend must translate from the public RHI coordinate convention to OpenGL's lower-left origin
+- only the first color attachment clear is consumed in the early path; MRT clear support must extend this to all active color attachments
+- recorded `setViewport()` / `setScissor()` state is not yet replayed; the current path uses `RenderingInfo::renderArea` directly until real draw submission lands
+
+These are accepted v1 bring-up constraints, not intended long-term behavior.
+
+---
+
+## 10. Support scope
 
 OpenGL should support a controlled shader subset.
 

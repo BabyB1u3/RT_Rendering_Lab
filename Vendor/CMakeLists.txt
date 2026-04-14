@@ -37,6 +37,79 @@ target_include_directories(glad PUBLIC
 glab_enable_parallel_compilation(glad)
 
 # -----------------------------------------------------------------------------
+# Volk
+# -----------------------------------------------------------------------------
+if(GLAB_BACKEND_VULKAN)
+    set(GLAB_VOLK_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/volk/volk.h")
+    set(GLAB_VOLK_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/volk/volk.c")
+
+    if(NOT EXISTS "${GLAB_VOLK_HEADER}" OR NOT EXISTS "${GLAB_VOLK_SOURCE}")
+        message(FATAL_ERROR
+            "Vendored Volk sources are missing. Expected files:\n"
+            "  ${GLAB_VOLK_HEADER}\n"
+            "  ${GLAB_VOLK_SOURCE}"
+        )
+    endif()
+
+    add_library(volk STATIC
+        ${GLAB_VOLK_SOURCE}
+    )
+
+    set(GLAB_VULKAN_INCLUDE_HINTS)
+    if(Vulkan_INCLUDE_DIR)
+        list(APPEND GLAB_VULKAN_INCLUDE_HINTS "${Vulkan_INCLUDE_DIR}")
+    endif()
+    if(Vulkan_INCLUDE_DIRS)
+        list(APPEND GLAB_VULKAN_INCLUDE_HINTS ${Vulkan_INCLUDE_DIRS})
+    endif()
+    if(DEFINED ENV{VULKAN_SDK} AND NOT "$ENV{VULKAN_SDK}" STREQUAL "")
+        list(APPEND GLAB_VULKAN_INCLUDE_HINTS
+            "$ENV{VULKAN_SDK}"
+            "$ENV{VULKAN_SDK}/include"
+            "$ENV{VULKAN_SDK}/Include"
+        )
+    endif()
+
+    find_path(GLAB_VULKAN_INCLUDE_ROOT
+        NAMES vulkan/vulkan.h
+        HINTS ${GLAB_VULKAN_INCLUDE_HINTS}
+        PATH_SUFFIXES "" include Include
+    )
+
+    if(NOT GLAB_VULKAN_INCLUDE_ROOT)
+        message(FATAL_ERROR
+            "Failed to locate the Vulkan header root required by vendored Volk. "
+            "Could not find 'vulkan/vulkan.h' from hints: ${GLAB_VULKAN_INCLUDE_HINTS}"
+        )
+    endif()
+
+    target_include_directories(volk PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${GLAB_VULKAN_INCLUDE_ROOT}
+    )
+
+    if(WIN32)
+        target_compile_definitions(volk PUBLIC
+            VK_USE_PLATFORM_WIN32_KHR
+        )
+    elseif(UNIX AND NOT APPLE)
+        if(GLFW_BUILD_X11)
+            target_compile_definitions(volk PUBLIC
+                VK_USE_PLATFORM_XLIB_KHR
+            )
+        endif()
+
+        if(GLFW_BUILD_WAYLAND)
+            target_compile_definitions(volk PUBLIC
+                VK_USE_PLATFORM_WAYLAND_KHR
+            )
+        endif()
+    endif()
+
+    glab_enable_parallel_compilation(volk)
+endif()
+
+# -----------------------------------------------------------------------------
 # Header-only dependencies
 # -----------------------------------------------------------------------------
 glab_add_header_only_vendor(glm glm)

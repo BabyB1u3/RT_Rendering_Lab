@@ -162,11 +162,10 @@ void Application::BeginFrame()
 {
     RTRLAB_ASSERT_MSG(m_Device && m_Swapchain, "Application RHI must be initialized before beginning a frame.");
 
+    m_FrameContext = m_Device->beginFrame();
     m_SwapchainImageIndex = m_Swapchain->acquireNextImage();
     m_SwapchainImage = m_Swapchain->getImage(m_SwapchainImageIndex);
     m_SwapchainImageView = m_Swapchain->getImageView(m_SwapchainImageIndex);
-
-    m_FrameContext = m_Device->beginFrame();
     m_CommandList = m_Device->beginCommandList();
 
     m_ResourceStateTracker.transition(m_SwapchainImage, TextureState::RenderTarget);
