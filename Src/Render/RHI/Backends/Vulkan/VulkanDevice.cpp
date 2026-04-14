@@ -838,6 +838,9 @@ VkSemaphore VulkanDevice::getCurrentRenderFinishedSemaphore() const
 
 void VulkanDevice::advanceFrameSync()
 {
+    // The current bring-up path only advances after a submitted frame is either presented
+    // or discarded during swapchain recreation. If future acquire-failure handling starts
+    // skipping frames before submission, this invariant will need to be revisited.
     RTRLAB_ASSERT_MSG(!m_FrameInProgress, "Vulkan frame sync can only advance after endFrame.");
     RTRLAB_ASSERT_MSG(m_FrameSubmitted, "Vulkan frame sync expects queue submission before presentation advances.");
 
@@ -859,6 +862,8 @@ void VulkanDevice::recycleCurrentRenderFinishedSemaphore()
 {
     FrameSync &frameSync = currentFrameSync();
 
+    // Safety relies on the caller first making the queue/device idle. The current present
+    // failure path does this via recreateSwapchain() before recycling the semaphore.
     if (frameSync.renderFinished != VK_NULL_HANDLE)
     {
         vkDestroySemaphore(m_Device, frameSync.renderFinished, nullptr);
@@ -993,6 +998,8 @@ void VulkanDevice::initializePresentationObjects(const NativeWindowHandle &nativ
 
     const std::array<const char *, 1> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
     VkPhysicalDeviceVulkan13Features vulkan13Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+    // Early bring-up assumes dynamic rendering is available and lets vkCreateDevice fail if it
+    // is not. Feature pre-checking should be added alongside validation/debug bring-up.
     vulkan13Features.dynamicRendering = VK_TRUE;
 
     VkDeviceCreateInfo deviceCreateInfo{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
