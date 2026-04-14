@@ -1,29 +1,31 @@
 #pragma once
 
 /// @file Application.h
-/// @brief Top-level application class 鈥?owns the window, layer stack, and main loop.
+/// @brief Top-level application class - owns the window, layer stack, and main loop.
 ///
 /// Construction order:
-///   FileSystem::Init() - Diagnostics::Logger::Init() via /Saved/logs 鈫?Window 鈫?Input 鈫?Time 鈫?ImGuiLayer (overlay)
+///   FileSystem::Init() - Diagnostics::Logger::Init() via /Saved/logs - Window - Input - Time - ImGuiLayer (overlay)
 ///
 /// Main loop (Application::Run):
 ///   1. Poll OS events
 ///   2. Update frame time
 ///   3. Begin frame
 ///   4. For each layer: OnUpdate(dt) -> OnRender()
-///   5. ImGuiLayer::Begin() -> For each layer: OnImGuiRender() 鈫?ImGuiLayer::End()
+///   5. ImGuiLayer::Begin() -> For each layer: OnImGuiRender() -> ImGuiLayer::End()
 ///   6. End frame -> present
 ///
 /// Only one Application instance may exist at a time (enforced by s_Instance).
 
 #include <string>
 #include <cstdint>
+#include <limits>
 
 #include "Core/Util/Base.h"
 #include "Core/Event/EventBus.h"
 #include "Core/Event/ScopedConnection.h"
 #include "Core/App/Window.h"
 #include "Core/App/LayerStack.h"
+#include "Render/RHI/RHI.h"
 
 class ImGuiLayer;
 
@@ -57,6 +59,10 @@ public:
     const Window &GetWindow() const { return *m_Window; }
 
     EventBus &GetEventBus() { return m_EventBus; }
+    /// Transitional accessor for the command list currently being recorded.
+    /// Returns nullptr outside the active frame-recording window and should be
+    /// removed once a dedicated renderer-facing context exists.
+    CommandList *GetCurrentCommandList() const { return m_CommandList; }
 
     static Application &Get() { return *s_Instance; }
 
@@ -74,6 +80,8 @@ private:
     void EndFrame();
     /// Present the completed frame. Future explicit-RHI swapchain present lands here.
     void PresentFrame();
+    /// Create the backend-selected device and swapchain used by the application frame loop.
+    void InitializeRHI();
 
 private:
     // Non-owning singleton-style pointer. Lifetime is managed externally by the actual Application object.
@@ -90,6 +98,15 @@ private:
     // Set to true when the window refresh callback already rendered a frame
     // so that the main loop can skip the redundant render for that tick.
     bool m_FrameRenderedThisTick = false;
+
+    Scope<Device> m_Device;
+    Scope<Swapchain> m_Swapchain;
+    ResourceStateTracker m_ResourceStateTracker;
+    FrameContext *m_FrameContext = nullptr;
+    CommandList *m_CommandList = nullptr;
+    uint32_t m_SwapchainImageIndex = std::numeric_limits<uint32_t>::max();
+    Texture *m_SwapchainImage = nullptr;
+    TextureView *m_SwapchainImageView = nullptr;
 
     ScopedConnection m_ResizeConnection;
 };

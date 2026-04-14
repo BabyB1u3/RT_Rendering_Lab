@@ -50,6 +50,7 @@ Application::Application(const ApplicationSpecification &spec)
     Input::Initialize(m_Window->GetNativeHandle());
     Input::SetEventBus(&m_EventBus);
     Time::Reset();
+    InitializeRHI();
 
     s_Instance = this;
 
@@ -66,6 +67,8 @@ Application::~Application()
 
     m_LayerStack.Clear();
     // m_ImGuiLayer = nullptr;
+    m_Swapchain.reset();
+    m_Device.reset();
     m_Window.reset();
 
     Diagnostics::Logger::Shutdown();
@@ -143,6 +146,9 @@ void Application::OnWindowResize(uint32_t width, uint32_t height)
 
     m_Minimized = false;
 
+    if (m_Swapchain)
+        m_Swapchain->resize(width, height);
+
     for (auto &layer : m_LayerStack)
         layer->OnResize(width, height);
 }
@@ -154,21 +160,70 @@ bool Application::ShouldRenderFrame() const
 
 void Application::BeginFrame()
 {
-    // Explicit-RHI frame begin work will live here:
-    // - swapchain image acquire
-    // - Device::beginFrame()
-    // - Device::beginCommandList()
+    RTRLAB_ASSERT_MSG(m_Device && m_Swapchain, "Application RHI must be initialized before beginning a frame.");
+
+    m_SwapchainImageIndex = m_Swapchain->acquireNextImage();
+    m_SwapchainImage = m_Swapchain->getImage(m_SwapchainImageIndex);
+    m_SwapchainImageView = m_Swapchain->getImageView(m_SwapchainImageIndex);
+
+    m_FrameContext = m_Device->beginFrame();
+    m_CommandList = m_Device->beginCommandList();
+
+    m_ResourceStateTracker.transition(m_SwapchainImage, TextureState::RenderTarget);
+    m_ResourceStateTracker.flushBarriers(m_CommandList);
+
+    ColorAttachmentInfo colorAttachment;
+    colorAttachment.view = m_SwapchainImageView;
+    colorAttachment.loadOp = LoadOp::Clear;
+    colorAttachment.storeOp = StoreOp::Store;
+    colorAttachment.clearValue = {0.08f, 0.10f, 0.12f, 1.0f};
+
+    RenderingInfo renderingInfo;
+    renderingInfo.colorAttachments = {colorAttachment};
+    renderingInfo.renderArea = {0, 0, m_Swapchain->width(), m_Swapchain->height()};
+
+    m_CommandList->beginRendering(renderingInfo);
 }
 
 void Application::EndFrame()
 {
-    // Explicit-RHI frame end work will live here:
-    // - command submission
-    // - Device::endFrame()
+    RTRLAB_ASSERT_MSG(m_Device && m_Swapchain, "Application RHI must remain valid until the frame ends.");
+    RTRLAB_ASSERT_MSG(m_CommandList && m_FrameContext, "EndFrame requires an active frame and command list.");
+
+    m_CommandList->endRendering();
+
+    m_ResourceStateTracker.transition(m_SwapchainImage, TextureState::Present);
+    m_ResourceStateTracker.flushBarriers(m_CommandList);
+
+    m_Device->submit(m_CommandList);
+    m_Device->endFrame(m_FrameContext);
+
+    m_FrameContext = nullptr;
+    m_CommandList = nullptr;
 }
 
 void Application::PresentFrame()
 {
-    // Explicit-RHI present work will live here:
-    // - swapchain->present()
+    RTRLAB_ASSERT_MSG(m_Swapchain, "Application swapchain must remain valid until presentation.");
+    RTRLAB_ASSERT_MSG(m_SwapchainImageView, "PresentFrame requires a valid swapchain image view from BeginFrame.");
+
+    m_Swapchain->present(m_SwapchainImageIndex);
+    m_ResourceStateTracker.reset();
+    m_SwapchainImageIndex = std::numeric_limits<uint32_t>::max();
+    m_SwapchainImage = nullptr;
+    m_SwapchainImageView = nullptr;
+}
+
+void Application::InitializeRHI()
+{
+    m_Device = createDefaultDevice();
+
+    SwapchainDesc swapchainDesc;
+    swapchainDesc.width = m_Window->GetWidth();
+    swapchainDesc.height = m_Window->GetHeight();
+    swapchainDesc.format = Format::BGRA8_UNORM;
+    swapchainDesc.imageCount = 2;
+    swapchainDesc.vsync = true;
+
+    m_Swapchain = m_Device->createSwapchain(swapchainDesc, m_Window->GetNativeWindowHandle());
 }
