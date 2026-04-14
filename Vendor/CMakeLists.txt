@@ -55,8 +55,18 @@ if(GLAB_BACKEND_VULKAN)
         ${GLAB_VOLK_SOURCE}
     )
 
+    set(GLAB_VULKAN_SDK_INCLUDE_DIRS)
+    if(Vulkan_INCLUDE_DIR)
+        list(APPEND GLAB_VULKAN_SDK_INCLUDE_DIRS "${Vulkan_INCLUDE_DIR}")
+    endif()
+    if(Vulkan_INCLUDE_DIRS)
+        list(APPEND GLAB_VULKAN_SDK_INCLUDE_DIRS ${Vulkan_INCLUDE_DIRS})
+    endif()
+    list(REMOVE_DUPLICATES GLAB_VULKAN_SDK_INCLUDE_DIRS)
+
     target_include_directories(volk PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${GLAB_VULKAN_SDK_INCLUDE_DIRS}
     )
 
     if(WIN32)
