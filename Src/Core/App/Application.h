@@ -59,6 +59,10 @@ public:
     const Window &GetWindow() const { return *m_Window; }
 
     EventBus &GetEventBus() { return m_EventBus; }
+    /// Transitional accessor for the command list currently being recorded.
+    /// Returns nullptr outside the active frame-recording window and should be
+    /// removed once a dedicated renderer-facing context exists.
+    CommandList *GetCurrentCommandList() const { return m_CommandList; }
 
     static Application &Get() { return *s_Instance; }
 
