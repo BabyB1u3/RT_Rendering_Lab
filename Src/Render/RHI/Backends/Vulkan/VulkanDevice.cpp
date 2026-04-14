@@ -64,10 +64,10 @@ namespace
             createInfo.hinstance = GetModuleHandleW(nullptr);
             createInfo.hwnd = reinterpret_cast<HWND>(nativeWindowHandle.window);
             checkVk(vkCreateWin32SurfaceKHR(instance, &createInfo, nullptr, &surface), "vkCreateWin32SurfaceKHR");
-            break;
 #else
             RTRLAB_ASSERT_MSG(false, "Win32 Vulkan surface creation is unavailable on this platform.");
 #endif
+            break;
         }
         case NativeWindowSystem::Cocoa:
             RTRLAB_ASSERT_MSG(false, "Cocoa Vulkan surface creation is not compiled in this backend build.");
@@ -79,10 +79,10 @@ namespace
             createInfo.dpy = static_cast<Display *>(nativeWindowHandle.display);
             createInfo.window = static_cast<::Window>(nativeWindowHandle.window);
             checkVk(vkCreateXlibSurfaceKHR(instance, &createInfo, nullptr, &surface), "vkCreateXlibSurfaceKHR");
-            break;
 #else
             RTRLAB_ASSERT_MSG(false, "Xlib Vulkan surface creation is unavailable in this build.");
 #endif
+            break;
         }
         case NativeWindowSystem::Xcb:
             RTRLAB_ASSERT_MSG(false, "XCB native window handles are not currently produced by the platform layer.");
@@ -94,10 +94,10 @@ namespace
             createInfo.display = static_cast<wl_display *>(nativeWindowHandle.display);
             createInfo.surface = reinterpret_cast<wl_surface *>(nativeWindowHandle.window);
             checkVk(vkCreateWaylandSurfaceKHR(instance, &createInfo, nullptr, &surface), "vkCreateWaylandSurfaceKHR");
-            break;
 #else
             RTRLAB_ASSERT_MSG(false, "Wayland Vulkan surface creation is unavailable in this build.");
 #endif
+            break;
         }
         }
 
@@ -212,6 +212,7 @@ void VulkanCommandList::initialize(VkDevice device, VkCommandPool commandPool)
 
 void VulkanCommandList::shutdown()
 {
+    // Idempotent: VulkanDevice tears the command list down explicitly before member destruction.
     if (m_Device != VK_NULL_HANDLE && m_CommandBuffer != VK_NULL_HANDLE)
     {
         vkFreeCommandBuffers(m_Device, m_CommandPool, 1, &m_CommandBuffer);

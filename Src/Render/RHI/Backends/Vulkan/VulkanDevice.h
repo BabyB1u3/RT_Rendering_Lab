@@ -25,7 +25,13 @@ class VulkanDevice;
 class VulkanCommandList final : public RHIInternal::ShellCommandListBase
 {
 public:
+    VulkanCommandList() = default;
     ~VulkanCommandList();
+
+    VulkanCommandList(const VulkanCommandList &) = delete;
+    VulkanCommandList &operator=(const VulkanCommandList &) = delete;
+    VulkanCommandList(VulkanCommandList &&) = delete;
+    VulkanCommandList &operator=(VulkanCommandList &&) = delete;
 
     void initialize(VkDevice device, VkCommandPool commandPool);
     void shutdown();
@@ -44,6 +50,7 @@ public:
     VulkanSwapchain(VulkanDevice &device, const SwapchainDesc &desc, const NativeWindowHandle &nativeWindowHandle);
 
 private:
+    // Reserved for the next Vulkan bring-up step, where this shell will own a real VkSwapchainKHR.
     VulkanDevice &m_Device;
 };
 
