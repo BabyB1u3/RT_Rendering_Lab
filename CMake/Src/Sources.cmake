@@ -186,7 +186,7 @@ set(GLAB_RENDER_BACKEND_VULKAN_HEADERS
 )
 
 set(GLAB_RENDER_BACKEND_METAL_SOURCES
-    Render/RHI/Backends/Metal/MetalDevice.cpp
+    Render/RHI/Backends/Metal/MetalDevice.mm
 )
 
 set(GLAB_RENDER_BACKEND_METAL_HEADERS

@@ -21,6 +21,8 @@ NativeWindowHandle CreateCocoaNativeWindowHandle(GLFWwindow *window)
     // Layer creation is best-effort here. If GLFW/Cocoa does not currently expose
     // a valid NSView, the returned layer may remain null and the RHI consumer must
     // validate the handle before attempting swapchain creation.
+    // The returned layer pointer is borrowed through NativeWindowHandle; backend code that
+    // stores it beyond the call site must retain/own it explicitly on its side.
     CAMetalLayer *layer = nil;
 
     if (nsView != nil)
