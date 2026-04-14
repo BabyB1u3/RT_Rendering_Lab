@@ -22,7 +22,5 @@ set_target_properties(RTRLab PROPERTIES
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES
     ${GLAB_CORE_SOURCES}
     ${GLAB_CORE_HEADERS}
-    ${GLAB_METAL_SOURCES}
-    ${GLAB_METAL_HEADERS}
     main.cpp
 )

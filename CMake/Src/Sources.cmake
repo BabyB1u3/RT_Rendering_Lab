@@ -177,33 +177,57 @@ set(GLAB_RENDER_HEADERS
     Render/Shader/ShaderTypes.h
 )
 
+set(GLAB_RENDER_BACKEND_VULKAN_SOURCES
+    Render/RHI/Backends/Vulkan/VulkanDevice.cpp
+)
+
+set(GLAB_RENDER_BACKEND_VULKAN_HEADERS
+    Render/RHI/Backends/Vulkan/VulkanDevice.h
+)
+
+set(GLAB_RENDER_BACKEND_METAL_SOURCES
+    Render/RHI/Backends/Metal/MetalDevice.cpp
+)
+
+set(GLAB_RENDER_BACKEND_METAL_HEADERS
+    Render/RHI/Backends/Metal/MetalDevice.h
+)
+
+set(GLAB_RENDER_BACKEND_OPENGL_SOURCES
+    Render/RHI/Backends/OpenGL/OpenGLDevice.cpp
+)
+
+set(GLAB_RENDER_BACKEND_OPENGL_HEADERS
+    Render/RHI/Backends/OpenGL/OpenGLDevice.h
+)
+
 if(GLAB_BACKEND_VULKAN)
     list(APPEND GLAB_RENDER_SOURCES
-        Render/RHI/Backends/Vulkan/VulkanDevice.cpp
+        ${GLAB_RENDER_BACKEND_VULKAN_SOURCES}
     )
 
     list(APPEND GLAB_RENDER_HEADERS
-        Render/RHI/Backends/Vulkan/VulkanDevice.h
+        ${GLAB_RENDER_BACKEND_VULKAN_HEADERS}
     )
 endif()
 
 if(GLAB_BACKEND_METAL)
     list(APPEND GLAB_RENDER_SOURCES
-        Render/RHI/Backends/Metal/MetalDevice.cpp
+        ${GLAB_RENDER_BACKEND_METAL_SOURCES}
     )
 
     list(APPEND GLAB_RENDER_HEADERS
-        Render/RHI/Backends/Metal/MetalDevice.h
+        ${GLAB_RENDER_BACKEND_METAL_HEADERS}
     )
 endif()
 
 if(GLAB_BACKEND_OPENGL)
     list(APPEND GLAB_RENDER_SOURCES
-        Render/RHI/Backends/OpenGL/OpenGLDevice.cpp
+        ${GLAB_RENDER_BACKEND_OPENGL_SOURCES}
     )
 
     list(APPEND GLAB_RENDER_HEADERS
-        Render/RHI/Backends/OpenGL/OpenGLDevice.h
+        ${GLAB_RENDER_BACKEND_OPENGL_HEADERS}
     )
 endif()
 
@@ -248,8 +272,40 @@ else()
     )
 endif()
 
-set(GLAB_METAL_SOURCES)
-set(GLAB_METAL_HEADERS)
+set(GLAB_CORE_SKIP_UNITY_SOURCES
+    Core/App/Window.cpp
+)
+
+if(APPLE)
+    list(APPEND GLAB_CORE_SKIP_UNITY_SOURCES
+        Core/App/CocoaNativeWindow.mm
+    )
+endif()
+
+if(UNIX AND NOT APPLE)
+    list(APPEND GLAB_CORE_SKIP_UNITY_SOURCES
+        Core/App/LinuxNativeWindow.cpp
+    )
+endif()
+
+if(GLAB_BACKEND_OPENGL)
+    list(APPEND GLAB_CORE_SKIP_UNITY_SOURCES
+        Core/App/Application.cpp
+        Core/Input/Input.cpp
+    )
+endif()
+
+if(GLAB_BACKEND_METAL)
+    list(APPEND GLAB_CORE_SKIP_UNITY_SOURCES
+        ${GLAB_RENDER_BACKEND_METAL_SOURCES}
+    )
+endif()
+
+if(GLAB_BACKEND_VULKAN)
+    list(APPEND GLAB_CORE_SKIP_UNITY_SOURCES
+        ${GLAB_RENDER_BACKEND_VULKAN_SOURCES}
+    )
+endif()
 
 set(GLAB_CORE_SOURCES
     ${GLAB_APP_SOURCES}
