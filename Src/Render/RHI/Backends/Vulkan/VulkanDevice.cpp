@@ -28,10 +28,13 @@ public:
 
     const TextureDesc &getDesc() const override { return m_Desc; }
     VkImage getVkImage() const { return m_Image; }
+    VkImageLayout getCurrentLayout() const { return m_CurrentLayout; }
+    void setCurrentLayout(VkImageLayout layout) { m_CurrentLayout = layout; }
 
 private:
     VkImage m_Image = VK_NULL_HANDLE;
     TextureDesc m_Desc;
+    VkImageLayout m_CurrentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 };
 
 class VulkanSwapchainImageView final : public TextureView
@@ -326,6 +329,70 @@ namespace
         extent.height = std::clamp(requestedHeight, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
         return extent;
     }
+
+    void transitionImageLayout(
+        VkCommandBuffer commandBuffer,
+        VkImage image,
+        VkImageLayout oldLayout,
+        VkImageLayout newLayout,
+        VkPipelineStageFlags srcStageMask,
+        VkPipelineStageFlags dstStageMask,
+        VkAccessFlags srcAccessMask,
+        VkAccessFlags dstAccessMask)
+    {
+        VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+        barrier.srcAccessMask = srcAccessMask;
+        barrier.dstAccessMask = dstAccessMask;
+        barrier.oldLayout = oldLayout;
+        barrier.newLayout = newLayout;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.image = image;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        barrier.subresourceRange.baseMipLevel = 0;
+        barrier.subresourceRange.levelCount = 1;
+        barrier.subresourceRange.baseArrayLayer = 0;
+        barrier.subresourceRange.layerCount = 1;
+
+        vkCmdPipelineBarrier(
+            commandBuffer,
+            srcStageMask,
+            dstStageMask,
+            0,
+            0,
+            nullptr,
+            0,
+            nullptr,
+            1,
+            &barrier);
+    }
+
+    VkPipelineStageFlags sourceStageForLayout(VkImageLayout layout)
+    {
+        switch (layout)
+        {
+        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+            return VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+            return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        case VK_IMAGE_LAYOUT_UNDEFINED:
+        default:
+            return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        }
+    }
+
+    VkAccessFlags sourceAccessForLayout(VkImageLayout layout)
+    {
+        switch (layout)
+        {
+        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+            return VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+        case VK_IMAGE_LAYOUT_UNDEFINED:
+        default:
+            return 0;
+        }
+    }
 }
 
 VulkanCommandList::~VulkanCommandList()
@@ -360,6 +427,86 @@ void VulkanCommandList::shutdown()
     m_Device = VK_NULL_HANDLE;
 }
 
+void VulkanCommandList::beginRendering(const RenderingInfo &renderingInfo)
+{
+    ShellCommandListBase::beginRendering(renderingInfo);
+
+    RTRLAB_ASSERT_MSG(renderingInfo.colorAttachments.size() == 1, "Early Vulkan bring-up currently supports exactly one color attachment.");
+    RTRLAB_ASSERT_MSG(renderingInfo.depthAttachment.view == nullptr, "Early Vulkan bring-up does not support depth attachments yet.");
+
+    const ColorAttachmentInfo &colorAttachment = renderingInfo.colorAttachments.front();
+    auto *imageView = dynamic_cast<VulkanSwapchainImageView *>(colorAttachment.view);
+    RTRLAB_ASSERT_MSG(imageView != nullptr, "Vulkan beginRendering currently expects a swapchain image view.");
+
+    auto *texture = dynamic_cast<VulkanSwapchainTexture *>(imageView->getTexture());
+    RTRLAB_ASSERT_MSG(texture != nullptr, "Vulkan beginRendering currently expects a swapchain texture.");
+
+    transitionImageLayout(
+        m_CommandBuffer,
+        texture->getVkImage(),
+        texture->getCurrentLayout(),
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        sourceStageForLayout(texture->getCurrentLayout()),
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        sourceAccessForLayout(texture->getCurrentLayout()),
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+    texture->setCurrentLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    const VkClearValue clearValue = {
+        {
+            colorAttachment.clearValue.r,
+            colorAttachment.clearValue.g,
+            colorAttachment.clearValue.b,
+            colorAttachment.clearValue.a,
+        }};
+
+    VkRenderingAttachmentInfo colorAttachmentInfo{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+    colorAttachmentInfo.imageView = imageView->getVkImageView();
+    colorAttachmentInfo.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colorAttachmentInfo.loadOp = colorAttachment.loadOp == LoadOp::Clear      ? VK_ATTACHMENT_LOAD_OP_CLEAR
+                                 : colorAttachment.loadOp == LoadOp::DontCare ? VK_ATTACHMENT_LOAD_OP_DONT_CARE
+                                                                              : VK_ATTACHMENT_LOAD_OP_LOAD;
+    colorAttachmentInfo.storeOp = colorAttachment.storeOp == StoreOp::DontCare ? VK_ATTACHMENT_STORE_OP_DONT_CARE
+                                                                               : VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachmentInfo.clearValue = clearValue;
+
+    VkRenderingInfo vkRenderingInfo{VK_STRUCTURE_TYPE_RENDERING_INFO};
+    vkRenderingInfo.renderArea.offset = {renderingInfo.renderArea.x, renderingInfo.renderArea.y};
+    vkRenderingInfo.renderArea.extent = {renderingInfo.renderArea.width, renderingInfo.renderArea.height};
+    vkRenderingInfo.layerCount = 1;
+    vkRenderingInfo.colorAttachmentCount = 1;
+    vkRenderingInfo.pColorAttachments = &colorAttachmentInfo;
+
+    vkCmdBeginRendering(m_CommandBuffer, &vkRenderingInfo);
+}
+
+void VulkanCommandList::endRendering()
+{
+    RTRLAB_ASSERT_MSG(m_IsRendering, "Vulkan endRendering requires an active rendering scope.");
+
+    const ColorAttachmentInfo &colorAttachment = m_RenderingInfo.colorAttachments.front();
+    auto *imageView = dynamic_cast<VulkanSwapchainImageView *>(colorAttachment.view);
+    RTRLAB_ASSERT_MSG(imageView != nullptr, "Vulkan endRendering currently expects a swapchain image view.");
+
+    auto *texture = dynamic_cast<VulkanSwapchainTexture *>(imageView->getTexture());
+    RTRLAB_ASSERT_MSG(texture != nullptr, "Vulkan endRendering currently expects a swapchain texture.");
+
+    vkCmdEndRendering(m_CommandBuffer);
+
+    transitionImageLayout(
+        m_CommandBuffer,
+        texture->getVkImage(),
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        0);
+    texture->setCurrentLayout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+    ShellCommandListBase::endRendering();
+}
+
 VulkanSwapchain::VulkanSwapchain(VulkanDevice &device, const SwapchainDesc &desc, const NativeWindowHandle &nativeWindowHandle)
     : m_Device(device),
       m_Desc(RHIInternal::sanitizeSwapchainDesc(desc)),
@@ -367,54 +514,39 @@ VulkanSwapchain::VulkanSwapchain(VulkanDevice &device, const SwapchainDesc &desc
 {
     RTRLAB_ASSERT_MSG(RHIInternal::isNativeWindowHandleValid(nativeWindowHandle), "Native window handle is incomplete.");
 
-    VkFenceCreateInfo fenceCreateInfo{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
-    checkVk(vkCreateFence(m_Device.getVkDevice(), &fenceCreateInfo, nullptr, &m_AcquireFence), "vkCreateFence");
-
     recreateSwapchain();
 }
 
 VulkanSwapchain::~VulkanSwapchain()
 {
     destroySwapchain();
-
-    if (m_AcquireFence != VK_NULL_HANDLE)
-    {
-        vkDestroyFence(m_Device.getVkDevice(), m_AcquireFence, nullptr);
-        m_AcquireFence = VK_NULL_HANDLE;
-    }
 }
 
 uint32_t VulkanSwapchain::acquireNextImage()
 {
-    checkVk(vkResetFences(m_Device.getVkDevice(), 1, &m_AcquireFence), "vkResetFences");
-
     uint32_t imageIndex = 0;
     VkResult result = vkAcquireNextImageKHR(
         m_Device.getVkDevice(),
         m_Swapchain,
         std::numeric_limits<uint64_t>::max(),
+        m_Device.getCurrentImageAvailableSemaphore(),
         VK_NULL_HANDLE,
-        m_AcquireFence,
         &imageIndex);
 
-    // Step B treats SUBOPTIMAL the same as OUT_OF_DATE so resize/recreate paths are conservative
-    // until Step C introduces proper queue sync and presentation semaphores.
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+    if (result == VK_ERROR_OUT_OF_DATE_KHR)
     {
         recreateSwapchain(m_Swapchain);
         result = vkAcquireNextImageKHR(
             m_Device.getVkDevice(),
             m_Swapchain,
             std::numeric_limits<uint64_t>::max(),
+            m_Device.getCurrentImageAvailableSemaphore(),
             VK_NULL_HANDLE,
-            m_AcquireFence,
             &imageIndex);
     }
 
-    checkVk(result, "vkAcquireNextImageKHR");
-    checkVk(vkWaitForFences(m_Device.getVkDevice(), 1, &m_AcquireFence, VK_TRUE, std::numeric_limits<uint64_t>::max()),
-            "vkWaitForFences");
-
+    if (result != VK_SUBOPTIMAL_KHR)
+        checkVk(result, "vkAcquireNextImageKHR");
     return imageIndex;
 }
 
@@ -435,7 +567,9 @@ void VulkanSwapchain::present(uint32_t imageIndex)
     RTRLAB_ASSERT_MSG(imageIndex < m_Images.size(), "Swapchain present index out of range.");
 
     VkPresentInfoKHR presentInfo{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
-    // Placeholder: Step C will provide renderFinished in pWaitSemaphores after real queue submission.
+    const VkSemaphore renderFinishedSemaphore = m_Device.getCurrentRenderFinishedSemaphore();
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = &renderFinishedSemaphore;
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = &m_Swapchain;
     presentInfo.pImageIndices = &imageIndex;
@@ -444,10 +578,13 @@ void VulkanSwapchain::present(uint32_t imageIndex)
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
     {
         recreateSwapchain(m_Swapchain);
+        m_Device.recycleCurrentRenderFinishedSemaphore();
+        m_Device.advanceFrameSync();
         return;
     }
 
     checkVk(result, "vkQueuePresentKHR");
+    m_Device.advanceFrameSync();
 }
 
 void VulkanSwapchain::resize(uint32_t newWidth, uint32_t newHeight)
@@ -505,8 +642,7 @@ void VulkanSwapchain::recreateSwapchain(VkSwapchainKHR oldSwapchain)
 
     const uint32_t queueFamilyIndices[] = {
         m_Device.getGraphicsQueueFamily(),
-        m_Device.getPresentQueueFamily()
-    };
+        m_Device.getPresentQueueFamily()};
 
     if (m_Device.getGraphicsQueueFamily() != m_Device.getPresentQueueFamily())
     {
@@ -586,7 +722,6 @@ void VulkanSwapchain::recreateSwapchain(VkSwapchainKHR oldSwapchain)
     m_VkFormat = surfaceFormat.format;
     m_Images = std::move(images);
     m_ImageViews = std::move(imageViews);
-
 }
 
 void VulkanSwapchain::destroySwapchain()
@@ -626,13 +761,113 @@ Scope<Swapchain> VulkanDevice::createSwapchain(const SwapchainDesc &desc, const 
 CommandList *VulkanDevice::beginCommandList()
 {
     RTRLAB_ASSERT_MSG(m_HasPresentationObjects, "Vulkan presentation objects must be initialized before command recording.");
+    RTRLAB_ASSERT_MSG(m_FrameInProgress, "Vulkan command recording requires an active frame.");
+    RTRLAB_ASSERT_MSG(!m_FrameSubmitted, "Vulkan command recording must happen before queue submission.");
+
+    VkCommandBuffer commandBuffer = m_CommandList.getVkCommandBuffer();
+    checkVk(vkResetCommandBuffer(commandBuffer, 0), "vkResetCommandBuffer");
+
+    VkCommandBufferBeginInfo beginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+    checkVk(vkBeginCommandBuffer(commandBuffer, &beginInfo), "vkBeginCommandBuffer");
+
     return &m_CommandList;
+}
+
+void VulkanDevice::submit(CommandList *commandList)
+{
+    RTRLAB_ASSERT_MSG(m_HasPresentationObjects, "Vulkan presentation objects must be initialized before queue submission.");
+    RTRLAB_ASSERT_MSG(m_FrameInProgress, "Vulkan submit requires an active frame.");
+    RTRLAB_ASSERT_MSG(!m_FrameSubmitted, "Vulkan submit must only happen once per frame in the current bring-up path.");
+    RTRLAB_ASSERT_MSG(commandList == &m_CommandList, "VulkanDevice only accepts submissions from its backend command list.");
+    RTRLAB_ASSERT_MSG(!m_CommandList.isRenderingActive(), "Vulkan submit requires endRendering before queue submission.");
+
+    const VkCommandBuffer commandBuffer = m_CommandList.getVkCommandBuffer();
+    checkVk(vkEndCommandBuffer(commandBuffer), "vkEndCommandBuffer");
+
+    const FrameSync &frameSync = currentFrameSync();
+    const VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+    VkSubmitInfo submitInfo{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = &frameSync.imageAvailable;
+    submitInfo.pWaitDstStageMask = &waitStage;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = &frameSync.renderFinished;
+
+    checkVk(vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, frameSync.inFlightFence), "vkQueueSubmit");
+    m_FrameSubmitted = true;
 }
 
 FrameContext *VulkanDevice::beginFrame()
 {
     RTRLAB_ASSERT_MSG(m_HasPresentationObjects, "Vulkan presentation objects must be initialized before beginning a frame.");
+    RTRLAB_ASSERT_MSG(!m_FrameInProgress, "VulkanDevice does not support nested frame lifetimes.");
+
+    FrameSync &frameSync = currentFrameSync();
+    checkVk(vkWaitForFences(m_Device, 1, &frameSync.inFlightFence, VK_TRUE, std::numeric_limits<uint64_t>::max()),
+            "vkWaitForFences");
+    checkVk(vkResetFences(m_Device, 1, &frameSync.inFlightFence), "vkResetFences");
+
+    m_FrameInProgress = true;
+    m_FrameSubmitted = false;
     return &m_FrameContext;
+}
+
+void VulkanDevice::endFrame(FrameContext *frameContext)
+{
+    RTRLAB_ASSERT_MSG(frameContext == &m_FrameContext, "VulkanDevice only accepts its backend frame context.");
+    RTRLAB_ASSERT_MSG(m_FrameInProgress, "Vulkan endFrame requires an active frame.");
+    RTRLAB_ASSERT_MSG(m_FrameSubmitted, "Vulkan endFrame currently expects queue submission before the frame closes.");
+
+    m_FrameInProgress = false;
+}
+
+VkSemaphore VulkanDevice::getCurrentImageAvailableSemaphore() const
+{
+    RTRLAB_ASSERT_MSG(m_FrameInProgress, "Current Vulkan frame sync is only valid during an active frame.");
+    return currentFrameSync().imageAvailable;
+}
+
+VkSemaphore VulkanDevice::getCurrentRenderFinishedSemaphore() const
+{
+    RTRLAB_ASSERT_MSG(m_FrameSubmitted, "Render-finished semaphore is only valid after queue submission.");
+    return currentFrameSync().renderFinished;
+}
+
+void VulkanDevice::advanceFrameSync()
+{
+    RTRLAB_ASSERT_MSG(!m_FrameInProgress, "Vulkan frame sync can only advance after endFrame.");
+    RTRLAB_ASSERT_MSG(m_FrameSubmitted, "Vulkan frame sync expects queue submission before presentation advances.");
+
+    m_CurrentFrameSlot = (m_CurrentFrameSlot + 1) % static_cast<uint32_t>(m_FrameSyncObjects.size());
+    m_FrameSubmitted = false;
+}
+
+VulkanDevice::FrameSync &VulkanDevice::currentFrameSync()
+{
+    return m_FrameSyncObjects[m_CurrentFrameSlot];
+}
+
+const VulkanDevice::FrameSync &VulkanDevice::currentFrameSync() const
+{
+    return m_FrameSyncObjects[m_CurrentFrameSlot];
+}
+
+void VulkanDevice::recycleCurrentRenderFinishedSemaphore()
+{
+    FrameSync &frameSync = currentFrameSync();
+
+    if (frameSync.renderFinished != VK_NULL_HANDLE)
+    {
+        vkDestroySemaphore(m_Device, frameSync.renderFinished, nullptr);
+        frameSync.renderFinished = VK_NULL_HANDLE;
+    }
+
+    VkSemaphoreCreateInfo semaphoreCreateInfo{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+    checkVk(vkCreateSemaphore(m_Device, &semaphoreCreateInfo, nullptr, &frameSync.renderFinished),
+            "vkCreateSemaphore(renderFinished recycle)");
 }
 
 void VulkanDevice::initializeInstance(NativeWindowSystem windowSystem)
@@ -653,6 +888,45 @@ void VulkanDevice::initializeInstance(NativeWindowSystem windowSystem)
 
     checkVk(vkCreateInstance(&createInfo, nullptr, &m_Instance), "vkCreateInstance");
     volkLoadInstance(m_Instance);
+}
+
+void VulkanDevice::initializeFrameSyncObjects()
+{
+    VkSemaphoreCreateInfo semaphoreCreateInfo{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+
+    VkFenceCreateInfo fenceCreateInfo{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+    fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    for (FrameSync &frameSync : m_FrameSyncObjects)
+    {
+        checkVk(vkCreateSemaphore(m_Device, &semaphoreCreateInfo, nullptr, &frameSync.imageAvailable), "vkCreateSemaphore(imageAvailable)");
+        checkVk(vkCreateSemaphore(m_Device, &semaphoreCreateInfo, nullptr, &frameSync.renderFinished), "vkCreateSemaphore(renderFinished)");
+        checkVk(vkCreateFence(m_Device, &fenceCreateInfo, nullptr, &frameSync.inFlightFence), "vkCreateFence(inFlight)");
+    }
+}
+
+void VulkanDevice::shutdownFrameSyncObjects()
+{
+    for (FrameSync &frameSync : m_FrameSyncObjects)
+    {
+        if (frameSync.imageAvailable != VK_NULL_HANDLE)
+        {
+            vkDestroySemaphore(m_Device, frameSync.imageAvailable, nullptr);
+            frameSync.imageAvailable = VK_NULL_HANDLE;
+        }
+
+        if (frameSync.renderFinished != VK_NULL_HANDLE)
+        {
+            vkDestroySemaphore(m_Device, frameSync.renderFinished, nullptr);
+            frameSync.renderFinished = VK_NULL_HANDLE;
+        }
+
+        if (frameSync.inFlightFence != VK_NULL_HANDLE)
+        {
+            vkDestroyFence(m_Device, frameSync.inFlightFence, nullptr);
+            frameSync.inFlightFence = VK_NULL_HANDLE;
+        }
+    }
 }
 
 void VulkanDevice::initializePresentationObjects(const NativeWindowHandle &nativeWindowHandle)
@@ -718,8 +992,11 @@ void VulkanDevice::initializePresentationObjects(const NativeWindowHandle &nativ
     }
 
     const std::array<const char *, 1> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    VkPhysicalDeviceVulkan13Features vulkan13Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+    vulkan13Features.dynamicRendering = VK_TRUE;
 
     VkDeviceCreateInfo deviceCreateInfo{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
+    deviceCreateInfo.pNext = &vulkan13Features;
     deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
     deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
     deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
@@ -736,8 +1013,12 @@ void VulkanDevice::initializePresentationObjects(const NativeWindowHandle &nativ
     commandPoolCreateInfo.queueFamilyIndex = m_GraphicsQueueFamily;
     checkVk(vkCreateCommandPool(m_Device, &commandPoolCreateInfo, nullptr, &m_CommandPool), "vkCreateCommandPool");
 
+    initializeFrameSyncObjects();
     m_CommandList.initialize(m_Device, m_CommandPool);
     m_NativeWindowHandle = nativeWindowHandle;
+    m_CurrentFrameSlot = 0;
+    m_FrameInProgress = false;
+    m_FrameSubmitted = false;
     m_HasPresentationObjects = true;
 }
 
@@ -747,6 +1028,8 @@ void VulkanDevice::shutdownPresentationObjects()
         vkDeviceWaitIdle(m_Device);
 
     m_CommandList.shutdown();
+
+    shutdownFrameSyncObjects();
 
     if (m_CommandPool != VK_NULL_HANDLE)
     {

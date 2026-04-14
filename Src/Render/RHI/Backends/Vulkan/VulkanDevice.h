@@ -3,6 +3,7 @@
 /// @file VulkanDevice.h
 /// @brief Backend-private Vulkan RHI classes for early clear/present bring-up.
 
+#include <array>
 #include <limits>
 #include <vector>
 
@@ -38,8 +39,11 @@ public:
 
     void initialize(VkDevice device, VkCommandPool commandPool);
     void shutdown();
+    void beginRendering(const RenderingInfo &renderingInfo) override;
+    void endRendering() override;
 
     VkCommandBuffer getVkCommandBuffer() const { return m_CommandBuffer; }
+    bool isRenderingActive() const { return m_IsRendering; }
 
 private:
     VkDevice m_Device = VK_NULL_HANDLE;
@@ -83,9 +87,6 @@ private:
     NativeWindowHandle m_NativeWindowHandle;
     VkSwapchainKHR m_Swapchain = VK_NULL_HANDLE;
     VkFormat m_VkFormat = VK_FORMAT_B8G8R8A8_UNORM;
-    // Placeholder: Step C will replace this acquire-side CPU fence with the usual
-    // imageAvailable/renderFinished semaphore pair plus per-frame in-flight fences.
-    VkFence m_AcquireFence = VK_NULL_HANDLE;
     std::vector<Scope<VulkanSwapchainTexture>> m_Images;
     std::vector<Scope<VulkanSwapchainImageView>> m_ImageViews;
 };
@@ -99,7 +100,9 @@ public:
     Scope<Swapchain> createSwapchain(const SwapchainDesc &desc, const NativeWindowHandle &nativeWindowHandle) override;
 
     CommandList *beginCommandList() override;
+    void submit(CommandList *commandList) override;
     FrameContext *beginFrame() override;
+    void endFrame(FrameContext *frameContext) override;
 
     VkInstance getVkInstance() const { return m_Instance; }
     VkPhysicalDevice getVkPhysicalDevice() const { return m_PhysicalDevice; }
@@ -110,9 +113,24 @@ public:
     uint32_t getGraphicsQueueFamily() const { return m_GraphicsQueueFamily; }
     uint32_t getPresentQueueFamily() const { return m_PresentQueueFamily; }
     VkCommandPool getVkCommandPool() const { return m_CommandPool; }
+    VkSemaphore getCurrentImageAvailableSemaphore() const;
+    VkSemaphore getCurrentRenderFinishedSemaphore() const;
+    void recycleCurrentRenderFinishedSemaphore();
+    void advanceFrameSync();
 
 private:
+    struct FrameSync
+    {
+        VkSemaphore imageAvailable = VK_NULL_HANDLE;
+        VkSemaphore renderFinished = VK_NULL_HANDLE;
+        VkFence inFlightFence = VK_NULL_HANDLE;
+    };
+
+    FrameSync &currentFrameSync();
+    const FrameSync &currentFrameSync() const;
     void initializeInstance(NativeWindowSystem windowSystem);
+    void initializeFrameSyncObjects();
+    void shutdownFrameSyncObjects();
     void initializePresentationObjects(const NativeWindowHandle &nativeWindowHandle);
     void shutdownPresentationObjects();
 
@@ -128,6 +146,11 @@ private:
     uint32_t m_PresentQueueFamily = std::numeric_limits<uint32_t>::max();
     NativeWindowHandle m_NativeWindowHandle{};
     bool m_HasPresentationObjects = false;
+    // Frames in flight for CPU/GPU pacing; intentionally independent from swapchain imageCount.
+    std::array<FrameSync, 2> m_FrameSyncObjects{};
+    uint32_t m_CurrentFrameSlot = 0;
+    bool m_FrameInProgress = false;
+    bool m_FrameSubmitted = false;
 
     VulkanCommandList m_CommandList;
     RHIInternal::ShellFrameContext m_FrameContext;
