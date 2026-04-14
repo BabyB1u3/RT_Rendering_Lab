@@ -8,6 +8,7 @@
 struct MetalCommandListData;
 struct MetalSwapchainData;
 struct MetalDeviceData;
+class MetalDevice;
 
 class MetalCommandList final : public RHIInternal::ShellCommandListBase
 {
