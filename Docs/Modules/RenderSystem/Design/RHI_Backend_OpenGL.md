@@ -113,7 +113,21 @@ OpenGL must use a separate vertex input path:
 
 ---
 
-## 8. Support scope
+## 8. Swapchain and present ownership
+
+The OpenGL compatibility backend must still treat present as a **backend-owned swapchain responsibility**, not as a public `Window` API.
+
+Version 1 may rely on the GLFW-created OpenGL context internally, but that dependency remains backend-private:
+
+- the public RHI still creates the swapchain from `NativeWindowHandle`
+- renderer/application code still calls `Swapchain::present()`
+- the OpenGL backend may use the current GLFW OpenGL context to perform the actual buffer swap
+
+This preserves the public abstraction boundary while accepting that OpenGL presentation is fundamentally tied to the active context/window pair.
+
+---
+
+## 9. Support scope
 
 OpenGL should support a controlled shader subset.
 

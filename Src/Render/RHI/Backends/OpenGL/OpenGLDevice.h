@@ -13,6 +13,10 @@ class OpenGLSwapchain final : public RHIInternal::ShellSwapchainBase
 {
 public:
     OpenGLSwapchain(const SwapchainDesc &desc, const NativeWindowHandle &nativeWindowHandle);
+
+    // Compatibility-backend present stays backend-owned even though GLFW created the
+    // context. This keeps Window free of a public SwapBuffers-style present API.
+    void present(uint32_t imageIndex) override;
 };
 
 class OpenGLDevice final : public RHIInternal::ShellDeviceBase
@@ -27,4 +31,3 @@ private:
     OpenGLCommandList m_CommandList;
     RHIInternal::ShellFrameContext m_FrameContext;
 };
-
