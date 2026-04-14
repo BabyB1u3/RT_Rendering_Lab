@@ -55,18 +55,37 @@ if(GLAB_BACKEND_VULKAN)
         ${GLAB_VOLK_SOURCE}
     )
 
-    set(GLAB_VULKAN_SDK_INCLUDE_DIRS)
+    set(GLAB_VULKAN_INCLUDE_HINTS)
     if(Vulkan_INCLUDE_DIR)
-        list(APPEND GLAB_VULKAN_SDK_INCLUDE_DIRS "${Vulkan_INCLUDE_DIR}")
+        list(APPEND GLAB_VULKAN_INCLUDE_HINTS "${Vulkan_INCLUDE_DIR}")
     endif()
     if(Vulkan_INCLUDE_DIRS)
-        list(APPEND GLAB_VULKAN_SDK_INCLUDE_DIRS ${Vulkan_INCLUDE_DIRS})
+        list(APPEND GLAB_VULKAN_INCLUDE_HINTS ${Vulkan_INCLUDE_DIRS})
     endif()
-    list(REMOVE_DUPLICATES GLAB_VULKAN_SDK_INCLUDE_DIRS)
+    if(DEFINED ENV{VULKAN_SDK} AND NOT "$ENV{VULKAN_SDK}" STREQUAL "")
+        list(APPEND GLAB_VULKAN_INCLUDE_HINTS
+            "$ENV{VULKAN_SDK}"
+            "$ENV{VULKAN_SDK}/include"
+            "$ENV{VULKAN_SDK}/Include"
+        )
+    endif()
+
+    find_path(GLAB_VULKAN_INCLUDE_ROOT
+        NAMES vulkan/vulkan.h
+        HINTS ${GLAB_VULKAN_INCLUDE_HINTS}
+        PATH_SUFFIXES "" include Include
+    )
+
+    if(NOT GLAB_VULKAN_INCLUDE_ROOT)
+        message(FATAL_ERROR
+            "Failed to locate the Vulkan header root required by vendored Volk. "
+            "Could not find 'vulkan/vulkan.h' from hints: ${GLAB_VULKAN_INCLUDE_HINTS}"
+        )
+    endif()
 
     target_include_directories(volk PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
-        ${GLAB_VULKAN_SDK_INCLUDE_DIRS}
+        ${GLAB_VULKAN_INCLUDE_ROOT}
     )
 
     if(WIN32)
