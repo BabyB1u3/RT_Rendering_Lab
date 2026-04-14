@@ -7,6 +7,9 @@
 
 class OpenGLCommandList final : public RHIInternal::ShellCommandListBase
 {
+public:
+    const RenderingInfo &GetRenderingInfo() const { return m_RenderingInfo; }
+    bool IsRenderingActive() const { return m_IsRendering; }
 };
 
 class OpenGLSwapchain final : public RHIInternal::ShellSwapchainBase
@@ -25,6 +28,7 @@ public:
     Scope<Swapchain> createSwapchain(const SwapchainDesc &desc, const NativeWindowHandle &nativeWindowHandle) override;
 
     CommandList *beginCommandList() override;
+    void submit(CommandList *commandList) override;
     FrameContext *beginFrame() override;
 
 private:
