@@ -33,7 +33,6 @@ jobs:
         uses: jakoch/install-vulkan-sdk-action@v1
         with:
           vulkan_version: 1.4.304.1
-          optional_components: com.lunarg.vulkan.volk
           cache: true
           stripdown: true
 
@@ -103,7 +102,6 @@ jobs:
         uses: jakoch/install-vulkan-sdk-action@v1
         with:
           vulkan_version: 1.4.304.1
-          optional_components: com.lunarg.vulkan.volk
           cache: true
           stripdown: true
 

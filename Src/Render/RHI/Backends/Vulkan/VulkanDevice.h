@@ -18,7 +18,7 @@
 #endif
 #endif
 
-#include <Volk/volk.h>
+#include <volk/volk.h>
 
 #include "Render/RHI/Backends/Common/RHIShellCommon.h"
 

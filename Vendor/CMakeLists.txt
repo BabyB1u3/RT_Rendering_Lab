@@ -40,18 +40,14 @@ glab_enable_parallel_compilation(glad)
 # Volk
 # -----------------------------------------------------------------------------
 if(GLAB_BACKEND_VULKAN)
-    set(GLAB_VULKAN_SDK_INCLUDE_DIR "${Vulkan_INCLUDE_DIR}")
-    if(NOT GLAB_VULKAN_SDK_INCLUDE_DIR AND Vulkan_INCLUDE_DIRS)
-        list(GET Vulkan_INCLUDE_DIRS 0 GLAB_VULKAN_SDK_INCLUDE_DIR)
-    endif()
-
-    set(GLAB_VOLK_HEADER "${GLAB_VULKAN_SDK_INCLUDE_DIR}/Volk/volk.h")
-    set(GLAB_VOLK_SOURCE "${GLAB_VULKAN_SDK_INCLUDE_DIR}/Volk/volk.c")
+    set(GLAB_VOLK_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/volk/volk.h")
+    set(GLAB_VOLK_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/volk/volk.c")
 
     if(NOT EXISTS "${GLAB_VOLK_HEADER}" OR NOT EXISTS "${GLAB_VOLK_SOURCE}")
         message(FATAL_ERROR
-            "The selected Vulkan SDK does not provide Volk. "
-            "Install the Volk SDK component (com.lunarg.vulkan.volk)."
+            "Vendored Volk sources are missing. Expected files:\n"
+            "  ${GLAB_VOLK_HEADER}\n"
+            "  ${GLAB_VOLK_SOURCE}"
         )
     endif()
 
@@ -60,7 +56,7 @@ if(GLAB_BACKEND_VULKAN)
     )
 
     target_include_directories(volk PUBLIC
-        ${GLAB_VULKAN_SDK_INCLUDE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}
     )
 
     if(WIN32)
