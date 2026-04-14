@@ -5,6 +5,61 @@
 
 #include "Core/Diagnostics/Assert/Assert.h"
 
+void OpenGLCommandList::beginRendering(const RenderingInfo &renderingInfo)
+{
+    ShellCommandListBase::beginRendering(renderingInfo);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // Early clear-only bring-up path:
+    // - uses renderArea directly
+    // - assumes today's full-window renderArea usage
+    // - must translate from the public RHI coordinate convention to GL's lower-left
+    //   origin once partial render areas are exercised
+    const Rect2D renderArea = renderingInfo.renderArea;
+    glViewport(renderArea.x,
+               renderArea.y,
+               static_cast<GLsizei>(renderArea.width),
+               static_cast<GLsizei>(renderArea.height));
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(renderArea.x,
+              renderArea.y,
+              static_cast<GLsizei>(renderArea.width),
+              static_cast<GLsizei>(renderArea.height));
+
+    GLbitfield clearMask = 0;
+
+    if (!renderingInfo.colorAttachments.empty())
+    {
+        // Early bring-up limitation: only the first color attachment clear is consumed here.
+        // Extend this to all color attachments when MRT clear support becomes a real requirement.
+        const ColorAttachmentInfo &colorAttachment = renderingInfo.colorAttachments.front();
+        if (colorAttachment.loadOp == LoadOp::Clear)
+        {
+            glClearColor(colorAttachment.clearValue.r,
+                         colorAttachment.clearValue.g,
+                         colorAttachment.clearValue.b,
+                         colorAttachment.clearValue.a);
+            clearMask |= GL_COLOR_BUFFER_BIT;
+        }
+    }
+
+    if (renderingInfo.depthAttachment.view != nullptr && renderingInfo.depthAttachment.loadOp == LoadOp::Clear)
+    {
+        glClearDepth(renderingInfo.depthAttachment.clearValue.depth);
+        clearMask |= GL_DEPTH_BUFFER_BIT;
+    }
+
+    if (clearMask != 0)
+        glClear(clearMask);
+}
+
+void OpenGLCommandList::endRendering()
+{
+    ShellCommandListBase::endRendering();
+    glDisable(GL_SCISSOR_TEST);
+}
+
 OpenGLSwapchain::OpenGLSwapchain(const SwapchainDesc &desc, const NativeWindowHandle &nativeWindowHandle)
     : ShellSwapchainBase(desc, nativeWindowHandle)
 {
@@ -40,48 +95,10 @@ void OpenGLDevice::submit(CommandList *commandList)
     RTRLAB_ASSERT_MSG(!m_CommandList.IsRenderingActive(),
                       "OpenGLDevice::submit requires endRendering() before submission.");
 
-    const RenderingInfo &renderingInfo = m_CommandList.GetRenderingInfo();
-    if (renderingInfo.colorAttachments.empty() && renderingInfo.depthAttachment.view == nullptr)
-        return;
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    const Rect2D renderArea = renderingInfo.renderArea;
-    glViewport(renderArea.x,
-               renderArea.y,
-               static_cast<GLsizei>(renderArea.width),
-               static_cast<GLsizei>(renderArea.height));
-    glEnable(GL_SCISSOR_TEST);
-    glScissor(renderArea.x,
-              renderArea.y,
-              static_cast<GLsizei>(renderArea.width),
-              static_cast<GLsizei>(renderArea.height));
-
-    GLbitfield clearMask = 0;
-
-    if (!renderingInfo.colorAttachments.empty())
-    {
-        const ColorAttachmentInfo &colorAttachment = renderingInfo.colorAttachments.front();
-        if (colorAttachment.loadOp == LoadOp::Clear)
-        {
-            glClearColor(colorAttachment.clearValue.r,
-                         colorAttachment.clearValue.g,
-                         colorAttachment.clearValue.b,
-                         colorAttachment.clearValue.a);
-            clearMask |= GL_COLOR_BUFFER_BIT;
-        }
-    }
-
-    if (renderingInfo.depthAttachment.view != nullptr && renderingInfo.depthAttachment.loadOp == LoadOp::Clear)
-    {
-        glClearDepth(renderingInfo.depthAttachment.clearValue.depth);
-        clearMask |= GL_DEPTH_BUFFER_BIT;
-    }
-
-    if (clearMask != 0)
-        glClear(clearMask);
-
-    glDisable(GL_SCISSOR_TEST);
+    // Early bring-up limitation: submit currently validates sequencing only.
+    // Real draw submission will need to honor recorded viewport/scissor state and replay
+    // draw commands instead of relying on beginRendering()-time clear only.
+    (void)m_CommandList.GetRenderingInfo();
 }
 
 FrameContext *OpenGLDevice::beginFrame()

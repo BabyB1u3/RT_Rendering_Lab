@@ -8,6 +8,9 @@
 class OpenGLCommandList final : public RHIInternal::ShellCommandListBase
 {
 public:
+    void beginRendering(const RenderingInfo &renderingInfo) override;
+    void endRendering() override;
+
     const RenderingInfo &GetRenderingInfo() const { return m_RenderingInfo; }
     bool IsRenderingActive() const { return m_IsRendering; }
 };
