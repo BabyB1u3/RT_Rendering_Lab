@@ -18,6 +18,7 @@
 
 #include <string>
 #include <cstdint>
+#include <limits>
 
 #include "Core/Util/Base.h"
 #include "Core/Event/EventBus.h"
@@ -99,7 +100,7 @@ private:
     ResourceStateTracker m_ResourceStateTracker;
     FrameContext *m_FrameContext = nullptr;
     CommandList *m_CommandList = nullptr;
-    uint32_t m_SwapchainImageIndex = 0;
+    uint32_t m_SwapchainImageIndex = std::numeric_limits<uint32_t>::max();
     Texture *m_SwapchainImage = nullptr;
     TextureView *m_SwapchainImageView = nullptr;
 

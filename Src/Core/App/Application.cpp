@@ -209,6 +209,7 @@ void Application::PresentFrame()
 
     m_Swapchain->present(m_SwapchainImageIndex);
     m_ResourceStateTracker.reset();
+    m_SwapchainImageIndex = std::numeric_limits<uint32_t>::max();
     m_SwapchainImage = nullptr;
     m_SwapchainImageView = nullptr;
 }
