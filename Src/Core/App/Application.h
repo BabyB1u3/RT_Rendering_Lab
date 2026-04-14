@@ -24,6 +24,7 @@
 #include "Core/Event/ScopedConnection.h"
 #include "Core/App/Window.h"
 #include "Core/App/LayerStack.h"
+#include "Render/RHI/RHI.h"
 
 class ImGuiLayer;
 
@@ -74,6 +75,8 @@ private:
     void EndFrame();
     /// Present the completed frame. Future explicit-RHI swapchain present lands here.
     void PresentFrame();
+    /// Create the backend-selected device and swapchain used by the application frame loop.
+    void InitializeRHI();
 
 private:
     // Non-owning singleton-style pointer. Lifetime is managed externally by the actual Application object.
@@ -90,6 +93,15 @@ private:
     // Set to true when the window refresh callback already rendered a frame
     // so that the main loop can skip the redundant render for that tick.
     bool m_FrameRenderedThisTick = false;
+
+    Scope<Device> m_Device;
+    Scope<Swapchain> m_Swapchain;
+    ResourceStateTracker m_ResourceStateTracker;
+    FrameContext *m_FrameContext = nullptr;
+    CommandList *m_CommandList = nullptr;
+    uint32_t m_SwapchainImageIndex = 0;
+    Texture *m_SwapchainImage = nullptr;
+    TextureView *m_SwapchainImageView = nullptr;
 
     ScopedConnection m_ResizeConnection;
 };
