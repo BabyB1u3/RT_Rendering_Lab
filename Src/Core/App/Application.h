@@ -1,17 +1,17 @@
 #pragma once
 
 /// @file Application.h
-/// @brief Top-level application class 鈥?owns the window, layer stack, and main loop.
+/// @brief Top-level application class - owns the window, layer stack, and main loop.
 ///
 /// Construction order:
-///   FileSystem::Init() - Diagnostics::Logger::Init() via /Saved/logs 鈫?Window 鈫?Input 鈫?Time 鈫?ImGuiLayer (overlay)
+///   FileSystem::Init() - Diagnostics::Logger::Init() via /Saved/logs - Window - Input - Time - ImGuiLayer (overlay)
 ///
 /// Main loop (Application::Run):
 ///   1. Poll OS events
 ///   2. Update frame time
 ///   3. Begin frame
 ///   4. For each layer: OnUpdate(dt) -> OnRender()
-///   5. ImGuiLayer::Begin() -> For each layer: OnImGuiRender() 鈫?ImGuiLayer::End()
+///   5. ImGuiLayer::Begin() -> For each layer: OnImGuiRender() -> ImGuiLayer::End()
 ///   6. End frame -> present
 ///
 /// Only one Application instance may exist at a time (enforced by s_Instance).
