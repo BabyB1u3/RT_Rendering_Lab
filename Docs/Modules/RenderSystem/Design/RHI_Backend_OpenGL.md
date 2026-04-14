@@ -127,7 +127,20 @@ This preserves the public abstraction boundary while accepting that OpenGL prese
 
 ---
 
-## 9. Support scope
+## 9. Early clear/present limitations
+
+The first clear/present bring-up on the OpenGL backend intentionally accepts a few temporary constraints:
+
+- clear is executed at `beginRendering()` time, matching the public load-op semantics and aligning with an immediate-style OpenGL path
+- the current clear-only path assumes today's full-window `renderArea` usage; once partial render areas are exercised, the backend must translate from the public RHI coordinate convention to OpenGL's lower-left origin
+- only the first color attachment clear is consumed in the early path; MRT clear support must extend this to all active color attachments
+- recorded `setViewport()` / `setScissor()` state is not yet replayed; the current path uses `RenderingInfo::renderArea` directly until real draw submission lands
+
+These are accepted v1 bring-up constraints, not intended long-term behavior.
+
+---
+
+## 10. Support scope
 
 OpenGL should support a controlled shader subset.
 
