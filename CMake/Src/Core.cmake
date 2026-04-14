@@ -10,21 +10,10 @@ target_include_directories(RTRLabCore PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-set_source_files_properties(
-    ${CMAKE_CURRENT_SOURCE_DIR}/Core/App/Window.cpp
-    PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON
-)
-
-if(APPLE)
+if(GLAB_CORE_SKIP_UNITY_SOURCES)
+    list(TRANSFORM GLAB_CORE_SKIP_UNITY_SOURCES PREPEND "${CMAKE_CURRENT_SOURCE_DIR}/")
     set_source_files_properties(
-        ${CMAKE_CURRENT_SOURCE_DIR}/Core/App/CocoaNativeWindow.mm
-        PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON
-    )
-endif()
-
-if(UNIX AND NOT APPLE)
-    set_source_files_properties(
-        ${CMAKE_CURRENT_SOURCE_DIR}/Core/App/LinuxNativeWindow.cpp
+        ${GLAB_CORE_SKIP_UNITY_SOURCES}
         PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON
     )
 endif()
@@ -60,12 +49,6 @@ if(GLAB_BACKEND_OPENGL)
     target_compile_definitions(RTRLabCore PUBLIC
         GLAB_BACKEND_OPENGL
     )
-
-    set_source_files_properties(
-        ${CMAKE_CURRENT_SOURCE_DIR}/Core/App/Application.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/Core/Input/Input.cpp
-        PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON
-    )
 endif()
 
 if(APPLE)
@@ -76,15 +59,6 @@ if(APPLE)
 endif()
 
 if(GLAB_BACKEND_METAL)
-    target_sources(RTRLabCore PRIVATE
-        ${GLAB_METAL_SOURCES}
-        ${GLAB_METAL_HEADERS}
-    )
-
-    set_source_files_properties(${GLAB_METAL_SOURCES}
-        PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON
-    )
-
     target_link_libraries(RTRLabCore PUBLIC
         "-framework Metal"
     )
@@ -95,6 +69,10 @@ if(GLAB_BACKEND_METAL)
 endif()
 
 if(GLAB_BACKEND_VULKAN)
+    target_link_libraries(RTRLabCore PUBLIC
+        Vulkan::Vulkan
+    )
+
     target_compile_definitions(RTRLabCore PUBLIC
         GLAB_BACKEND_VULKAN
     )
