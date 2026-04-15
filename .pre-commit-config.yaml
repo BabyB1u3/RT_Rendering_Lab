@@ -3,6 +3,25 @@ default_install_hook_types:
   - pre-push
 
 repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: end-of-file-fixer
+        stages:
+          - pre-commit
+
+      - id: trailing-whitespace
+        args:
+          - --markdown-linebreak-ext=md
+        stages:
+          - pre-commit
+
+      - id: mixed-line-ending
+        args:
+          - --fix=lf
+        stages:
+          - pre-commit
+
   - repo: local
     hooks:
       - id: clang-format
