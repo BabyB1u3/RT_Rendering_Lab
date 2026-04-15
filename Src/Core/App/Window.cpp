@@ -26,9 +26,9 @@
 
 namespace
 {
-bool s_GLFWInitialized = false;
+bool g_GlfwInitialized = false;
 
-void GLFWErrorCallback(int error, const char* description)
+void OnGLFWError(int error, const char* description)
 {
     LOG_ERROR_CAT(LogCategory::Window, "[GLFW Error] ({}): {}", error, description);
 }
@@ -46,17 +46,17 @@ Window::~Window()
 
 void Window::Init(const WindowProps& props)
 {
-    m_Width = props.Width;
-    m_Height = props.Height;
+    m_Width = props.m_Width;
+    m_Height = props.m_Height;
 
-    if (!s_GLFWInitialized)
+    if (!g_GlfwInitialized)
     {
-        glfwSetErrorCallback(GLFWErrorCallback);
+        glfwSetErrorCallback(OnGLFWError);
 
         RTRLAB_ASSERT_MSG(glfwInit(), "Failed to initialize GLFW.");
 
         LOG_INFO_CAT(LogCategory::Window, "GLFW initialized");
-        s_GLFWInitialized = true;
+        g_GlfwInitialized = true;
     }
 
 #if defined(GLAB_BACKEND_OPENGL)
@@ -71,7 +71,7 @@ void Window::Init(const WindowProps& props)
 #endif
 
     m_Handle = glfwCreateWindow(
-        static_cast<int>(props.Width), static_cast<int>(props.Height), props.Title.c_str(), nullptr, nullptr);
+        static_cast<int>(props.m_Width), static_cast<int>(props.m_Height), props.m_Title.c_str(), nullptr, nullptr);
 
     RTRLAB_ASSERT_MSG(m_Handle, "Failed to create GLFW window.");
 
@@ -85,11 +85,11 @@ void Window::Init(const WindowProps& props)
 
     LOG_INFO_CAT(LogCategory::Window,
                  "Window created: {}x{} (framebuffer {}x{}) \"{}\"",
-                 props.Width,
-                 props.Height,
+                 props.m_Width,
+                 props.m_Height,
                  m_Width,
                  m_Height,
-                 props.Title);
+                 props.m_Title);
 
 #if defined(GLAB_BACKEND_OPENGL)
     glfwMakeContextCurrent(m_Handle);

@@ -70,6 +70,11 @@ Preferred verbs:
 - `Register`
 - `Reset`
 
+Exception:
+
+- STL-style container compatibility helpers may keep the standard lowercase names
+  `begin`, `end`, `rbegin`, and `rend`
+
 ### Local Variables and Parameters
 
 Use `lowerCamelCase`.

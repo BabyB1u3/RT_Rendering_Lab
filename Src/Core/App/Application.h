@@ -31,9 +31,9 @@ class ImGuiLayer;
 
 struct ApplicationSpecification
 {
-    std::string Name = "RTRLab";
-    uint32_t Width = 1600;
-    uint32_t Height = 900;
+    std::string m_Name = "RTRLab";
+    uint32_t m_Width = 1600;
+    uint32_t m_Height = 900;
 };
 
 class Application

@@ -57,9 +57,9 @@ int main(int argc, char** argv)
     Util::SetProcessCommandLine(std::move(commandLine));
 
     ApplicationSpecification spec;
-    spec.Name = "RTRLab";
-    spec.Width = 1600;
-    spec.Height = 900;
+    spec.m_Name = "RTRLab";
+    spec.m_Width = 1600;
+    spec.m_Height = 900;
 
     Application app(spec);
     app.PushLayer(CreateScope<LabLayer>());

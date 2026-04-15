@@ -23,9 +23,9 @@ class EventBus;
 
 struct WindowProps
 {
-    std::string Title = "RTRLab";
-    uint32_t Width = 1600;
-    uint32_t Height = 900;
+    std::string m_Title = "RTRLab";
+    uint32_t m_Width = 1600;
+    uint32_t m_Height = 900;
 };
 
 class Window

@@ -23,14 +23,14 @@ Application::Application(const ApplicationSpecification& spec)
     Diagnostics::CrashHandler::Init();
     LOG_INFO_CAT(LogCategory::FileSystem, "FileSystem initialized - root: {}", FileSystem::GetRootPath().string());
     LOG_INFO_CAT(LogCategory::FileSystem, "Saved directory: {}", FileSystem::GetSavedDir().string());
-    LOG_INFO_CAT(LogCategory::Core, "Starting application: {}", spec.Name);
+    LOG_INFO_CAT(LogCategory::Core, "Starting application: {}", spec.m_Name);
 
     RTRLAB_ASSERT_MSG(!s_Instance, "Application already exists.");
 
     WindowProps props;
-    props.Title = spec.Name;
-    props.Width = spec.Width;
-    props.Height = spec.Height;
+    props.m_Title = spec.m_Name;
+    props.m_Width = spec.m_Width;
+    props.m_Height = spec.m_Height;
 
     m_Window = CreateScope<Window>(props);
     m_Window->SetRefreshCallback(
@@ -93,7 +93,7 @@ void Application::RenderFrame()
     // Phase 3: ImGui pass - Begin/End bracket all OnImGuiRender() calls
     // so that ImGui's NewFrame/Render are issued exactly once per frame.
     // m_ImGuiLayer->Begin();
-    // for (auto &layer : m_LayerStack)
+    // for (auto& layer : m_LayerStack)
     //     layer->OnImGuiRender();
     // m_ImGuiLayer->End();
 
