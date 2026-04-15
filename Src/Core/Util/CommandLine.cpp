@@ -24,7 +24,7 @@ bool StoreParsedOption(const Util::CommandLineOption& option,
                        std::optional<std::string> value,
                        Util::ParsedCommandLine& parsed)
 {
-    parsed.options[option.longName] = std::move(value);
+    parsed.m_Options[option.m_LongName] = std::move(value);
     return true;
 }
 
@@ -47,10 +47,10 @@ bool ParseLongOptionArgument(std::string_view argument,
         return false;
     }
 
-    const bool optionVisible = IsOptionVisible(option->visibility, mode);
+    const bool isOptionVisible = IsOptionVisible(option->m_Visibility, mode);
     const bool hasInlineValue = equalsPos != std::string_view::npos;
 
-    if (option->kind == Util::CommandLineOptionKind::Flag)
+    if (option->m_Kind == Util::CommandLineOptionKind::Flag)
     {
         if (hasInlineValue)
         {
@@ -58,7 +58,7 @@ bool ParseLongOptionArgument(std::string_view argument,
             return false;
         }
 
-        if (optionVisible)
+        if (isOptionVisible)
             return StoreParsedOption(*option, std::nullopt, parsed);
 
         return true;
@@ -80,7 +80,7 @@ bool ParseLongOptionArgument(std::string_view argument,
         value = argv[++index];
     }
 
-    if (optionVisible)
+    if (isOptionVisible)
         return StoreParsedOption(*option, std::move(value), parsed);
 
     return true;
@@ -109,10 +109,10 @@ bool ParseShortOptionArgument(std::string_view argument,
         return false;
     }
 
-    const bool optionVisible = IsOptionVisible(option->visibility, mode);
+    const bool isOptionVisible = IsOptionVisible(option->m_Visibility, mode);
     const std::string_view remainder = argument.substr(2);
 
-    if (option->kind == Util::CommandLineOptionKind::Flag)
+    if (option->m_Kind == Util::CommandLineOptionKind::Flag)
     {
         if (!remainder.empty())
         {
@@ -120,7 +120,7 @@ bool ParseShortOptionArgument(std::string_view argument,
             return false;
         }
 
-        if (optionVisible)
+        if (isOptionVisible)
             return StoreParsedOption(*option, std::nullopt, parsed);
 
         return true;
@@ -145,7 +145,7 @@ bool ParseShortOptionArgument(std::string_view argument,
         value = argv[++index];
     }
 
-    if (optionVisible)
+    if (isOptionVisible)
         return StoreParsedOption(*option, std::move(value), parsed);
 
     return true;
@@ -156,13 +156,13 @@ namespace Util
 {
 bool ParsedCommandLine::HasOption(std::string_view name) const
 {
-    return options.contains(std::string(name));
+    return m_Options.contains(std::string(name));
 }
 
 std::optional<std::string_view> ParsedCommandLine::GetOptionValue(std::string_view name) const
 {
-    const auto it = options.find(std::string(name));
-    if (it == options.end() || !it->second.has_value())
+    const auto it = m_Options.find(std::string(name));
+    if (it == m_Options.end() || !it->second.has_value())
         return std::nullopt;
 
     return *it->second;
@@ -174,12 +174,12 @@ CommandLineSpec& CommandLineSpec::AddFlag(std::string_view longName,
                                           CommandLineOptionVisibility visibility)
 {
     m_Options.push_back(CommandLineOption{
-        .longName = std::string(longName),
-        .shortName = shortName,
-        .kind = CommandLineOptionKind::Flag,
-        .visibility = visibility,
-        .valueName = {},
-        .description = std::string(description),
+        .m_LongName = std::string(longName),
+        .m_ShortName = shortName,
+        .m_Kind = CommandLineOptionKind::Flag,
+        .m_Visibility = visibility,
+        .m_ValueName = {},
+        .m_Description = std::string(description),
     });
     return *this;
 }
@@ -191,12 +191,12 @@ CommandLineSpec& CommandLineSpec::AddValueOption(std::string_view longName,
                                                  CommandLineOptionVisibility visibility)
 {
     m_Options.push_back(CommandLineOption{
-        .longName = std::string(longName),
-        .shortName = shortName,
-        .kind = CommandLineOptionKind::Value,
-        .visibility = visibility,
-        .valueName = std::string(valueName),
-        .description = std::string(description),
+        .m_LongName = std::string(longName),
+        .m_ShortName = shortName,
+        .m_Kind = CommandLineOptionKind::Value,
+        .m_Visibility = visibility,
+        .m_ValueName = std::string(valueName),
+        .m_Description = std::string(description),
     });
     return *this;
 }
@@ -212,32 +212,32 @@ std::string CommandLineSpec::BuildUsage(std::string_view programName, CommandLin
     stream << "Usage: " << programName;
     for (const auto& option : m_Options)
     {
-        if (!IsOptionVisible(option.visibility, mode))
+        if (!IsOptionVisible(option.m_Visibility, mode))
             continue;
 
-        stream << " [--" << option.longName;
-        if (option.kind == CommandLineOptionKind::Value)
-            stream << " <" << option.valueName << ">";
+        stream << " [--" << option.m_LongName;
+        if (option.m_Kind == CommandLineOptionKind::Value)
+            stream << " <" << option.m_ValueName << ">";
         stream << "]";
     }
     stream << "\n\nOptions:\n";
 
     for (const auto& option : m_Options)
     {
-        if (!IsOptionVisible(option.visibility, mode))
+        if (!IsOptionVisible(option.m_Visibility, mode))
             continue;
 
         stream << "  ";
-        if (option.shortName.has_value())
-            stream << "-" << *option.shortName << ", ";
+        if (option.m_ShortName.has_value())
+            stream << "-" << *option.m_ShortName << ", ";
         else
             stream << "    ";
 
-        stream << "--" << option.longName;
-        if (option.kind == CommandLineOptionKind::Value)
-            stream << " <" << option.valueName << ">";
-        if (!option.description.empty())
-            stream << "\n      " << option.description;
+        stream << "--" << option.m_LongName;
+        if (option.m_Kind == CommandLineOptionKind::Value)
+            stream << " <" << option.m_ValueName << ">";
+        if (!option.m_Description.empty())
+            stream << "\n      " << option.m_Description;
         stream << "\n";
     }
 
@@ -248,7 +248,7 @@ const CommandLineOption* CommandLineSpec::FindLongOption(std::string_view longNa
 {
     for (const auto& option : m_Options)
     {
-        if (option.longName == longName)
+        if (option.m_LongName == longName)
             return &option;
     }
 
@@ -259,7 +259,7 @@ const CommandLineOption* CommandLineSpec::FindShortOption(char shortName) const
 {
     for (const auto& option : m_Options)
     {
-        if (option.shortName.has_value() && *option.shortName == shortName)
+        if (option.m_ShortName.has_value() && *option.m_ShortName == shortName)
             return &option;
     }
 
@@ -281,7 +281,7 @@ bool ParseCommandLine(int argc,
         if (argument == "--")
         {
             for (++i; i < argc; ++i)
-                parsed.positionals.emplace_back(argv[i]);
+                parsed.m_Positionals.emplace_back(argv[i]);
             return true;
         }
 
@@ -299,7 +299,7 @@ bool ParseCommandLine(int argc,
             continue;
         }
 
-        parsed.positionals.emplace_back(argument);
+        parsed.m_Positionals.emplace_back(argument);
     }
 
     return true;

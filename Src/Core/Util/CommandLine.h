@@ -28,12 +28,12 @@ enum class CommandLineParseMode
 
 struct CommandLineOption
 {
-    std::string longName;
-    std::optional<char> shortName;
-    CommandLineOptionKind kind = CommandLineOptionKind::Flag;
-    CommandLineOptionVisibility visibility = CommandLineOptionVisibility::Always;
-    std::string valueName;
-    std::string description;
+    std::string m_LongName;
+    std::optional<char> m_ShortName;
+    CommandLineOptionKind m_Kind = CommandLineOptionKind::Flag;
+    CommandLineOptionVisibility m_Visibility = CommandLineOptionVisibility::Always;
+    std::string m_ValueName;
+    std::string m_Description;
 };
 
 struct ParsedCommandLine
@@ -41,8 +41,8 @@ struct ParsedCommandLine
     bool HasOption(std::string_view name) const;
     std::optional<std::string_view> GetOptionValue(std::string_view name) const;
 
-    std::unordered_map<std::string, std::optional<std::string>> options;
-    std::vector<std::string> positionals;
+    std::unordered_map<std::string, std::optional<std::string>> m_Options;
+    std::vector<std::string> m_Positionals;
 };
 
 class CommandLineSpec

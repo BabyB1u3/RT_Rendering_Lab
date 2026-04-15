@@ -74,9 +74,9 @@ TEST(CommandLineTests, ProcessCommandLineStorageRoundTripsParsedState)
     Util::ClearProcessCommandLine();
 
     Util::ParsedCommandLine parsed;
-    parsed.options.emplace("root", std::string("D:/Repo"));
-    parsed.options.emplace("help", std::nullopt);
-    parsed.positionals.emplace_back("scene.rtr");
+    parsed.m_Options.emplace("root", std::string("D:/Repo"));
+    parsed.m_Options.emplace("help", std::nullopt);
+    parsed.m_Positionals.emplace_back("scene.rtr");
 
     Util::SetProcessCommandLine(parsed);
 
@@ -84,8 +84,8 @@ TEST(CommandLineTests, ProcessCommandLineStorageRoundTripsParsedState)
     EXPECT_TRUE(stored.HasOption("help"));
     ASSERT_TRUE(stored.GetOptionValue("root").has_value());
     EXPECT_EQ(*stored.GetOptionValue("root"), "D:/Repo");
-    ASSERT_EQ(stored.positionals.size(), 1u);
-    EXPECT_EQ(stored.positionals[0], "scene.rtr");
+    ASSERT_EQ(stored.m_Positionals.size(), 1u);
+    EXPECT_EQ(stored.m_Positionals[0], "scene.rtr");
 
     Util::ClearProcessCommandLine();
 }
