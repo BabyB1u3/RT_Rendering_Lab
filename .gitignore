@@ -21,3 +21,7 @@ Saved
 *.pdb
 *.ilk
 
+# Python tooling artifacts
+__pycache__/
+*.pyc
+*.pyo

@@ -82,6 +82,15 @@ uint32_t imageIndex = 0;
 std::string errorMessage;
 ```
 
+Function-local `const` values still use `lowerCamelCase` when they are ordinary read-only temporaries or intermediate results.
+
+Examples:
+
+```cpp
+const auto logTail = ReadLogTail(path, 80);
+const std::string reason = fmt::format("{}", message);
+```
+
 ### Member Fields
 
 Use `m_` followed by `PascalCase`.
@@ -126,6 +135,20 @@ Examples:
 constexpr size_t k_MaxEntries = 1024;
 inline constexpr std::string_view k_PakArchiveExtension = ".rtrpak";
 static constexpr const char* k_AppName = "RTRLab";
+```
+
+Use this style for:
+
+- namespace-scope constants
+- class static constants
+- `constexpr` local constants
+- local `static const` / `static constexpr` constants that act as named constants
+
+Examples:
+
+```cpp
+constexpr uint32_t k_MaxSupportedFrames = 62;
+static const auto k_StartTime = Clock::now();
 ```
 
 ## Naming by Category
