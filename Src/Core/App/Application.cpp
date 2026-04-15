@@ -44,8 +44,8 @@ Application::Application(const ApplicationSpecification& spec)
 
     // Subscribe to resize events BEFORE SetEventBus() installs the GLFW callbacks
     // that publish them, so no event is missed.
-    m_ResizeConnection = m_EventBus.Subscribe<WindowResizeEvent>([this](const WindowResizeEvent& e)
-                                                                 { OnWindowResize(e.Width, e.Height); });
+    m_ResizeConnection = m_EventBus.Subscribe<WindowResizeEvent>([this](const WindowResizeEvent& event)
+                                                                 { OnWindowResize(event.m_Width, event.m_Height); });
     m_Window->SetEventBus(&m_EventBus);
 
     Input::Initialize(m_Window->GetNativeHandle());
