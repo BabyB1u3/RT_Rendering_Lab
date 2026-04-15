@@ -18,7 +18,7 @@
 
 namespace Serialization
 {
-namespace detail
+namespace Detail
 {
 inline std::string MakeConfigVirtualPath(std::string_view mountRoot, std::string_view relativePath)
 {
@@ -29,7 +29,7 @@ inline std::string MakeConfigVirtualPath(std::string_view mountRoot, std::string
 }
 
 template <Serializable T>
-bool LoadValueFromString(T& value, const std::string& data, const IFormatBackend& backend, std::string_view sourceLabel)
+bool LoadValueFromString(T& value, const std::string& data, const FormatBackend& backend, std::string_view sourceLabel)
 {
     PropertyTree tree;
     if (!backend.ReadFromString(data, tree))
@@ -85,20 +85,20 @@ inline std::optional<std::string> ResolveConfigReadText(std::string_view relativ
 
     return std::nullopt;
 }
-} // namespace detail
+} // namespace Detail
 
 /// Get the default backend for a file extension.
-inline const IFormatBackend& GetBackendForExtension(std::string_view /*ext*/)
+inline const FormatBackend& GetBackendForExtension(std::string_view /*ext*/)
 {
     // Phase 1: JSON only. Future backends register here.
-    static const JsonBackend s_JsonBackend;
-    return s_JsonBackend;
+    static const JsonBackend k_JsonBackend;
+    return k_JsonBackend;
 }
 
 /// Save: Serialize T -> PropertyTree -> format string -> file.
 /// Creates parent directories. Returns false on failure.
 template <Serializable T>
-bool SaveToFile(const T& value, const std::filesystem::path& path, const IFormatBackend& backend)
+bool SaveToFile(const T& value, const std::filesystem::path& path, const FormatBackend& backend)
 {
     PropertyTree tree;
     Serialize(tree, value);
@@ -140,7 +140,7 @@ template <Serializable T> bool SaveToFile(const T& value, const std::filesystem:
 
 /// Save directly through a logical resource path.
 template <Serializable T>
-bool SaveToVirtualPath(const T& value, std::string_view virtualPath, const IFormatBackend& backend)
+bool SaveToVirtualPath(const T& value, std::string_view virtualPath, const FormatBackend& backend)
 {
     const auto path = FileSystem::ResolveWritePath(virtualPath);
     if (!path.has_value())
@@ -169,7 +169,7 @@ template <Serializable T> bool SaveToVirtualPath(const T& value, std::string_vie
 
 /// Load: file -> format string -> PropertyTree -> Deserialize into T.
 /// On failure, `value` is unchanged. Returns false on parse or validation error.
-template <Serializable T> bool LoadFromFile(T& value, const std::filesystem::path& path, const IFormatBackend& backend)
+template <Serializable T> bool LoadFromFile(T& value, const std::filesystem::path& path, const FormatBackend& backend)
 {
     std::ifstream file(path);
     if (!file.is_open())
@@ -179,7 +179,7 @@ template <Serializable T> bool LoadFromFile(T& value, const std::filesystem::pat
     ss << file.rdbuf();
     std::string data = ss.str();
 
-    return detail::LoadValueFromString(value, data, backend, path.string());
+    return Detail::LoadValueFromString(value, data, backend, path.string());
 }
 
 /// Load with auto-detected backend (based on file extension).
@@ -190,8 +190,7 @@ template <Serializable T> bool LoadFromFile(T& value, const std::filesystem::pat
 }
 
 /// Load directly through a logical resource path.
-template <Serializable T>
-bool LoadFromVirtualPath(T& value, std::string_view virtualPath, const IFormatBackend& backend)
+template <Serializable T> bool LoadFromVirtualPath(T& value, std::string_view virtualPath, const FormatBackend& backend)
 {
     const auto data = FileSystem::ReadText(virtualPath);
     if (!data.has_value())
@@ -201,7 +200,7 @@ bool LoadFromVirtualPath(T& value, std::string_view virtualPath, const IFormatBa
         return false;
     }
 
-    return detail::LoadValueFromString(value, *data, backend, virtualPath);
+    return Detail::LoadValueFromString(value, *data, backend, virtualPath);
 }
 
 /// Load with auto-detected backend through a logical resource path.
@@ -216,12 +215,12 @@ template <Serializable T> bool LoadFromVirtualPath(T& value, std::string_view vi
     }
 
     const auto ext = std::filesystem::path(virtualPath).extension().string();
-    return detail::LoadValueFromString(value, *data, GetBackendForExtension(ext), virtualPath);
+    return Detail::LoadValueFromString(value, *data, GetBackendForExtension(ext), virtualPath);
 }
 
 /// Save through the logical config namespace. Writes always target /Saved/Config.
 template <Serializable T>
-bool SaveToConfigPath(const T& value, std::string_view relativePath, const IFormatBackend& backend)
+bool SaveToConfigPath(const T& value, std::string_view relativePath, const FormatBackend& backend)
 {
     const std::string virtualPath =
         relativePath.empty() ? std::string{"/Saved/Config"} : "/Saved/Config/" + std::string(relativePath);
@@ -237,33 +236,32 @@ template <Serializable T> bool SaveToConfigPath(const T& value, std::string_view
 }
 
 /// Load through the config namespace. Reads apply saved -> project -> engine fallback.
-template <Serializable T>
-bool LoadFromConfigPath(T& value, std::string_view relativePath, const IFormatBackend& backend)
+template <Serializable T> bool LoadFromConfigPath(T& value, std::string_view relativePath, const FormatBackend& backend)
 {
-    const auto data = detail::ResolveConfigReadText(relativePath);
+    const auto data = Detail::ResolveConfigReadText(relativePath);
     if (!data.has_value())
     {
         LOG_ERROR_CAT(LogCategory::Serialization, "Serialization: failed to resolve config path '{}'", relativePath);
         return false;
     }
 
-    const std::string sourceLabel = detail::MakeConfigVirtualPath("/Config", relativePath);
-    return detail::LoadValueFromString(value, *data, backend, sourceLabel);
+    const std::string sourceLabel = Detail::MakeConfigVirtualPath("/Config", relativePath);
+    return Detail::LoadValueFromString(value, *data, backend, sourceLabel);
 }
 
 /// Load through the config namespace with auto-detected backend.
 template <Serializable T> bool LoadFromConfigPath(T& value, std::string_view relativePath)
 {
-    const auto data = detail::ResolveConfigReadText(relativePath);
+    const auto data = Detail::ResolveConfigReadText(relativePath);
     if (!data.has_value())
     {
         LOG_ERROR_CAT(LogCategory::Serialization, "Serialization: failed to resolve config path '{}'", relativePath);
         return false;
     }
 
-    const std::string sourceLabel = detail::MakeConfigVirtualPath("/Config", relativePath);
+    const std::string sourceLabel = Detail::MakeConfigVirtualPath("/Config", relativePath);
     const auto ext = std::filesystem::path(relativePath).extension().string();
-    return detail::LoadValueFromString(value, *data, GetBackendForExtension(ext), sourceLabel);
+    return Detail::LoadValueFromString(value, *data, GetBackendForExtension(ext), sourceLabel);
 }
 
 } // namespace Serialization

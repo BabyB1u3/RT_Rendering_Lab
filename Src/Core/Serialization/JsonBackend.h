@@ -6,12 +6,12 @@
 /// This is the sole point of coupling to nlohmann/json in the engine.
 /// No other file should include <json.hpp> for serialization purposes.
 
-#include "Core/Serialization/IFormatBackend.h"
+#include "Core/Serialization/FormatBackend.h"
 
 namespace Serialization
 {
 
-class JsonBackend : public IFormatBackend
+class JsonBackend : public FormatBackend
 {
 public:
     explicit JsonBackend(int indent = 2) : m_Indent(indent) {}

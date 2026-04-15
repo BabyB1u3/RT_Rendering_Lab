@@ -156,7 +156,7 @@ TEST(PropertyTreeTests, AsObjectReturnsStoredObjectAndMutableAccessAllowsModific
     tree.AsObject()["version"] = PropertyTree(1);
 
     EXPECT_EQ(tree.Size(), 2u);
-    EXPECT_TRUE(tree.Contains("version"));
+    EXPECT_TRUE(tree.HasKey("version"));
     EXPECT_EQ(tree["version"].AsInt(), 1);
 }
 
@@ -165,15 +165,15 @@ TEST(PropertyTreeTests, ContainsReportsPresenceAndAbsence)
     PropertyTree tree = PropertyTree::Object{};
     tree["enabled"] = PropertyTree(true);
 
-    EXPECT_TRUE(tree.Contains("enabled"));
-    EXPECT_FALSE(tree.Contains("missing"));
+    EXPECT_TRUE(tree.HasKey("enabled"));
+    EXPECT_FALSE(tree.HasKey("missing"));
 }
 
 TEST(PropertyTreeTests, ContainsReturnsFalseForNonObject)
 {
-    EXPECT_FALSE(PropertyTree(7).Contains("value"));
-    EXPECT_FALSE(PropertyTree(PropertyTree::Array{}).Contains("value"));
-    EXPECT_FALSE(PropertyTree().Contains("value"));
+    EXPECT_FALSE(PropertyTree(7).HasKey("value"));
+    EXPECT_FALSE(PropertyTree(PropertyTree::Array{}).HasKey("value"));
+    EXPECT_FALSE(PropertyTree().HasKey("value"));
 }
 
 TEST(PropertyTreeTests, ConstObjectSubscriptReturnsCorrectValue)
@@ -191,7 +191,7 @@ TEST(PropertyTreeTests, MutableObjectSubscriptCreatesEntry)
 
     tree["new"] = PropertyTree("value");
 
-    EXPECT_TRUE(tree.Contains("new"));
+    EXPECT_TRUE(tree.HasKey("new"));
     EXPECT_EQ(tree["new"].AsString(), "value");
 }
 
@@ -202,7 +202,7 @@ TEST(PropertyTreeTests, MutableObjectSubscriptOnNullAutoPromotesToObject)
     tree["answer"] = PropertyTree(42);
 
     EXPECT_TRUE(tree.IsObject());
-    EXPECT_TRUE(tree.Contains("answer"));
+    EXPECT_TRUE(tree.HasKey("answer"));
     EXPECT_EQ(tree["answer"].AsInt(), 42);
 }
 

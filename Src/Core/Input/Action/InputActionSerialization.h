@@ -60,12 +60,12 @@ inline bool Deserialize(const PropertyTree& tree, InputSource& src)
 
     // Parse type (default to Key)
     InputSource::Type type = InputSource::Type::Key;
-    if (tree.Contains("type"))
+    if (tree.HasKey("type"))
         Deserialize(tree["type"], type);
 
     // Parse code name
     std::string codeName;
-    if (tree.Contains("code"))
+    if (tree.HasKey("code"))
         Deserialize(tree["code"], codeName);
 
     uint16_t code;
@@ -117,7 +117,7 @@ inline bool Deserialize(const PropertyTree& tree, ChordBinding& binding)
     if (!tree.IsObject())
         return false;
 
-    if (tree.Contains("kind"))
+    if (tree.HasKey("kind"))
     {
         std::string kind;
         Deserialize(tree["kind"], kind);
@@ -125,7 +125,7 @@ inline bool Deserialize(const PropertyTree& tree, ChordBinding& binding)
             return false;
     }
 
-    if (!tree.Contains("sources"))
+    if (!tree.HasKey("sources"))
         return false;
 
     std::vector<InputSource> sources;
@@ -154,7 +154,7 @@ inline void Serialize(PropertyTree& tree, const InputActionMap& map)
 
     for (const auto& [name, chords] : map.GetChordActions())
     {
-        if (!actionsTree.Contains(name))
+        if (!actionsTree.HasKey(name))
             actionsTree[name] = PropertyTree::Array{};
 
         auto& arr = actionsTree[name].AsArray();
@@ -206,7 +206,7 @@ inline bool Deserialize(const PropertyTree& tree, InputActionMap& map)
     InputActionMap temp;
 
     // Parse actions
-    if (tree.Contains("actions") && tree["actions"].IsObject())
+    if (tree.HasKey("actions") && tree["actions"].IsObject())
     {
         for (const auto& [name, arr] : tree["actions"].AsObject())
         {
@@ -227,13 +227,13 @@ inline bool Deserialize(const PropertyTree& tree, InputActionMap& map)
                 {
                     // Log warning with code name for diagnostics
                     std::string codeName;
-                    if (srcTree.IsObject() && srcTree.Contains("code"))
+                    if (srcTree.IsObject() && srcTree.HasKey("code"))
                         codeName = srcTree["code"].AsString();
                     std::string typeName;
-                    if (srcTree.IsObject() && srcTree.Contains("type"))
+                    if (srcTree.IsObject() && srcTree.HasKey("type"))
                         typeName = srcTree["type"].AsString();
                     std::string kindName;
-                    if (srcTree.IsObject() && srcTree.Contains("kind"))
+                    if (srcTree.IsObject() && srcTree.HasKey("kind"))
                         kindName = srcTree["kind"].AsString();
 
                     if (!codeName.empty())
@@ -259,7 +259,7 @@ inline bool Deserialize(const PropertyTree& tree, InputActionMap& map)
     }
 
     // Parse axes
-    if (tree.Contains("axes") && tree["axes"].IsObject())
+    if (tree.HasKey("axes") && tree["axes"].IsObject())
     {
         for (const auto& [name, axisObj] : tree["axes"].AsObject())
         {
@@ -267,15 +267,15 @@ inline bool Deserialize(const PropertyTree& tree, InputActionMap& map)
                 continue;
 
             std::string kindStr;
-            if (axisObj.Contains("kind"))
+            if (axisObj.HasKey("kind"))
                 Deserialize(axisObj["kind"], kindStr);
 
             if (kindStr == "KeyPair")
             {
                 std::string posName, negName;
-                if (axisObj.Contains("positive"))
+                if (axisObj.HasKey("positive"))
                     Deserialize(axisObj["positive"], posName);
-                if (axisObj.Contains("negative"))
+                if (axisObj.HasKey("negative"))
                     Deserialize(axisObj["negative"], negName);
 
                 auto posCode = Key::FromName(posName);
@@ -295,14 +295,14 @@ inline bool Deserialize(const PropertyTree& tree, InputActionMap& map)
             else if (kindStr == "MouseAxis")
             {
                 InputActionMap::MouseAxis mouseAxis = InputActionMap::MouseAxis::X;
-                if (axisObj.Contains("mouseAxis"))
+                if (axisObj.HasKey("mouseAxis"))
                     Deserialize(axisObj["mouseAxis"], mouseAxis);
                 temp.BindAxis(name, mouseAxis);
             }
             else if (kindStr == "GamepadAxis")
             {
                 std::string axisName;
-                if (axisObj.Contains("gamepadAxis"))
+                if (axisObj.HasKey("gamepadAxis"))
                     Deserialize(axisObj["gamepadAxis"], axisName);
 
                 const auto axisCode = GamepadAxis::FromName(axisName);

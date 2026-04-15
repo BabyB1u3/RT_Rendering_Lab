@@ -484,9 +484,9 @@ TEST_F(InputActionMapTest, SerializeAndDeserializeChordBindingsRemainCompatibleW
     Serialization::PropertyTree tree;
     Serialization::Serialize(tree, map);
 
-    ASSERT_TRUE(tree.Contains("actions"));
-    ASSERT_TRUE(tree["actions"].Contains("Confirm"));
-    ASSERT_TRUE(tree["actions"].Contains("Save"));
+    ASSERT_TRUE(tree.HasKey("actions"));
+    ASSERT_TRUE(tree["actions"].HasKey("Confirm"));
+    ASSERT_TRUE(tree["actions"].HasKey("Save"));
     ASSERT_EQ(tree["actions"]["Confirm"].AsArray().size(), 1u);
     ASSERT_EQ(tree["actions"]["Save"].AsArray().size(), 1u);
     EXPECT_EQ(tree["actions"]["Save"][0]["kind"].AsString(), "Chord");

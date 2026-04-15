@@ -139,7 +139,7 @@ set(GLAB_SERIALIZATION_SOURCES
 
 set(GLAB_SERIALIZATION_HEADERS
     Core/Serialization/BuiltinTraits.h
-    Core/Serialization/IFormatBackend.h
+    Core/Serialization/FormatBackend.h
     Core/Serialization/JsonBackend.h
     Core/Serialization/PropertyTree.h
     Core/Serialization/Serialization.h

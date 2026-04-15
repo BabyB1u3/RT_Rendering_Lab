@@ -53,7 +53,7 @@ void ExpectTreesEqual(const PropertyTree& actual, const PropertyTree& expected)
     ASSERT_EQ(actual.Size(), expected.Size());
     for (const auto& [key, child] : expected.AsObject())
     {
-        ASSERT_TRUE(actual.Contains(key));
+        ASSERT_TRUE(actual.HasKey(key));
         ExpectTreesEqual(actual[key], child);
     }
 }
@@ -206,7 +206,7 @@ TEST(JsonBackendTests, ReadObjectJsonGivesObjectTree)
 
     ASSERT_TRUE(backend.ReadFromString("{\"x\":1}", tree));
     EXPECT_TRUE(tree.IsObject());
-    ASSERT_TRUE(tree.Contains("x"));
+    ASSERT_TRUE(tree.HasKey("x"));
     EXPECT_EQ(tree["x"].AsInt(), 1);
 }
 
@@ -219,8 +219,8 @@ TEST(JsonBackendTests, ReadNestedStructureIsCorrect)
         backend.ReadFromString("{\"array\":[1,2.5,null],\"nested\":{\"flag\":true,\"name\":\"RTRLab\"}}", tree));
 
     ASSERT_TRUE(tree.IsObject());
-    ASSERT_TRUE(tree.Contains("array"));
-    ASSERT_TRUE(tree.Contains("nested"));
+    ASSERT_TRUE(tree.HasKey("array"));
+    ASSERT_TRUE(tree.HasKey("nested"));
     ASSERT_TRUE(tree["array"].IsArray());
     EXPECT_EQ(tree["array"][0].AsInt(), 1);
     EXPECT_DOUBLE_EQ(tree["array"][1].AsFloat(), 2.5);

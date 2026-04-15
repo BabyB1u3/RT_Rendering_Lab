@@ -1,6 +1,6 @@
 #pragma once
 
-/// @file IFormatBackend.h
+/// @file FormatBackend.h
 /// @brief Interface for format backends that convert PropertyTree to/from wire format.
 
 #include "Core/Serialization/PropertyTree.h"
@@ -9,10 +9,10 @@
 namespace Serialization
 {
 
-class IFormatBackend
+class FormatBackend
 {
 public:
-    virtual ~IFormatBackend() = default;
+    virtual ~FormatBackend() = default;
 
     /// Serialize a PropertyTree to a string representation.
     virtual std::string WriteToString(const PropertyTree& tree) const = 0;

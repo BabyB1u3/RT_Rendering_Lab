@@ -70,7 +70,7 @@ public:
     Object& AsObject();
 
     // --- Object helpers ---
-    bool Contains(const std::string& key) const;
+    bool HasKey(const std::string& key) const;
     const PropertyTree& operator[](const std::string& key) const;
     PropertyTree& operator[](const std::string& key);
 

@@ -108,7 +108,7 @@ PropertyTree::Object& PropertyTree::AsObject()
 
 // --- Object helpers ---
 
-bool PropertyTree::Contains(const std::string& key) const
+bool PropertyTree::HasKey(const std::string& key) const
 {
     if (!IsObject())
         return false;

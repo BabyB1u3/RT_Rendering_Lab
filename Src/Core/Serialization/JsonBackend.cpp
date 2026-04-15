@@ -100,7 +100,7 @@ PropertyTree JsonToTree(const nlohmann::json& j)
 }
 } // namespace
 
-// --- IFormatBackend implementation ---
+// --- FormatBackend implementation ---
 
 std::string JsonBackend::WriteToString(const PropertyTree& tree) const
 {
