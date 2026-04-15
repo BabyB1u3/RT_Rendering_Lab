@@ -8,19 +8,13 @@
 
 namespace
 {
-    class InputRecordingIOTests : public ::testing::Test
-    {
-    protected:
-        void SetUp() override
-        {
-            test_support::ResetCurrentTestRoot("input-recording-io");
-        }
+class InputRecordingIOTests : public ::testing::Test
+{
+protected:
+    void SetUp() override { test_support::ResetCurrentTestRoot("input-recording-io"); }
 
-        void TearDown() override
-        {
-            test_support::RemoveCurrentTestArtifacts("input-recording-io");
-        }
-    };
+    void TearDown() override { test_support::RemoveCurrentTestArtifacts("input-recording-io"); }
+};
 } // namespace
 
 TEST_F(InputRecordingIOTests, RecorderBinaryRoundTripPreservesFrames)
@@ -58,9 +52,9 @@ TEST_F(InputRecordingIOTests, RecorderBinaryRoundTripPreservesFrames)
     InputRecorder loaded;
     ASSERT_TRUE(loaded.LoadFromFile(path));
 
-    const auto &loadedRecording = loaded.GetRecording();
+    const auto& loadedRecording = loaded.GetRecording();
     ASSERT_EQ(loadedRecording.Frames.size(), 1u);
-    const auto &loadedFrame = loadedRecording.Frames[0];
+    const auto& loadedFrame = loadedRecording.Frames[0];
     EXPECT_EQ(loadedFrame.FrameNumber, 7u);
     EXPECT_FLOAT_EQ(loadedFrame.DeltaTime, 0.02f);
     EXPECT_TRUE(loadedFrame.Keyboard.Present);

@@ -19,11 +19,11 @@ enum class BackendType
 
 enum class ShaderStage : uint32_t
 {
-    None     = 0,
-    Vertex   = BIT(0),
+    None = 0,
+    Vertex = BIT(0),
     Fragment = BIT(1),
-    Compute  = BIT(2),
-    All      = BIT(0) | BIT(1) | BIT(2),
+    Compute = BIT(2),
+    All = BIT(0) | BIT(1) | BIT(2),
 };
 
 constexpr ShaderStage operator|(ShaderStage lhs, ShaderStage rhs)
@@ -36,7 +36,7 @@ constexpr ShaderStage operator&(ShaderStage lhs, ShaderStage rhs)
     return static_cast<ShaderStage>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
 
-constexpr ShaderStage &operator|=(ShaderStage &lhs, ShaderStage rhs)
+constexpr ShaderStage& operator|=(ShaderStage& lhs, ShaderStage rhs)
 {
     lhs = lhs | rhs;
     return lhs;

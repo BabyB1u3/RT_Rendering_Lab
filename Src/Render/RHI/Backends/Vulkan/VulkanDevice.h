@@ -32,14 +32,14 @@ public:
     VulkanCommandList() = default;
     ~VulkanCommandList();
 
-    VulkanCommandList(const VulkanCommandList &) = delete;
-    VulkanCommandList &operator=(const VulkanCommandList &) = delete;
-    VulkanCommandList(VulkanCommandList &&) = delete;
-    VulkanCommandList &operator=(VulkanCommandList &&) = delete;
+    VulkanCommandList(const VulkanCommandList&) = delete;
+    VulkanCommandList& operator=(const VulkanCommandList&) = delete;
+    VulkanCommandList(VulkanCommandList&&) = delete;
+    VulkanCommandList& operator=(VulkanCommandList&&) = delete;
 
     void initialize(VkDevice device, VkCommandPool commandPool);
     void shutdown();
-    void beginRendering(const RenderingInfo &renderingInfo) override;
+    void beginRendering(const RenderingInfo& renderingInfo) override;
     void endRendering() override;
 
     VkCommandBuffer getVkCommandBuffer() const { return m_CommandBuffer; }
@@ -54,17 +54,17 @@ private:
 class VulkanSwapchain final : public Swapchain
 {
 public:
-    VulkanSwapchain(VulkanDevice &device, const SwapchainDesc &desc, const NativeWindowHandle &nativeWindowHandle);
+    VulkanSwapchain(VulkanDevice& device, const SwapchainDesc& desc, const NativeWindowHandle& nativeWindowHandle);
     ~VulkanSwapchain() override;
 
-    VulkanSwapchain(const VulkanSwapchain &) = delete;
-    VulkanSwapchain &operator=(const VulkanSwapchain &) = delete;
-    VulkanSwapchain(VulkanSwapchain &&) = delete;
-    VulkanSwapchain &operator=(VulkanSwapchain &&) = delete;
+    VulkanSwapchain(const VulkanSwapchain&) = delete;
+    VulkanSwapchain& operator=(const VulkanSwapchain&) = delete;
+    VulkanSwapchain(VulkanSwapchain&&) = delete;
+    VulkanSwapchain& operator=(VulkanSwapchain&&) = delete;
 
     uint32_t acquireNextImage() override;
-    Texture *getImage(uint32_t imageIndex) const override;
-    TextureView *getImageView(uint32_t imageIndex) const override;
+    Texture* getImage(uint32_t imageIndex) const override;
+    TextureView* getImageView(uint32_t imageIndex) const override;
     void present(uint32_t imageIndex) override;
     void resize(uint32_t newWidth, uint32_t newHeight) override;
     uint32_t width() const override { return m_Desc.width; }
@@ -82,7 +82,7 @@ private:
 
 private:
     // Now used by the real Vulkan swapchain ownership path.
-    VulkanDevice &m_Device;
+    VulkanDevice& m_Device;
     SwapchainDesc m_Desc;
     NativeWindowHandle m_NativeWindowHandle;
     VkSwapchainKHR m_Swapchain = VK_NULL_HANDLE;
@@ -97,12 +97,12 @@ public:
     VulkanDevice();
     ~VulkanDevice() override;
 
-    Scope<Swapchain> createSwapchain(const SwapchainDesc &desc, const NativeWindowHandle &nativeWindowHandle) override;
+    Scope<Swapchain> createSwapchain(const SwapchainDesc& desc, const NativeWindowHandle& nativeWindowHandle) override;
 
-    CommandList *beginCommandList() override;
-    void submit(CommandList *commandList) override;
-    FrameContext *beginFrame() override;
-    void endFrame(FrameContext *frameContext) override;
+    CommandList* beginCommandList() override;
+    void submit(CommandList* commandList) override;
+    FrameContext* beginFrame() override;
+    void endFrame(FrameContext* frameContext) override;
 
     VkInstance getVkInstance() const { return m_Instance; }
     VkPhysicalDevice getVkPhysicalDevice() const { return m_PhysicalDevice; }
@@ -126,12 +126,12 @@ private:
         VkFence inFlightFence = VK_NULL_HANDLE;
     };
 
-    FrameSync &currentFrameSync();
-    const FrameSync &currentFrameSync() const;
+    FrameSync& currentFrameSync();
+    const FrameSync& currentFrameSync() const;
     void initializeInstance(NativeWindowSystem windowSystem);
     void initializeFrameSyncObjects();
     void shutdownFrameSyncObjects();
-    void initializePresentationObjects(const NativeWindowHandle &nativeWindowHandle);
+    void initializePresentationObjects(const NativeWindowHandle& nativeWindowHandle);
     void shutdownPresentationObjects();
 
 private:

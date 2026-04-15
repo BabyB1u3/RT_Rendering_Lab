@@ -32,16 +32,16 @@ public:
 
     /// Insert a regular layer before all overlays. Calls OnAttach() immediately.
     /// Returns a non-owning pointer for later reference.
-    Layer *PushLayer(Scope<Layer> layer);
+    Layer* PushLayer(Scope<Layer> layer);
 
     /// Append an overlay after all regular layers. Calls OnAttach() immediately.
     /// Returns a non-owning pointer for later reference.
-    Layer *PushOverlay(Scope<Layer> overlay);
+    Layer* PushOverlay(Scope<Layer> overlay);
 
     /// Remove a regular layer. Calls OnDetach() and releases ownership.
-    void PopLayer(Layer *layer);
+    void PopLayer(Layer* layer);
     /// Remove an overlay. Calls OnDetach() and releases ownership.
-    void PopOverlay(Layer *overlay);
+    void PopOverlay(Layer* overlay);
     /// Detach and destroy all layers immediately.
     void Clear();
 

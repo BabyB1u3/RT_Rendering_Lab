@@ -38,7 +38,7 @@ struct GLFWwindow;
 
 namespace test_support
 {
-    struct InputTestAccess;
+struct InputTestAccess;
 }
 
 class Input
@@ -68,10 +68,10 @@ public:
 
     /// Bind to a GLFW window. Repeating Initialize() with the same non-null
     /// window is a no-op so layer re-attach does not wipe live state.
-    static void Initialize(GLFWwindow *window);
+    static void Initialize(GLFWwindow* window);
     /// Inject the application event bus so device hot-plug notifications can
     /// be published without introducing global state.
-    static void SetEventBus(EventBus *bus);
+    static void SetEventBus(EventBus* bus);
     /// Must be called ONCE per frame, BEFORE any layer's OnUpdate().
     /// Polls all registered devices and advances their current/previous state.
     static void BeginFrame(float dt = 0.0f);
@@ -81,9 +81,9 @@ public:
     /// Any extra custom or non-default-slot devices are removed.
     static void RestoreDefaultDevices();
 
-    static InputDeviceManager &GetDeviceManager();
+    static InputDeviceManager& GetDeviceManager();
     /// Non-owning pointer. Returns null until the device manager has been created.
-    static const InputDeviceManager *TryGetDeviceManager();
+    static const InputDeviceManager* TryGetDeviceManager();
 
     // --- Keyboard ---
     /// True if the key is currently held down.
@@ -137,24 +137,24 @@ public:
 private:
     friend struct test_support::InputTestAccess;
 
-    static void EnsureDevices(GLFWwindow *window);
+    static void EnsureDevices(GLFWwindow* window);
     static void ResetDevices();
-    static void ApplyPolledState(const PolledState &state);
-    static void ApplyGamepadState(uint8_t deviceIndex, const GamepadPolledState &state);
+    static void ApplyPolledState(const PolledState& state);
+    static void ApplyGamepadState(uint8_t deviceIndex, const GamepadPolledState& state);
 
     /// Non-owning pointer. Returns null when the current keyboard slot is not backed
     /// by a concrete KeyboardDevice instance (for example, after swapping in a custom device).
-    static KeyboardDevice *GetKeyboardDevice();
+    static KeyboardDevice* GetKeyboardDevice();
     /// Non-owning pointer. Returns null when the current mouse slot is not backed
     /// by a concrete MouseDevice instance.
-    static MouseDevice *GetMouseDevice();
+    static MouseDevice* GetMouseDevice();
     /// Non-owning pointer. Returns null when the requested gamepad slot is absent or
     /// is not backed by a concrete GamepadDevice instance.
-    static GamepadDevice *GetGamepadDevice(uint8_t deviceIndex);
+    static GamepadDevice* GetGamepadDevice(uint8_t deviceIndex);
 
 private:
-    static GLFWwindow *s_Window; // Non-owning. Lifetime is managed by Window/Application.
-    static EventBus *s_EventBus; // Non-owning. Lifetime is managed by Application.
+    static GLFWwindow* s_Window; // Non-owning. Lifetime is managed by Window/Application.
+    static EventBus* s_EventBus; // Non-owning. Lifetime is managed by Application.
     static Scope<InputDeviceManager> s_DeviceManager;
 
     static bool s_KeyboardCaptured;

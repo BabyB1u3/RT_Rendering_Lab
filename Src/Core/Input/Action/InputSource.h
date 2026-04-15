@@ -22,15 +22,9 @@ struct InputSource
     uint16_t Code = 0; // Key::Code, Mouse::Code, or device-specific code
     uint8_t DeviceIndex = 0;
 
-    static InputSource FromKey(Key::Code key)
-    {
-        return {Type::Key, key, 0};
-    }
+    static InputSource FromKey(Key::Code key) { return {Type::Key, key, 0}; }
 
-    static InputSource FromMouseButton(Mouse::Code button)
-    {
-        return {Type::MouseButton, button, 0};
-    }
+    static InputSource FromMouseButton(Mouse::Code button) { return {Type::MouseButton, button, 0}; }
 
     static InputSource FromGamepadButton(GamepadButton::Code button, uint8_t deviceIndex = 0)
     {
@@ -45,12 +39,12 @@ struct InputSource
 
 namespace InputSourceState
 {
-    bool IsDown(const InputSource &source);
-    bool WasDown(const InputSource &source);
-    bool WasPressedThisFrame(const InputSource &source);
-    bool WasReleasedThisFrame(const InputSource &source);
+bool IsDown(const InputSource& source);
+bool WasDown(const InputSource& source);
+bool WasPressedThisFrame(const InputSource& source);
+bool WasReleasedThisFrame(const InputSource& source);
 
-    bool Equals(const InputSource &lhs, const InputSource &rhs);
-    bool IsBlocked(const InputSource &source, const std::vector<InputSource> &blockedSources);
-    void AppendUnique(std::vector<InputSource> &dest, const InputSource &source);
-}
+bool Equals(const InputSource& lhs, const InputSource& rhs);
+bool IsBlocked(const InputSource& source, const std::vector<InputSource>& blockedSources);
+void AppendUnique(std::vector<InputSource>& dest, const InputSource& source);
+} // namespace InputSourceState

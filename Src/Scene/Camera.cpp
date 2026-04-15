@@ -14,10 +14,7 @@ Camera::Camera()
 }
 
 Camera::Camera(float verticalFovDegrees, float aspectRatio, float nearClip, float farClip)
-    : m_VerticalFovDegrees(verticalFovDegrees),
-      m_AspectRatio(aspectRatio),
-      m_NearClip(nearClip),
-      m_FarClip(farClip)
+    : m_VerticalFovDegrees(verticalFovDegrees), m_AspectRatio(aspectRatio), m_NearClip(nearClip), m_FarClip(farClip)
 {
     RecalculateBasis();
     RecalculateProjection();
@@ -48,7 +45,7 @@ void Camera::SetAspectRatio(float aspectRatio)
     RecalculateProjection();
 }
 
-void Camera::SetPosition(const glm::vec3 &position)
+void Camera::SetPosition(const glm::vec3& position)
 {
     m_Position = position;
     RecalculateView();
@@ -69,11 +66,7 @@ void Camera::SetRotation(float yawDegrees, float pitchDegrees)
 
 void Camera::RecalculateProjection()
 {
-    m_Projection = glm::perspective(
-        glm::radians(m_VerticalFovDegrees),
-        m_AspectRatio,
-        m_NearClip,
-        m_FarClip);
+    m_Projection = glm::perspective(glm::radians(m_VerticalFovDegrees), m_AspectRatio, m_NearClip, m_FarClip);
 }
 
 void Camera::RecalculateView()

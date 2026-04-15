@@ -4,17 +4,17 @@
 
 namespace
 {
-    Util::CommandLineSpec BuildCommandLineSpec()
-    {
-        Util::CommandLineSpec spec;
-        spec.AddFlag("help", 'h', "Show help.")
-            .AddValueOption("root", std::nullopt, "path", "Override root path.",
-                            Util::CommandLineOptionVisibility::DevelopmentOnly)
-            .AddValueOption("out", std::nullopt, "path", "Select output path.")
-            .AddFlag("dev-mode", std::nullopt, "Enable development-only behavior.");
-        return spec;
-    }
+Util::CommandLineSpec BuildCommandLineSpec()
+{
+    Util::CommandLineSpec spec;
+    spec.AddFlag("help", 'h', "Show help.")
+        .AddValueOption(
+            "root", std::nullopt, "path", "Override root path.", Util::CommandLineOptionVisibility::DevelopmentOnly)
+        .AddValueOption("out", std::nullopt, "path", "Select output path.")
+        .AddFlag("dev-mode", std::nullopt, "Enable development-only behavior.");
+    return spec;
 }
+} // namespace
 
 TEST(CommandLineTests, ParseSupportsFlagsValueOptionsAndShortAliases)
 {
@@ -22,16 +22,15 @@ TEST(CommandLineTests, ParseSupportsFlagsValueOptionsAndShortAliases)
     Util::ParsedCommandLine parsed;
     std::string errorMessage;
 
-    std::vector<char *> argv{
-        const_cast<char *>("tool"),
-        const_cast<char *>("-h"),
-        const_cast<char *>("--root"),
-        const_cast<char *>("D:/Repo"),
-        const_cast<char *>("--out=D:/Cooked"),
+    std::vector<char*> argv{
+        const_cast<char*>("tool"),
+        const_cast<char*>("-h"),
+        const_cast<char*>("--root"),
+        const_cast<char*>("D:/Repo"),
+        const_cast<char*>("--out=D:/Cooked"),
     };
 
-    ASSERT_TRUE(Util::ParseCommandLine(
-        static_cast<int>(argv.size()), argv.data(), spec, parsed, &errorMessage))
+    ASSERT_TRUE(Util::ParseCommandLine(static_cast<int>(argv.size()), argv.data(), spec, parsed, &errorMessage))
         << errorMessage;
     EXPECT_TRUE(parsed.HasOption("help"));
     ASSERT_TRUE(parsed.GetOptionValue("root").has_value());
@@ -46,13 +45,12 @@ TEST(CommandLineTests, ParseRejectsUnknownArguments)
     Util::ParsedCommandLine parsed;
     std::string errorMessage;
 
-    std::vector<char *> argv{
-        const_cast<char *>("tool"),
-        const_cast<char *>("--mystery"),
+    std::vector<char*> argv{
+        const_cast<char*>("tool"),
+        const_cast<char*>("--mystery"),
     };
 
-    EXPECT_FALSE(Util::ParseCommandLine(
-        static_cast<int>(argv.size()), argv.data(), spec, parsed, &errorMessage));
+    EXPECT_FALSE(Util::ParseCommandLine(static_cast<int>(argv.size()), argv.data(), spec, parsed, &errorMessage));
     EXPECT_NE(errorMessage.find("Unknown argument"), std::string::npos);
 }
 
@@ -62,13 +60,12 @@ TEST(CommandLineTests, ParseRejectsMissingValues)
     Util::ParsedCommandLine parsed;
     std::string errorMessage;
 
-    std::vector<char *> argv{
-        const_cast<char *>("tool"),
-        const_cast<char *>("--root"),
+    std::vector<char*> argv{
+        const_cast<char*>("tool"),
+        const_cast<char*>("--root"),
     };
 
-    EXPECT_FALSE(Util::ParseCommandLine(
-        static_cast<int>(argv.size()), argv.data(), spec, parsed, &errorMessage));
+    EXPECT_FALSE(Util::ParseCommandLine(static_cast<int>(argv.size()), argv.data(), spec, parsed, &errorMessage));
     EXPECT_NE(errorMessage.find("Missing value"), std::string::npos);
 }
 
@@ -83,7 +80,7 @@ TEST(CommandLineTests, ProcessCommandLineStorageRoundTripsParsedState)
 
     Util::SetProcessCommandLine(parsed);
 
-    const auto &stored = Util::GetProcessCommandLine();
+    const auto& stored = Util::GetProcessCommandLine();
     EXPECT_TRUE(stored.HasOption("help"));
     ASSERT_TRUE(stored.GetOptionValue("root").has_value());
     EXPECT_EQ(*stored.GetOptionValue("root"), "D:/Repo");
@@ -99,21 +96,16 @@ TEST(CommandLineTests, ShippingModeDropsDevelopmentOnlyOptions)
     Util::ParsedCommandLine parsed;
     std::string errorMessage;
 
-    std::vector<char *> argv{
-        const_cast<char *>("tool"),
-        const_cast<char *>("--root"),
-        const_cast<char *>("D:/Repo"),
-        const_cast<char *>("--help"),
-        const_cast<char *>("--dev-mode"),
+    std::vector<char*> argv{
+        const_cast<char*>("tool"),
+        const_cast<char*>("--root"),
+        const_cast<char*>("D:/Repo"),
+        const_cast<char*>("--help"),
+        const_cast<char*>("--dev-mode"),
     };
 
     ASSERT_TRUE(Util::ParseCommandLine(
-        static_cast<int>(argv.size()),
-        argv.data(),
-        spec,
-        parsed,
-        &errorMessage,
-        Util::CommandLineParseMode::Shipping))
+        static_cast<int>(argv.size()), argv.data(), spec, parsed, &errorMessage, Util::CommandLineParseMode::Shipping))
         << errorMessage;
     EXPECT_TRUE(parsed.HasOption("help"));
     EXPECT_FALSE(parsed.HasOption("root"));

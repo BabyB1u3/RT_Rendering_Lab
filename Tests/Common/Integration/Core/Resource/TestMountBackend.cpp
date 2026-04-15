@@ -10,28 +10,22 @@
 
 namespace
 {
-    class MountBackendTests : public ::testing::Test
+class MountBackendTests : public ::testing::Test
+{
+protected:
+    void SetUp() override
     {
-    protected:
-        void SetUp() override
-        {
-            m_TestRoot = test_support::CurrentTestRoot("mount-backend");
-            test_support::ResetCurrentTestRoot("mount-backend");
-        }
+        m_TestRoot = test_support::CurrentTestRoot("mount-backend");
+        test_support::ResetCurrentTestRoot("mount-backend");
+    }
 
-        void TearDown() override
-        {
-            test_support::RemoveCurrentTestArtifacts("mount-backend");
-        }
+    void TearDown() override { test_support::RemoveCurrentTestArtifacts("mount-backend"); }
 
-        std::filesystem::path TestRoot() const
-        {
-            return m_TestRoot;
-        }
+    std::filesystem::path TestRoot() const { return m_TestRoot; }
 
-    private:
-        std::filesystem::path m_TestRoot;
-    };
+private:
+    std::filesystem::path m_TestRoot;
+};
 } // namespace
 
 TEST_F(MountBackendTests, ResolveWritableMountReturnsSavedAndCacheRoots)
@@ -58,7 +52,8 @@ TEST_F(MountBackendTests, ResolveReadableMountArtifactReturnsPakBackedDescriptor
     const auto packagedRoot = TestRoot() / "out";
     const auto pakPath = test_support::GamePackagedArchivePath(packagedRoot);
 
-    test_support::WriteTextFileOrFail(test_support::MountCatalogPath(sourceRoot), "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": []\n}\n");
+    test_support::WriteTextFileOrFail(test_support::MountCatalogPath(sourceRoot),
+                                      "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": []\n}\n");
     test_support::WriteMountFileOrFail(sourceRoot, "Materials/Checker.json", "{\n  \"name\": \"pak\"\n}\n");
 
     std::string errorMessage;

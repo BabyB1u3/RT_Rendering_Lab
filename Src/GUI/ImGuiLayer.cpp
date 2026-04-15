@@ -17,17 +17,14 @@
 #include "Core/Resource/FileSystem.h"
 #include "Core/Input/Input.h"
 
-ImGuiLayer::ImGuiLayer()
-    : Layer("ImGuiLayer")
-{
-}
+ImGuiLayer::ImGuiLayer() : Layer("ImGuiLayer") {}
 
 void ImGuiLayer::OnAttach()
 {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
 
-    ImGuiIO &io = ImGui::GetIO();
+    ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
@@ -42,7 +39,7 @@ void ImGuiLayer::OnAttach()
     ImGui::StyleColorsDark();
 
     // install_callbacks = true lets ImGui intercept GLFW input events.
-    GLFWwindow *window = Application::Get().GetWindow().GetNativeHandle();
+    GLFWwindow* window = Application::Get().GetWindow().GetNativeHandle();
 #if defined(GLAB_BACKEND_OPENGL)
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     // GLSL 460 matches the OpenGL 4.6 core context created in Window.
@@ -84,7 +81,7 @@ void ImGuiLayer::Begin()
 
     // Forward ImGui's capture state to the Input polling layer so that
     // game/demo code does not respond to keys/mouse meant for UI widgets.
-    ImGuiIO &io = ImGui::GetIO();
+    ImGuiIO& io = ImGui::GetIO();
     Input::SetKeyboardCaptured(io.WantCaptureKeyboard);
     Input::SetMouseCaptured(io.WantCaptureMouse);
 }

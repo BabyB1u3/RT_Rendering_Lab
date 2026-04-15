@@ -16,33 +16,33 @@ using namespace Serialization;
 
 namespace
 {
-    enum class Color
-    {
-        Red,
-        Green,
-        Blue
-    };
+enum class Color
+{
+    Red,
+    Green,
+    Blue
+};
 
-    void ExpectVec2Eq(const glm::vec2 &lhs, const glm::vec2 &rhs)
-    {
-        EXPECT_FLOAT_EQ(lhs.x, rhs.x);
-        EXPECT_FLOAT_EQ(lhs.y, rhs.y);
-    }
+void ExpectVec2Eq(const glm::vec2& lhs, const glm::vec2& rhs)
+{
+    EXPECT_FLOAT_EQ(lhs.x, rhs.x);
+    EXPECT_FLOAT_EQ(lhs.y, rhs.y);
+}
 
-    void ExpectVec3Eq(const glm::vec3 &lhs, const glm::vec3 &rhs)
-    {
-        EXPECT_FLOAT_EQ(lhs.x, rhs.x);
-        EXPECT_FLOAT_EQ(lhs.y, rhs.y);
-        EXPECT_FLOAT_EQ(lhs.z, rhs.z);
-    }
+void ExpectVec3Eq(const glm::vec3& lhs, const glm::vec3& rhs)
+{
+    EXPECT_FLOAT_EQ(lhs.x, rhs.x);
+    EXPECT_FLOAT_EQ(lhs.y, rhs.y);
+    EXPECT_FLOAT_EQ(lhs.z, rhs.z);
+}
 
-    void ExpectVec4Eq(const glm::vec4 &lhs, const glm::vec4 &rhs)
-    {
-        EXPECT_FLOAT_EQ(lhs.x, rhs.x);
-        EXPECT_FLOAT_EQ(lhs.y, rhs.y);
-        EXPECT_FLOAT_EQ(lhs.z, rhs.z);
-        EXPECT_FLOAT_EQ(lhs.w, rhs.w);
-    }
+void ExpectVec4Eq(const glm::vec4& lhs, const glm::vec4& rhs)
+{
+    EXPECT_FLOAT_EQ(lhs.x, rhs.x);
+    EXPECT_FLOAT_EQ(lhs.y, rhs.y);
+    EXPECT_FLOAT_EQ(lhs.z, rhs.z);
+    EXPECT_FLOAT_EQ(lhs.w, rhs.w);
+}
 
 } // namespace
 
@@ -308,10 +308,7 @@ TEST(BuiltinTraitsTests, Vec4RoundTrip)
 TEST(BuiltinTraitsTests, Mat4RoundTripUsesColumnMajorLayout)
 {
     const glm::mat4 input(
-        1.0f, 2.0f, 3.0f, 4.0f,
-        5.0f, 6.0f, 7.0f, 8.0f,
-        9.0f, 10.0f, 11.0f, 12.0f,
-        13.0f, 14.0f, 15.0f, 16.0f);
+        1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f);
 
     PropertyTree tree;
     Serialize(tree, input);
@@ -339,7 +336,8 @@ TEST(BuiltinTraitsTests, Vec3DeserializeFromTooShortArrayReturnsFalseAndLeavesOu
 
 TEST(BuiltinTraitsTests, Vec3DeserializeFromTooLongArrayReturnsFalseAndLeavesOutputUnchanged)
 {
-    PropertyTree tree(PropertyTree::Array{PropertyTree(1.0f), PropertyTree(2.0f), PropertyTree(3.0f), PropertyTree(4.0f)});
+    PropertyTree tree(
+        PropertyTree::Array{PropertyTree(1.0f), PropertyTree(2.0f), PropertyTree(3.0f), PropertyTree(4.0f)});
     glm::vec3 value(9.0f, 8.0f, 7.0f);
 
     EXPECT_FALSE(Deserialize(tree, value));

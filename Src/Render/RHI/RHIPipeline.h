@@ -41,7 +41,7 @@ class PipelineLayout
 public:
     virtual ~PipelineLayout() = default;
 
-    virtual const PipelineLayoutDesc &getDesc() const = 0;
+    virtual const PipelineLayoutDesc& getDesc() const = 0;
 };
 
 struct VertexAttributeDesc
@@ -69,7 +69,7 @@ class VertexInputLayout
 public:
     virtual ~VertexInputLayout() = default;
 
-    virtual const VertexInputLayoutDesc &getDesc() const = 0;
+    virtual const VertexInputLayoutDesc& getDesc() const = 0;
 };
 
 enum class IndexType
@@ -80,8 +80,8 @@ enum class IndexType
 
 struct MeshBinding
 {
-    std::vector<Buffer *> vertexBuffers;
-    Buffer *indexBuffer = nullptr;
+    std::vector<Buffer*> vertexBuffers;
+    Buffer* indexBuffer = nullptr;
     IndexType indexType = IndexType::UInt32;
 };
 
@@ -180,9 +180,9 @@ struct BlendState
 
 struct GraphicsPipelineDesc
 {
-    PipelineLayout *pipelineLayout = nullptr;
-    class ShaderProgram *shaderProgram = nullptr;
-    VertexInputLayout *vertexInput = nullptr;
+    PipelineLayout* pipelineLayout = nullptr;
+    class ShaderProgram* shaderProgram = nullptr;
+    VertexInputLayout* vertexInput = nullptr;
 
     BlendState blendState;
     DepthStencilState depthStencilState;
@@ -195,8 +195,8 @@ struct GraphicsPipelineDesc
 
 struct ComputePipelineDesc
 {
-    PipelineLayout *pipelineLayout = nullptr;
-    class ShaderProgram *shaderProgram = nullptr;
+    PipelineLayout* pipelineLayout = nullptr;
+    class ShaderProgram* shaderProgram = nullptr;
 };
 
 class ShaderProgram
@@ -204,7 +204,7 @@ class ShaderProgram
 public:
     virtual ~ShaderProgram() = default;
 
-    virtual const ShaderReflectionData &getReflection() const = 0;
+    virtual const ShaderReflectionData& getReflection() const = 0;
     virtual PipelineLayoutDesc derivePipelineLayoutDesc() const = 0;
 };
 
@@ -213,7 +213,7 @@ class GraphicsPipeline
 public:
     virtual ~GraphicsPipeline() = default;
 
-    virtual const GraphicsPipelineDesc &getDesc() const = 0;
+    virtual const GraphicsPipelineDesc& getDesc() const = 0;
 };
 
 class ComputePipeline
@@ -221,5 +221,5 @@ class ComputePipeline
 public:
     virtual ~ComputePipeline() = default;
 
-    virtual const ComputePipelineDesc &getDesc() const = 0;
+    virtual const ComputePipelineDesc& getDesc() const = 0;
 };

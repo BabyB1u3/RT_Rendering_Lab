@@ -9,28 +9,22 @@
 
 namespace
 {
-    class PakArchiveTests : public ::testing::Test
+class PakArchiveTests : public ::testing::Test
+{
+protected:
+    void SetUp() override
     {
-    protected:
-        void SetUp() override
-        {
-            m_TestRoot = test_support::CurrentTestRoot("pak-archive");
-            test_support::ResetCurrentTestRoot("pak-archive");
-        }
+        m_TestRoot = test_support::CurrentTestRoot("pak-archive");
+        test_support::ResetCurrentTestRoot("pak-archive");
+    }
 
-        void TearDown() override
-        {
-            test_support::RemoveCurrentTestArtifacts("pak-archive");
-        }
+    void TearDown() override { test_support::RemoveCurrentTestArtifacts("pak-archive"); }
 
-        std::filesystem::path TestRoot() const
-        {
-            return m_TestRoot;
-        }
+    std::filesystem::path TestRoot() const { return m_TestRoot; }
 
-    private:
-        std::filesystem::path m_TestRoot;
-    };
+private:
+    std::filesystem::path m_TestRoot;
+};
 } // namespace
 
 TEST_F(PakArchiveTests, BuildPakArchiveCanReadEntries)
@@ -51,4 +45,3 @@ TEST_F(PakArchiveTests, BuildPakArchiveCanReadEntries)
     const std::string text(bytes->begin(), bytes->end());
     EXPECT_EQ(text, "checker");
 }
-

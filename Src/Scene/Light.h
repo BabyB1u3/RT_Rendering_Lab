@@ -17,5 +17,5 @@ struct DirectionalLight
     float Intensity = 1.0f;
 
     glm::vec3 Color{1.0f, 1.0f, 1.0f};
-    float Padding = 0.0f;  // Align to 16 bytes for potential UBO layout
+    float Padding = 0.0f; // Align to 16 bytes for potential UBO layout
 };

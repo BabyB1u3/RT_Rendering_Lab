@@ -8,24 +8,24 @@ struct GLFWwindow;
 
 namespace MouseAxisId
 {
-    using Code = uint16_t;
+using Code = uint16_t;
 
-    enum : Code
-    {
-        PositionX = 0,
-        PositionY,
-        DeltaX,
-        DeltaY,
-        ScrollY
-    };
-}
+enum : Code
+{
+    PositionX = 0,
+    PositionY,
+    DeltaX,
+    DeltaY,
+    ScrollY
+};
+} // namespace MouseAxisId
 
 class MouseDevice final : public InputDevice
 {
 public:
     static constexpr int BUTTON_COUNT = 8;
 
-    explicit MouseDevice(GLFWwindow *window = nullptr);
+    explicit MouseDevice(GLFWwindow* window = nullptr);
 
     Type GetType() const override { return Type::Mouse; }
     void Poll() override;
@@ -36,12 +36,12 @@ public:
     InputValue GetPreviousAxis(uint16_t axisId) const override;
     void Reset() override;
 
-    void SetWindow(GLFWwindow *window) { m_Window = window; }
+    void SetWindow(GLFWwindow* window) { m_Window = window; }
     void AccumulateScroll(float yOffset);
-    void ApplyState(const std::array<bool, BUTTON_COUNT> &buttons, float x, float y);
+    void ApplyState(const std::array<bool, BUTTON_COUNT>& buttons, float x, float y);
 
 private:
-    GLFWwindow *m_Window = nullptr; // Non-owning. Lifetime is managed by Window/Application.
+    GLFWwindow* m_Window = nullptr; // Non-owning. Lifetime is managed by Window/Application.
 
     std::array<bool, BUTTON_COUNT> m_CurrentButtons{};
     std::array<bool, BUTTON_COUNT> m_PreviousButtons{};

@@ -13,7 +13,7 @@
 
 #include "Core/Diagnostics/Assert/Assert.h"
 
-NativeWindowHandle CreateLinuxNativeWindowHandle(GLFWwindow *window)
+NativeWindowHandle CreateLinuxNativeWindowHandle(GLFWwindow* window)
 {
     RTRLAB_ASSERT_MSG(window != nullptr, "GLFW window is null.");
 

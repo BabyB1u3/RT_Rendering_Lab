@@ -26,15 +26,15 @@
 
 namespace
 {
-    bool s_GLFWInitialized = false;
+bool s_GLFWInitialized = false;
 
-    void GLFWErrorCallback(int error, const char *description)
-    {
-        LOG_ERROR_CAT(LogCategory::Window, "[GLFW Error] ({}): {}", error, description);
-    }
+void GLFWErrorCallback(int error, const char* description)
+{
+    LOG_ERROR_CAT(LogCategory::Window, "[GLFW Error] ({}): {}", error, description);
 }
+} // namespace
 
-Window::Window(const WindowProps &props)
+Window::Window(const WindowProps& props)
 {
     Init(props);
 }
@@ -44,7 +44,7 @@ Window::~Window()
     Shutdown();
 }
 
-void Window::Init(const WindowProps &props)
+void Window::Init(const WindowProps& props)
 {
     m_Width = props.Width;
     m_Height = props.Height;
@@ -71,11 +71,7 @@ void Window::Init(const WindowProps &props)
 #endif
 
     m_Handle = glfwCreateWindow(
-        static_cast<int>(props.Width),
-        static_cast<int>(props.Height),
-        props.Title.c_str(),
-        nullptr,
-        nullptr);
+        static_cast<int>(props.Width), static_cast<int>(props.Height), props.Title.c_str(), nullptr, nullptr);
 
     RTRLAB_ASSERT_MSG(m_Handle, "Failed to create GLFW window.");
 
@@ -89,7 +85,11 @@ void Window::Init(const WindowProps &props)
 
     LOG_INFO_CAT(LogCategory::Window,
                  "Window created: {}x{} (framebuffer {}x{}) \"{}\"",
-                 props.Width, props.Height, m_Width, m_Height, props.Title);
+                 props.Width,
+                 props.Height,
+                 m_Width,
+                 m_Height,
+                 props.Title);
 
 #if defined(GLAB_BACKEND_OPENGL)
     glfwMakeContextCurrent(m_Handle);
@@ -102,39 +102,62 @@ void Window::Init(const WindowProps &props)
     // making stack traces useful. Notifications are filtered out to reduce noise.
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-    glDebugMessageCallback([](GLenum source, GLenum type, GLuint id,
-                              GLenum severity, GLsizei /*length*/,
-                              const GLchar *message, const void * /*userParam*/)
-                           {
-        if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) return;
+    glDebugMessageCallback(
+        [](GLenum source,
+           GLenum type,
+           GLuint id,
+           GLenum severity,
+           GLsizei /*length*/,
+           const GLchar* message,
+           const void* /*userParam*/)
+        {
+            if (severity == GL_DEBUG_SEVERITY_NOTIFICATION)
+                return;
 
-        const char *srcStr = [source]() -> const char * {
-            switch (source) {
-                case GL_DEBUG_SOURCE_API:             return "API";
-                case GL_DEBUG_SOURCE_WINDOW_SYSTEM:   return "Window System";
-                case GL_DEBUG_SOURCE_SHADER_COMPILER: return "Shader Compiler";
-                case GL_DEBUG_SOURCE_THIRD_PARTY:     return "Third Party";
-                case GL_DEBUG_SOURCE_APPLICATION:     return "Application";
-                default:                              return "Other";
-            }
-        }();
+            const char* srcStr = [source]() -> const char*
+            {
+                switch (source)
+                {
+                    case GL_DEBUG_SOURCE_API:
+                        return "API";
+                    case GL_DEBUG_SOURCE_WINDOW_SYSTEM:
+                        return "Window System";
+                    case GL_DEBUG_SOURCE_SHADER_COMPILER:
+                        return "Shader Compiler";
+                    case GL_DEBUG_SOURCE_THIRD_PARTY:
+                        return "Third Party";
+                    case GL_DEBUG_SOURCE_APPLICATION:
+                        return "Application";
+                    default:
+                        return "Other";
+                }
+            }();
 
-        const char *typeStr = [type]() -> const char * {
-            switch (type) {
-                case GL_DEBUG_TYPE_ERROR:               return "Error";
-                case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: return "Deprecated";
-                case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  return "Undefined Behavior";
-                case GL_DEBUG_TYPE_PORTABILITY:         return "Portability";
-                case GL_DEBUG_TYPE_PERFORMANCE:         return "Performance";
-                default:                                return "Other";
-            }
-        }();
+            const char* typeStr = [type]() -> const char*
+            {
+                switch (type)
+                {
+                    case GL_DEBUG_TYPE_ERROR:
+                        return "Error";
+                    case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
+                        return "Deprecated";
+                    case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
+                        return "Undefined Behavior";
+                    case GL_DEBUG_TYPE_PORTABILITY:
+                        return "Portability";
+                    case GL_DEBUG_TYPE_PERFORMANCE:
+                        return "Performance";
+                    default:
+                        return "Other";
+                }
+            }();
 
-        if (severity == GL_DEBUG_SEVERITY_HIGH)
-            LOG_ERROR_CAT(LogCategory::Window, "[GL {}] {} (id={}): {}", srcStr, typeStr, id, message);
-        else
-            LOG_WARN_CAT(LogCategory::Window, "[GL {}] {} (id={}): {}", srcStr, typeStr, id, message); },
-                           nullptr);
+            if (severity == GL_DEBUG_SEVERITY_HIGH)
+                LOG_ERROR_CAT(LogCategory::Window, "[GL {}] {} (id={}): {}", srcStr, typeStr, id, message);
+            else
+                LOG_WARN_CAT(LogCategory::Window, "[GL {}] {} (id={}): {}", srcStr, typeStr, id, message);
+        },
+        nullptr);
     LOG_INFO_CAT(LogCategory::Window, "OpenGL debug callback registered");
 #endif
 
@@ -143,13 +166,14 @@ void Window::Init(const WindowProps &props)
 
     // Scroll callback - GLFW only reports scroll via callback, so we accumulate
     // it into the Input system for per-frame consumption.
-    glfwSetScrollCallback(m_Handle, [](GLFWwindow * /*window*/, double /*xoffset*/, double yoffset)
+    glfwSetScrollCallback(m_Handle,
+                          [](GLFWwindow* /*window*/, double /*xoffset*/, double yoffset)
                           { Input::AccumulateScroll(static_cast<float>(yoffset)); });
 
 #if defined(GLAB_BACKEND_OPENGL)
-    LOG_INFO_CAT(LogCategory::Window, "OpenGL Vendor   : {}", reinterpret_cast<const char *>(glGetString(GL_VENDOR)));
-    LOG_INFO_CAT(LogCategory::Window, "OpenGL Renderer : {}", reinterpret_cast<const char *>(glGetString(GL_RENDERER)));
-    LOG_INFO_CAT(LogCategory::Window, "OpenGL Version  : {}", reinterpret_cast<const char *>(glGetString(GL_VERSION)));
+    LOG_INFO_CAT(LogCategory::Window, "OpenGL Vendor   : {}", reinterpret_cast<const char*>(glGetString(GL_VENDOR)));
+    LOG_INFO_CAT(LogCategory::Window, "OpenGL Renderer : {}", reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
+    LOG_INFO_CAT(LogCategory::Window, "OpenGL Version  : {}", reinterpret_cast<const char*>(glGetString(GL_VERSION)));
 #endif
 }
 
@@ -193,14 +217,16 @@ bool Window::ShouldClose() const
 void Window::SetRefreshCallback(RefreshCallback callback)
 {
     m_RefreshCallback = std::move(callback);
-    glfwSetWindowRefreshCallback(m_Handle, [](GLFWwindow *w)
+    glfwSetWindowRefreshCallback(m_Handle,
+                                 [](GLFWwindow* w)
                                  {
-        auto *self = static_cast<Window *>(glfwGetWindowUserPointer(w));
-        if (self && self->m_RefreshCallback)
-            self->m_RefreshCallback(); });
+                                     auto* self = static_cast<Window*>(glfwGetWindowUserPointer(w));
+                                     if (self && self->m_RefreshCallback)
+                                         self->m_RefreshCallback();
+                                 });
 }
 
-void Window::SetEventBus(EventBus *bus)
+void Window::SetEventBus(EventBus* bus)
 {
     m_EventBus = bus;
     if (m_EventBus)
@@ -210,66 +236,78 @@ void Window::SetEventBus(EventBus *bus)
 void Window::InstallCallbacks()
 {
     // Framebuffer resize - update width/height and publish via EventBus.
-    glfwSetFramebufferSizeCallback(m_Handle, [](GLFWwindow *w, int width, int height)
+    glfwSetFramebufferSizeCallback(m_Handle,
+                                   [](GLFWwindow* w, int width, int height)
                                    {
-        auto* self = static_cast<Window*>(glfwGetWindowUserPointer(w));
-        if (!self) return;
+                                       auto* self = static_cast<Window*>(glfwGetWindowUserPointer(w));
+                                       if (!self)
+                                           return;
 
-        self->m_Width  = static_cast<uint32_t>(width);
-        self->m_Height = static_cast<uint32_t>(height);
+                                       self->m_Width = static_cast<uint32_t>(width);
+                                       self->m_Height = static_cast<uint32_t>(height);
 
-        if (self->m_EventBus)
-            self->m_EventBus->Publish(WindowResizeEvent{ self->m_Width, self->m_Height }); });
+                                       if (self->m_EventBus)
+                                           self->m_EventBus->Publish(WindowResizeEvent{self->m_Width, self->m_Height});
+                                   });
 
     // Window close
-    glfwSetWindowCloseCallback(m_Handle, [](GLFWwindow *w)
+    glfwSetWindowCloseCallback(m_Handle,
+                               [](GLFWwindow* w)
                                {
-        auto* self = static_cast<Window*>(glfwGetWindowUserPointer(w));
-        if (self && self->m_EventBus)
-            self->m_EventBus->Publish(WindowCloseEvent{}); });
+                                   auto* self = static_cast<Window*>(glfwGetWindowUserPointer(w));
+                                   if (self && self->m_EventBus)
+                                       self->m_EventBus->Publish(WindowCloseEvent{});
+                               });
 
     // Keyboard
-    glfwSetKeyCallback(m_Handle, [](GLFWwindow *w, int key, int /*scancode*/,
-                                    int action, int /*mods*/)
+    glfwSetKeyCallback(m_Handle,
+                       [](GLFWwindow* w, int key, int /*scancode*/, int action, int /*mods*/)
                        {
-        auto* self = static_cast<Window*>(glfwGetWindowUserPointer(w));
-        if (!self || !self->m_EventBus) return;
+                           auto* self = static_cast<Window*>(glfwGetWindowUserPointer(w));
+                           if (!self || !self->m_EventBus)
+                               return;
 
-        if (action == GLFW_PRESS)
-            self->m_EventBus->Publish(KeyPressedEvent{ static_cast<Key::Code>(key), false });
-        else if (action == GLFW_REPEAT)
-            self->m_EventBus->Publish(KeyPressedEvent{ static_cast<Key::Code>(key), true });
-        else if (action == GLFW_RELEASE)
-            self->m_EventBus->Publish(KeyReleasedEvent{ static_cast<Key::Code>(key) }); });
+                           if (action == GLFW_PRESS)
+                               self->m_EventBus->Publish(KeyPressedEvent{static_cast<Key::Code>(key), false});
+                           else if (action == GLFW_REPEAT)
+                               self->m_EventBus->Publish(KeyPressedEvent{static_cast<Key::Code>(key), true});
+                           else if (action == GLFW_RELEASE)
+                               self->m_EventBus->Publish(KeyReleasedEvent{static_cast<Key::Code>(key)});
+                       });
 
     // Character input (Unicode codepoints for text input)
-    glfwSetCharCallback(m_Handle, [](GLFWwindow *w, unsigned int codepoint)
+    glfwSetCharCallback(m_Handle,
+                        [](GLFWwindow* w, unsigned int codepoint)
                         {
-        auto* self = static_cast<Window*>(glfwGetWindowUserPointer(w));
-        if (self && self->m_EventBus)
-            self->m_EventBus->Publish(CharTypedEvent{ codepoint }); });
+                            auto* self = static_cast<Window*>(glfwGetWindowUserPointer(w));
+                            if (self && self->m_EventBus)
+                                self->m_EventBus->Publish(CharTypedEvent{codepoint});
+                        });
 
     // Mouse buttons
-    glfwSetMouseButtonCallback(m_Handle, [](GLFWwindow *w, int button,
-                                            int action, int /*mods*/)
-                               {
-        auto* self = static_cast<Window*>(glfwGetWindowUserPointer(w));
-        if (!self || !self->m_EventBus) return;
+    glfwSetMouseButtonCallback(
+        m_Handle,
+        [](GLFWwindow* w, int button, int action, int /*mods*/)
+        {
+            auto* self = static_cast<Window*>(glfwGetWindowUserPointer(w));
+            if (!self || !self->m_EventBus)
+                return;
 
-        if (action == GLFW_PRESS)
-            self->m_EventBus->Publish(MouseButtonPressedEvent{ static_cast<Mouse::Code>(button) });
-        else
-            self->m_EventBus->Publish(MouseButtonReleasedEvent{ static_cast<Mouse::Code>(button) }); });
+            if (action == GLFW_PRESS)
+                self->m_EventBus->Publish(MouseButtonPressedEvent{static_cast<Mouse::Code>(button)});
+            else
+                self->m_EventBus->Publish(MouseButtonReleasedEvent{static_cast<Mouse::Code>(button)});
+        });
 
     // Scroll - both feed the Input accumulator AND publish an event.
-    glfwSetScrollCallback(m_Handle, [](GLFWwindow *w, double xoffset, double yoffset)
+    glfwSetScrollCallback(m_Handle,
+                          [](GLFWwindow* w, double xoffset, double yoffset)
                           {
-        Input::AccumulateScroll(static_cast<float>(yoffset));
+                              Input::AccumulateScroll(static_cast<float>(yoffset));
 
-        auto* self = static_cast<Window*>(glfwGetWindowUserPointer(w));
-        if (self && self->m_EventBus)
-            self->m_EventBus->Publish(MouseScrolledEvent{
-                static_cast<float>(xoffset),
-                static_cast<float>(yoffset)
-            }); });
+                              auto* self = static_cast<Window*>(glfwGetWindowUserPointer(w));
+                              if (self && self->m_EventBus)
+                                  self->m_EventBus->Publish(
+                                      MouseScrolledEvent{static_cast<float>(xoffset), static_cast<float>(yoffset)});
+                          });
 }

@@ -11,38 +11,33 @@
 
 namespace
 {
-    struct LegacyBootstrapTextureHeader
+struct LegacyBootstrapTextureHeader
+{
+    char magic[8] = {'R', 'T', 'R', 'T', 'E', 'X', '0', '1'};
+    uint32_t version = 1;
+    uint32_t width = 0;
+    uint32_t height = 0;
+    uint32_t channelCount = 4;
+    uint32_t pixelFormat = 1;
+    uint32_t dataSize = 0;
+};
+
+class CookedCatalogTests : public ::testing::Test
+{
+protected:
+    void SetUp() override
     {
-        char magic[8] = {'R', 'T', 'R', 'T', 'E', 'X', '0', '1'};
-        uint32_t version = 1;
-        uint32_t width = 0;
-        uint32_t height = 0;
-        uint32_t channelCount = 4;
-        uint32_t pixelFormat = 1;
-        uint32_t dataSize = 0;
-    };
+        m_TestRoot = test_support::CurrentTestRoot("cooked-catalog");
+        test_support::ResetCurrentTestRoot("cooked-catalog");
+    }
 
-    class CookedCatalogTests : public ::testing::Test
-    {
-    protected:
-        void SetUp() override
-        {
-            m_TestRoot = test_support::CurrentTestRoot("cooked-catalog");
-            test_support::ResetCurrentTestRoot("cooked-catalog");
-        }
+    void TearDown() override { test_support::RemoveCurrentTestArtifacts("cooked-catalog"); }
 
-        void TearDown() override
-        {
-            test_support::RemoveCurrentTestArtifacts("cooked-catalog");
-        }
+    std::filesystem::path TestRoot() const { return m_TestRoot; }
 
-        std::filesystem::path TestRoot() const
-        {
-            return m_TestRoot;
-        }
-    private:
-        std::filesystem::path m_TestRoot;
-    };
+private:
+    std::filesystem::path m_TestRoot;
+};
 
 } // namespace
 

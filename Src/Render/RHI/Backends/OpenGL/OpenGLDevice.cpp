@@ -5,7 +5,7 @@
 
 #include "Core/Diagnostics/Assert/Assert.h"
 
-void OpenGLCommandList::beginRendering(const RenderingInfo &renderingInfo)
+void OpenGLCommandList::beginRendering(const RenderingInfo& renderingInfo)
 {
     ShellCommandListBase::beginRendering(renderingInfo);
 
@@ -17,15 +17,11 @@ void OpenGLCommandList::beginRendering(const RenderingInfo &renderingInfo)
     // - must translate from the public RHI coordinate convention to GL's lower-left
     //   origin once partial render areas are exercised
     const Rect2D renderArea = renderingInfo.renderArea;
-    glViewport(renderArea.x,
-               renderArea.y,
-               static_cast<GLsizei>(renderArea.width),
-               static_cast<GLsizei>(renderArea.height));
+    glViewport(
+        renderArea.x, renderArea.y, static_cast<GLsizei>(renderArea.width), static_cast<GLsizei>(renderArea.height));
     glEnable(GL_SCISSOR_TEST);
-    glScissor(renderArea.x,
-              renderArea.y,
-              static_cast<GLsizei>(renderArea.width),
-              static_cast<GLsizei>(renderArea.height));
+    glScissor(
+        renderArea.x, renderArea.y, static_cast<GLsizei>(renderArea.width), static_cast<GLsizei>(renderArea.height));
 
     GLbitfield clearMask = 0;
 
@@ -33,7 +29,7 @@ void OpenGLCommandList::beginRendering(const RenderingInfo &renderingInfo)
     {
         // Early bring-up limitation: only the first color attachment clear is consumed here.
         // Extend this to all color attachments when MRT clear support becomes a real requirement.
-        const ColorAttachmentInfo &colorAttachment = renderingInfo.colorAttachments.front();
+        const ColorAttachmentInfo& colorAttachment = renderingInfo.colorAttachments.front();
         if (colorAttachment.loadOp == LoadOp::Clear)
         {
             glClearColor(colorAttachment.clearValue.r,
@@ -60,7 +56,7 @@ void OpenGLCommandList::endRendering()
     glDisable(GL_SCISSOR_TEST);
 }
 
-OpenGLSwapchain::OpenGLSwapchain(const SwapchainDesc &desc, const NativeWindowHandle &nativeWindowHandle)
+OpenGLSwapchain::OpenGLSwapchain(const SwapchainDesc& desc, const NativeWindowHandle& nativeWindowHandle)
     : ShellSwapchainBase(desc, nativeWindowHandle)
 {
 }
@@ -72,23 +68,22 @@ void OpenGLSwapchain::present(uint32_t imageIndex)
     // v1 relies on the current single-window/single-context invariant:
     // the GLFW current context is expected to belong to this swapchain's window.
     // Revisit this path before adding multi-window or multi-context OpenGL support.
-    GLFWwindow *currentContext = glfwGetCurrentContext();
-    RTRLAB_ASSERT_MSG(currentContext != nullptr,
-                      "OpenGLSwapchain::present requires a current GLFW OpenGL context.");
+    GLFWwindow* currentContext = glfwGetCurrentContext();
+    RTRLAB_ASSERT_MSG(currentContext != nullptr, "OpenGLSwapchain::present requires a current GLFW OpenGL context.");
     glfwSwapBuffers(currentContext);
 }
 
-Scope<Swapchain> OpenGLDevice::createSwapchain(const SwapchainDesc &desc, const NativeWindowHandle &nativeWindowHandle)
+Scope<Swapchain> OpenGLDevice::createSwapchain(const SwapchainDesc& desc, const NativeWindowHandle& nativeWindowHandle)
 {
     return CreateScope<OpenGLSwapchain>(desc, nativeWindowHandle);
 }
 
-CommandList *OpenGLDevice::beginCommandList()
+CommandList* OpenGLDevice::beginCommandList()
 {
     return &m_CommandList;
 }
 
-void OpenGLDevice::submit(CommandList *commandList)
+void OpenGLDevice::submit(CommandList* commandList)
 {
     RTRLAB_ASSERT_MSG(commandList == &m_CommandList,
                       "OpenGLDevice::submit expects the backend-owned command list returned by beginCommandList().");
@@ -101,7 +96,7 @@ void OpenGLDevice::submit(CommandList *commandList)
     (void)m_CommandList.GetRenderingInfo();
 }
 
-FrameContext *OpenGLDevice::beginFrame()
+FrameContext* OpenGLDevice::beginFrame()
 {
     return &m_FrameContext;
 }

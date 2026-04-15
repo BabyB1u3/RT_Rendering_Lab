@@ -30,10 +30,7 @@ class DeadZone : public InputModifier
 public:
     explicit DeadZone(float threshold) : m_Threshold(threshold) {}
 
-    float Apply(float value, float /*dt*/) const override
-    {
-        return std::abs(value) < m_Threshold ? 0.0f : value;
-    }
+    float Apply(float value, float /*dt*/) const override { return std::abs(value) < m_Threshold ? 0.0f : value; }
 
 private:
     float m_Threshold;
@@ -45,10 +42,7 @@ class Sensitivity : public InputModifier
 public:
     explicit Sensitivity(float scale) : m_Scale(scale) {}
 
-    float Apply(float value, float /*dt*/) const override
-    {
-        return value * m_Scale;
-    }
+    float Apply(float value, float /*dt*/) const override { return value * m_Scale; }
 
 private:
     float m_Scale;
@@ -60,10 +54,7 @@ class Clamp : public InputModifier
 public:
     Clamp(float min, float max) : m_Min(min), m_Max(max) {}
 
-    float Apply(float value, float /*dt*/) const override
-    {
-        return std::clamp(value, m_Min, m_Max);
-    }
+    float Apply(float value, float /*dt*/) const override { return std::clamp(value, m_Min, m_Max); }
 
 private:
     float m_Min;
@@ -74,10 +65,7 @@ private:
 class Negate : public InputModifier
 {
 public:
-    float Apply(float value, float /*dt*/) const override
-    {
-        return -value;
-    }
+    float Apply(float value, float /*dt*/) const override { return -value; }
 };
 
 /// Smooths value over time using exponential moving average.

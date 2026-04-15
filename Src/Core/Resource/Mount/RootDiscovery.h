@@ -5,5 +5,5 @@
 
 namespace Resource
 {
-    std::filesystem::path DiscoverRootPath();
+std::filesystem::path DiscoverRootPath();
 } // namespace Resource

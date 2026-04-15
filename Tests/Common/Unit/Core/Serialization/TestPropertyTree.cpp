@@ -180,7 +180,7 @@ TEST(PropertyTreeTests, ConstObjectSubscriptReturnsCorrectValue)
 {
     PropertyTree tree = PropertyTree::Object{};
     tree["count"] = PropertyTree(7);
-    const PropertyTree &constTree = tree;
+    const PropertyTree& constTree = tree;
 
     EXPECT_EQ(constTree["count"].AsInt(), 7);
 }
@@ -321,7 +321,7 @@ TEST(PropertyTreeTests, ObjectIterationUsesStableSortedKeyOrder)
     tree["m"] = PropertyTree(3);
 
     std::vector<std::string> keys;
-    for (const auto &[key, value] : tree.AsObject())
+    for (const auto& [key, value] : tree.AsObject())
     {
         (void)value;
         keys.push_back(key);

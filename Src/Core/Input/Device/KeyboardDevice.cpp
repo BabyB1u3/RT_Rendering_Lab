@@ -2,10 +2,7 @@
 
 #include <GLFW/glfw3.h>
 
-KeyboardDevice::KeyboardDevice(GLFWwindow *window)
-    : m_Window(window)
-{
-}
+KeyboardDevice::KeyboardDevice(GLFWwindow* window) : m_Window(window) {}
 
 void KeyboardDevice::Poll()
 {
@@ -42,7 +39,7 @@ void KeyboardDevice::Reset()
     m_PreviousKeys.fill(false);
 }
 
-void KeyboardDevice::ApplyState(const std::array<bool, KEY_STATE_SIZE> &keys)
+void KeyboardDevice::ApplyState(const std::array<bool, KEY_STATE_SIZE>& keys)
 {
     m_PreviousKeys = m_CurrentKeys;
     m_CurrentKeys = keys;

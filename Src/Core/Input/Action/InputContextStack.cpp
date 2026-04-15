@@ -5,8 +5,7 @@
 
 // --- Lifecycle ---
 
-void InputContextStack::Push(const std::string &name, InputActionMap *map,
-                             int priority, bool consumesInput)
+void InputContextStack::Push(const std::string& name, InputActionMap* map, int priority, bool consumesInput)
 {
     // Replace existing context with the same name.
     Pop(name);
@@ -22,11 +21,9 @@ void InputContextStack::Push(const std::string &name, InputActionMap *map,
     SortByPriority();
 }
 
-void InputContextStack::Pop(const std::string &name)
+void InputContextStack::Pop(const std::string& name)
 {
-    auto it = std::find_if(m_Contexts.begin(), m_Contexts.end(),
-                           [&](const InputContext &c)
-                           { return c.Name == name; });
+    auto it = std::find_if(m_Contexts.begin(), m_Contexts.end(), [&](const InputContext& c) { return c.Name == name; });
     if (it != m_Contexts.end())
     {
         if (it->ActionMap != nullptr)
@@ -36,11 +33,9 @@ void InputContextStack::Pop(const std::string &name)
     }
 }
 
-void InputContextStack::SetActive(const std::string &name, bool active)
+void InputContextStack::SetActive(const std::string& name, bool active)
 {
-    auto it = std::find_if(m_Contexts.begin(), m_Contexts.end(),
-                           [&](const InputContext &c)
-                           { return c.Name == name; });
+    auto it = std::find_if(m_Contexts.begin(), m_Contexts.end(), [&](const InputContext& c) { return c.Name == name; });
     if (it != m_Contexts.end())
     {
         if (it->Active && !active && it->ActionMap != nullptr)
@@ -56,7 +51,7 @@ void InputContextStack::Update(float dt)
 {
     std::vector<InputSource> blockedSources;
 
-    for (auto &ctx : m_Contexts)
+    for (auto& ctx : m_Contexts)
     {
         if (!ctx.Active || ctx.ActionMap == nullptr)
             continue;
@@ -71,11 +66,11 @@ void InputContextStack::Update(float dt)
 
 // --- Cross-context queries ---
 
-bool InputContextStack::IsActionDown(const std::string &action) const
+bool InputContextStack::IsActionDown(const std::string& action) const
 {
     std::vector<InputSource> blockedSources;
 
-    for (const auto &ctx : m_Contexts)
+    for (const auto& ctx : m_Contexts)
     {
         if (!ctx.Active || ctx.ActionMap == nullptr)
             continue;
@@ -92,11 +87,11 @@ bool InputContextStack::IsActionDown(const std::string &action) const
     return false;
 }
 
-bool InputContextStack::WasActionTriggeredThisFrame(const std::string &action) const
+bool InputContextStack::WasActionTriggeredThisFrame(const std::string& action) const
 {
     std::vector<InputSource> blockedSources;
 
-    for (const auto &ctx : m_Contexts)
+    for (const auto& ctx : m_Contexts)
     {
         if (!ctx.Active || ctx.ActionMap == nullptr)
             continue;
@@ -113,9 +108,9 @@ bool InputContextStack::WasActionTriggeredThisFrame(const std::string &action) c
     return false;
 }
 
-float InputContextStack::GetAxis(const std::string &axis) const
+float InputContextStack::GetAxis(const std::string& axis) const
 {
-    for (const auto &ctx : m_Contexts)
+    for (const auto& ctx : m_Contexts)
     {
         if (!ctx.Active || ctx.ActionMap == nullptr)
             continue;
@@ -132,16 +127,14 @@ float InputContextStack::GetAxis(const std::string &axis) const
 
 // --- Utility ---
 
-bool InputContextStack::HasContext(const std::string &name) const
+bool InputContextStack::HasContext(const std::string& name) const
 {
-    return std::any_of(m_Contexts.begin(), m_Contexts.end(),
-                       [&](const InputContext &c)
-                       { return c.Name == name; });
+    return std::any_of(m_Contexts.begin(), m_Contexts.end(), [&](const InputContext& c) { return c.Name == name; });
 }
 
 void InputContextStack::SortByPriority()
 {
-    std::stable_sort(m_Contexts.begin(), m_Contexts.end(),
-                     [](const InputContext &a, const InputContext &b)
-                     { return a.Priority > b.Priority; });
+    std::stable_sort(m_Contexts.begin(),
+                     m_Contexts.end(),
+                     [](const InputContext& a, const InputContext& b) { return a.Priority > b.Priority; });
 }

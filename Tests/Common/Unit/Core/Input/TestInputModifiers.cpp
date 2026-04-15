@@ -158,17 +158,17 @@ TEST(InputModifierTests, ModifierChainAppliesInOrder)
     chain.push_back(std::make_unique<Clamp>(-1.0f, 1.0f));
 
     float value = 0.02f; // below dead zone
-    for (const auto &mod : chain)
+    for (const auto& mod : chain)
         value = mod->Apply(value, 0.0f);
     EXPECT_FLOAT_EQ(value, 0.0f); // zeroed by dead zone
 
     value = 0.4f; // above dead zone: 0.4 * 3.0 = 1.2, clamped to 1.0
-    for (const auto &mod : chain)
+    for (const auto& mod : chain)
         value = mod->Apply(value, 0.0f);
     EXPECT_FLOAT_EQ(value, 1.0f);
 
     value = 0.1f; // above dead zone: 0.1 * 3.0 = 0.3, within clamp
-    for (const auto &mod : chain)
+    for (const auto& mod : chain)
         value = mod->Apply(value, 0.0f);
     EXPECT_FLOAT_EQ(value, 0.3f);
 }

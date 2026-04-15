@@ -10,12 +10,9 @@
 class ImGuiConsoleSinkTests : public ::testing::Test
 {
 protected:
-    void SetUp() override
-    {
-        m_Sink = std::make_shared<Diagnostics::ImGuiConsoleSink>();
-    }
+    void SetUp() override { m_Sink = std::make_shared<Diagnostics::ImGuiConsoleSink>(); }
 
-    void LogMessage(const std::string &category, spdlog::level::level_enum level, const std::string &msg)
+    void LogMessage(const std::string& category, spdlog::level::level_enum level, const std::string& msg)
     {
         auto logger = std::make_shared<spdlog::logger>(category, m_Sink);
         logger->set_level(spdlog::level::trace);

@@ -14,9 +14,9 @@
 #include "Core/Util/Time.h"
 #include "GUI/ImGuiLayer.h"
 
-Application *Application::s_Instance = nullptr;
+Application* Application::s_Instance = nullptr;
 
-Application::Application(const ApplicationSpecification &spec)
+Application::Application(const ApplicationSpecification& spec)
 {
     FileSystem::Init();
     Diagnostics::Logger::Init();
@@ -33,18 +33,19 @@ Application::Application(const ApplicationSpecification &spec)
     props.Height = spec.Height;
 
     m_Window = CreateScope<Window>(props);
-    m_Window->SetRefreshCallback([this]()
-                                 {
-        m_FrameRenderedThisTick = true;
-        Time::Update(glfwGetTime());
-        if (!m_Minimized)
-            RenderFrame(); });
+    m_Window->SetRefreshCallback(
+        [this]()
+        {
+            m_FrameRenderedThisTick = true;
+            Time::Update(glfwGetTime());
+            if (!m_Minimized)
+                RenderFrame();
+        });
 
     // Subscribe to resize events BEFORE SetEventBus() installs the GLFW callbacks
     // that publish them, so no event is missed.
-    m_ResizeConnection = m_EventBus.Subscribe<WindowResizeEvent>(
-        [this](const WindowResizeEvent &e)
-        { OnWindowResize(e.Width, e.Height); });
+    m_ResizeConnection = m_EventBus.Subscribe<WindowResizeEvent>([this](const WindowResizeEvent& e)
+                                                                 { OnWindowResize(e.Width, e.Height); });
     m_Window->SetEventBus(&m_EventBus);
 
     Input::Initialize(m_Window->GetNativeHandle());
@@ -82,11 +83,11 @@ void Application::RenderFrame()
     BeginFrame();
 
     // Phase 1: logic update (input, physics, animation, etc.)
-    for (auto &layer : m_LayerStack)
+    for (auto& layer : m_LayerStack)
         layer->OnUpdate(Time::GetDeltaTime());
 
     // Phase 2: GPU draw calls (scene rendering)
-    for (auto &layer : m_LayerStack)
+    for (auto& layer : m_LayerStack)
         layer->OnRender();
 
     // Phase 3: ImGui pass - Begin/End bracket all OnImGuiRender() calls
@@ -126,12 +127,12 @@ void Application::Close()
     m_Running = false;
 }
 
-Layer *Application::PushLayer(Scope<Layer> layer)
+Layer* Application::PushLayer(Scope<Layer> layer)
 {
     return m_LayerStack.PushLayer(std::move(layer));
 }
 
-Layer *Application::PushOverlay(Scope<Layer> overlay)
+Layer* Application::PushOverlay(Scope<Layer> overlay)
 {
     return m_LayerStack.PushOverlay(std::move(overlay));
 }
@@ -149,7 +150,7 @@ void Application::OnWindowResize(uint32_t width, uint32_t height)
     if (m_Swapchain)
         m_Swapchain->resize(width, height);
 
-    for (auto &layer : m_LayerStack)
+    for (auto& layer : m_LayerStack)
         layer->OnResize(width, height);
 }
 

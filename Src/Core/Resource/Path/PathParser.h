@@ -7,6 +7,6 @@
 
 namespace Resource
 {
-    bool IsVirtualPath(std::string_view path);
-    std::optional<VirtualPath> ParseVirtualPath(std::string_view path);
+bool IsVirtualPath(std::string_view path);
+std::optional<VirtualPath> ParseVirtualPath(std::string_view path);
 } // namespace Resource

@@ -8,10 +8,10 @@
 
 namespace
 {
-    using test_support::BindConstantAxis;
-    using test_support::BindConstantTrigger;
-    using test_support::InputTestAccess;
-}
+using test_support::BindConstantAxis;
+using test_support::BindConstantTrigger;
+using test_support::InputTestAccess;
+} // namespace
 
 // These tests verify the contract behavior of InputContextStack:
 // priority ordering, highest-priority ownership, consumption blocking,

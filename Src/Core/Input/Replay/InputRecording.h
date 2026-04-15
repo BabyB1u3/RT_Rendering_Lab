@@ -64,22 +64,22 @@ public:
     bool IsRecording() const { return m_IsRecording; }
 
     void Clear();
-    void CaptureFrame(const InputDeviceManager &manager, uint64_t frameNumber, float dt);
+    void CaptureFrame(const InputDeviceManager& manager, uint64_t frameNumber, float dt);
 
-    const InputRecording &GetRecording() const { return m_Recording; }
+    const InputRecording& GetRecording() const { return m_Recording; }
     void SetRecording(InputRecording recording);
 
-    bool SaveToFile(const std::filesystem::path &path) const;
-    bool LoadFromFile(const std::filesystem::path &path);
+    bool SaveToFile(const std::filesystem::path& path) const;
+    bool LoadFromFile(const std::filesystem::path& path);
 
-    void Attach(InputDeviceManager &manager);
+    void Attach(InputDeviceManager& manager);
     void Detach();
 
-    void OnAfterPollAll(const InputDeviceManager &manager, float dt) override;
+    void OnAfterPollAll(const InputDeviceManager& manager, float dt) override;
 
 private:
     InputRecording m_Recording;
-    InputDeviceManager *m_Manager = nullptr; // Non-owning.
+    InputDeviceManager* m_Manager = nullptr; // Non-owning.
     uint64_t m_NextFrameNumber = 0;
     bool m_IsRecording = false;
 };
@@ -93,7 +93,7 @@ public:
     void Clear();
     void Reset();
 
-    void Attach(InputDeviceManager &manager);
+    void Attach(InputDeviceManager& manager);
     void Detach();
 
     bool Empty() const { return m_Recording.Empty(); }
@@ -101,31 +101,31 @@ public:
     bool HasTimingMismatch() const { return m_HasTimingMismatch; }
     std::size_t GetNextFrameIndex() const { return m_NextFrameIndex; }
 
-    const InputFrame *GetCurrentFrame() const { return m_CurrentFrame; }
-    const InputFrame *GetPreviousFrame() const { return m_PreviousFrame; }
-    const InputFrame *GetFrameBeforePrevious() const { return m_FrameBeforePrevious; }
+    const InputFrame* GetCurrentFrame() const { return m_CurrentFrame; }
+    const InputFrame* GetPreviousFrame() const { return m_PreviousFrame; }
+    const InputFrame* GetFrameBeforePrevious() const { return m_FrameBeforePrevious; }
 
-    const RecordedKeyboardState *GetKeyboardState() const;
-    const RecordedKeyboardState *GetPreviousKeyboardState() const;
+    const RecordedKeyboardState* GetKeyboardState() const;
+    const RecordedKeyboardState* GetPreviousKeyboardState() const;
 
-    const RecordedMouseState *GetMouseState() const;
-    const RecordedMouseState *GetPreviousMouseState() const;
-    const RecordedMouseState *GetMouseStateBeforePrevious() const;
+    const RecordedMouseState* GetMouseState() const;
+    const RecordedMouseState* GetPreviousMouseState() const;
+    const RecordedMouseState* GetMouseStateBeforePrevious() const;
 
-    const RecordedGamepadState *GetGamepadState(uint8_t deviceIndex) const;
-    const RecordedGamepadState *GetPreviousGamepadState(uint8_t deviceIndex) const;
+    const RecordedGamepadState* GetGamepadState(uint8_t deviceIndex) const;
+    const RecordedGamepadState* GetPreviousGamepadState(uint8_t deviceIndex) const;
 
-    void OnBeforePollAll(InputDeviceManager &, float dt) override;
+    void OnBeforePollAll(InputDeviceManager&, float dt) override;
 
 private:
-    static const RecordedGamepadState *FindGamepadState(const InputFrame *frame, uint8_t deviceIndex);
+    static const RecordedGamepadState* FindGamepadState(const InputFrame* frame, uint8_t deviceIndex);
 
 private:
     InputRecording m_Recording;
-    InputDeviceManager *m_Manager = nullptr; // Non-owning.
-    const InputFrame *m_FrameBeforePrevious = nullptr;
-    const InputFrame *m_PreviousFrame = nullptr;
-    const InputFrame *m_CurrentFrame = nullptr;
+    InputDeviceManager* m_Manager = nullptr; // Non-owning.
+    const InputFrame* m_FrameBeforePrevious = nullptr;
+    const InputFrame* m_PreviousFrame = nullptr;
+    const InputFrame* m_CurrentFrame = nullptr;
     std::size_t m_NextFrameIndex = 0;
     bool m_IsFinished = true;
     bool m_HasTimingMismatch = false;

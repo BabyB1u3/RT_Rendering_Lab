@@ -21,6 +21,6 @@ struct NativeWindowHandle
     // Platform-native pointers/handles in this struct are borrowed. The platform/window layer
     // keeps them alive; any RHI backend that wants to store them across calls must retain/own
     // the platform object explicitly on the backend side.
-    void *display = nullptr;
-    void *layer = nullptr;
+    void* display = nullptr;
+    void* layer = nullptr;
 };

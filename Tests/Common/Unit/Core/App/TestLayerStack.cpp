@@ -12,11 +12,11 @@ TEST(LayerStackTests, PushLayerKeepsNormalLayerOrder)
 
     LayerStack stack;
 
-    auto *a = stack.PushLayer(CreateScope<TestLayer>("A"));
-    auto *b = stack.PushLayer(CreateScope<TestLayer>("B"));
+    auto* a = stack.PushLayer(CreateScope<TestLayer>("A"));
+    auto* b = stack.PushLayer(CreateScope<TestLayer>("B"));
 
     std::vector<std::string> names;
-    for (const auto &layer : stack)
+    for (const auto& layer : stack)
         names.push_back(layer->GetName());
 
     ASSERT_EQ(names.size(), 2u);
@@ -39,7 +39,7 @@ TEST(LayerStackTests, OverlayIsAppendedAfterNormalLayers)
     stack.PushOverlay(CreateScope<TestLayer>("OverlayA"));
 
     std::vector<std::string> names;
-    for (const auto &layer : stack)
+    for (const auto& layer : stack)
         names.push_back(layer->GetName());
 
     ASSERT_EQ(names.size(), 3u);
@@ -54,14 +54,14 @@ TEST(LayerStackTests, PopLayerRemovesOnlyTargetLayer)
 
     LayerStack stack;
 
-    auto *a = stack.PushLayer(CreateScope<TestLayer>("LayerA"));
+    auto* a = stack.PushLayer(CreateScope<TestLayer>("LayerA"));
     stack.PushLayer(CreateScope<TestLayer>("LayerB"));
     stack.PushOverlay(CreateScope<TestLayer>("OverlayA"));
 
     stack.PopLayer(a);
 
     std::vector<std::string> names;
-    for (const auto &layer : stack)
+    for (const auto& layer : stack)
         names.push_back(layer->GetName());
 
     ASSERT_EQ(names.size(), 2u);
@@ -76,12 +76,12 @@ TEST(LayerStackTests, PopOverlayRemovesOnlyOverlay)
     LayerStack stack;
 
     stack.PushLayer(CreateScope<TestLayer>("LayerA"));
-    auto *overlay = stack.PushOverlay(CreateScope<TestLayer>("OverlayA"));
+    auto* overlay = stack.PushOverlay(CreateScope<TestLayer>("OverlayA"));
 
     stack.PopOverlay(overlay);
 
     std::vector<std::string> names;
-    for (const auto &layer : stack)
+    for (const auto& layer : stack)
         names.push_back(layer->GetName());
 
     ASSERT_EQ(names.size(), 1u);

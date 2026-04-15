@@ -6,21 +6,22 @@
 class ReplayDevice : public InputDevice
 {
 public:
-    explicit ReplayDevice(const InputReplaySession &session, uint8_t deviceIndex = 0)
-        : m_Session(session), m_DeviceIndex(deviceIndex) {}
+    explicit ReplayDevice(const InputReplaySession& session, uint8_t deviceIndex = 0)
+        : m_Session(session), m_DeviceIndex(deviceIndex)
+    {
+    }
 
     uint8_t GetDeviceIndex() const override { return m_DeviceIndex; }
 
 protected:
-    const InputReplaySession &m_Session;
+    const InputReplaySession& m_Session;
     uint8_t m_DeviceIndex = 0;
 };
 
 class ReplayKeyboardDevice final : public ReplayDevice
 {
 public:
-    explicit ReplayKeyboardDevice(const InputReplaySession &session)
-        : ReplayDevice(session, 0) {}
+    explicit ReplayKeyboardDevice(const InputReplaySession& session) : ReplayDevice(session, 0) {}
 
     Type GetType() const override { return Type::Keyboard; }
     void Poll() override {}
@@ -33,8 +34,7 @@ public:
 class ReplayMouseDevice final : public ReplayDevice
 {
 public:
-    explicit ReplayMouseDevice(const InputReplaySession &session)
-        : ReplayDevice(session, 0) {}
+    explicit ReplayMouseDevice(const InputReplaySession& session) : ReplayDevice(session, 0) {}
 
     Type GetType() const override { return Type::Mouse; }
     void Poll() override {}
@@ -49,8 +49,7 @@ public:
 class ReplayGamepadDevice final : public ReplayDevice
 {
 public:
-    ReplayGamepadDevice(const InputReplaySession &session, uint8_t deviceIndex)
-        : ReplayDevice(session, deviceIndex) {}
+    ReplayGamepadDevice(const InputReplaySession& session, uint8_t deviceIndex) : ReplayDevice(session, deviceIndex) {}
 
     Type GetType() const override { return Type::Gamepad; }
     void Poll() override {}

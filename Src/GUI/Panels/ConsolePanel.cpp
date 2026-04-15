@@ -19,44 +19,43 @@
 
 namespace
 {
-    std::string TrimWhitespace(std::string value)
+std::string TrimWhitespace(std::string value)
+{
+    const auto first = value.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos)
+        return {};
+
+    const auto last = value.find_last_not_of(" \t\r\n");
+    value = value.substr(first, last - first + 1);
+
+    if (value.size() >= 2 &&
+        ((value.front() == '"' && value.back() == '"') || (value.front() == '\'' && value.back() == '\'')))
     {
-        const auto first = value.find_first_not_of(" \t\r\n");
-        if (first == std::string::npos)
-            return {};
-
-        const auto last = value.find_last_not_of(" \t\r\n");
-        value = value.substr(first, last - first + 1);
-
-        if (value.size() >= 2 &&
-            ((value.front() == '"' && value.back() == '"') ||
-             (value.front() == '\'' && value.back() == '\'')))
-        {
-            value = value.substr(1, value.size() - 2);
-        }
-
-        return value;
+        value = value.substr(1, value.size() - 2);
     }
 
-    constexpr auto BuildCategoryMenu()
+    return value;
+}
+
+constexpr auto BuildCategoryMenu()
+{
+    std::array<const char*, LogCategory::KnownCategories.size() + 1> categories{};
+    categories[0] = "All";
+
+    for (size_t i = 0; i < LogCategory::KnownCategories.size(); ++i)
+        categories[i + 1] = LogCategory::KnownCategories[i];
+
+    return categories;
+}
+
+constexpr auto kCategories = BuildCategoryMenu();
+
+constexpr const char* kLevelNames[] = {"All", "Trace", "Debug", "Info", "Warn", "Error", "Critical"};
+
+bool PassesLevelFilter(spdlog::level::level_enum level, int filterIndex)
+{
+    switch (filterIndex)
     {
-        std::array<const char *, LogCategory::KnownCategories.size() + 1> categories{};
-        categories[0] = "All";
-
-        for (size_t i = 0; i < LogCategory::KnownCategories.size(); ++i)
-            categories[i + 1] = LogCategory::KnownCategories[i];
-
-        return categories;
-    }
-
-    constexpr auto kCategories = BuildCategoryMenu();
-
-    constexpr const char *kLevelNames[] = {"All", "Trace", "Debug", "Info", "Warn", "Error", "Critical"};
-
-    bool PassesLevelFilter(spdlog::level::level_enum level, int filterIndex)
-    {
-        switch (filterIndex)
-        {
         case 0:
             return true;
         case 1:
@@ -73,13 +72,13 @@ namespace
             return level >= spdlog::level::critical;
         default:
             return true;
-        }
     }
+}
 
-    ImVec4 GetColorForLevel(spdlog::level::level_enum level)
+ImVec4 GetColorForLevel(spdlog::level::level_enum level)
+{
+    switch (level)
     {
-        switch (level)
-        {
         case spdlog::level::trace:
             return {0.6f, 0.6f, 0.6f, 1.0f};
         case spdlog::level::debug:
@@ -94,13 +93,13 @@ namespace
             return {1.0f, 0.2f, 0.8f, 1.0f};
         default:
             return {1.0f, 1.0f, 1.0f, 1.0f};
-        }
     }
+}
 
-    const char *LevelTag(spdlog::level::level_enum level)
+const char* LevelTag(spdlog::level::level_enum level)
+{
+    switch (level)
     {
-        switch (level)
-        {
         case spdlog::level::trace:
             return "[trace]";
         case spdlog::level::debug:
@@ -115,36 +114,36 @@ namespace
             return "[crit] ";
         default:
             return "[???]  ";
-        }
     }
+}
 
-    std::optional<spdlog::level::level_enum> ParseLevel(const std::string &str)
+std::optional<spdlog::level::level_enum> ParseLevel(const std::string& str)
+{
+    auto result = magic_enum::enum_cast<spdlog::level::level_enum>(str, magic_enum::case_insensitive);
+    if (result.has_value())
+        return result.value();
+    if (str == "error")
+        return spdlog::level::err;
+    if (str == "warning")
+        return spdlog::level::warn;
+    return std::nullopt;
+}
+
+std::optional<int> FindCategoryMenuIndex(const std::string& category)
+{
+    for (size_t i = 1; i < kCategories.size(); ++i)
     {
-        auto result = magic_enum::enum_cast<spdlog::level::level_enum>(str, magic_enum::case_insensitive);
-        if (result.has_value())
-            return result.value();
-        if (str == "error")
-            return spdlog::level::err;
-        if (str == "warning")
-            return spdlog::level::warn;
-        return std::nullopt;
+        if (category == kCategories[i])
+            return static_cast<int>(i);
     }
 
-    std::optional<int> FindCategoryMenuIndex(const std::string &category)
-    {
-        for (size_t i = 1; i < kCategories.size(); ++i)
-        {
-            if (category == kCategories[i])
-                return static_cast<int>(i);
-        }
+    return std::nullopt;
+}
 
-        return std::nullopt;
-    }
-
-    bool CanAddressCategoryFromConsole(const std::string &category)
-    {
-        return LogCategory::IsKnownCategory(category) || Diagnostics::Logger::HasLogger(category.c_str());
-    }
+bool CanAddressCategoryFromConsole(const std::string& category)
+{
+    return LogCategory::IsKnownCategory(category) || Diagnostics::Logger::HasLogger(category.c_str());
+}
 
 } // namespace
 
@@ -178,8 +177,7 @@ void ConsolePanel::DrawMenuBar()
     ImGui::SameLine();
     ImGui::SetNextItemWidth(120);
     const int previousCategoryFilter = m_CategoryFilter;
-    ImGui::Combo("Category", &m_CategoryFilter, kCategories.data(),
-                 static_cast<int>(kCategories.size()));
+    ImGui::Combo("Category", &m_CategoryFilter, kCategories.data(), static_cast<int>(kCategories.size()));
     if (m_CategoryFilter != previousCategoryFilter)
         m_CommandCategoryFilter.clear();
 
@@ -212,21 +210,21 @@ void ConsolePanel::DrawLogEntries()
     }
 
     const float footerHeight = ImGui::GetStyle().ItemSpacing.y + ImGui::GetFrameHeightWithSpacing();
-    ImGui::BeginChild("LogRegion", ImVec2(0, -footerHeight), ImGuiChildFlags_None,
-                      ImGuiWindowFlags_HorizontalScrollbar);
+    ImGui::BeginChild(
+        "LogRegion", ImVec2(0, -footerHeight), ImGuiChildFlags_None, ImGuiWindowFlags_HorizontalScrollbar);
 
     // Snapshot scroll state BEFORE drawing new content - once new entries push
     // ScrollMaxY higher, the "am I at the bottom?" check would fail.
     const bool wasAtBottom = ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 1.0f;
 
     const auto entries = sink->GetEntries();
-    const char *categoryFilter = nullptr;
+    const char* categoryFilter = nullptr;
     if (!m_CommandCategoryFilter.empty())
         categoryFilter = m_CommandCategoryFilter.c_str();
     else if (m_CategoryFilter > 0)
         categoryFilter = kCategories[m_CategoryFilter];
 
-    for (const auto &entry : entries)
+    for (const auto& entry : entries)
     {
         if (!PassesLevelFilter(entry.Level, m_LevelFilter))
             continue;
@@ -236,9 +234,13 @@ void ConsolePanel::DrawLogEntries()
         ImGui::PushStyleColor(ImGuiCol_Text, GetColorForLevel(entry.Level));
 
         char lineBuf[1024];
-        snprintf(lineBuf, sizeof(lineBuf), "%s [%s] %s %s",
-                 entry.Timestamp.c_str(), entry.Category.c_str(),
-                 LevelTag(entry.Level), entry.Message.c_str());
+        snprintf(lineBuf,
+                 sizeof(lineBuf),
+                 "%s [%s] %s %s",
+                 entry.Timestamp.c_str(),
+                 entry.Category.c_str(),
+                 LevelTag(entry.Level),
+                 entry.Message.c_str());
         ImGui::TextUnformatted(lineBuf);
 
         ImGui::PopStyleColor();
@@ -275,7 +277,7 @@ void ConsolePanel::DrawCommandInput()
     ImGui::TextDisabled("(log.level, log.filter, log.clear, log.flush, log.json)");
 }
 
-void ConsolePanel::ExecuteCommand(const std::string &command)
+void ConsolePanel::ExecuteCommand(const std::string& command)
 {
     std::istringstream stream(command);
     std::string token;
@@ -365,7 +367,8 @@ void ConsolePanel::ExecuteCommand(const std::string &command)
         {
             if (Diagnostics::Logger::IsJsonSinkEnabled())
             {
-                LOG_INFO_CAT(LogCategory::ImGui, "JSON log sink is enabled: {}",
+                LOG_INFO_CAT(LogCategory::ImGui,
+                             "JSON log sink is enabled: {}",
                              Diagnostics::Logger::GetJsonSinkPath().string());
             }
             else
@@ -375,15 +378,16 @@ void ConsolePanel::ExecuteCommand(const std::string &command)
         }
         else if (action == "on")
         {
-            const std::string pathStr = TrimWhitespace([&stream]()
-                                                       {
-                                                           std::string remainder;
-                                                           std::getline(stream >> std::ws, remainder);
-                                                           return remainder; }());
+            const std::string pathStr = TrimWhitespace(
+                [&stream]()
+                {
+                    std::string remainder;
+                    std::getline(stream >> std::ws, remainder);
+                    return remainder;
+                }());
 
-            const std::filesystem::path path = pathStr.empty()
-                                                   ? Diagnostics::Logger::GetDefaultJsonLogPath()
-                                                   : std::filesystem::path(pathStr);
+            const std::filesystem::path path =
+                pathStr.empty() ? Diagnostics::Logger::GetDefaultJsonLogPath() : std::filesystem::path(pathStr);
             if (path.empty())
             {
                 LOG_WARN_CAT(LogCategory::ImGui, "Unable to resolve JSON log path");
@@ -391,8 +395,8 @@ void ConsolePanel::ExecuteCommand(const std::string &command)
             }
 
             Diagnostics::Logger::EnableJsonSink(path);
-            LOG_INFO_CAT(LogCategory::ImGui, "JSON log sink enabled: {}",
-                         Diagnostics::Logger::GetJsonSinkPath().string());
+            LOG_INFO_CAT(
+                LogCategory::ImGui, "JSON log sink enabled: {}", Diagnostics::Logger::GetJsonSinkPath().string());
         }
         else if (action == "off")
         {

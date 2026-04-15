@@ -9,7 +9,7 @@
 BackendType getDefaultBackendType();
 
 /// Human-readable backend name used for diagnostics and logging.
-const char *getBackendName(BackendType backend);
+const char* getBackendName(BackendType backend);
 
 /// Create a backend-specific RHI device shell for the requested backend.
 Scope<Device> createDevice(BackendType backend);
@@ -19,4 +19,3 @@ inline Scope<Device> createDefaultDevice()
 {
     return createDevice(getDefaultBackendType());
 }
-

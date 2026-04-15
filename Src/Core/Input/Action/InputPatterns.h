@@ -26,7 +26,7 @@ struct ComboBinding
 class ComboTracker
 {
 public:
-    void SetCombo(const ComboBinding &combo);
+    void SetCombo(const ComboBinding& combo);
     bool Update(float dt);
     void Reset();
 

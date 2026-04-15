@@ -2,7 +2,7 @@
 
 #include <imgui.h>
 
-bool DemoSelectorPanel::OnImGuiRender(const std::vector<std::string> &demoNames, int &selectedIndex)
+bool DemoSelectorPanel::OnImGuiRender(const std::vector<std::string>& demoNames, int& selectedIndex)
 {
     bool changed = false;
 

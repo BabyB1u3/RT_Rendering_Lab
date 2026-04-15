@@ -25,39 +25,39 @@ class EventBus
 public:
     /// Subscribe to events of type T. Returns an RAII handle that
     /// auto-unsubscribes on destruction.
-    template <typename T>
-    ScopedConnection Subscribe(std::function<void(const T &)> handler)
+    template <typename T> ScopedConnection Subscribe(std::function<void(const T&)> handler)
     {
-        auto &subs = GetSubscribers<T>();
+        auto& subs = GetSubscribers<T>();
         uint64_t id = m_NextId++;
 
         subs.Entries.push_back({id, std::move(handler), false});
 
-        return ScopedConnection([this, id]()
-                                {
-            auto& s = GetSubscribers<T>();
-            for (auto& entry : s.Entries)
+        return ScopedConnection(
+            [this, id]()
             {
-                if (entry.Id == id)
+                auto& s = GetSubscribers<T>();
+                for (auto& entry : s.Entries)
                 {
-                    entry.PendingRemoval = true;
-                    s.Dirty = true;
-                    break;
+                    if (entry.Id == id)
+                    {
+                        entry.PendingRemoval = true;
+                        s.Dirty = true;
+                        break;
+                    }
                 }
-            } });
+            });
     }
 
     /// Publish an event. All subscribers of type T are called synchronously.
     /// Safe to subscribe/unsubscribe from within a handler.
-    template <typename T>
-    void Publish(const T &event)
+    template <typename T> void Publish(const T& event)
     {
-        auto &subs = GetSubscribers<T>();
+        auto& subs = GetSubscribers<T>();
         subs.DispatchDepth++;
 
         for (size_t i = 0; i < subs.Entries.size(); ++i)
         {
-            auto &entry = subs.Entries[i];
+            auto& entry = subs.Entries[i];
             if (!entry.PendingRemoval)
                 entry.Handler(event);
         }
@@ -67,11 +67,10 @@ public:
         // Compact removed entries only when all nested dispatches are done.
         if (subs.DispatchDepth == 0 && subs.Dirty)
         {
-            subs.Entries.erase(
-                std::remove_if(subs.Entries.begin(), subs.Entries.end(),
-                               [](const auto &e)
-                               { return e.PendingRemoval; }),
-                subs.Entries.end());
+            subs.Entries.erase(std::remove_if(subs.Entries.begin(),
+                                              subs.Entries.end(),
+                                              [](const auto& e) { return e.PendingRemoval; }),
+                               subs.Entries.end());
             subs.Dirty = false;
         }
     }
@@ -82,35 +81,32 @@ private:
         virtual ~ISubscriberList() = default;
     };
 
-    template <typename T>
-    struct SubscriberEntry
+    template <typename T> struct SubscriberEntry
     {
         uint64_t Id;
-        std::function<void(const T &)> Handler;
+        std::function<void(const T&)> Handler;
         bool PendingRemoval = false;
     };
 
-    template <typename T>
-    struct SubscriberList : ISubscriberList
+    template <typename T> struct SubscriberList : ISubscriberList
     {
         std::vector<SubscriberEntry<T>> Entries;
         int DispatchDepth = 0;
         bool Dirty = false;
     };
 
-    template <typename T>
-    SubscriberList<T> &GetSubscribers()
+    template <typename T> SubscriberList<T>& GetSubscribers()
     {
         auto key = std::type_index(typeid(T));
         auto it = m_Subscribers.find(key);
         if (it == m_Subscribers.end())
         {
             auto list = std::make_unique<SubscriberList<T>>();
-            auto *ptr = list.get();
+            auto* ptr = list.get();
             m_Subscribers[key] = std::move(list);
             return *ptr;
         }
-        return *static_cast<SubscriberList<T> *>(it->second.get());
+        return *static_cast<SubscriberList<T>*>(it->second.get());
     }
 
     std::unordered_map<std::type_index, std::unique_ptr<ISubscriberList>> m_Subscribers;

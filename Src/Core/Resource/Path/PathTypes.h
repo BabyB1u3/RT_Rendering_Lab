@@ -5,20 +5,20 @@
 
 namespace Resource
 {
-    enum class PathDomain
-    {
-        Project,
-        Engine,
-        DLC,
-        Mod,
-        Saved,
-        Cache,
-    };
+enum class PathDomain
+{
+    Project,
+    Engine,
+    DLC,
+    Mod,
+    Saved,
+    Cache,
+};
 
-    struct VirtualPath
-    {
-        PathDomain domain;
-        std::optional<std::string> mountName;
-        std::string relativePath;
-    };
+struct VirtualPath
+{
+    PathDomain domain;
+    std::optional<std::string> mountName;
+    std::string relativePath;
+};
 } // namespace Resource

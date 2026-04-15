@@ -7,28 +7,22 @@
 
 namespace
 {
-    class MountDiscoveryDevTests : public ::testing::Test
+class MountDiscoveryDevTests : public ::testing::Test
+{
+protected:
+    void SetUp() override
     {
-    protected:
-        void SetUp() override
-        {
-            m_TestRoot = test_support::CurrentTestRoot("mount-discovery-dev");
-            test_support::ResetCurrentTestRoot("mount-discovery-dev");
-        }
+        m_TestRoot = test_support::CurrentTestRoot("mount-discovery-dev");
+        test_support::ResetCurrentTestRoot("mount-discovery-dev");
+    }
 
-        void TearDown() override
-        {
-            test_support::RemoveCurrentTestArtifacts("mount-discovery-dev");
-        }
+    void TearDown() override { test_support::RemoveCurrentTestArtifacts("mount-discovery-dev"); }
 
-        std::filesystem::path TestRoot() const
-        {
-            return m_TestRoot;
-        }
+    std::filesystem::path TestRoot() const { return m_TestRoot; }
 
-    private:
-        std::filesystem::path m_TestRoot;
-    };
+private:
+    std::filesystem::path m_TestRoot;
+};
 } // namespace
 
 TEST_F(MountDiscoveryDevTests, DiscoverReadableMountBackendsFindsSourceDirectoryMounts)

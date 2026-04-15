@@ -12,10 +12,7 @@
 #include "DemoRegistry.h"
 #include "Demos/01_HelloWindow/HelloWindow.h"
 
-LabLayer::LabLayer()
-    : Layer("LabLayer")
-{
-}
+LabLayer::LabLayer() : Layer("LabLayer") {}
 
 LabLayer::~LabLayer() = default;
 
@@ -92,15 +89,17 @@ void LabLayer::RegisterBuiltInDemos()
     if (m_DemosRegistered)
         return;
     // --- Demos ---
-    DemoRegistry::Register("01 - Hello Window", []()
+    DemoRegistry::Register("01 - Hello Window",
+                           []()
                            {
-            const auto& window = Application::Get().GetWindow();
-            return CreateScope<HelloWindow>(window.GetWidth(), window.GetHeight()); });
+                               const auto& window = Application::Get().GetWindow();
+                               return CreateScope<HelloWindow>(window.GetWidth(), window.GetHeight());
+                           });
 
     m_DemosRegistered = true;
 }
 
-void LabLayer::SetActiveDemo(Scope<DemoBase> demo, const std::string &name)
+void LabLayer::SetActiveDemo(Scope<DemoBase> demo, const std::string& name)
 {
     if (!demo)
     {
@@ -115,6 +114,5 @@ void LabLayer::SetActiveDemo(Scope<DemoBase> demo, const std::string &name)
     m_ActiveDemoName = name;
     LOG_INFO_CAT(LogCategory::Demo, "Active demo: {}", m_ActiveDemoName);
 
-    Application::Get().GetEventBus().Publish(
-        DemoSwitchedEvent{m_SelectedDemoIndex, m_ActiveDemoName.c_str()});
+    Application::Get().GetEventBus().Publish(DemoSwitchedEvent{m_SelectedDemoIndex, m_ActiveDemoName.c_str()});
 }

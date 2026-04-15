@@ -7,17 +7,17 @@
 
 namespace
 {
-    Util::CommandLineSpec BuildCommandLineSpec()
-    {
-        Util::CommandLineSpec spec;
-        spec.AddFlag("help", 'h', "Show command-line help and exit.")
-            .AddValueOption("source", std::nullopt, "path", "Cooked source directory to package.")
-            .AddValueOption("out", std::nullopt, "path", "Packaged output root.");
-        return spec;
-    }
+Util::CommandLineSpec BuildCommandLineSpec()
+{
+    Util::CommandLineSpec spec;
+    spec.AddFlag("help", 'h', "Show command-line help and exit.")
+        .AddValueOption("source", std::nullopt, "path", "Cooked source directory to package.")
+        .AddValueOption("out", std::nullopt, "path", "Packaged output root.");
+    return spec;
 }
+} // namespace
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     const auto commandLineSpec = BuildCommandLineSpec();
     Util::ParsedCommandLine commandLine;
@@ -37,16 +37,14 @@ int main(int argc, char **argv)
     const auto sourceOverride = commandLine.GetOptionValue("source");
     if (!sourceOverride.has_value() || sourceOverride->empty())
     {
-        std::cerr << "Missing required argument: --source\n\n"
-                  << commandLineSpec.BuildUsage("rtr_asset_pack");
+        std::cerr << "Missing required argument: --source\n\n" << commandLineSpec.BuildUsage("rtr_asset_pack");
         return 1;
     }
 
     const auto outputOverride = commandLine.GetOptionValue("out");
     if (!outputOverride.has_value() || outputOverride->empty())
     {
-        std::cerr << "Missing required argument: --out\n\n"
-                  << commandLineSpec.BuildUsage("rtr_asset_pack");
+        std::cerr << "Missing required argument: --out\n\n" << commandLineSpec.BuildUsage("rtr_asset_pack");
         return 1;
     }
 

@@ -2,12 +2,9 @@
 
 #include <algorithm>
 
-DebugCameraController::DebugCameraController(Camera *camera)
-    : m_Camera(camera)
-{
-}
+DebugCameraController::DebugCameraController(Camera* camera) : m_Camera(camera) {}
 
-void DebugCameraController::SetCamera(Camera *camera)
+void DebugCameraController::SetCamera(Camera* camera)
 {
     m_Camera = camera;
 }
@@ -91,9 +88,5 @@ void DebugCameraController::OnMouseScroll(float deltaScroll)
     float newFov = m_Camera->GetVerticalFovDegrees() - deltaScroll * m_ScrollSensitivity;
     newFov = std::clamp(newFov, 1.0f, 90.0f);
 
-    m_Camera->SetPerspective(
-        newFov,
-        m_Camera->GetAspectRatio(),
-        m_Camera->GetNearClip(),
-        m_Camera->GetFarClip());
+    m_Camera->SetPerspective(newFov, m_Camera->GetAspectRatio(), m_Camera->GetNearClip(), m_Camera->GetFarClip());
 }

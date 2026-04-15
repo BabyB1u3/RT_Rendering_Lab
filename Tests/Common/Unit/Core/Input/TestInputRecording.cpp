@@ -14,97 +14,94 @@
 
 namespace
 {
-    class ScriptedKeyboardDevice final : public InputDevice
+class ScriptedKeyboardDevice final : public InputDevice
+{
+public:
+    using Frame = std::array<uint8_t, KeyboardDevice::KEY_STATE_SIZE>;
+
+    Type GetType() const override { return Type::Keyboard; }
+
+    void Poll() override
     {
-    public:
-        using Frame = std::array<uint8_t, KeyboardDevice::KEY_STATE_SIZE>;
+        m_Previous = m_Current;
+        if (m_NextFrame < m_Frames.size())
+            m_Current = m_Frames[m_NextFrame++];
+        else
+            m_Current.fill(0);
+    }
 
-        Type GetType() const override { return Type::Keyboard; }
+    InputValue GetInput(uint16_t code) const override
+    {
+        const auto index = static_cast<std::size_t>(code);
+        if (index >= m_Current.size())
+            return {};
 
-        void Poll() override
-        {
-            m_Previous = m_Current;
-            if (m_NextFrame < m_Frames.size())
-                m_Current = m_Frames[m_NextFrame++];
-            else
-                m_Current.fill(0);
-        }
+        return {m_Current[index] != 0 ? 1.0f : 0.0f, 0.0f};
+    }
 
-        InputValue GetInput(uint16_t code) const override
-        {
-            const auto index = static_cast<std::size_t>(code);
-            if (index >= m_Current.size())
-                return {};
+    InputValue GetPreviousInput(uint16_t code) const override
+    {
+        const auto index = static_cast<std::size_t>(code);
+        if (index >= m_Previous.size())
+            return {};
 
-            return {m_Current[index] != 0 ? 1.0f : 0.0f, 0.0f};
-        }
+        return {m_Previous[index] != 0 ? 1.0f : 0.0f, 0.0f};
+    }
 
-        InputValue GetPreviousInput(uint16_t code) const override
-        {
-            const auto index = static_cast<std::size_t>(code);
-            if (index >= m_Previous.size())
-                return {};
+    void PushFrame(const Frame& frame) { m_Frames.push_back(frame); }
 
-            return {m_Previous[index] != 0 ? 1.0f : 0.0f, 0.0f};
-        }
+private:
+    std::vector<Frame> m_Frames;
+    Frame m_Current{};
+    Frame m_Previous{};
+    std::size_t m_NextFrame = 0;
+};
 
-        void PushFrame(const Frame &frame)
-        {
-            m_Frames.push_back(frame);
-        }
-
-    private:
-        std::vector<Frame> m_Frames;
-        Frame m_Current{};
-        Frame m_Previous{};
-        std::size_t m_NextFrame = 0;
+class ScriptedMouseDevice final : public InputDevice
+{
+public:
+    struct Frame
+    {
+        std::array<uint8_t, MouseDevice::BUTTON_COUNT> Buttons{};
+        float X = 0.0f;
+        float Y = 0.0f;
+        float ScrollDelta = 0.0f;
+        bool Connected = true;
     };
 
-    class ScriptedMouseDevice final : public InputDevice
+    Type GetType() const override { return Type::Mouse; }
+
+    void Poll() override
     {
-    public:
-        struct Frame
+        m_Previous = m_Current;
+        if (m_NextFrame < m_Frames.size())
+            m_Current = m_Frames[m_NextFrame++];
+        else
+            m_Current = {};
+    }
+
+    InputValue GetInput(uint16_t code) const override
+    {
+        const auto index = static_cast<std::size_t>(code);
+        if (index >= m_Current.Buttons.size())
+            return {};
+
+        return {m_Current.Buttons[index] != 0 ? 1.0f : 0.0f, 0.0f};
+    }
+
+    InputValue GetPreviousInput(uint16_t code) const override
+    {
+        const auto index = static_cast<std::size_t>(code);
+        if (index >= m_Previous.Buttons.size())
+            return {};
+
+        return {m_Previous.Buttons[index] != 0 ? 1.0f : 0.0f, 0.0f};
+    }
+
+    InputValue GetAxis(uint16_t axisId) const override
+    {
+        switch (axisId)
         {
-            std::array<uint8_t, MouseDevice::BUTTON_COUNT> Buttons{};
-            float X = 0.0f;
-            float Y = 0.0f;
-            float ScrollDelta = 0.0f;
-            bool Connected = true;
-        };
-
-        Type GetType() const override { return Type::Mouse; }
-
-        void Poll() override
-        {
-            m_Previous = m_Current;
-            if (m_NextFrame < m_Frames.size())
-                m_Current = m_Frames[m_NextFrame++];
-            else
-                m_Current = {};
-        }
-
-        InputValue GetInput(uint16_t code) const override
-        {
-            const auto index = static_cast<std::size_t>(code);
-            if (index >= m_Current.Buttons.size())
-                return {};
-
-            return {m_Current.Buttons[index] != 0 ? 1.0f : 0.0f, 0.0f};
-        }
-
-        InputValue GetPreviousInput(uint16_t code) const override
-        {
-            const auto index = static_cast<std::size_t>(code);
-            if (index >= m_Previous.Buttons.size())
-                return {};
-
-            return {m_Previous.Buttons[index] != 0 ? 1.0f : 0.0f, 0.0f};
-        }
-
-        InputValue GetAxis(uint16_t axisId) const override
-        {
-            switch (axisId)
-            {
             case MouseAxisId::PositionX:
                 return {m_Current.X, 0.0f};
             case MouseAxisId::PositionY:
@@ -117,135 +114,122 @@ namespace
                 return {m_Current.ScrollDelta, 0.0f};
             default:
                 return {};
-            }
         }
+    }
 
-        InputValue GetPreviousAxis(uint16_t axisId) const override
+    InputValue GetPreviousAxis(uint16_t axisId) const override
+    {
+        switch (axisId)
         {
-            switch (axisId)
-            {
             case MouseAxisId::PositionX:
                 return {m_Previous.X, 0.0f};
             case MouseAxisId::PositionY:
                 return {m_Previous.Y, 0.0f};
             default:
                 return {};
-            }
         }
+    }
 
-        bool IsConnected() const override { return m_Current.Connected; }
-        bool WasConnected() const override { return m_Previous.Connected; }
+    bool IsConnected() const override { return m_Current.Connected; }
+    bool WasConnected() const override { return m_Previous.Connected; }
 
-        void PushFrame(const Frame &frame)
-        {
-            m_Frames.push_back(frame);
-        }
+    void PushFrame(const Frame& frame) { m_Frames.push_back(frame); }
 
-    private:
-        std::vector<Frame> m_Frames;
-        Frame m_Current{};
-        Frame m_Previous{};
-        std::size_t m_NextFrame = 0;
-    };
+private:
+    std::vector<Frame> m_Frames;
+    Frame m_Current{};
+    Frame m_Previous{};
+    std::size_t m_NextFrame = 0;
+};
 
-    class ScriptedGamepadDevice final : public InputDevice
+class ScriptedGamepadDevice final : public InputDevice
+{
+public:
+    struct Frame
     {
-    public:
-        struct Frame
-        {
-            bool Connected = false;
-            std::array<uint8_t, GamepadButton::Count> Buttons{};
-            std::array<float, GamepadAxis::Count> Axes{};
-        };
-
-        explicit ScriptedGamepadDevice(uint8_t deviceIndex)
-            : m_DeviceIndex(deviceIndex) {}
-
-        Type GetType() const override { return Type::Gamepad; }
-
-        void Poll() override
-        {
-            m_Previous = m_Current;
-            if (m_NextFrame < m_Frames.size())
-                m_Current = m_Frames[m_NextFrame++];
-            else
-                m_Current = {};
-        }
-
-        InputValue GetInput(uint16_t code) const override
-        {
-            const auto index = static_cast<std::size_t>(code);
-            if (index >= m_Current.Buttons.size())
-                return {};
-
-            return {m_Current.Buttons[index] != 0 ? 1.0f : 0.0f, 0.0f};
-        }
-
-        InputValue GetPreviousInput(uint16_t code) const override
-        {
-            const auto index = static_cast<std::size_t>(code);
-            if (index >= m_Previous.Buttons.size())
-                return {};
-
-            return {m_Previous.Buttons[index] != 0 ? 1.0f : 0.0f, 0.0f};
-        }
-
-        InputValue GetAxis(uint16_t axisId) const override
-        {
-            const auto index = static_cast<std::size_t>(axisId);
-            if (index >= m_Current.Axes.size())
-                return {};
-
-            return {m_Current.Axes[index], 0.0f};
-        }
-
-        InputValue GetPreviousAxis(uint16_t axisId) const override
-        {
-            const auto index = static_cast<std::size_t>(axisId);
-            if (index >= m_Previous.Axes.size())
-                return {};
-
-            return {m_Previous.Axes[index], 0.0f};
-        }
-
-        bool IsConnected() const override { return m_Current.Connected; }
-        bool WasConnected() const override { return m_Previous.Connected; }
-        uint8_t GetDeviceIndex() const override { return m_DeviceIndex; }
-
-        void PushFrame(const Frame &frame)
-        {
-            m_Frames.push_back(frame);
-        }
-
-    private:
-        uint8_t m_DeviceIndex = 0;
-        std::vector<Frame> m_Frames;
-        Frame m_Current{};
-        Frame m_Previous{};
-        std::size_t m_NextFrame = 0;
+        bool Connected = false;
+        std::array<uint8_t, GamepadButton::Count> Buttons{};
+        std::array<float, GamepadAxis::Count> Axes{};
     };
 
-    class InputRecordingTests : public ::testing::Test
+    explicit ScriptedGamepadDevice(uint8_t deviceIndex) : m_DeviceIndex(deviceIndex) {}
+
+    Type GetType() const override { return Type::Gamepad; }
+
+    void Poll() override
     {
-    protected:
-        void SetUp() override
-        {
-            test_support::ResetCurrentTestRoot("input-recording");
-        }
+        m_Previous = m_Current;
+        if (m_NextFrame < m_Frames.size())
+            m_Current = m_Frames[m_NextFrame++];
+        else
+            m_Current = {};
+    }
 
-        void TearDown() override
-        {
-            test_support::RemoveCurrentTestArtifacts("input-recording");
-        }
-    };
-}
+    InputValue GetInput(uint16_t code) const override
+    {
+        const auto index = static_cast<std::size_t>(code);
+        if (index >= m_Current.Buttons.size())
+            return {};
+
+        return {m_Current.Buttons[index] != 0 ? 1.0f : 0.0f, 0.0f};
+    }
+
+    InputValue GetPreviousInput(uint16_t code) const override
+    {
+        const auto index = static_cast<std::size_t>(code);
+        if (index >= m_Previous.Buttons.size())
+            return {};
+
+        return {m_Previous.Buttons[index] != 0 ? 1.0f : 0.0f, 0.0f};
+    }
+
+    InputValue GetAxis(uint16_t axisId) const override
+    {
+        const auto index = static_cast<std::size_t>(axisId);
+        if (index >= m_Current.Axes.size())
+            return {};
+
+        return {m_Current.Axes[index], 0.0f};
+    }
+
+    InputValue GetPreviousAxis(uint16_t axisId) const override
+    {
+        const auto index = static_cast<std::size_t>(axisId);
+        if (index >= m_Previous.Axes.size())
+            return {};
+
+        return {m_Previous.Axes[index], 0.0f};
+    }
+
+    bool IsConnected() const override { return m_Current.Connected; }
+    bool WasConnected() const override { return m_Previous.Connected; }
+    uint8_t GetDeviceIndex() const override { return m_DeviceIndex; }
+
+    void PushFrame(const Frame& frame) { m_Frames.push_back(frame); }
+
+private:
+    uint8_t m_DeviceIndex = 0;
+    std::vector<Frame> m_Frames;
+    Frame m_Current{};
+    Frame m_Previous{};
+    std::size_t m_NextFrame = 0;
+};
+
+class InputRecordingTests : public ::testing::Test
+{
+protected:
+    void SetUp() override { test_support::ResetCurrentTestRoot("input-recording"); }
+
+    void TearDown() override { test_support::RemoveCurrentTestArtifacts("input-recording"); }
+};
+} // namespace
 
 TEST_F(InputRecordingTests, RecorderCapturesPolledFramesAcrossDefaultDeviceTypes)
 {
     InputDeviceManager manager;
     InputRecorder recorder;
 
-    auto *keyboard = new ScriptedKeyboardDevice();
+    auto* keyboard = new ScriptedKeyboardDevice();
     ScriptedKeyboardDevice::Frame keyboardFrame0{};
     keyboardFrame0[static_cast<std::size_t>(Key::W)] = 1u;
     keyboard->PushFrame(keyboardFrame0);
@@ -254,7 +238,7 @@ TEST_F(InputRecordingTests, RecorderCapturesPolledFramesAcrossDefaultDeviceTypes
     keyboardFrame1[static_cast<std::size_t>(Key::Space)] = 1u;
     keyboard->PushFrame(keyboardFrame1);
 
-    auto *mouse = new ScriptedMouseDevice();
+    auto* mouse = new ScriptedMouseDevice();
     ScriptedMouseDevice::Frame mouseFrame0;
     mouseFrame0.Buttons[Mouse::Left] = 1;
     mouseFrame0.X = 10.0f;
@@ -269,7 +253,7 @@ TEST_F(InputRecordingTests, RecorderCapturesPolledFramesAcrossDefaultDeviceTypes
     mouseFrame1.ScrollDelta = -0.5f;
     mouse->PushFrame(mouseFrame1);
 
-    auto *gamepad = new ScriptedGamepadDevice(1);
+    auto* gamepad = new ScriptedGamepadDevice(1);
     ScriptedGamepadDevice::Frame gamepadFrame0;
     gamepadFrame0.Connected = true;
     gamepadFrame0.Buttons[GamepadButton::A] = 1;
@@ -293,10 +277,10 @@ TEST_F(InputRecordingTests, RecorderCapturesPolledFramesAcrossDefaultDeviceTypes
     manager.PollAll(0.033f);
     recorder.EndRecording();
 
-    const auto &recording = recorder.GetRecording();
+    const auto& recording = recorder.GetRecording();
     ASSERT_EQ(recording.Frames.size(), 2u);
 
-    const auto &frame0 = recording.Frames[0];
+    const auto& frame0 = recording.Frames[0];
     EXPECT_EQ(frame0.FrameNumber, 0u);
     EXPECT_FLOAT_EQ(frame0.DeltaTime, 0.016f);
     EXPECT_TRUE(frame0.Keyboard.Present);
@@ -313,7 +297,7 @@ TEST_F(InputRecordingTests, RecorderCapturesPolledFramesAcrossDefaultDeviceTypes
     EXPECT_EQ(frame0.Gamepads[0].Buttons[GamepadButton::A], 1u);
     EXPECT_FLOAT_EQ(frame0.Gamepads[0].Axes[GamepadAxis::LeftX], 0.25f);
 
-    const auto &frame1 = recording.Frames[1];
+    const auto& frame1 = recording.Frames[1];
     EXPECT_EQ(frame1.FrameNumber, 1u);
     EXPECT_FLOAT_EQ(frame1.DeltaTime, 0.033f);
     EXPECT_EQ(frame1.Keyboard.Keys[Key::W], 0u);
@@ -378,9 +362,9 @@ TEST_F(InputRecordingTests, ReplayDevicesExposeCurrentAndPreviousRecordedState)
     manager.AddDevice(CreateScope<ReplayGamepadDevice>(session, 1));
 
     manager.PollAll(0.016f);
-    auto *keyboard = manager.GetDevice(InputDevice::Type::Keyboard);
-    auto *mouse = manager.GetDevice(InputDevice::Type::Mouse);
-    auto *gamepad = manager.GetDevice(InputDevice::Type::Gamepad, 1);
+    auto* keyboard = manager.GetDevice(InputDevice::Type::Keyboard);
+    auto* mouse = manager.GetDevice(InputDevice::Type::Mouse);
+    auto* gamepad = manager.GetDevice(InputDevice::Type::Gamepad, 1);
     ASSERT_NE(keyboard, nullptr);
     ASSERT_NE(mouse, nullptr);
     ASSERT_NE(gamepad, nullptr);
@@ -440,7 +424,7 @@ TEST_F(InputRecordingTests, ReplaySessionFlagsDeltaTimeMismatchWithoutStoppingPl
 
     manager.PollAll(0.03f);
 
-    auto *keyboard = manager.GetDevice(InputDevice::Type::Keyboard);
+    auto* keyboard = manager.GetDevice(InputDevice::Type::Keyboard);
     ASSERT_NE(keyboard, nullptr);
     EXPECT_TRUE(session.HasTimingMismatch());
     EXPECT_FLOAT_EQ(keyboard->GetInput(Key::Tab).X, 1.0f);

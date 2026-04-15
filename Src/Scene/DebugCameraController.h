@@ -19,10 +19,10 @@ class DebugCameraController
 {
 public:
     DebugCameraController() = default;
-    explicit DebugCameraController(Camera *camera);
+    explicit DebugCameraController(Camera* camera);
 
-    void SetCamera(Camera *camera);
-    Camera *GetCamera() const { return m_Camera; }
+    void SetCamera(Camera* camera);
+    Camera* GetCamera() const { return m_Camera; }
 
     void SetMoveSpeed(float speed) { m_MoveSpeed = speed; }
     void SetMouseSensitivity(float sensitivity) { m_MouseSensitivity = sensitivity; }
@@ -51,7 +51,7 @@ public:
 
 private:
     // Non-owning pointer. The controller does not manage camera lifetime.
-    Camera *m_Camera = nullptr;
+    Camera* m_Camera = nullptr;
 
     float m_MoveSpeed = 5.0f;
     float m_MouseSensitivity = 0.1f;

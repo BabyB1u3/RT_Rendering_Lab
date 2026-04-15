@@ -21,8 +21,8 @@ bool FileSystem::s_WritableDirsResolved = false;
 
 namespace
 {
-    static constexpr std::string_view kProjectContentDirName = "Project";
-    static constexpr const char *kAppName = "RTRLab";
+static constexpr std::string_view kProjectContentDirName = "Project";
+static constexpr const char* kAppName = "RTRLab";
 } // namespace
 
 void FileSystem::Init()
@@ -56,15 +56,15 @@ std::optional<Resource::ResolvedReadableArtifact> FileSystem::ResolveCatalogArti
 
     switch (virtualPath->domain)
     {
-    case Resource::PathDomain::Project:
-    case Resource::PathDomain::Engine:
-    case Resource::PathDomain::DLC:
-    case Resource::PathDomain::Mod:
-        return s_CatalogRegistry.ResolveArtifact(
-            s_RootPath, s_EngineDir, GetCacheDir(), *virtualPath, virtualPathString, kProjectContentDirName);
-    case Resource::PathDomain::Saved:
-    case Resource::PathDomain::Cache:
-        return std::nullopt;
+        case Resource::PathDomain::Project:
+        case Resource::PathDomain::Engine:
+        case Resource::PathDomain::DLC:
+        case Resource::PathDomain::Mod:
+            return s_CatalogRegistry.ResolveArtifact(
+                s_RootPath, s_EngineDir, GetCacheDir(), *virtualPath, virtualPathString, kProjectContentDirName);
+        case Resource::PathDomain::Saved:
+        case Resource::PathDomain::Cache:
+            return std::nullopt;
     }
 
     return std::nullopt;
@@ -78,21 +78,22 @@ std::optional<std::filesystem::path> FileSystem::ResolveWritableReadPath(std::st
 
     switch (virtualPath->domain)
     {
-    case Resource::PathDomain::Saved:
-    case Resource::PathDomain::Cache:
-    {
-        const auto writableMount = Resource::ResolveWritableMount(virtualPath->domain, GetSavedDir(), GetCacheDir());
-        if (!writableMount.has_value())
-            return std::nullopt;
+        case Resource::PathDomain::Saved:
+        case Resource::PathDomain::Cache:
+        {
+            const auto writableMount =
+                Resource::ResolveWritableMount(virtualPath->domain, GetSavedDir(), GetCacheDir());
+            if (!writableMount.has_value())
+                return std::nullopt;
 
-        const auto relativePath = Resource::GetPhysicalRelativePath(*virtualPath);
-        return relativePath.empty() ? writableMount->rootPath : writableMount->rootPath / relativePath;
-    }
-    case Resource::PathDomain::Project:
-    case Resource::PathDomain::Engine:
-    case Resource::PathDomain::DLC:
-    case Resource::PathDomain::Mod:
-        return std::nullopt;
+            const auto relativePath = Resource::GetPhysicalRelativePath(*virtualPath);
+            return relativePath.empty() ? writableMount->rootPath : writableMount->rootPath / relativePath;
+        }
+        case Resource::PathDomain::Project:
+        case Resource::PathDomain::Engine:
+        case Resource::PathDomain::DLC:
+        case Resource::PathDomain::Mod:
+            return std::nullopt;
     }
 
     return std::nullopt;
@@ -122,10 +123,10 @@ bool FileSystem::Exists(std::string_view virtualPath)
     {
         switch (artifact->backend)
         {
-        case Resource::MountBackendKind::Directory:
-            return std::filesystem::exists(artifact->mountRoot / artifact->relativePath);
-        case Resource::MountBackendKind::PakArchive:
-            return true;
+            case Resource::MountBackendKind::Directory:
+                return std::filesystem::exists(artifact->mountRoot / artifact->relativePath);
+            case Resource::MountBackendKind::PakArchive:
+                return true;
         }
     }
 
@@ -197,7 +198,7 @@ bool FileSystem::WriteBinary(std::string_view virtualPath, std::span<const uint8
     return Resource::WriteBinaryFile(*resolved, data);
 }
 
-const std::filesystem::path &FileSystem::GetRootPath()
+const std::filesystem::path& FileSystem::GetRootPath()
 {
     return s_RootPath;
 }
@@ -216,13 +217,13 @@ void FileSystem::ResolveWritableDirs()
     s_WritableDirsResolved = true;
 }
 
-const std::filesystem::path &FileSystem::GetSavedDir()
+const std::filesystem::path& FileSystem::GetSavedDir()
 {
     ResolveWritableDirs();
     return s_SavedDir;
 }
 
-const std::filesystem::path &FileSystem::GetCacheDir()
+const std::filesystem::path& FileSystem::GetCacheDir()
 {
     ResolveWritableDirs();
     return s_CacheDir;

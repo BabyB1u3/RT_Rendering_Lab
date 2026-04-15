@@ -21,12 +21,9 @@
 class VulkanSwapchainTexture final : public Texture
 {
 public:
-    VulkanSwapchainTexture(VkImage image, const TextureDesc &desc)
-        : m_Image(image), m_Desc(desc)
-    {
-    }
+    VulkanSwapchainTexture(VkImage image, const TextureDesc& desc) : m_Image(image), m_Desc(desc) {}
 
-    const TextureDesc &getDesc() const override { return m_Desc; }
+    const TextureDesc& getDesc() const override { return m_Desc; }
     VkImage getVkImage() const { return m_Image; }
     VkImageLayout getCurrentLayout() const { return m_CurrentLayout; }
     void setCurrentLayout(VkImageLayout layout) { m_CurrentLayout = layout; }
@@ -40,7 +37,7 @@ private:
 class VulkanSwapchainImageView final : public TextureView
 {
 public:
-    VulkanSwapchainImageView(VkDevice device, Texture *texture, VkImageView imageView, const TextureViewDesc &desc)
+    VulkanSwapchainImageView(VkDevice device, Texture* texture, VkImageView imageView, const TextureViewDesc& desc)
         : m_Device(device), m_Texture(texture), m_ImageView(imageView), m_Desc(desc)
     {
     }
@@ -51,13 +48,13 @@ public:
             vkDestroyImageView(m_Device, m_ImageView, nullptr);
     }
 
-    Texture *getTexture() const override { return m_Texture; }
-    const TextureViewDesc &getDesc() const override { return m_Desc; }
+    Texture* getTexture() const override { return m_Texture; }
+    const TextureViewDesc& getDesc() const override { return m_Desc; }
     VkImageView getVkImageView() const { return m_ImageView; }
 
 private:
     VkDevice m_Device = VK_NULL_HANDLE;
-    Texture *m_Texture = nullptr;
+    Texture* m_Texture = nullptr;
     VkImageView m_ImageView = VK_NULL_HANDLE;
     TextureViewDesc m_Desc;
 };
@@ -65,15 +62,15 @@ private:
 namespace
 {
 
-    void checkVk(VkResult result, const char *what)
-    {
-        RTRLAB_ASSERTF(result == VK_SUCCESS, "{} failed with VkResult={}", what, static_cast<int>(result));
-    }
+void checkVk(VkResult result, const char* what)
+{
+    RTRLAB_ASSERTF(result == VK_SUCCESS, "{} failed with VkResult={}", what, static_cast<int>(result));
+}
 
-    VkFormat toVkFormat(Format format)
+VkFormat toVkFormat(Format format)
+{
+    switch (format)
     {
-        switch (format)
-        {
         case Format::BGRA8_UNORM:
             return VK_FORMAT_B8G8R8A8_UNORM;
         case Format::BGRA8_SRGB:
@@ -84,13 +81,13 @@ namespace
             return VK_FORMAT_R8G8B8A8_SRGB;
         default:
             return VK_FORMAT_B8G8R8A8_UNORM;
-        }
     }
+}
 
-    Format toRhiFormat(VkFormat format)
+Format toRhiFormat(VkFormat format)
+{
+    switch (format)
     {
-        switch (format)
-        {
         case VK_FORMAT_B8G8R8A8_UNORM:
             return Format::BGRA8_UNORM;
         case VK_FORMAT_B8G8R8A8_SRGB:
@@ -101,15 +98,15 @@ namespace
             return Format::RGBA8_SRGB;
         default:
             return Format::Unknown;
-        }
     }
+}
 
-    std::vector<const char *> getRequiredInstanceExtensions(NativeWindowSystem system)
+std::vector<const char*> getRequiredInstanceExtensions(NativeWindowSystem system)
+{
+    std::vector<const char*> extensions = {VK_KHR_SURFACE_EXTENSION_NAME};
+
+    switch (system)
     {
-        std::vector<const char *> extensions = {VK_KHR_SURFACE_EXTENSION_NAME};
-
-        switch (system)
-        {
         case NativeWindowSystem::Win32:
             extensions.push_back("VK_KHR_win32_surface");
             break;
@@ -125,17 +122,17 @@ namespace
         case NativeWindowSystem::Wayland:
             extensions.push_back("VK_KHR_wayland_surface");
             break;
-        }
-
-        return extensions;
     }
 
-    VkSurfaceKHR createSurface(VkInstance instance, const NativeWindowHandle &nativeWindowHandle)
-    {
-        VkSurfaceKHR surface = VK_NULL_HANDLE;
+    return extensions;
+}
 
-        switch (nativeWindowHandle.system)
-        {
+VkSurfaceKHR createSurface(VkInstance instance, const NativeWindowHandle& nativeWindowHandle)
+{
+    VkSurfaceKHR surface = VK_NULL_HANDLE;
+
+    switch (nativeWindowHandle.system)
+    {
         case NativeWindowSystem::Win32:
         {
 #if defined(_WIN32)
@@ -155,7 +152,7 @@ namespace
         {
 #if defined(VK_USE_PLATFORM_XLIB_KHR)
             VkXlibSurfaceCreateInfoKHR createInfo{VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR};
-            createInfo.dpy = static_cast<Display *>(nativeWindowHandle.display);
+            createInfo.dpy = static_cast<Display*>(nativeWindowHandle.display);
             createInfo.window = static_cast<::Window>(nativeWindowHandle.window);
             checkVk(vkCreateXlibSurfaceKHR(instance, &createInfo, nullptr, &surface), "vkCreateXlibSurfaceKHR");
 #else
@@ -170,207 +167,197 @@ namespace
         {
 #if defined(VK_USE_PLATFORM_WAYLAND_KHR)
             VkWaylandSurfaceCreateInfoKHR createInfo{VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR};
-            createInfo.display = static_cast<wl_display *>(nativeWindowHandle.display);
-            createInfo.surface = reinterpret_cast<wl_surface *>(nativeWindowHandle.window);
+            createInfo.display = static_cast<wl_display*>(nativeWindowHandle.display);
+            createInfo.surface = reinterpret_cast<wl_surface*>(nativeWindowHandle.window);
             checkVk(vkCreateWaylandSurfaceKHR(instance, &createInfo, nullptr, &surface), "vkCreateWaylandSurfaceKHR");
 #else
             RTRLAB_ASSERT_MSG(false, "Wayland Vulkan surface creation is unavailable in this build.");
 #endif
             break;
         }
-        }
-
-        return surface;
     }
 
-    struct QueueFamilySelection
+    return surface;
+}
+
+struct QueueFamilySelection
+{
+    uint32_t graphicsFamily = std::numeric_limits<uint32_t>::max();
+    uint32_t presentFamily = std::numeric_limits<uint32_t>::max();
+
+    bool isComplete() const
     {
-        uint32_t graphicsFamily = std::numeric_limits<uint32_t>::max();
-        uint32_t presentFamily = std::numeric_limits<uint32_t>::max();
+        return graphicsFamily != std::numeric_limits<uint32_t>::max() &&
+               presentFamily != std::numeric_limits<uint32_t>::max();
+    }
+};
 
-        bool isComplete() const
-        {
-            return graphicsFamily != std::numeric_limits<uint32_t>::max() &&
-                   presentFamily != std::numeric_limits<uint32_t>::max();
-        }
-    };
+QueueFamilySelection findQueueFamilies(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface)
+{
+    uint32_t familyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &familyCount, nullptr);
 
-    QueueFamilySelection findQueueFamilies(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface)
+    std::vector<VkQueueFamilyProperties> familyProperties(familyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &familyCount, familyProperties.data());
+
+    QueueFamilySelection selection{};
+
+    for (uint32_t familyIndex = 0; familyIndex < familyCount; ++familyIndex)
     {
-        uint32_t familyCount = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &familyCount, nullptr);
+        const VkQueueFamilyProperties& properties = familyProperties[familyIndex];
+        if ((properties.queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0)
+            selection.graphicsFamily = familyIndex;
 
-        std::vector<VkQueueFamilyProperties> familyProperties(familyCount);
-        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &familyCount, familyProperties.data());
+        VkBool32 presentSupported = VK_FALSE;
+        checkVk(vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, familyIndex, surface, &presentSupported),
+                "vkGetPhysicalDeviceSurfaceSupportKHR");
+        if (presentSupported == VK_TRUE)
+            selection.presentFamily = familyIndex;
 
-        QueueFamilySelection selection{};
-
-        for (uint32_t familyIndex = 0; familyIndex < familyCount; ++familyIndex)
-        {
-            const VkQueueFamilyProperties &properties = familyProperties[familyIndex];
-            if ((properties.queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0)
-                selection.graphicsFamily = familyIndex;
-
-            VkBool32 presentSupported = VK_FALSE;
-            checkVk(vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, familyIndex, surface, &presentSupported),
-                    "vkGetPhysicalDeviceSurfaceSupportKHR");
-            if (presentSupported == VK_TRUE)
-                selection.presentFamily = familyIndex;
-
-            if (selection.isComplete())
-                break;
-        }
-
-        return selection;
+        if (selection.isComplete())
+            break;
     }
 
-    bool supportsRequiredDeviceExtensions(VkPhysicalDevice physicalDevice)
+    return selection;
+}
+
+bool supportsRequiredDeviceExtensions(VkPhysicalDevice physicalDevice)
+{
+    uint32_t extensionCount = 0;
+    checkVk(vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr),
+            "vkEnumerateDeviceExtensionProperties(count)");
+
+    std::vector<VkExtensionProperties> extensions(extensionCount);
+    checkVk(vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, extensions.data()),
+            "vkEnumerateDeviceExtensionProperties(list)");
+
+    for (const VkExtensionProperties& extension : extensions)
     {
-        uint32_t extensionCount = 0;
-        checkVk(vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr),
-                "vkEnumerateDeviceExtensionProperties(count)");
-
-        std::vector<VkExtensionProperties> extensions(extensionCount);
-        checkVk(vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, extensions.data()),
-                "vkEnumerateDeviceExtensionProperties(list)");
-
-        for (const VkExtensionProperties &extension : extensions)
-        {
-            if (std::strcmp(extension.extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0)
-                return true;
-        }
-
-        return false;
+        if (std::strcmp(extension.extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0)
+            return true;
     }
 
-    VkPhysicalDevice pickPhysicalDevice(VkInstance instance, VkSurfaceKHR surface, QueueFamilySelection &selection)
+    return false;
+}
+
+VkPhysicalDevice pickPhysicalDevice(VkInstance instance, VkSurfaceKHR surface, QueueFamilySelection& selection)
+{
+    uint32_t deviceCount = 0;
+    checkVk(vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr), "vkEnumeratePhysicalDevices(count)");
+    RTRLAB_ASSERT_MSG(deviceCount > 0, "No Vulkan physical devices are available.");
+
+    std::vector<VkPhysicalDevice> devices(deviceCount);
+    checkVk(vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data()), "vkEnumeratePhysicalDevices(list)");
+
+    for (VkPhysicalDevice device : devices)
     {
-        uint32_t deviceCount = 0;
-        checkVk(vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr), "vkEnumeratePhysicalDevices(count)");
-        RTRLAB_ASSERT_MSG(deviceCount > 0, "No Vulkan physical devices are available.");
+        if (!supportsRequiredDeviceExtensions(device))
+            continue;
 
-        std::vector<VkPhysicalDevice> devices(deviceCount);
-        checkVk(vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data()), "vkEnumeratePhysicalDevices(list)");
+        QueueFamilySelection candidateSelection = findQueueFamilies(device, surface);
+        if (!candidateSelection.isComplete())
+            continue;
 
-        for (VkPhysicalDevice device : devices)
-        {
-            if (!supportsRequiredDeviceExtensions(device))
-                continue;
-
-            QueueFamilySelection candidateSelection = findQueueFamilies(device, surface);
-            if (!candidateSelection.isComplete())
-                continue;
-
-            selection = candidateSelection;
-            return device;
-        }
-
-        RTRLAB_ASSERT_MSG(false, "Failed to find a Vulkan physical device with graphics, present, and swapchain support.");
-        return VK_NULL_HANDLE;
+        selection = candidateSelection;
+        return device;
     }
 
-    VkSurfaceFormatKHR chooseSurfaceFormat(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, Format preferredFormat)
+    RTRLAB_ASSERT_MSG(false, "Failed to find a Vulkan physical device with graphics, present, and swapchain support.");
+    return VK_NULL_HANDLE;
+}
+
+VkSurfaceFormatKHR chooseSurfaceFormat(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, Format preferredFormat)
+{
+    uint32_t formatCount = 0;
+    checkVk(vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, nullptr),
+            "vkGetPhysicalDeviceSurfaceFormatsKHR(count)");
+    RTRLAB_ASSERT_MSG(formatCount > 0, "Vulkan surface reports no supported formats.");
+
+    std::vector<VkSurfaceFormatKHR> formats(formatCount);
+    checkVk(vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, formats.data()),
+            "vkGetPhysicalDeviceSurfaceFormatsKHR(list)");
+
+    const VkFormat preferredVkFormat = toVkFormat(preferredFormat);
+    for (const VkSurfaceFormatKHR& surfaceFormat : formats)
     {
-        uint32_t formatCount = 0;
-        checkVk(vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, nullptr),
-                "vkGetPhysicalDeviceSurfaceFormatsKHR(count)");
-        RTRLAB_ASSERT_MSG(formatCount > 0, "Vulkan surface reports no supported formats.");
-
-        std::vector<VkSurfaceFormatKHR> formats(formatCount);
-        checkVk(vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, formats.data()),
-                "vkGetPhysicalDeviceSurfaceFormatsKHR(list)");
-
-        const VkFormat preferredVkFormat = toVkFormat(preferredFormat);
-        for (const VkSurfaceFormatKHR &surfaceFormat : formats)
-        {
-            if (surfaceFormat.format == preferredVkFormat)
-                return surfaceFormat;
-        }
-
-        return formats.front();
+        if (surfaceFormat.format == preferredVkFormat)
+            return surfaceFormat;
     }
 
-    VkPresentModeKHR choosePresentMode(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, bool vsync)
-    {
-        uint32_t modeCount = 0;
-        checkVk(vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &modeCount, nullptr),
-                "vkGetPhysicalDeviceSurfacePresentModesKHR(count)");
-        RTRLAB_ASSERT_MSG(modeCount > 0, "Vulkan surface reports no present modes.");
+    return formats.front();
+}
 
-        std::vector<VkPresentModeKHR> presentModes(modeCount);
-        checkVk(vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &modeCount, presentModes.data()),
-                "vkGetPhysicalDeviceSurfacePresentModesKHR(list)");
+VkPresentModeKHR choosePresentMode(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, bool vsync)
+{
+    uint32_t modeCount = 0;
+    checkVk(vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &modeCount, nullptr),
+            "vkGetPhysicalDeviceSurfacePresentModesKHR(count)");
+    RTRLAB_ASSERT_MSG(modeCount > 0, "Vulkan surface reports no present modes.");
 
-        if (vsync)
-            return VK_PRESENT_MODE_FIFO_KHR;
+    std::vector<VkPresentModeKHR> presentModes(modeCount);
+    checkVk(vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, surface, &modeCount, presentModes.data()),
+            "vkGetPhysicalDeviceSurfacePresentModesKHR(list)");
 
-        for (VkPresentModeKHR presentMode : presentModes)
-        {
-            if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR)
-                return presentMode;
-        }
-
-        for (VkPresentModeKHR presentMode : presentModes)
-        {
-            if (presentMode == VK_PRESENT_MODE_IMMEDIATE_KHR)
-                return presentMode;
-        }
-
+    if (vsync)
         return VK_PRESENT_MODE_FIFO_KHR;
+
+    for (VkPresentModeKHR presentMode : presentModes)
+    {
+        if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+            return presentMode;
     }
 
-    VkExtent2D chooseSwapchainExtent(const VkSurfaceCapabilitiesKHR &capabilities, uint32_t requestedWidth, uint32_t requestedHeight)
+    for (VkPresentModeKHR presentMode : presentModes)
     {
-        if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
-            return capabilities.currentExtent;
-
-        VkExtent2D extent{};
-        extent.width = std::clamp(requestedWidth, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
-        extent.height = std::clamp(requestedHeight, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
-        return extent;
+        if (presentMode == VK_PRESENT_MODE_IMMEDIATE_KHR)
+            return presentMode;
     }
 
-    void transitionImageLayout(
-        VkCommandBuffer commandBuffer,
-        VkImage image,
-        VkImageLayout oldLayout,
-        VkImageLayout newLayout,
-        VkPipelineStageFlags srcStageMask,
-        VkPipelineStageFlags dstStageMask,
-        VkAccessFlags srcAccessMask,
-        VkAccessFlags dstAccessMask)
-    {
-        VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-        barrier.srcAccessMask = srcAccessMask;
-        barrier.dstAccessMask = dstAccessMask;
-        barrier.oldLayout = oldLayout;
-        barrier.newLayout = newLayout;
-        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image = image;
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        barrier.subresourceRange.baseMipLevel = 0;
-        barrier.subresourceRange.levelCount = 1;
-        barrier.subresourceRange.baseArrayLayer = 0;
-        barrier.subresourceRange.layerCount = 1;
+    return VK_PRESENT_MODE_FIFO_KHR;
+}
 
-        vkCmdPipelineBarrier(
-            commandBuffer,
-            srcStageMask,
-            dstStageMask,
-            0,
-            0,
-            nullptr,
-            0,
-            nullptr,
-            1,
-            &barrier);
-    }
+VkExtent2D
+chooseSwapchainExtent(const VkSurfaceCapabilitiesKHR& capabilities, uint32_t requestedWidth, uint32_t requestedHeight)
+{
+    if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
+        return capabilities.currentExtent;
 
-    VkPipelineStageFlags sourceStageForLayout(VkImageLayout layout)
+    VkExtent2D extent{};
+    extent.width = std::clamp(requestedWidth, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+    extent.height = std::clamp(requestedHeight, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+    return extent;
+}
+
+void transitionImageLayout(VkCommandBuffer commandBuffer,
+                           VkImage image,
+                           VkImageLayout oldLayout,
+                           VkImageLayout newLayout,
+                           VkPipelineStageFlags srcStageMask,
+                           VkPipelineStageFlags dstStageMask,
+                           VkAccessFlags srcAccessMask,
+                           VkAccessFlags dstAccessMask)
+{
+    VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+    barrier.srcAccessMask = srcAccessMask;
+    barrier.dstAccessMask = dstAccessMask;
+    barrier.oldLayout = oldLayout;
+    barrier.newLayout = newLayout;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+
+    vkCmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+}
+
+VkPipelineStageFlags sourceStageForLayout(VkImageLayout layout)
+{
+    switch (layout)
     {
-        switch (layout)
-        {
         case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
             return VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
         case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
@@ -378,22 +365,22 @@ namespace
         case VK_IMAGE_LAYOUT_UNDEFINED:
         default:
             return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        }
     }
+}
 
-    VkAccessFlags sourceAccessForLayout(VkImageLayout layout)
+VkAccessFlags sourceAccessForLayout(VkImageLayout layout)
+{
+    switch (layout)
     {
-        switch (layout)
-        {
         case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
             return VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
         case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
         case VK_IMAGE_LAYOUT_UNDEFINED:
         default:
             return 0;
-        }
     }
 }
+} // namespace
 
 VulkanCommandList::~VulkanCommandList()
 {
@@ -427,38 +414,38 @@ void VulkanCommandList::shutdown()
     m_Device = VK_NULL_HANDLE;
 }
 
-void VulkanCommandList::beginRendering(const RenderingInfo &renderingInfo)
+void VulkanCommandList::beginRendering(const RenderingInfo& renderingInfo)
 {
     ShellCommandListBase::beginRendering(renderingInfo);
 
-    RTRLAB_ASSERT_MSG(renderingInfo.colorAttachments.size() == 1, "Early Vulkan bring-up currently supports exactly one color attachment.");
-    RTRLAB_ASSERT_MSG(renderingInfo.depthAttachment.view == nullptr, "Early Vulkan bring-up does not support depth attachments yet.");
+    RTRLAB_ASSERT_MSG(renderingInfo.colorAttachments.size() == 1,
+                      "Early Vulkan bring-up currently supports exactly one color attachment.");
+    RTRLAB_ASSERT_MSG(renderingInfo.depthAttachment.view == nullptr,
+                      "Early Vulkan bring-up does not support depth attachments yet.");
 
-    const ColorAttachmentInfo &colorAttachment = renderingInfo.colorAttachments.front();
-    auto *imageView = dynamic_cast<VulkanSwapchainImageView *>(colorAttachment.view);
+    const ColorAttachmentInfo& colorAttachment = renderingInfo.colorAttachments.front();
+    auto* imageView = dynamic_cast<VulkanSwapchainImageView*>(colorAttachment.view);
     RTRLAB_ASSERT_MSG(imageView != nullptr, "Vulkan beginRendering currently expects a swapchain image view.");
 
-    auto *texture = dynamic_cast<VulkanSwapchainTexture *>(imageView->getTexture());
+    auto* texture = dynamic_cast<VulkanSwapchainTexture*>(imageView->getTexture());
     RTRLAB_ASSERT_MSG(texture != nullptr, "Vulkan beginRendering currently expects a swapchain texture.");
 
-    transitionImageLayout(
-        m_CommandBuffer,
-        texture->getVkImage(),
-        texture->getCurrentLayout(),
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        sourceStageForLayout(texture->getCurrentLayout()),
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        sourceAccessForLayout(texture->getCurrentLayout()),
-        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+    transitionImageLayout(m_CommandBuffer,
+                          texture->getVkImage(),
+                          texture->getCurrentLayout(),
+                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                          sourceStageForLayout(texture->getCurrentLayout()),
+                          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                          sourceAccessForLayout(texture->getCurrentLayout()),
+                          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
     texture->setCurrentLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-    const VkClearValue clearValue = {
-        {
-            colorAttachment.clearValue.r,
-            colorAttachment.clearValue.g,
-            colorAttachment.clearValue.b,
-            colorAttachment.clearValue.a,
-        }};
+    const VkClearValue clearValue = {{
+        colorAttachment.clearValue.r,
+        colorAttachment.clearValue.g,
+        colorAttachment.clearValue.b,
+        colorAttachment.clearValue.a,
+    }};
 
     VkRenderingAttachmentInfo colorAttachmentInfo{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
     colorAttachmentInfo.imageView = imageView->getVkImageView();
@@ -466,8 +453,8 @@ void VulkanCommandList::beginRendering(const RenderingInfo &renderingInfo)
     colorAttachmentInfo.loadOp = colorAttachment.loadOp == LoadOp::Clear      ? VK_ATTACHMENT_LOAD_OP_CLEAR
                                  : colorAttachment.loadOp == LoadOp::DontCare ? VK_ATTACHMENT_LOAD_OP_DONT_CARE
                                                                               : VK_ATTACHMENT_LOAD_OP_LOAD;
-    colorAttachmentInfo.storeOp = colorAttachment.storeOp == StoreOp::DontCare ? VK_ATTACHMENT_STORE_OP_DONT_CARE
-                                                                               : VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachmentInfo.storeOp =
+        colorAttachment.storeOp == StoreOp::DontCare ? VK_ATTACHMENT_STORE_OP_DONT_CARE : VK_ATTACHMENT_STORE_OP_STORE;
     colorAttachmentInfo.clearValue = clearValue;
 
     VkRenderingInfo vkRenderingInfo{VK_STRUCTURE_TYPE_RENDERING_INFO};
@@ -484,35 +471,35 @@ void VulkanCommandList::endRendering()
 {
     RTRLAB_ASSERT_MSG(m_IsRendering, "Vulkan endRendering requires an active rendering scope.");
 
-    const ColorAttachmentInfo &colorAttachment = m_RenderingInfo.colorAttachments.front();
-    auto *imageView = dynamic_cast<VulkanSwapchainImageView *>(colorAttachment.view);
+    const ColorAttachmentInfo& colorAttachment = m_RenderingInfo.colorAttachments.front();
+    auto* imageView = dynamic_cast<VulkanSwapchainImageView*>(colorAttachment.view);
     RTRLAB_ASSERT_MSG(imageView != nullptr, "Vulkan endRendering currently expects a swapchain image view.");
 
-    auto *texture = dynamic_cast<VulkanSwapchainTexture *>(imageView->getTexture());
+    auto* texture = dynamic_cast<VulkanSwapchainTexture*>(imageView->getTexture());
     RTRLAB_ASSERT_MSG(texture != nullptr, "Vulkan endRendering currently expects a swapchain texture.");
 
     vkCmdEndRendering(m_CommandBuffer);
 
-    transitionImageLayout(
-        m_CommandBuffer,
-        texture->getVkImage(),
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        0);
+    transitionImageLayout(m_CommandBuffer,
+                          texture->getVkImage(),
+                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                          VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                          VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                          0);
     texture->setCurrentLayout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
     ShellCommandListBase::endRendering();
 }
 
-VulkanSwapchain::VulkanSwapchain(VulkanDevice &device, const SwapchainDesc &desc, const NativeWindowHandle &nativeWindowHandle)
-    : m_Device(device),
-      m_Desc(RHIInternal::sanitizeSwapchainDesc(desc)),
-      m_NativeWindowHandle(nativeWindowHandle)
+VulkanSwapchain::VulkanSwapchain(VulkanDevice& device,
+                                 const SwapchainDesc& desc,
+                                 const NativeWindowHandle& nativeWindowHandle)
+    : m_Device(device), m_Desc(RHIInternal::sanitizeSwapchainDesc(desc)), m_NativeWindowHandle(nativeWindowHandle)
 {
-    RTRLAB_ASSERT_MSG(RHIInternal::isNativeWindowHandleValid(nativeWindowHandle), "Native window handle is incomplete.");
+    RTRLAB_ASSERT_MSG(RHIInternal::isNativeWindowHandleValid(nativeWindowHandle),
+                      "Native window handle is incomplete.");
 
     recreateSwapchain();
 }
@@ -525,24 +512,22 @@ VulkanSwapchain::~VulkanSwapchain()
 uint32_t VulkanSwapchain::acquireNextImage()
 {
     uint32_t imageIndex = 0;
-    VkResult result = vkAcquireNextImageKHR(
-        m_Device.getVkDevice(),
-        m_Swapchain,
-        std::numeric_limits<uint64_t>::max(),
-        m_Device.getCurrentImageAvailableSemaphore(),
-        VK_NULL_HANDLE,
-        &imageIndex);
+    VkResult result = vkAcquireNextImageKHR(m_Device.getVkDevice(),
+                                            m_Swapchain,
+                                            std::numeric_limits<uint64_t>::max(),
+                                            m_Device.getCurrentImageAvailableSemaphore(),
+                                            VK_NULL_HANDLE,
+                                            &imageIndex);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR)
     {
         recreateSwapchain(m_Swapchain);
-        result = vkAcquireNextImageKHR(
-            m_Device.getVkDevice(),
-            m_Swapchain,
-            std::numeric_limits<uint64_t>::max(),
-            m_Device.getCurrentImageAvailableSemaphore(),
-            VK_NULL_HANDLE,
-            &imageIndex);
+        result = vkAcquireNextImageKHR(m_Device.getVkDevice(),
+                                       m_Swapchain,
+                                       std::numeric_limits<uint64_t>::max(),
+                                       m_Device.getCurrentImageAvailableSemaphore(),
+                                       VK_NULL_HANDLE,
+                                       &imageIndex);
     }
 
     if (result != VK_SUBOPTIMAL_KHR)
@@ -550,13 +535,13 @@ uint32_t VulkanSwapchain::acquireNextImage()
     return imageIndex;
 }
 
-Texture *VulkanSwapchain::getImage(uint32_t imageIndex) const
+Texture* VulkanSwapchain::getImage(uint32_t imageIndex) const
 {
     RTRLAB_ASSERT_MSG(imageIndex < m_Images.size(), "Swapchain image index out of range.");
     return m_Images[imageIndex].get();
 }
 
-TextureView *VulkanSwapchain::getImageView(uint32_t imageIndex) const
+TextureView* VulkanSwapchain::getImageView(uint32_t imageIndex) const
 {
     RTRLAB_ASSERT_MSG(imageIndex < m_ImageViews.size(), "Swapchain image-view index out of range.");
     return m_ImageViews[imageIndex].get();
@@ -640,9 +625,7 @@ void VulkanSwapchain::recreateSwapchain(VkSwapchainKHR oldSwapchain)
     createInfo.imageArrayLayers = 1;
     createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    const uint32_t queueFamilyIndices[] = {
-        m_Device.getGraphicsQueueFamily(),
-        m_Device.getPresentQueueFamily()};
+    const uint32_t queueFamilyIndices[] = {m_Device.getGraphicsQueueFamily(), m_Device.getPresentQueueFamily()};
 
     if (m_Device.getGraphicsQueueFamily() != m_Device.getPresentQueueFamily())
     {
@@ -665,11 +648,13 @@ void VulkanSwapchain::recreateSwapchain(VkSwapchainKHR oldSwapchain)
     checkVk(vkCreateSwapchainKHR(device, &createInfo, nullptr, &newSwapchain), "vkCreateSwapchainKHR");
 
     uint32_t swapchainImageCount = 0;
-    checkVk(vkGetSwapchainImagesKHR(device, newSwapchain, &swapchainImageCount, nullptr), "vkGetSwapchainImagesKHR(count)");
+    checkVk(vkGetSwapchainImagesKHR(device, newSwapchain, &swapchainImageCount, nullptr),
+            "vkGetSwapchainImagesKHR(count)");
     RTRLAB_ASSERT_MSG(swapchainImageCount > 0, "Vulkan swapchain reported zero images.");
 
     std::vector<VkImage> swapchainImages(swapchainImageCount);
-    checkVk(vkGetSwapchainImagesKHR(device, newSwapchain, &swapchainImageCount, swapchainImages.data()), "vkGetSwapchainImagesKHR(list)");
+    checkVk(vkGetSwapchainImagesKHR(device, newSwapchain, &swapchainImageCount, swapchainImages.data()),
+            "vkGetSwapchainImagesKHR(list)");
 
     std::vector<Scope<VulkanSwapchainTexture>> images;
     std::vector<Scope<VulkanSwapchainImageView>> imageViews;
@@ -693,11 +678,10 @@ void VulkanSwapchain::recreateSwapchain(VkSwapchainKHR oldSwapchain)
         viewCreateInfo.image = image;
         viewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
         viewCreateInfo.format = surfaceFormat.format;
-        viewCreateInfo.components = {
-            VK_COMPONENT_SWIZZLE_IDENTITY,
-            VK_COMPONENT_SWIZZLE_IDENTITY,
-            VK_COMPONENT_SWIZZLE_IDENTITY,
-            VK_COMPONENT_SWIZZLE_IDENTITY};
+        viewCreateInfo.components = {VK_COMPONENT_SWIZZLE_IDENTITY,
+                                     VK_COMPONENT_SWIZZLE_IDENTITY,
+                                     VK_COMPONENT_SWIZZLE_IDENTITY,
+                                     VK_COMPONENT_SWIZZLE_IDENTITY};
         viewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         viewCreateInfo.subresourceRange.baseMipLevel = 0;
         viewCreateInfo.subresourceRange.levelCount = 1;
@@ -712,7 +696,8 @@ void VulkanSwapchain::recreateSwapchain(VkSwapchainKHR oldSwapchain)
         viewDesc.format = m_Desc.format;
         viewDesc.aspect = TextureAspect::Color;
 
-        imageViews.push_back(CreateScope<VulkanSwapchainImageView>(device, swapchainTexture.get(), imageView, viewDesc));
+        imageViews.push_back(
+            CreateScope<VulkanSwapchainImageView>(device, swapchainTexture.get(), imageView, viewDesc));
         images.push_back(std::move(swapchainTexture));
     }
 
@@ -752,15 +737,16 @@ VulkanDevice::~VulkanDevice()
     }
 }
 
-Scope<Swapchain> VulkanDevice::createSwapchain(const SwapchainDesc &desc, const NativeWindowHandle &nativeWindowHandle)
+Scope<Swapchain> VulkanDevice::createSwapchain(const SwapchainDesc& desc, const NativeWindowHandle& nativeWindowHandle)
 {
     initializePresentationObjects(nativeWindowHandle);
     return CreateScope<VulkanSwapchain>(*this, desc, nativeWindowHandle);
 }
 
-CommandList *VulkanDevice::beginCommandList()
+CommandList* VulkanDevice::beginCommandList()
 {
-    RTRLAB_ASSERT_MSG(m_HasPresentationObjects, "Vulkan presentation objects must be initialized before command recording.");
+    RTRLAB_ASSERT_MSG(m_HasPresentationObjects,
+                      "Vulkan presentation objects must be initialized before command recording.");
     RTRLAB_ASSERT_MSG(m_FrameInProgress, "Vulkan command recording requires an active frame.");
     RTRLAB_ASSERT_MSG(!m_FrameSubmitted, "Vulkan command recording must happen before queue submission.");
 
@@ -773,18 +759,21 @@ CommandList *VulkanDevice::beginCommandList()
     return &m_CommandList;
 }
 
-void VulkanDevice::submit(CommandList *commandList)
+void VulkanDevice::submit(CommandList* commandList)
 {
-    RTRLAB_ASSERT_MSG(m_HasPresentationObjects, "Vulkan presentation objects must be initialized before queue submission.");
+    RTRLAB_ASSERT_MSG(m_HasPresentationObjects,
+                      "Vulkan presentation objects must be initialized before queue submission.");
     RTRLAB_ASSERT_MSG(m_FrameInProgress, "Vulkan submit requires an active frame.");
     RTRLAB_ASSERT_MSG(!m_FrameSubmitted, "Vulkan submit must only happen once per frame in the current bring-up path.");
-    RTRLAB_ASSERT_MSG(commandList == &m_CommandList, "VulkanDevice only accepts submissions from its backend command list.");
-    RTRLAB_ASSERT_MSG(!m_CommandList.isRenderingActive(), "Vulkan submit requires endRendering before queue submission.");
+    RTRLAB_ASSERT_MSG(commandList == &m_CommandList,
+                      "VulkanDevice only accepts submissions from its backend command list.");
+    RTRLAB_ASSERT_MSG(!m_CommandList.isRenderingActive(),
+                      "Vulkan submit requires endRendering before queue submission.");
 
     const VkCommandBuffer commandBuffer = m_CommandList.getVkCommandBuffer();
     checkVk(vkEndCommandBuffer(commandBuffer), "vkEndCommandBuffer");
 
-    const FrameSync &frameSync = currentFrameSync();
+    const FrameSync& frameSync = currentFrameSync();
     const VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
     VkSubmitInfo submitInfo{VK_STRUCTURE_TYPE_SUBMIT_INFO};
@@ -800,12 +789,13 @@ void VulkanDevice::submit(CommandList *commandList)
     m_FrameSubmitted = true;
 }
 
-FrameContext *VulkanDevice::beginFrame()
+FrameContext* VulkanDevice::beginFrame()
 {
-    RTRLAB_ASSERT_MSG(m_HasPresentationObjects, "Vulkan presentation objects must be initialized before beginning a frame.");
+    RTRLAB_ASSERT_MSG(m_HasPresentationObjects,
+                      "Vulkan presentation objects must be initialized before beginning a frame.");
     RTRLAB_ASSERT_MSG(!m_FrameInProgress, "VulkanDevice does not support nested frame lifetimes.");
 
-    FrameSync &frameSync = currentFrameSync();
+    FrameSync& frameSync = currentFrameSync();
     checkVk(vkWaitForFences(m_Device, 1, &frameSync.inFlightFence, VK_TRUE, std::numeric_limits<uint64_t>::max()),
             "vkWaitForFences");
     checkVk(vkResetFences(m_Device, 1, &frameSync.inFlightFence), "vkResetFences");
@@ -815,7 +805,7 @@ FrameContext *VulkanDevice::beginFrame()
     return &m_FrameContext;
 }
 
-void VulkanDevice::endFrame(FrameContext *frameContext)
+void VulkanDevice::endFrame(FrameContext* frameContext)
 {
     RTRLAB_ASSERT_MSG(frameContext == &m_FrameContext, "VulkanDevice only accepts its backend frame context.");
     RTRLAB_ASSERT_MSG(m_FrameInProgress, "Vulkan endFrame requires an active frame.");
@@ -848,19 +838,19 @@ void VulkanDevice::advanceFrameSync()
     m_FrameSubmitted = false;
 }
 
-VulkanDevice::FrameSync &VulkanDevice::currentFrameSync()
+VulkanDevice::FrameSync& VulkanDevice::currentFrameSync()
 {
     return m_FrameSyncObjects[m_CurrentFrameSlot];
 }
 
-const VulkanDevice::FrameSync &VulkanDevice::currentFrameSync() const
+const VulkanDevice::FrameSync& VulkanDevice::currentFrameSync() const
 {
     return m_FrameSyncObjects[m_CurrentFrameSlot];
 }
 
 void VulkanDevice::recycleCurrentRenderFinishedSemaphore()
 {
-    FrameSync &frameSync = currentFrameSync();
+    FrameSync& frameSync = currentFrameSync();
 
     // Safety relies on the caller first making the queue/device idle. The current present
     // failure path does this via recreateSwapchain() before recycling the semaphore.
@@ -877,7 +867,7 @@ void VulkanDevice::recycleCurrentRenderFinishedSemaphore()
 
 void VulkanDevice::initializeInstance(NativeWindowSystem windowSystem)
 {
-    const std::vector<const char *> instanceExtensions = getRequiredInstanceExtensions(windowSystem);
+    const std::vector<const char*> instanceExtensions = getRequiredInstanceExtensions(windowSystem);
 
     VkApplicationInfo appInfo{VK_STRUCTURE_TYPE_APPLICATION_INFO};
     appInfo.pApplicationName = "RTRLab";
@@ -902,17 +892,20 @@ void VulkanDevice::initializeFrameSyncObjects()
     VkFenceCreateInfo fenceCreateInfo{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
     fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-    for (FrameSync &frameSync : m_FrameSyncObjects)
+    for (FrameSync& frameSync : m_FrameSyncObjects)
     {
-        checkVk(vkCreateSemaphore(m_Device, &semaphoreCreateInfo, nullptr, &frameSync.imageAvailable), "vkCreateSemaphore(imageAvailable)");
-        checkVk(vkCreateSemaphore(m_Device, &semaphoreCreateInfo, nullptr, &frameSync.renderFinished), "vkCreateSemaphore(renderFinished)");
-        checkVk(vkCreateFence(m_Device, &fenceCreateInfo, nullptr, &frameSync.inFlightFence), "vkCreateFence(inFlight)");
+        checkVk(vkCreateSemaphore(m_Device, &semaphoreCreateInfo, nullptr, &frameSync.imageAvailable),
+                "vkCreateSemaphore(imageAvailable)");
+        checkVk(vkCreateSemaphore(m_Device, &semaphoreCreateInfo, nullptr, &frameSync.renderFinished),
+                "vkCreateSemaphore(renderFinished)");
+        checkVk(vkCreateFence(m_Device, &fenceCreateInfo, nullptr, &frameSync.inFlightFence),
+                "vkCreateFence(inFlight)");
     }
 }
 
 void VulkanDevice::shutdownFrameSyncObjects()
 {
-    for (FrameSync &frameSync : m_FrameSyncObjects)
+    for (FrameSync& frameSync : m_FrameSyncObjects)
     {
         if (frameSync.imageAvailable != VK_NULL_HANDLE)
         {
@@ -934,7 +927,7 @@ void VulkanDevice::shutdownFrameSyncObjects()
     }
 }
 
-void VulkanDevice::initializePresentationObjects(const NativeWindowHandle &nativeWindowHandle)
+void VulkanDevice::initializePresentationObjects(const NativeWindowHandle& nativeWindowHandle)
 {
     if (m_HasPresentationObjects)
     {
@@ -946,7 +939,7 @@ void VulkanDevice::initializePresentationObjects(const NativeWindowHandle &nativ
         return;
     }
 
-    const std::vector<const char *> requiredExtensions = getRequiredInstanceExtensions(nativeWindowHandle.system);
+    const std::vector<const char*> requiredExtensions = getRequiredInstanceExtensions(nativeWindowHandle.system);
 
     if (m_Instance == VK_NULL_HANDLE)
     {
@@ -958,14 +951,15 @@ void VulkanDevice::initializePresentationObjects(const NativeWindowHandle &nativ
         checkVk(vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, availableExtensions.data()),
                 "vkEnumerateInstanceExtensionProperties(list)");
 
-        for (const char *requiredExtension : requiredExtensions)
+        for (const char* requiredExtension : requiredExtensions)
         {
-            const auto it = std::find_if(
-                availableExtensions.begin(),
-                availableExtensions.end(),
-                [requiredExtension](const VkExtensionProperties &extension)
-                { return std::strcmp(extension.extensionName, requiredExtension) == 0; });
-            RTRLAB_ASSERTF(it != availableExtensions.end(), "Required Vulkan instance extension '{}' is unavailable.", requiredExtension);
+            const auto it = std::find_if(availableExtensions.begin(),
+                                         availableExtensions.end(),
+                                         [requiredExtension](const VkExtensionProperties& extension)
+                                         { return std::strcmp(extension.extensionName, requiredExtension) == 0; });
+            RTRLAB_ASSERTF(it != availableExtensions.end(),
+                           "Required Vulkan instance extension '{}' is unavailable.",
+                           requiredExtension);
         }
 
         initializeInstance(nativeWindowHandle.system);
@@ -996,7 +990,7 @@ void VulkanDevice::initializePresentationObjects(const NativeWindowHandle &nativ
         queueCreateInfos.push_back(presentQueueCreateInfo);
     }
 
-    const std::array<const char *, 1> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    const std::array<const char*, 1> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
     VkPhysicalDeviceVulkan13Features vulkan13Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
     // Early bring-up assumes dynamic rendering is available and lets vkCreateDevice fail if it
     // is not. Feature pre-checking should be added alongside validation/debug bring-up.

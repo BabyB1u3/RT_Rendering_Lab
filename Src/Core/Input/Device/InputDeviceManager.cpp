@@ -5,58 +5,57 @@
 
 namespace
 {
-    template <typename Iterator>
-    Iterator FindDeviceBySlot(Iterator begin, Iterator end, InputDevice::Type type, uint8_t index)
+template <typename Iterator>
+Iterator FindDeviceBySlot(Iterator begin, Iterator end, InputDevice::Type type, uint8_t index)
+{
+    for (auto it = begin; it != end; ++it)
     {
-        for (auto it = begin; it != end; ++it)
-        {
-            if ((*it)->GetType() == type && (*it)->GetDeviceIndex() == index)
-                return it;
-        }
-
-        return end;
+        if ((*it)->GetType() == type && (*it)->GetDeviceIndex() == index)
+            return it;
     }
 
-    void PublishAttached(EventBus *bus, InputDevice::Type type, uint8_t index)
+    return end;
+}
+
+void PublishAttached(EventBus* bus, InputDevice::Type type, uint8_t index)
+{
+    if (bus)
+        bus->Publish(DeviceAttachedToSlotEvent{type, index});
+}
+
+void PublishDetached(EventBus* bus, InputDevice::Type type, uint8_t index)
+{
+    if (bus)
+        bus->Publish(DeviceDetachedFromSlotEvent{type, index});
+}
+
+void PublishConnectionChanged(EventBus* bus, InputDevice::Type type, uint8_t index, bool connected)
+{
+    if (!bus)
+        return;
+
+    bus->Publish(DeviceConnectionChangedEvent{type, index, connected});
+
+    if (type == InputDevice::Type::Gamepad)
     {
-        if (bus)
-            bus->Publish(DeviceAttachedToSlotEvent{type, index});
-    }
-
-    void PublishDetached(EventBus *bus, InputDevice::Type type, uint8_t index)
-    {
-        if (bus)
-            bus->Publish(DeviceDetachedFromSlotEvent{type, index});
-    }
-
-    void PublishConnectionChanged(EventBus *bus, InputDevice::Type type, uint8_t index, bool connected)
-    {
-        if (!bus)
-            return;
-
-        bus->Publish(DeviceConnectionChangedEvent{type, index, connected});
-
-        if (type == InputDevice::Type::Gamepad)
-        {
-            if (connected)
-                bus->Publish(GamepadConnectedEvent{index});
-            else
-                bus->Publish(GamepadDisconnectedEvent{index});
-        }
-    }
-
-    template <typename T>
-    void AppendUnique(std::vector<T> &items, T value)
-    {
-        for (const auto &item : items)
-        {
-            if (item == value)
-                return;
-        }
-
-        items.push_back(value);
+        if (connected)
+            bus->Publish(GamepadConnectedEvent{index});
+        else
+            bus->Publish(GamepadDisconnectedEvent{index});
     }
 }
+
+template <typename T> void AppendUnique(std::vector<T>& items, T value)
+{
+    for (const auto& item : items)
+    {
+        if (item == value)
+            return;
+    }
+
+    items.push_back(value);
+}
+} // namespace
 
 void InputDeviceManager::AddDevice(Scope<InputDevice> device)
 {
@@ -89,7 +88,7 @@ void InputDeviceManager::AddDevice(Scope<InputDevice> device)
 
 void InputDeviceManager::Clear()
 {
-    for (const auto &device : m_Devices)
+    for (const auto& device : m_Devices)
     {
         PublishDetached(m_EventBus, device->GetType(), device->GetDeviceIndex());
         if (device->IsConnected())
@@ -102,16 +101,16 @@ void InputDeviceManager::Clear()
 void InputDeviceManager::PollAll(float dt)
 {
     const auto observers = m_Observers;
-    for (auto *observer : observers)
+    for (auto* observer : observers)
     {
         if (observer)
             observer->OnBeforePollAll(*this, dt);
     }
 
-    for (const auto &device : m_Devices)
+    for (const auto& device : m_Devices)
         device->Poll();
 
-    for (auto *observer : observers)
+    for (auto* observer : observers)
     {
         if (observer)
             observer->OnAfterPollAll(*this, dt);
@@ -120,7 +119,7 @@ void InputDeviceManager::PollAll(float dt)
     if (!m_EventBus)
         return;
 
-    for (const auto &device : m_Devices)
+    for (const auto& device : m_Devices)
     {
         if (!device->HasConnectionStateChanged())
             continue;
@@ -131,11 +130,11 @@ void InputDeviceManager::PollAll(float dt)
 
 void InputDeviceManager::ResetAll()
 {
-    for (const auto &device : m_Devices)
+    for (const auto& device : m_Devices)
         device->Reset();
 }
 
-void InputDeviceManager::AddObserver(InputDeviceManagerObserver *observer)
+void InputDeviceManager::AddObserver(InputDeviceManagerObserver* observer)
 {
     if (!observer)
         return;
@@ -143,7 +142,7 @@ void InputDeviceManager::AddObserver(InputDeviceManagerObserver *observer)
     AppendUnique(m_Observers, observer);
 }
 
-void InputDeviceManager::RemoveObserver(InputDeviceManagerObserver *observer)
+void InputDeviceManager::RemoveObserver(InputDeviceManagerObserver* observer)
 {
     for (auto it = m_Observers.begin(); it != m_Observers.end(); ++it)
     {
@@ -155,7 +154,7 @@ void InputDeviceManager::RemoveObserver(InputDeviceManagerObserver *observer)
     }
 }
 
-InputDevice *InputDeviceManager::GetDevice(InputDevice::Type type, uint8_t index) const
+InputDevice* InputDeviceManager::GetDevice(InputDevice::Type type, uint8_t index) const
 {
     const auto it = FindDeviceBySlot(m_Devices.begin(), m_Devices.end(), type, index);
     return it != m_Devices.end() ? it->get() : nullptr;
@@ -164,7 +163,7 @@ InputDevice *InputDeviceManager::GetDevice(InputDevice::Type type, uint8_t index
 std::size_t InputDeviceManager::GetDeviceCount(InputDevice::Type type) const
 {
     std::size_t count = 0;
-    for (const auto &device : m_Devices)
+    for (const auto& device : m_Devices)
     {
         if (device->GetType() == type)
             ++count;
@@ -173,12 +172,12 @@ std::size_t InputDeviceManager::GetDeviceCount(InputDevice::Type type) const
     return count;
 }
 
-std::vector<const InputDevice *> InputDeviceManager::GetDevices(InputDevice::Type type) const
+std::vector<const InputDevice*> InputDeviceManager::GetDevices(InputDevice::Type type) const
 {
-    std::vector<const InputDevice *> devices;
+    std::vector<const InputDevice*> devices;
     devices.reserve(m_Devices.size());
 
-    for (const auto &device : m_Devices)
+    for (const auto& device : m_Devices)
     {
         if (device->GetType() == type)
             devices.push_back(device.get());

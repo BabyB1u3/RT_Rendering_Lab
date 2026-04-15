@@ -8,37 +8,31 @@
 
 namespace
 {
-    using test_support::ConstantTrigger;
-    using test_support::FixedValueModifier;
-    using test_support::InputTestAccess;
+using test_support::ConstantTrigger;
+using test_support::FixedValueModifier;
+using test_support::InputTestAccess;
 
-    class InputActionMapTest : public ::testing::Test
+class InputActionMapTest : public ::testing::Test
+{
+protected:
+    void SetUp() override
     {
-    protected:
-        void SetUp() override
-        {
-            InputTestAccess::RestoreDefaultDevices();
-            Input::Initialize(nullptr);
-        }
+        InputTestAccess::RestoreDefaultDevices();
+        Input::Initialize(nullptr);
+    }
 
-        static InputTestAccess::FrameState MakeFrame()
-        {
-            return InputTestAccess::MakeFrame();
-        }
+    static InputTestAccess::FrameState MakeFrame() { return InputTestAccess::MakeFrame(); }
 
-        static void ApplyFrame(const InputTestAccess::FrameState &frame)
-        {
-            InputTestAccess::ApplyFrame(frame);
-        }
+    static void ApplyFrame(const InputTestAccess::FrameState& frame) { InputTestAccess::ApplyFrame(frame); }
 
-        void UpdateWithFrame(const InputTestAccess::FrameState &frame, float dt = 0.016f)
-        {
-            ApplyFrame(frame);
-            map.Update(dt);
-        }
+    void UpdateWithFrame(const InputTestAccess::FrameState& frame, float dt = 0.016f)
+    {
+        ApplyFrame(frame);
+        map.Update(dt);
+    }
 
-        InputActionMap map;
-    };
+    InputActionMap map;
+};
 } // namespace
 
 TEST_F(InputActionMapTest, BindActionAndHasActionReturnsTrue)

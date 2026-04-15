@@ -37,10 +37,10 @@ public:
     static bool WriteText(std::string_view virtualPath, std::string_view data);
     static bool WriteBinary(std::string_view virtualPath, std::span<const uint8_t> data);
 
-    static const std::filesystem::path &GetRootPath();
+    static const std::filesystem::path& GetRootPath();
 
-    static const std::filesystem::path &GetSavedDir();
-    static const std::filesystem::path &GetCacheDir();
+    static const std::filesystem::path& GetSavedDir();
+    static const std::filesystem::path& GetCacheDir();
 
 private:
     static std::filesystem::path s_RootPath;

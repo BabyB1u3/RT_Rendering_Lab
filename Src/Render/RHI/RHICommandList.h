@@ -38,7 +38,7 @@ struct ClearDepthStencil
 
 struct ColorAttachmentInfo
 {
-    TextureView *view = nullptr;
+    TextureView* view = nullptr;
     LoadOp loadOp = LoadOp::Load;
     StoreOp storeOp = StoreOp::Store;
     ClearColor clearValue;
@@ -46,7 +46,7 @@ struct ColorAttachmentInfo
 
 struct DepthAttachmentInfo
 {
-    TextureView *view = nullptr;
+    TextureView* view = nullptr;
     LoadOp loadOp = LoadOp::Load;
     StoreOp storeOp = StoreOp::Store;
     ClearDepthStencil clearValue;
@@ -96,18 +96,19 @@ class CommandList
 public:
     virtual ~CommandList() = default;
 
-    virtual void beginRendering(const RenderingInfo &renderingInfo) = 0;
+    virtual void beginRendering(const RenderingInfo& renderingInfo) = 0;
     virtual void endRendering() = 0;
 
-    virtual void bindGraphicsPipeline(GraphicsPipeline *pipeline) = 0;
-    virtual void bindComputePipeline(ComputePipeline *pipeline) = 0;
+    virtual void bindGraphicsPipeline(GraphicsPipeline* pipeline) = 0;
+    virtual void bindComputePipeline(ComputePipeline* pipeline) = 0;
 
-    virtual void bindResourceSet(uint32_t setIndex, ResourceSet *resourceSet) = 0;
-    virtual void pushConstants(ShaderStage stageMask, uint32_t offset, uint32_t size, const void *data) = 0;
+    virtual void bindResourceSet(uint32_t setIndex, ResourceSet* resourceSet) = 0;
+    virtual void pushConstants(ShaderStage stageMask, uint32_t offset, uint32_t size, const void* data) = 0;
 
-    virtual void bindMesh(const MeshBinding &meshBinding, const uint64_t *vertexOffsets = nullptr) = 0;
-    virtual void bindVertexBuffers(uint32_t firstSlot, Buffer *const *buffers, uint32_t count, const uint64_t *offsets) = 0;
-    virtual void bindIndexBuffer(Buffer *buffer, uint64_t offset, IndexType indexType) = 0;
+    virtual void bindMesh(const MeshBinding& meshBinding, const uint64_t* vertexOffsets = nullptr) = 0;
+    virtual void
+    bindVertexBuffers(uint32_t firstSlot, Buffer* const* buffers, uint32_t count, const uint64_t* offsets) = 0;
+    virtual void bindIndexBuffer(Buffer* buffer, uint64_t offset, IndexType indexType) = 0;
 
     virtual void setViewport(float x, float y, float w, float h, float zmin, float zmax) = 0;
     virtual void setScissor(int32_t x, int32_t y, uint32_t w, uint32_t h) = 0;
@@ -117,35 +118,37 @@ public:
 
     virtual void dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ) = 0;
 
-    virtual void textureBarrier(Texture *texture, TextureState oldState, TextureState newState, ShaderStage srcStage, ShaderStage dstStage) = 0;
-    virtual void bufferBarrier(Buffer *buffer, BufferState oldState, BufferState newState, ShaderStage srcStage, ShaderStage dstStage) = 0;
+    virtual void textureBarrier(
+        Texture* texture, TextureState oldState, TextureState newState, ShaderStage srcStage, ShaderStage dstStage) = 0;
+    virtual void bufferBarrier(
+        Buffer* buffer, BufferState oldState, BufferState newState, ShaderStage srcStage, ShaderStage dstStage) = 0;
 };
 
 class ResourceStateTracker
 {
 public:
-    void transition(Texture *texture, TextureState newState);
-    void transition(Buffer *buffer, BufferState newState);
-    void flushBarriers(CommandList *commandList);
+    void transition(Texture* texture, TextureState newState);
+    void transition(Buffer* buffer, BufferState newState);
+    void flushBarriers(CommandList* commandList);
     void reset();
 
 private:
     struct PendingTextureTransition
     {
-        Texture *texture = nullptr;
+        Texture* texture = nullptr;
         TextureState oldState = TextureState::Undefined;
         TextureState newState = TextureState::Undefined;
     };
 
     struct PendingBufferTransition
     {
-        Buffer *buffer = nullptr;
+        Buffer* buffer = nullptr;
         BufferState oldState = BufferState::Undefined;
         BufferState newState = BufferState::Undefined;
     };
 
-    std::unordered_map<Texture *, TextureState> m_TextureStates;
-    std::unordered_map<Buffer *, BufferState> m_BufferStates;
+    std::unordered_map<Texture*, TextureState> m_TextureStates;
+    std::unordered_map<Buffer*, BufferState> m_BufferStates;
     std::vector<PendingTextureTransition> m_PendingTextureTransitions;
     std::vector<PendingBufferTransition> m_PendingBufferTransitions;
 };

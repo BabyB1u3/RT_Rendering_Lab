@@ -6,87 +6,69 @@
 
 namespace
 {
-    using test_support::InputTestAccess;
+using test_support::InputTestAccess;
 
-    class FakeKeyboardDevice final : public InputDevice
+class FakeKeyboardDevice final : public InputDevice
+{
+public:
+    explicit FakeKeyboardDevice(Key::Code activeKey) : m_ActiveKey(activeKey) {}
+
+    Type GetType() const override { return Type::Keyboard; }
+    void Poll() override {}
+
+    InputValue GetInput(uint16_t code) const override { return {code == m_ActiveKey ? 1.0f : 0.0f, 0.0f}; }
+
+    InputValue GetPreviousInput(uint16_t code) const override { return {code == m_PreviousKey ? 1.0f : 0.0f, 0.0f}; }
+
+    void Reset() override { m_PreviousKey = 0; }
+
+private:
+    Key::Code m_ActiveKey = 0;
+    Key::Code m_PreviousKey = 0;
+};
+
+class FakeGamepadDevice final : public InputDevice
+{
+public:
+    explicit FakeGamepadDevice(uint8_t deviceIndex) : m_DeviceIndex(deviceIndex) {}
+
+    Type GetType() const override { return Type::Gamepad; }
+    void Poll() override {}
+
+    InputValue GetInput(uint16_t code) const override { return {code == GamepadButton::A ? 1.0f : 0.0f, 0.0f}; }
+
+    InputValue GetAxis(uint16_t axisId) const override { return {axisId == GamepadAxis::LeftX ? -0.5f : 0.0f, 0.0f}; }
+
+    bool IsConnected() const override { return true; }
+    uint8_t GetDeviceIndex() const override { return m_DeviceIndex; }
+
+private:
+    uint8_t m_DeviceIndex = 0;
+};
+
+class FakeCustomDevice final : public InputDevice
+{
+public:
+    explicit FakeCustomDevice(uint8_t deviceIndex) : m_DeviceIndex(deviceIndex) {}
+
+    Type GetType() const override { return Type::Custom; }
+    void Poll() override {}
+    InputValue GetInput(uint16_t) const override { return {}; }
+    uint8_t GetDeviceIndex() const override { return m_DeviceIndex; }
+
+private:
+    uint8_t m_DeviceIndex = 0;
+};
+
+class InputPollingTests : public ::testing::Test
+{
+protected:
+    void SetUp() override
     {
-    public:
-        explicit FakeKeyboardDevice(Key::Code activeKey)
-            : m_ActiveKey(activeKey) {}
-
-        Type GetType() const override { return Type::Keyboard; }
-        void Poll() override {}
-
-        InputValue GetInput(uint16_t code) const override
-        {
-            return {code == m_ActiveKey ? 1.0f : 0.0f, 0.0f};
-        }
-
-        InputValue GetPreviousInput(uint16_t code) const override
-        {
-            return {code == m_PreviousKey ? 1.0f : 0.0f, 0.0f};
-        }
-
-        void Reset() override
-        {
-            m_PreviousKey = 0;
-        }
-
-    private:
-        Key::Code m_ActiveKey = 0;
-        Key::Code m_PreviousKey = 0;
-    };
-
-    class FakeGamepadDevice final : public InputDevice
-    {
-    public:
-        explicit FakeGamepadDevice(uint8_t deviceIndex)
-            : m_DeviceIndex(deviceIndex) {}
-
-        Type GetType() const override { return Type::Gamepad; }
-        void Poll() override {}
-
-        InputValue GetInput(uint16_t code) const override
-        {
-            return {code == GamepadButton::A ? 1.0f : 0.0f, 0.0f};
-        }
-
-        InputValue GetAxis(uint16_t axisId) const override
-        {
-            return {axisId == GamepadAxis::LeftX ? -0.5f : 0.0f, 0.0f};
-        }
-
-        bool IsConnected() const override { return true; }
-        uint8_t GetDeviceIndex() const override { return m_DeviceIndex; }
-
-    private:
-        uint8_t m_DeviceIndex = 0;
-    };
-
-    class FakeCustomDevice final : public InputDevice
-    {
-    public:
-        explicit FakeCustomDevice(uint8_t deviceIndex)
-            : m_DeviceIndex(deviceIndex) {}
-
-        Type GetType() const override { return Type::Custom; }
-        void Poll() override {}
-        InputValue GetInput(uint16_t) const override { return {}; }
-        uint8_t GetDeviceIndex() const override { return m_DeviceIndex; }
-
-    private:
-        uint8_t m_DeviceIndex = 0;
-    };
-
-    class InputPollingTests : public ::testing::Test
-    {
-    protected:
-        void SetUp() override
-        {
-            InputTestAccess::RestoreDefaultDevices();
-            Input::Initialize(nullptr);
-        }
-    };
+        InputTestAccess::RestoreDefaultDevices();
+        Input::Initialize(nullptr);
+    }
+};
 } // namespace
 
 TEST_F(InputPollingTests, InitializeResetsPollingState)
@@ -113,7 +95,7 @@ TEST_F(InputPollingTests, InitializeResetsPollingState)
 
 TEST_F(InputPollingTests, InitializeWithSameNonNullWindowDoesNotResetState)
 {
-    auto *window = reinterpret_cast<GLFWwindow *>(0x1);
+    auto* window = reinterpret_cast<GLFWwindow*>(0x1);
     Input::Initialize(window);
 
     auto frame = InputTestAccess::MakeFrame();
@@ -255,10 +237,10 @@ TEST_F(InputPollingTests, MouseDevicePreviousDeltaTracksPriorFrameMotion)
     InputTestAccess::SetMousePosition(thirdFrame, 30.0f, 30.0f);
     InputTestAccess::ApplyFrame(thirdFrame);
 
-    const auto *manager = Input::TryGetDeviceManager();
+    const auto* manager = Input::TryGetDeviceManager();
     ASSERT_NE(manager, nullptr);
 
-    const auto *mouse = manager->GetDevice(InputDevice::Type::Mouse);
+    const auto* mouse = manager->GetDevice(InputDevice::Type::Mouse);
     ASSERT_NE(mouse, nullptr);
     EXPECT_FLOAT_EQ(mouse->GetPreviousAxis(MouseAxisId::DeltaX).X, 14.0f);
     EXPECT_FLOAT_EQ(mouse->GetPreviousAxis(MouseAxisId::DeltaY).X, -2.0f);
@@ -378,13 +360,13 @@ TEST_F(InputPollingTests, RestoreDefaultDevicesRemovesExtraDevicesOutsideDefault
     Input::RegisterDevice(CreateScope<FakeGamepadDevice>(7));
     Input::RegisterDevice(CreateScope<FakeCustomDevice>(0));
 
-    auto &managerBefore = Input::GetDeviceManager();
+    auto& managerBefore = Input::GetDeviceManager();
     ASSERT_NE(managerBefore.GetDevice(InputDevice::Type::Gamepad, 7), nullptr);
     ASSERT_NE(managerBefore.GetDevice(InputDevice::Type::Custom, 0), nullptr);
 
     Input::RestoreDefaultDevices();
 
-    auto &managerAfter = Input::GetDeviceManager();
+    auto& managerAfter = Input::GetDeviceManager();
     EXPECT_EQ(managerAfter.GetDevice(InputDevice::Type::Gamepad, 7), nullptr);
     EXPECT_EQ(managerAfter.GetDevice(InputDevice::Type::Custom, 0), nullptr);
     EXPECT_NE(managerAfter.GetDevice(InputDevice::Type::Keyboard, 0), nullptr);

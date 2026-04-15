@@ -8,7 +8,7 @@
 
 namespace
 {
-    using RootDiscoveryTests = test_support::RootDiscoveryTestsBase;
+using RootDiscoveryTests = test_support::RootDiscoveryTestsBase;
 }
 
 TEST_F(RootDiscoveryTests, DiscoverRootPathUsesEnvOverrideWhenProjectMarkerExistsInDev)

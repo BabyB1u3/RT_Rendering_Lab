@@ -13,87 +13,87 @@
 
 namespace Resource
 {
-    enum class CatalogKind
+enum class CatalogKind
+{
+    Source,
+    Cooked,
+};
+
+enum class MountBackendKind
+{
+    Directory,
+    PakArchive,
+};
+
+enum class MountPriority
+{
+    Source = 0,
+    Cooked = 100,
+    Packaged = 200,
+    DLC = 300,
+    Patch = 400,
+    Mod = 500,
+};
+
+struct ArtifactRecord
+{
+    std::string relativePath;
+    std::string format;
+    std::string platformTag = "any";
+    std::string backendTag = "any";
+    std::string profileTag = "any";
+    uint64_t contentHash = 0;
+};
+
+struct ResourceCatalogEntry
+{
+    std::string logicalPath;
+    std::optional<std::string> sourceRelativePath;
+    std::vector<ArtifactRecord> artifacts;
+};
+
+struct ResolvedReadableArtifact
+{
+    MountBackendKind backend = MountBackendKind::Directory;
+    std::filesystem::path mountRoot;
+    std::filesystem::path relativePath;
+};
+
+class CatalogRegistry
+{
+public:
+    struct MountCatalogCache
     {
-        Source,
-        Cooked,
+        bool attemptedLoad = false;
+        CatalogKind kind = CatalogKind::Source;
+        int version = 0;
+        std::unordered_map<std::string, ResourceCatalogEntry> entries;
     };
 
-    enum class MountBackendKind
+    struct GlobalCatalogEntry
     {
-        Directory,
-        PakArchive,
-    };
-
-    enum class MountPriority
-    {
-        Source = 0,
-        Cooked = 100,
-        Packaged = 200,
-        DLC = 300,
-        Patch = 400,
-        Mod = 500,
-    };
-
-    struct ArtifactRecord
-    {
-        std::string relativePath;
-        std::string format;
-        std::string platformTag = "any";
-        std::string backendTag = "any";
-        std::string profileTag = "any";
-        uint64_t contentHash = 0;
-    };
-
-    struct ResourceCatalogEntry
-    {
-        std::string logicalPath;
-        std::optional<std::string> sourceRelativePath;
-        std::vector<ArtifactRecord> artifacts;
-    };
-
-    struct ResolvedReadableArtifact
-    {
+        ResourceCatalogEntry entry;
+        CatalogKind kind = CatalogKind::Source;
+        int version = 0;
+        MountPriority priority = MountPriority::Source;
         MountBackendKind backend = MountBackendKind::Directory;
         std::filesystem::path mountRoot;
-        std::filesystem::path relativePath;
+        std::string sourceMountKey;
     };
 
-    class CatalogRegistry
-    {
-    public:
-        struct MountCatalogCache
-        {
-            bool attemptedLoad = false;
-            CatalogKind kind = CatalogKind::Source;
-            int version = 0;
-            std::unordered_map<std::string, ResourceCatalogEntry> entries;
-        };
+    void Reset();
 
-        struct GlobalCatalogEntry
-        {
-            ResourceCatalogEntry entry;
-            CatalogKind kind = CatalogKind::Source;
-            int version = 0;
-            MountPriority priority = MountPriority::Source;
-            MountBackendKind backend = MountBackendKind::Directory;
-            std::filesystem::path mountRoot;
-            std::string sourceMountKey;
-        };
+    std::optional<ResolvedReadableArtifact> ResolveArtifact(const std::filesystem::path& rootPath,
+                                                            const std::filesystem::path& engineDir,
+                                                            const std::filesystem::path& cacheDir,
+                                                            const VirtualPath& virtualPath,
+                                                            std::string_view logicalPath,
+                                                            std::string_view projectContentDirName);
 
-        void Reset();
-
-        std::optional<ResolvedReadableArtifact> ResolveArtifact(const std::filesystem::path &rootPath,
-                                                                const std::filesystem::path &engineDir,
-                                                                const std::filesystem::path &cacheDir,
-                                                                const VirtualPath &virtualPath,
-                                                                std::string_view logicalPath,
-                                                                std::string_view projectContentDirName);
-
-    private:
-        bool m_GlobalTableBuilt = false;
-        std::unordered_map<std::string, MountCatalogCache> m_MountCatalogs;
-        std::unordered_map<std::string, GlobalCatalogEntry> m_GlobalEntries;
-        std::unordered_set<std::string> m_ConflictedLogicalPaths;
-    };
+private:
+    bool m_GlobalTableBuilt = false;
+    std::unordered_map<std::string, MountCatalogCache> m_MountCatalogs;
+    std::unordered_map<std::string, GlobalCatalogEntry> m_GlobalEntries;
+    std::unordered_set<std::string> m_ConflictedLogicalPaths;
+};
 } // namespace Resource

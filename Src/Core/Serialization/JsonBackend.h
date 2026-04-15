@@ -11,16 +11,16 @@
 namespace Serialization
 {
 
-    class JsonBackend : public IFormatBackend
-    {
-    public:
-        explicit JsonBackend(int indent = 2) : m_Indent(indent) {}
+class JsonBackend : public IFormatBackend
+{
+public:
+    explicit JsonBackend(int indent = 2) : m_Indent(indent) {}
 
-        std::string WriteToString(const PropertyTree &tree) const override;
-        bool ReadFromString(const std::string &data, PropertyTree &tree) const override;
+    std::string WriteToString(const PropertyTree& tree) const override;
+    bool ReadFromString(const std::string& data, PropertyTree& tree) const override;
 
-    private:
-        int m_Indent;
-    };
+private:
+    int m_Indent;
+};
 
 } // namespace Serialization

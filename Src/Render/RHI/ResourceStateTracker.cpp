@@ -2,25 +2,24 @@
 
 namespace
 {
-    // ResourceStateTracker is intentionally conservative at v1: without pass-level
-    // usage metadata yet, barriers are emitted with an all-stages mask.
-    constexpr ShaderStage kBarrierStageMask = ShaderStage::All;
-}
+// ResourceStateTracker is intentionally conservative at v1: without pass-level
+// usage metadata yet, barriers are emitted with an all-stages mask.
+constexpr ShaderStage kBarrierStageMask = ShaderStage::All;
+} // namespace
 
-void ResourceStateTracker::transition(Texture *texture, TextureState newState)
+void ResourceStateTracker::transition(Texture* texture, TextureState newState)
 {
     if (texture == nullptr)
         return;
 
     const auto currentStateIt = m_TextureStates.find(texture);
-    const TextureState currentState = currentStateIt == m_TextureStates.end()
-        ? TextureState::Undefined
-        : currentStateIt->second;
+    const TextureState currentState =
+        currentStateIt == m_TextureStates.end() ? TextureState::Undefined : currentStateIt->second;
 
     if (currentState == newState)
         return;
 
-    for (auto &pending : m_PendingTextureTransitions)
+    for (auto& pending : m_PendingTextureTransitions)
     {
         if (pending.texture == texture)
         {
@@ -34,20 +33,19 @@ void ResourceStateTracker::transition(Texture *texture, TextureState newState)
     m_TextureStates[texture] = newState;
 }
 
-void ResourceStateTracker::transition(Buffer *buffer, BufferState newState)
+void ResourceStateTracker::transition(Buffer* buffer, BufferState newState)
 {
     if (buffer == nullptr)
         return;
 
     const auto currentStateIt = m_BufferStates.find(buffer);
-    const BufferState currentState = currentStateIt == m_BufferStates.end()
-        ? BufferState::Undefined
-        : currentStateIt->second;
+    const BufferState currentState =
+        currentStateIt == m_BufferStates.end() ? BufferState::Undefined : currentStateIt->second;
 
     if (currentState == newState)
         return;
 
-    for (auto &pending : m_PendingBufferTransitions)
+    for (auto& pending : m_PendingBufferTransitions)
     {
         if (pending.buffer == buffer)
         {
@@ -61,7 +59,7 @@ void ResourceStateTracker::transition(Buffer *buffer, BufferState newState)
     m_BufferStates[buffer] = newState;
 }
 
-void ResourceStateTracker::flushBarriers(CommandList *commandList)
+void ResourceStateTracker::flushBarriers(CommandList* commandList)
 {
     if (commandList == nullptr)
     {
@@ -70,24 +68,16 @@ void ResourceStateTracker::flushBarriers(CommandList *commandList)
         return;
     }
 
-    for (const auto &pending : m_PendingTextureTransitions)
+    for (const auto& pending : m_PendingTextureTransitions)
     {
         commandList->textureBarrier(
-            pending.texture,
-            pending.oldState,
-            pending.newState,
-            kBarrierStageMask,
-            kBarrierStageMask);
+            pending.texture, pending.oldState, pending.newState, kBarrierStageMask, kBarrierStageMask);
     }
 
-    for (const auto &pending : m_PendingBufferTransitions)
+    for (const auto& pending : m_PendingBufferTransitions)
     {
         commandList->bufferBarrier(
-            pending.buffer,
-            pending.oldState,
-            pending.newState,
-            kBarrierStageMask,
-            kBarrierStageMask);
+            pending.buffer, pending.oldState, pending.newState, kBarrierStageMask, kBarrierStageMask);
     }
 
     m_PendingTextureTransitions.clear();

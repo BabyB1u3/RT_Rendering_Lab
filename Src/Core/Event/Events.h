@@ -106,5 +106,5 @@ struct GamepadDisconnectedEvent
 struct DemoSwitchedEvent
 {
     int NewIndex;
-    const char *NewName;
+    const char* NewName;
 };
