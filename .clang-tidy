@@ -30,15 +30,17 @@ CheckOptions:
   readability-identifier-naming.FunctionCase: CamelCase
   readability-identifier-naming.MethodCase: CamelCase
 
-  readability-identifier-naming.VariableCase: CamelCase
-  readability-identifier-naming.ParameterCase: CamelCase
+  readability-identifier-naming.VariableCase: camelBack
+  readability-identifier-naming.ParameterCase: camelBack
 
-  readability-identifier-naming.PublicMemberCase: CamelCase
-  readability-identifier-naming.ProtectedMemberCase: CamelCase
+  readability-identifier-naming.GlobalVariablePrefix: 'g_'
+  readability-identifier-naming.GlobalVariableCase: CamelCase
   readability-identifier-naming.StaticVariablePrefix: 's_'
   readability-identifier-naming.StaticVariableCase: CamelCase
   readability-identifier-naming.PrivateMemberPrefix: 'm_'
   readability-identifier-naming.PrivateMemberCase: CamelCase
+  readability-identifier-naming.ProtectedMemberPrefix: 'm_'
+  readability-identifier-naming.ProtectedMemberCase: CamelCase
 
   readability-identifier-naming.ConstantPrefix: 'k_'
   readability-identifier-naming.ConstantCase: CamelCase
