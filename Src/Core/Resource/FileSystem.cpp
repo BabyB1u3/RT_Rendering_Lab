@@ -179,7 +179,7 @@ bool FileSystem::WriteText(std::string_view virtualPath, std::string_view data)
     const auto resolved = ResolveWritePath(virtualPath);
     if (!resolved.has_value())
     {
-        LOG_ERROR_CAT(LogCategory::FileSystem, "WriteText rejected non-writable virtual path '{}'", virtualPath);
+        LOG_ERROR_CAT(LogCategory::k_FileSystem, "WriteText rejected non-writable virtual path '{}'", virtualPath);
         return false;
     }
 
@@ -191,7 +191,7 @@ bool FileSystem::WriteBinary(std::string_view virtualPath, std::span<const uint8
     const auto resolved = ResolveWritePath(virtualPath);
     if (!resolved.has_value())
     {
-        LOG_ERROR_CAT(LogCategory::FileSystem, "WriteBinary rejected non-writable virtual path '{}'", virtualPath);
+        LOG_ERROR_CAT(LogCategory::k_FileSystem, "WriteBinary rejected non-writable virtual path '{}'", virtualPath);
         return false;
     }
 

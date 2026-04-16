@@ -43,7 +43,7 @@ const char* GetBackendName(BackendType backend)
 
 Scope<Device> CreateDevice(BackendType backend)
 {
-    LOG_INFO_CAT(LogCategory::Graphics, "Creating {} RHI device shell", GetBackendName(backend));
+    LOG_INFO_CAT(LogCategory::k_Graphics, "Creating {} RHI device shell", GetBackendName(backend));
 
     switch (backend)
     {

@@ -51,7 +51,7 @@ protected:
 
 private:
     std::ofstream m_File;
-    bool m_DisableWhenFlushed = false;
+    bool m_ShouldDisableWhenFlushed = false;
     std::optional<std::filesystem::path> m_PendingReopenPath;
     uint64_t m_NextControlGeneration = 1;
     uint64_t m_PendingControlGeneration = 0;

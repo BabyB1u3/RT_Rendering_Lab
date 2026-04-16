@@ -34,14 +34,14 @@ bool LoadValueFromString(T& value, const std::string& data, const FormatBackend&
     PropertyTree tree;
     if (!backend.ReadFromString(data, tree))
     {
-        LOG_ERROR_CAT(LogCategory::Serialization, "Serialization: failed to parse '{}'", sourceLabel);
+        LOG_ERROR_CAT(LogCategory::k_Serialization, "Serialization: failed to parse '{}'", sourceLabel);
         return false;
     }
 
     T temp{};
     if (!Deserialize(tree, temp))
     {
-        LOG_ERROR_CAT(LogCategory::Serialization, "Serialization: failed to deserialize '{}'", sourceLabel);
+        LOG_ERROR_CAT(LogCategory::k_Serialization, "Serialization: failed to deserialize '{}'", sourceLabel);
         return false;
     }
 
@@ -67,7 +67,7 @@ inline std::optional<std::string> ResolveConfigReadText(std::string_view relativ
 
         if (!FileSystem::WriteText(savedVirtualPath, *sourceText))
         {
-            LOG_WARN_CAT(LogCategory::Serialization,
+            LOG_WARN_CAT(LogCategory::k_Serialization,
                          "Serialization: failed to seed {} config '{}' into saved path '{}'",
                          sourceLabel,
                          relativePath,
@@ -112,7 +112,7 @@ bool SaveToFile(const T& value, const std::filesystem::path& path, const FormatB
         std::filesystem::create_directories(path.parent_path(), ec);
         if (ec)
         {
-            LOG_ERROR_CAT(LogCategory::Serialization,
+            LOG_ERROR_CAT(LogCategory::k_Serialization,
                           "Serialization: failed to create directories for '{}': {}",
                           path.string(),
                           ec.message());
@@ -123,7 +123,7 @@ bool SaveToFile(const T& value, const std::filesystem::path& path, const FormatB
     std::ofstream file(path);
     if (!file.is_open())
     {
-        LOG_ERROR_CAT(LogCategory::Serialization, "Serialization: failed to open '{}' for writing", path.string());
+        LOG_ERROR_CAT(LogCategory::k_Serialization, "Serialization: failed to open '{}' for writing", path.string());
         return false;
     }
 
@@ -146,7 +146,7 @@ bool SaveToVirtualPath(const T& value, std::string_view virtualPath, const Forma
     if (!path.has_value())
     {
         LOG_ERROR_CAT(
-            LogCategory::Serialization, "Serialization: failed to resolve writable virtual path '{}'", virtualPath);
+            LogCategory::k_Serialization, "Serialization: failed to resolve writable virtual path '{}'", virtualPath);
         return false;
     }
 
@@ -160,7 +160,7 @@ template <Serializable T> bool SaveToVirtualPath(const T& value, std::string_vie
     if (!path.has_value())
     {
         LOG_ERROR_CAT(
-            LogCategory::Serialization, "Serialization: failed to resolve writable virtual path '{}'", virtualPath);
+            LogCategory::k_Serialization, "Serialization: failed to resolve writable virtual path '{}'", virtualPath);
         return false;
     }
 
@@ -196,7 +196,7 @@ template <Serializable T> bool LoadFromVirtualPath(T& value, std::string_view vi
     if (!data.has_value())
     {
         LOG_ERROR_CAT(
-            LogCategory::Serialization, "Serialization: failed to resolve readable virtual path '{}'", virtualPath);
+            LogCategory::k_Serialization, "Serialization: failed to resolve readable virtual path '{}'", virtualPath);
         return false;
     }
 
@@ -210,7 +210,7 @@ template <Serializable T> bool LoadFromVirtualPath(T& value, std::string_view vi
     if (!data.has_value())
     {
         LOG_ERROR_CAT(
-            LogCategory::Serialization, "Serialization: failed to resolve readable virtual path '{}'", virtualPath);
+            LogCategory::k_Serialization, "Serialization: failed to resolve readable virtual path '{}'", virtualPath);
         return false;
     }
 
@@ -241,7 +241,7 @@ template <Serializable T> bool LoadFromConfigPath(T& value, std::string_view rel
     const auto data = Detail::ResolveConfigReadText(relativePath);
     if (!data.has_value())
     {
-        LOG_ERROR_CAT(LogCategory::Serialization, "Serialization: failed to resolve config path '{}'", relativePath);
+        LOG_ERROR_CAT(LogCategory::k_Serialization, "Serialization: failed to resolve config path '{}'", relativePath);
         return false;
     }
 
@@ -255,7 +255,7 @@ template <Serializable T> bool LoadFromConfigPath(T& value, std::string_view rel
     const auto data = Detail::ResolveConfigReadText(relativePath);
     if (!data.has_value())
     {
-        LOG_ERROR_CAT(LogCategory::Serialization, "Serialization: failed to resolve config path '{}'", relativePath);
+        LOG_ERROR_CAT(LogCategory::k_Serialization, "Serialization: failed to resolve config path '{}'", relativePath);
         return false;
     }
 

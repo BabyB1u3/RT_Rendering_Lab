@@ -26,9 +26,9 @@
 #define RTRLAB_LOG_IMPL_(category, level, ...) \
     do \
     { \
-        auto _logger = ::Diagnostics::Logger::GetLogger(category); \
-        if (_logger) \
-            _logger->level(__VA_ARGS__); \
+        auto logger = ::Diagnostics::Logger::GetLogger(category); \
+        if (logger) \
+            logger->level(__VA_ARGS__); \
     } while (0)
 
 // --- Category-aware macros with compile-time stripping ---
@@ -75,9 +75,9 @@
 #define LOG_WARN_ONCE_CAT(category, ...) \
     do \
     { \
-        static std::atomic<bool> _logged{false}; \
-        bool _expected = false; \
-        if (_logged.compare_exchange_strong(_expected, true, std::memory_order_relaxed)) \
+        static std::atomic<bool> logged{false}; \
+        bool expected = false; \
+        if (logged.compare_exchange_strong(expected, true, std::memory_order_relaxed)) \
         { \
             LOG_WARN_CAT(category, __VA_ARGS__); \
         } \
@@ -86,9 +86,9 @@
 #define LOG_ERROR_ONCE_CAT(category, ...) \
     do \
     { \
-        static std::atomic<bool> _logged{false}; \
-        bool _expected = false; \
-        if (_logged.compare_exchange_strong(_expected, true, std::memory_order_relaxed)) \
+        static std::atomic<bool> logged{false}; \
+        bool expected = false; \
+        if (logged.compare_exchange_strong(expected, true, std::memory_order_relaxed)) \
         { \
             LOG_ERROR_CAT(category, __VA_ARGS__); \
         } \
@@ -99,12 +99,12 @@
 #define LOG_WARN_THROTTLE_CAT(category, intervalSeconds, ...) \
     do \
     { \
-        static std::atomic<double> _lastLogTime{-1e9}; \
-        double _now = ::Diagnostics::GetMonotonicSeconds(); \
-        double _previous = _lastLogTime.load(std::memory_order_relaxed); \
-        while ((_now - _previous) >= (intervalSeconds)) \
+        static std::atomic<double> lastLogTime{-1e9}; \
+        double now = ::Diagnostics::GetMonotonicSeconds(); \
+        double previous = lastLogTime.load(std::memory_order_relaxed); \
+        while ((now - previous) >= (intervalSeconds)) \
         { \
-            if (_lastLogTime.compare_exchange_weak(_previous, _now, std::memory_order_relaxed)) \
+            if (lastLogTime.compare_exchange_weak(previous, now, std::memory_order_relaxed)) \
             { \
                 LOG_WARN_CAT(category, __VA_ARGS__); \
                 break; \
@@ -115,12 +115,12 @@
 #define LOG_ERROR_THROTTLE_CAT(category, intervalSeconds, ...) \
     do \
     { \
-        static std::atomic<double> _lastLogTime{-1e9}; \
-        double _now = ::Diagnostics::GetMonotonicSeconds(); \
-        double _previous = _lastLogTime.load(std::memory_order_relaxed); \
-        while ((_now - _previous) >= (intervalSeconds)) \
+        static std::atomic<double> lastLogTime{-1e9}; \
+        double now = ::Diagnostics::GetMonotonicSeconds(); \
+        double previous = lastLogTime.load(std::memory_order_relaxed); \
+        while ((now - previous) >= (intervalSeconds)) \
         { \
-            if (_lastLogTime.compare_exchange_weak(_previous, _now, std::memory_order_relaxed)) \
+            if (lastLogTime.compare_exchange_weak(previous, now, std::memory_order_relaxed)) \
             { \
                 LOG_ERROR_CAT(category, __VA_ARGS__); \
                 break; \

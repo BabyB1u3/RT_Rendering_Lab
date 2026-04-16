@@ -171,7 +171,7 @@ namespace Diagnostics::Detail
         dumpPath = candidateDumpPath;
 #endif
 
-    auto logger = Logger::GetLogger(LogCategory::Crash);
+    auto logger = Logger::GetLogger(LogCategory::k_Crash);
     if (logger)
     {
         logger->critical("Fatal error: {}", reason ? reason : "Unknown fatal error");

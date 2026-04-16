@@ -53,7 +53,7 @@ void WriteFallbackMessage(const char* kind,
 [[noreturn]] void OnAssertionFailed(const char* expr, const char* file, int line, const char* func, const char* msg)
 {
     const std::string callstack = CaptureCallstack(/*framesToSkip=*/2);
-    auto logger = Logger::GetLogger(LogCategory::Assert);
+    auto logger = Logger::GetLogger(LogCategory::k_Assert);
     if (logger)
     {
         if (msg)
@@ -89,7 +89,7 @@ void WriteFallbackMessage(const char* kind,
 void OnEnsureFailed(const char* expr, const char* file, int line, const char* func, const char* msg)
 {
     const std::string callstack = CaptureCallstack(/*framesToSkip=*/2);
-    auto logger = Logger::GetLogger(LogCategory::Ensure);
+    auto logger = Logger::GetLogger(LogCategory::k_Ensure);
     if (logger)
     {
         if (msg)

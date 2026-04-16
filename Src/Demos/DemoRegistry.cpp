@@ -41,7 +41,7 @@ Scope<DemoBase> DemoRegistry::Create(const std::string& name)
             return entry.m_Create();
     }
 
-    ERR_FAIL_COND_V_MSG_CAT(LogCategory::Demo, true, nullptr, "unknown demo: " + name);
+    ERR_FAIL_COND_V_MSG_CAT(LogCategory::k_Demo, true, nullptr, "unknown demo: " + name);
 }
 
 const std::vector<std::string>& DemoRegistry::GetNames()

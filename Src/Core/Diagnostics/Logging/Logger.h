@@ -1,6 +1,6 @@
 #pragma once
 
-/// @file diagnostics/Logger.h
+/// @file Logger.h
 /// @brief Category-aware diagnostics logger backed by spdlog.
 
 #include <filesystem>
@@ -44,7 +44,7 @@ private:
     static std::vector<spdlog::sink_ptr> s_Sinks;
     static Ref<ImGuiConsoleSink> s_ConsoleSink;
     static Ref<JsonLineSink> s_JsonSink;
-    static bool s_JsonSinkEnabled;
+    static bool s_IsJsonSinkEnabled;
     static std::filesystem::path s_JsonFilePath;
     static spdlog::level::level_enum s_GlobalLevel;
 };

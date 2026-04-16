@@ -20,7 +20,7 @@ namespace Diagnostics
 std::vector<spdlog::sink_ptr> Logger::s_Sinks;
 Ref<ImGuiConsoleSink> Logger::s_ConsoleSink;
 Ref<JsonLineSink> Logger::s_JsonSink;
-bool Logger::s_JsonSinkEnabled = false;
+bool Logger::s_IsJsonSinkEnabled = false;
 std::filesystem::path Logger::s_JsonFilePath;
 spdlog::level::level_enum Logger::s_GlobalLevel = spdlog::level::trace;
 
@@ -97,7 +97,7 @@ void Logger::Init(const std::filesystem::path& logFilePath)
 
     spdlog::init_thread_pool(8192, 1);
 
-    auto coreLogger = std::make_shared<spdlog::async_logger>(LogCategory::Core,
+    auto coreLogger = std::make_shared<spdlog::async_logger>(LogCategory::k_Core,
                                                              s_Sinks.begin(),
                                                              s_Sinks.end(),
                                                              spdlog::thread_pool(),
@@ -130,7 +130,7 @@ void Logger::Shutdown()
     if (s_JsonSink)
         s_JsonSink->Disable();
     s_JsonSink.reset();
-    s_JsonSinkEnabled = false;
+    s_IsJsonSinkEnabled = false;
     s_JsonFilePath.clear();
     s_ConsoleSink.reset();
     s_Sinks.clear();
@@ -199,7 +199,7 @@ Ref<ImGuiConsoleSink> Logger::GetConsoleSink()
 bool Logger::IsJsonSinkEnabled()
 {
     std::lock_guard<std::mutex> lock(g_LoggerMutex);
-    return g_Initialized && s_JsonSinkEnabled;
+    return g_Initialized && s_IsJsonSinkEnabled;
 }
 
 std::filesystem::path Logger::GetDefaultJsonLogPath()
@@ -232,7 +232,7 @@ void Logger::EnableJsonSink(const std::filesystem::path& filePath)
 
         jsonSink = s_JsonSink;
 
-        if (s_JsonSinkEnabled)
+        if (s_IsJsonSinkEnabled)
         {
             if (s_JsonFilePath == resolvedPath)
                 return;
@@ -242,9 +242,9 @@ void Logger::EnableJsonSink(const std::filesystem::path& filePath)
         }
         else
         {
-            s_JsonSinkEnabled = s_JsonSink->Enable(resolvedPath);
-            s_JsonFilePath = s_JsonSinkEnabled ? resolvedPath : std::filesystem::path{};
-            shouldLogFailure = !s_JsonSinkEnabled;
+            s_IsJsonSinkEnabled = s_JsonSink->Enable(resolvedPath);
+            s_JsonFilePath = s_IsJsonSinkEnabled ? resolvedPath : std::filesystem::path{};
+            shouldLogFailure = !s_IsJsonSinkEnabled;
         }
     }
 
@@ -255,15 +255,15 @@ void Logger::EnableJsonSink(const std::filesystem::path& filePath)
         std::lock_guard<std::mutex> lock(g_LoggerMutex);
         if (s_JsonSink == jsonSink)
         {
-            s_JsonSinkEnabled = s_JsonSink->IsEnabled();
-            s_JsonFilePath = s_JsonSinkEnabled ? resolvedPath : std::filesystem::path{};
-            shouldLogFailure = !s_JsonSinkEnabled;
+            s_IsJsonSinkEnabled = s_JsonSink->IsEnabled();
+            s_JsonFilePath = s_IsJsonSinkEnabled ? resolvedPath : std::filesystem::path{};
+            shouldLogFailure = !s_IsJsonSinkEnabled;
         }
     }
 
     if (shouldLogFailure)
     {
-        if (auto logger = Logger::GetLogger(LogCategory::Error))
+        if (auto logger = Logger::GetLogger(LogCategory::k_Error))
             logger->error("Failed to enable JSON log sink at '{}'", resolvedPath.string());
     }
 }
@@ -275,7 +275,7 @@ void Logger::DisableJsonSink()
 
     {
         std::lock_guard<std::mutex> lock(g_LoggerMutex);
-        if (!s_JsonSink || !s_JsonSinkEnabled)
+        if (!s_JsonSink || !s_IsJsonSinkEnabled)
             return;
 
         jsonSink = s_JsonSink;
@@ -289,8 +289,8 @@ void Logger::DisableJsonSink()
     std::lock_guard<std::mutex> lock(g_LoggerMutex);
     if (s_JsonSink == jsonSink)
     {
-        s_JsonSinkEnabled = s_JsonSink->IsEnabled();
-        if (!s_JsonSinkEnabled)
+        s_IsJsonSinkEnabled = s_JsonSink->IsEnabled();
+        if (!s_IsJsonSinkEnabled)
             s_JsonFilePath.clear();
     }
 }

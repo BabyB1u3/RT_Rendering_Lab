@@ -111,7 +111,7 @@ inline bool Deserialize(const PropertyTree& tree, Resource::AssetPath& path)
     const auto parsed = Resource::AssetPath::TryCreate(tree.AsString());
     if (!parsed.has_value())
     {
-        LOG_WARN_CAT(LogCategory::Serialization, "BuiltinTraits: invalid asset path '{}'", tree.AsString());
+        LOG_WARN_CAT(LogCategory::k_Serialization, "BuiltinTraits: invalid asset path '{}'", tree.AsString());
         return false;
     }
 
@@ -173,7 +173,7 @@ bool Deserialize(const PropertyTree& tree, E& value)
     auto result = magic_enum::enum_cast<E>(tree.AsString());
     if (!result.has_value())
     {
-        LOG_WARN_CAT(LogCategory::Core,
+        LOG_WARN_CAT(LogCategory::k_Core,
                      "BuiltinTraits: unknown enum value '{}' for type {}",
                      tree.AsString(),
                      magic_enum::enum_type_name<E>());

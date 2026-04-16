@@ -36,7 +36,7 @@ bool JsonLineSink::Enable(const std::filesystem::path& filePath)
     if (!OpenJsonFile(m_File, filePath))
         return false;
 
-    m_DisableWhenFlushed = false;
+    m_ShouldDisableWhenFlushed = false;
     m_PendingReopenPath.reset();
     m_PendingControlGeneration = 0;
     return true;
@@ -47,7 +47,7 @@ uint64_t JsonLineSink::RequestDisable()
     std::lock_guard<std::mutex> lock(mutex_);
     if (m_File.is_open())
     {
-        m_DisableWhenFlushed = true;
+        m_ShouldDisableWhenFlushed = true;
         m_PendingReopenPath.reset();
         m_PendingControlGeneration = m_NextControlGeneration++;
         return m_PendingControlGeneration;
@@ -64,13 +64,13 @@ uint64_t JsonLineSink::RequestReopen(const std::filesystem::path& filePath)
         if (!OpenJsonFile(m_File, filePath))
             return 0;
 
-        m_DisableWhenFlushed = false;
+        m_ShouldDisableWhenFlushed = false;
         m_PendingReopenPath.reset();
         m_PendingControlGeneration = 0;
         return 0;
     }
 
-    m_DisableWhenFlushed = true;
+    m_ShouldDisableWhenFlushed = true;
     m_PendingReopenPath = filePath;
     m_PendingControlGeneration = m_NextControlGeneration++;
     return m_PendingControlGeneration;
@@ -84,7 +84,7 @@ void JsonLineSink::Disable()
         m_File.flush();
         m_File.close();
     }
-    m_DisableWhenFlushed = false;
+    m_ShouldDisableWhenFlushed = false;
     m_PendingReopenPath.reset();
     if (m_PendingControlGeneration != 0)
     {
@@ -191,10 +191,10 @@ void JsonLineSink::flush_()
     if (m_File.is_open())
     {
         m_File.flush();
-        if (m_DisableWhenFlushed)
+        if (m_ShouldDisableWhenFlushed)
         {
             m_File.close();
-            m_DisableWhenFlushed = false;
+            m_ShouldDisableWhenFlushed = false;
 
             if (m_PendingReopenPath.has_value())
             {

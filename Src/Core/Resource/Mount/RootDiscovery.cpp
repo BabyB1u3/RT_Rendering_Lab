@@ -110,7 +110,7 @@ std::filesystem::path DiscoverRootPath()
         std::filesystem::path overridePath{std::string(*rootOverride)};
         if (HasProjectMarker(overridePath))
             return std::filesystem::canonical(overridePath);
-        LOG_WARN_CAT(LogCategory::FileSystem,
+        LOG_WARN_CAT(LogCategory::k_FileSystem,
                      "Root override is set to '{}' but no '{}' marker file found there",
                      *rootOverride,
                      k_ProjectMarkerFileName);
@@ -119,7 +119,7 @@ std::filesystem::path DiscoverRootPath()
     if (const auto exeDir = GetExecutableDirectory(); !exeDir.empty())
         return std::filesystem::canonical(exeDir);
 
-    LOG_ERROR_CAT(LogCategory::FileSystem, "FileSystem: shipping build could not resolve executable directory");
+    LOG_ERROR_CAT(LogCategory::k_FileSystem, "FileSystem: shipping build could not resolve executable directory");
     return std::filesystem::current_path();
 #else
     if (const auto rootOverride = GetRootOverride(); rootOverride.has_value())
@@ -127,7 +127,7 @@ std::filesystem::path DiscoverRootPath()
         std::filesystem::path overridePath{std::string(*rootOverride)};
         if (HasProjectMarker(overridePath))
             return std::filesystem::canonical(overridePath);
-        LOG_WARN_CAT(LogCategory::FileSystem,
+        LOG_WARN_CAT(LogCategory::k_FileSystem,
                      "Root override is set to '{}' but no '{}' marker file found there",
                      *rootOverride,
                      k_ProjectMarkerFileName);
@@ -144,7 +144,7 @@ std::filesystem::path DiscoverRootPath()
         std::filesystem::path path(GLAB_ROOT_DIR);
         if (HasProjectMarker(path))
             return std::filesystem::canonical(path);
-        LOG_WARN_CAT(LogCategory::FileSystem,
+        LOG_WARN_CAT(LogCategory::k_FileSystem,
                      "GLAB_ROOT_DIR='{}' does not contain '{}'",
                      GLAB_ROOT_DIR,
                      k_ProjectMarkerFileName);
@@ -158,7 +158,7 @@ std::filesystem::path DiscoverRootPath()
     }
 
     LOG_ERROR_CAT(
-        LogCategory::FileSystem, "FileSystem: could not locate '{}' from any known root", k_ProjectMarkerFileName);
+        LogCategory::k_FileSystem, "FileSystem: could not locate '{}' from any known root", k_ProjectMarkerFileName);
     return std::filesystem::current_path();
 #endif
 }

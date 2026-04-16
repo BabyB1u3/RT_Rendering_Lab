@@ -9,13 +9,13 @@ HelloWindow::HelloWindow(uint32_t width, uint32_t height) : m_ViewportWidth(widt
 
 void HelloWindow::OnAttach()
 {
-    LOG_INFO_CAT(LogCategory::Demo, "HelloWindow demo attached");
+    LOG_INFO_CAT(LogCategory::k_Demo, "HelloWindow demo attached");
 }
 
 void HelloWindow::OnDetach()
 {
     m_BackBuffer.reset();
-    LOG_INFO_CAT(LogCategory::Demo, "HelloWindow demo detached");
+    LOG_INFO_CAT(LogCategory::k_Demo, "HelloWindow demo detached");
 }
 
 void HelloWindow::OnRender() {}

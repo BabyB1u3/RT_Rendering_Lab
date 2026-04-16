@@ -33,10 +33,10 @@ TEST_F(ImGuiConsoleSinkTests, SinkCapturesLogMessages)
 
     const auto entries = m_Sink->GetEntries();
     ASSERT_EQ(entries.size(), 1u);
-    EXPECT_EQ(entries[0].Category, "Core");
-    EXPECT_EQ(entries[0].Level, spdlog::level::info);
-    EXPECT_EQ(entries[0].Message, "hello world");
-    EXPECT_FALSE(entries[0].Timestamp.empty());
+    EXPECT_EQ(entries[0].category, "Core");
+    EXPECT_EQ(entries[0].level, spdlog::level::info);
+    EXPECT_EQ(entries[0].message, "hello world");
+    EXPECT_FALSE(entries[0].timestamp.empty());
 }
 
 TEST_F(ImGuiConsoleSinkTests, ClearRemovesAllEntries)
@@ -56,8 +56,8 @@ TEST_F(ImGuiConsoleSinkTests, RingBufferEvictsOldestWhenFull)
 
     const auto entries = m_Sink->GetEntries();
     EXPECT_EQ(entries.size(), 1024u);
-    EXPECT_EQ(entries.front().Message, "msg6");
-    EXPECT_EQ(entries.back().Message, "msg1029");
+    EXPECT_EQ(entries.front().message, "msg6");
+    EXPECT_EQ(entries.back().message, "msg1029");
 }
 
 TEST_F(ImGuiConsoleSinkTests, MultipleCategoriesAreCaptured)
@@ -67,6 +67,6 @@ TEST_F(ImGuiConsoleSinkTests, MultipleCategoriesAreCaptured)
 
     const auto entries = m_Sink->GetEntries();
     ASSERT_EQ(entries.size(), 2u);
-    EXPECT_EQ(entries[0].Category, "Shader");
-    EXPECT_EQ(entries[1].Category, "Window");
+    EXPECT_EQ(entries[0].category, "Shader");
+    EXPECT_EQ(entries[1].category, "Window");
 }

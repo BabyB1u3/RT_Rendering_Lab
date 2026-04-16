@@ -43,8 +43,9 @@ void OnEnsureFailed(const char* expr, const char* file, int line, const char* fu
     { \
         if (!(condition)) [[unlikely]] \
         { \
-            auto _msg = fmt::format(__VA_ARGS__); \
-            ::Diagnostics::Detail::OnAssertionFailed(#condition, __FILE__, __LINE__, __FUNCTION__, _msg.c_str()); \
+            auto messageText = fmt::format(__VA_ARGS__); \
+            ::Diagnostics::Detail::OnAssertionFailed( \
+                #condition, __FILE__, __LINE__, __FUNCTION__, messageText.c_str()); \
         } \
     } while (0)
 
@@ -52,12 +53,12 @@ void OnEnsureFailed(const char* expr, const char* file, int line, const char* fu
     ( \
         [&]() \
         { \
-            auto _result = (expr); \
-            if (!(_result)) [[unlikely]] \
+            auto result = (expr); \
+            if (!(result)) [[unlikely]] \
             { \
                 ::Diagnostics::Detail::OnAssertionFailed(#expr, __FILE__, __LINE__, __FUNCTION__, nullptr); \
             } \
-            return _result; \
+            return result; \
         }())
 
 #define RTRLAB_ENSURE(condition) \
@@ -66,9 +67,9 @@ void OnEnsureFailed(const char* expr, const char* file, int line, const char* fu
         { \
             if (!(condition)) \
             { \
-                static std::atomic<bool> _reported{false}; \
-                bool _expected = false; \
-                if (_reported.compare_exchange_strong(_expected, true, std::memory_order_relaxed)) \
+                static std::atomic<bool> reported{false}; \
+                bool expected = false; \
+                if (reported.compare_exchange_strong(expected, true, std::memory_order_relaxed)) \
                 { \
                     ::Diagnostics::Detail::OnEnsureFailed(#condition, __FILE__, __LINE__, __FUNCTION__, nullptr); \
                 } \
@@ -83,9 +84,9 @@ void OnEnsureFailed(const char* expr, const char* file, int line, const char* fu
         { \
             if (!(condition)) \
             { \
-                static std::atomic<bool> _reported{false}; \
-                bool _expected = false; \
-                if (_reported.compare_exchange_strong(_expected, true, std::memory_order_relaxed)) \
+                static std::atomic<bool> reported{false}; \
+                bool expected = false; \
+                if (reported.compare_exchange_strong(expected, true, std::memory_order_relaxed)) \
                 { \
                     ::Diagnostics::Detail::OnEnsureFailed(#condition, __FILE__, __LINE__, __FUNCTION__, message); \
                 } \
@@ -100,12 +101,13 @@ void OnEnsureFailed(const char* expr, const char* file, int line, const char* fu
         { \
             if (!(condition)) \
             { \
-                static std::atomic<bool> _reported{false}; \
-                bool _expected = false; \
-                if (_reported.compare_exchange_strong(_expected, true, std::memory_order_relaxed)) \
+                static std::atomic<bool> reported{false}; \
+                bool expected = false; \
+                if (reported.compare_exchange_strong(expected, true, std::memory_order_relaxed)) \
                 { \
-                    auto _msg = fmt::format(__VA_ARGS__); \
-                    ::Diagnostics::Detail::OnEnsureFailed(#condition, __FILE__, __LINE__, __FUNCTION__, _msg.c_str()); \
+                    auto messageText = fmt::format(__VA_ARGS__); \
+                    ::Diagnostics::Detail::OnEnsureFailed( \
+                        #condition, __FILE__, __LINE__, __FUNCTION__, messageText.c_str()); \
                 } \
                 return false; \
             } \

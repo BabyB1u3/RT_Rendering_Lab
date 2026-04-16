@@ -30,7 +30,7 @@ bool g_GlfwInitialized = false;
 
 void OnGLFWError(int error, const char* description)
 {
-    LOG_ERROR_CAT(LogCategory::Window, "[GLFW Error] ({}): {}", error, description);
+    LOG_ERROR_CAT(LogCategory::k_Window, "[GLFW Error] ({}): {}", error, description);
 }
 } // namespace
 
@@ -55,7 +55,7 @@ void Window::Init(const WindowProps& props)
 
         RTRLAB_ASSERT_MSG(glfwInit(), "Failed to initialize GLFW.");
 
-        LOG_INFO_CAT(LogCategory::Window, "GLFW initialized");
+        LOG_INFO_CAT(LogCategory::k_Window, "GLFW initialized");
         g_GlfwInitialized = true;
     }
 
@@ -83,7 +83,7 @@ void Window::Init(const WindowProps& props)
     m_Width = static_cast<uint32_t>(fbWidth);
     m_Height = static_cast<uint32_t>(fbHeight);
 
-    LOG_INFO_CAT(LogCategory::Window,
+    LOG_INFO_CAT(LogCategory::k_Window,
                  "Window created: {}x{} (framebuffer {}x{}) \"{}\"",
                  props.m_Width,
                  props.m_Height,
@@ -153,12 +153,12 @@ void Window::Init(const WindowProps& props)
             }();
 
             if (severity == GL_DEBUG_SEVERITY_HIGH)
-                LOG_ERROR_CAT(LogCategory::Window, "[GL {}] {} (id={}): {}", srcStr, typeStr, id, message);
+                LOG_ERROR_CAT(LogCategory::k_Window, "[GL {}] {} (id={}): {}", srcStr, typeStr, id, message);
             else
-                LOG_WARN_CAT(LogCategory::Window, "[GL {}] {} (id={}): {}", srcStr, typeStr, id, message);
+                LOG_WARN_CAT(LogCategory::k_Window, "[GL {}] {} (id={}): {}", srcStr, typeStr, id, message);
         },
         nullptr);
-    LOG_INFO_CAT(LogCategory::Window, "OpenGL debug callback registered");
+    LOG_INFO_CAT(LogCategory::k_Window, "OpenGL debug callback registered");
 #endif
 
     // Store 'this' in the GLFW window so that static callbacks can reach the Window instance.
@@ -171,9 +171,10 @@ void Window::Init(const WindowProps& props)
                           { Input::AccumulateScroll(static_cast<float>(yoffset)); });
 
 #if defined(GLAB_BACKEND_OPENGL)
-    LOG_INFO_CAT(LogCategory::Window, "OpenGL Vendor   : {}", reinterpret_cast<const char*>(glGetString(GL_VENDOR)));
-    LOG_INFO_CAT(LogCategory::Window, "OpenGL Renderer : {}", reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
-    LOG_INFO_CAT(LogCategory::Window, "OpenGL Version  : {}", reinterpret_cast<const char*>(glGetString(GL_VERSION)));
+    LOG_INFO_CAT(LogCategory::k_Window, "OpenGL Vendor   : {}", reinterpret_cast<const char*>(glGetString(GL_VENDOR)));
+    LOG_INFO_CAT(
+        LogCategory::k_Window, "OpenGL Renderer : {}", reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
+    LOG_INFO_CAT(LogCategory::k_Window, "OpenGL Version  : {}", reinterpret_cast<const char*>(glGetString(GL_VERSION)));
 #endif
 }
 

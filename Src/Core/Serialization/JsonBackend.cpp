@@ -117,17 +117,17 @@ bool JsonBackend::ReadFromString(const std::string& data, PropertyTree& tree) co
     }
     catch (const nlohmann::json::parse_error& e)
     {
-        LOG_ERROR_CAT(LogCategory::Serialization, "JsonBackend: parse error: {}", e.what());
+        LOG_ERROR_CAT(LogCategory::k_Serialization, "JsonBackend: parse error: {}", e.what());
         return false;
     }
     catch (const nlohmann::json::exception& e)
     {
-        LOG_ERROR_CAT(LogCategory::Serialization, "JsonBackend: JSON error: {}", e.what());
+        LOG_ERROR_CAT(LogCategory::k_Serialization, "JsonBackend: JSON error: {}", e.what());
         return false;
     }
     catch (const std::exception& e)
     {
-        LOG_ERROR_CAT(LogCategory::Serialization, "JsonBackend: read error: {}", e.what());
+        LOG_ERROR_CAT(LogCategory::k_Serialization, "JsonBackend: read error: {}", e.what());
         return false;
     }
 }

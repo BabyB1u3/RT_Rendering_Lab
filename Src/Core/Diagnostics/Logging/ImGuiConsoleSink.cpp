@@ -34,10 +34,10 @@ void ImGuiConsoleSink::sink_it_(const spdlog::details::log_msg& msg)
     oss << std::put_time(&tm, "%T") << '.' << std::setfill('0') << std::setw(3) << ms.count();
 
     ConsoleLogEntry entry;
-    entry.Level = msg.level;
-    entry.Category = std::string(msg.logger_name.data(), msg.logger_name.size());
-    entry.Message = std::string(msg.payload.data(), msg.payload.size());
-    entry.Timestamp = oss.str();
+    entry.level = msg.level;
+    entry.category = std::string(msg.logger_name.data(), msg.logger_name.size());
+    entry.message = std::string(msg.payload.data(), msg.payload.size());
+    entry.timestamp = oss.str();
 
     std::lock_guard<std::mutex> lock(m_BufferMutex);
     m_Entries.push_back(std::move(entry));

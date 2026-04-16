@@ -38,7 +38,7 @@ inline size_t CountEntriesWithMessage(const std::vector<Diagnostics::ConsoleLogE
     size_t count = 0;
     for (const auto& entry : entries)
     {
-        if (entry.Message == message)
+        if (entry.message == message)
             ++count;
     }
 
@@ -51,7 +51,7 @@ inline size_t CountEntriesContainingMessage(const std::vector<Diagnostics::Conso
     size_t count = 0;
     for (const auto& entry : entries)
     {
-        if (entry.Message.find(messageFragment) != std::string::npos)
+        if (entry.message.find(messageFragment) != std::string::npos)
             ++count;
     }
 
@@ -63,7 +63,7 @@ inline size_t CountEntriesForCategory(const std::vector<Diagnostics::ConsoleLogE
     size_t count = 0;
     for (const auto& entry : entries)
     {
-        if (entry.Category == category)
+        if (entry.category == category)
             ++count;
     }
 

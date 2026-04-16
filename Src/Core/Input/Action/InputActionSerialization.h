@@ -238,7 +238,7 @@ inline bool Deserialize(const PropertyTree& tree, InputActionMap& map)
 
                     if (!codeName.empty())
                     {
-                        LOG_WARN_CAT(LogCategory::Input,
+                        LOG_WARN_CAT(LogCategory::k_Input,
                                      "InputActionMap: unknown {} '{}' in action '{}'",
                                      typeName.empty() ? "key" : typeName,
                                      codeName,
@@ -246,7 +246,7 @@ inline bool Deserialize(const PropertyTree& tree, InputActionMap& map)
                     }
                     else if (!kindName.empty())
                     {
-                        LOG_WARN_CAT(LogCategory::Input,
+                        LOG_WARN_CAT(LogCategory::k_Input,
                                      "InputActionMap: unsupported action binding kind '{}' in '{}'",
                                      kindName,
                                      name);
@@ -283,7 +283,7 @@ inline bool Deserialize(const PropertyTree& tree, InputActionMap& map)
 
                 if (posCode == Key::InvalidCode || negCode == Key::InvalidCode)
                 {
-                    LOG_WARN_CAT(LogCategory::Input,
+                    LOG_WARN_CAT(LogCategory::k_Input,
                                  "InputActionMap: invalid KeyPair axis '{}' (positive='{}', negative='{}')",
                                  name,
                                  posName,
@@ -309,7 +309,7 @@ inline bool Deserialize(const PropertyTree& tree, InputActionMap& map)
                 if (axisCode == GamepadAxis::InvalidCode)
                 {
                     LOG_WARN_CAT(
-                        LogCategory::Input, "InputActionMap: invalid GamepadAxis '{}' for '{}'", axisName, name);
+                        LogCategory::k_Input, "InputActionMap: invalid GamepadAxis '{}' for '{}'", axisName, name);
                     continue;
                 }
 
@@ -317,7 +317,7 @@ inline bool Deserialize(const PropertyTree& tree, InputActionMap& map)
             }
             else
             {
-                LOG_WARN_CAT(LogCategory::Input, "InputActionMap: unknown axis kind '{}' for '{}'", kindStr, name);
+                LOG_WARN_CAT(LogCategory::k_Input, "InputActionMap: unknown axis kind '{}' for '{}'", kindStr, name);
             }
         }
     }

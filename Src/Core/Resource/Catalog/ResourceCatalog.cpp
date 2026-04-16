@@ -108,7 +108,7 @@ bool ParseCatalogFromJson(const Json& rootJson,
     const auto versionIt = rootJson.find("version");
     if (versionIt == rootJson.end() || !versionIt->is_number_integer())
     {
-        LOG_ERROR_CAT(LogCategory::FileSystem, "Unsupported catalog version in '{}'", catalogLabel);
+        LOG_ERROR_CAT(LogCategory::k_FileSystem, "Unsupported catalog version in '{}'", catalogLabel);
         return false;
     }
 
@@ -116,7 +116,7 @@ bool ParseCatalogFromJson(const Json& rootJson,
     const bool isCookedCatalog = catalogVersion == 2;
     if (catalogVersion != 1 && !isCookedCatalog)
     {
-        LOG_ERROR_CAT(LogCategory::FileSystem, "Unsupported catalog version in '{}'", catalogLabel);
+        LOG_ERROR_CAT(LogCategory::k_FileSystem, "Unsupported catalog version in '{}'", catalogLabel);
         return false;
     }
 
@@ -127,7 +127,7 @@ bool ParseCatalogFromJson(const Json& rootJson,
         const auto kindIt = rootJson.find("kind");
         if (kindIt == rootJson.end() || !kindIt->is_string() || kindIt->get<std::string>() != "cooked")
         {
-            LOG_ERROR_CAT(LogCategory::FileSystem, "Cooked catalog '{}' is missing kind='cooked'", catalogLabel);
+            LOG_ERROR_CAT(LogCategory::k_FileSystem, "Cooked catalog '{}' is missing kind='cooked'", catalogLabel);
             return false;
         }
     }
@@ -135,7 +135,7 @@ bool ParseCatalogFromJson(const Json& rootJson,
     const auto entriesIt = rootJson.find("entries");
     if (entriesIt == rootJson.end() || !entriesIt->is_array())
     {
-        LOG_ERROR_CAT(LogCategory::FileSystem, "Catalog '{}' is missing an entries array", catalogLabel);
+        LOG_ERROR_CAT(LogCategory::k_FileSystem, "Catalog '{}' is missing an entries array", catalogLabel);
         return false;
     }
 
@@ -143,14 +143,15 @@ bool ParseCatalogFromJson(const Json& rootJson,
     {
         if (!entryJson.is_object())
         {
-            LOG_ERROR_CAT(LogCategory::FileSystem, "Catalog '{}' contains a non-object entry", catalogLabel);
+            LOG_ERROR_CAT(LogCategory::k_FileSystem, "Catalog '{}' contains a non-object entry", catalogLabel);
             return false;
         }
 
         const auto logicalPathIt = entryJson.find("logicalPath");
         if (logicalPathIt == entryJson.end() || !logicalPathIt->is_string())
         {
-            LOG_ERROR_CAT(LogCategory::FileSystem, "Catalog '{}' contains an entry without logicalPath", catalogLabel);
+            LOG_ERROR_CAT(
+                LogCategory::k_FileSystem, "Catalog '{}' contains an entry without logicalPath", catalogLabel);
             return false;
         }
 
@@ -158,8 +159,10 @@ bool ParseCatalogFromJson(const Json& rootJson,
         const auto parsedLogicalPath = Resource::ParseVirtualPath(logicalPath);
         if (!parsedLogicalPath.has_value())
         {
-            LOG_ERROR_CAT(
-                LogCategory::FileSystem, "Catalog '{}' contains invalid logical path '{}'", catalogLabel, logicalPath);
+            LOG_ERROR_CAT(LogCategory::k_FileSystem,
+                          "Catalog '{}' contains invalid logical path '{}'",
+                          catalogLabel,
+                          logicalPath);
             return false;
         }
 
@@ -168,7 +171,7 @@ bool ParseCatalogFromJson(const Json& rootJson,
 
         if (!IsCatalogLogicalPathForMount(*parsedLogicalPath, mountPath))
         {
-            LOG_ERROR_CAT(LogCategory::FileSystem,
+            LOG_ERROR_CAT(LogCategory::k_FileSystem,
                           "Catalog '{}' contains invalid mount-scoped logical path '{}'",
                           catalogLabel,
                           logicalPath);
@@ -182,7 +185,7 @@ bool ParseCatalogFromJson(const Json& rootJson,
             const auto sourceRelativePathIt = entryJson.find("sourceRelativePath");
             if (sourceRelativePathIt == entryJson.end() || !sourceRelativePathIt->is_string())
             {
-                LOG_ERROR_CAT(LogCategory::FileSystem,
+                LOG_ERROR_CAT(LogCategory::k_FileSystem,
                               "Source catalog '{}' entry '{}' is missing sourceRelativePath",
                               catalogLabel,
                               logicalPath);
@@ -196,7 +199,7 @@ bool ParseCatalogFromJson(const Json& rootJson,
         if (artifactsIt == entryJson.end() || !artifactsIt->is_array() || artifactsIt->empty())
         {
             LOG_ERROR_CAT(
-                LogCategory::FileSystem, "Catalog '{}' entry '{}' has no artifacts", catalogLabel, logicalPath);
+                LogCategory::k_FileSystem, "Catalog '{}' entry '{}' has no artifacts", catalogLabel, logicalPath);
             return false;
         }
 
@@ -205,7 +208,7 @@ bool ParseCatalogFromJson(const Json& rootJson,
             const auto artifact = ParseArtifactRecord(artifactJson);
             if (!artifact.has_value())
             {
-                LOG_ERROR_CAT(LogCategory::FileSystem,
+                LOG_ERROR_CAT(LogCategory::k_FileSystem,
                               "Catalog '{}' entry '{}' contains an invalid artifact",
                               catalogLabel,
                               logicalPath);
@@ -218,8 +221,10 @@ bool ParseCatalogFromJson(const Json& rootJson,
         const auto [it, inserted] = entries.emplace(entry.m_LogicalPath, std::move(entry));
         if (!inserted)
         {
-            LOG_ERROR_CAT(
-                LogCategory::FileSystem, "Catalog '{}' contains duplicate logical path '{}'", catalogLabel, it->first);
+            LOG_ERROR_CAT(LogCategory::k_FileSystem,
+                          "Catalog '{}' contains duplicate logical path '{}'",
+                          catalogLabel,
+                          it->first);
             return false;
         }
     }
@@ -237,7 +242,7 @@ bool LoadCatalogFromMount(const Resource::ReadableMount& mount,
     if (!Resource::ReadMountCatalogBytes(mount, bytes, &errorMessage))
     {
         if (!errorMessage.empty())
-            LOG_ERROR_CAT(LogCategory::FileSystem,
+            LOG_ERROR_CAT(LogCategory::k_FileSystem,
                           "Failed to read mount catalog '{}': {}",
                           mount.m_MountRoot.string(),
                           errorMessage);
@@ -252,7 +257,7 @@ bool LoadCatalogFromMount(const Resource::ReadableMount& mount,
     catch (const std::exception& e)
     {
         LOG_ERROR_CAT(
-            LogCategory::FileSystem, "Failed to parse catalog '{}': {}", mount.m_MountRoot.string(), e.what());
+            LogCategory::k_FileSystem, "Failed to parse catalog '{}': {}", mount.m_MountRoot.string(), e.what());
         return false;
     }
 
@@ -398,7 +403,7 @@ void MergeMountEntriesIntoGlobalTable(
             if (static_cast<int>(mount.m_Priority) < static_cast<int>(existingIt->second.m_Priority))
                 continue;
 
-            LOG_ERROR_CAT(LogCategory::FileSystem,
+            LOG_ERROR_CAT(LogCategory::k_FileSystem,
                           "Logical path '{}' is provided by multiple equal-precedence mounts ('{}' and '{}')",
                           logicalPath,
                           existingIt->second.m_SourceMountKey,
@@ -465,7 +470,7 @@ std::optional<ResolvedReadableArtifact> CatalogRegistry::ResolveArtifact(const s
                     if (!Resource::BuildSourceCatalogEntries(mount.m_MountRoot, mount.m_MountPath, loadedEntries))
                     {
                         cache.m_Entries.clear();
-                        LOG_ERROR_CAT(LogCategory::FileSystem,
+                        LOG_ERROR_CAT(LogCategory::k_FileSystem,
                                       "Failed to build in-memory source catalog '{}'",
                                       mount.m_MountRoot.string());
                     }
@@ -475,8 +480,9 @@ std::optional<ResolvedReadableArtifact> CatalogRegistry::ResolveArtifact(const s
                         cache.m_Entries.reserve(loadedEntries.size());
                         for (auto& entry : loadedEntries)
                             cache.m_Entries.emplace(entry.m_LogicalPath, std::move(entry));
-                        LOG_INFO_CAT(
-                            LogCategory::FileSystem, "Built in-memory source catalog '{}'", mount.m_MountRoot.string());
+                        LOG_INFO_CAT(LogCategory::k_FileSystem,
+                                     "Built in-memory source catalog '{}'",
+                                     mount.m_MountRoot.string());
                     }
                 }
                 else if (Resource::MountHasCatalog(mount))
@@ -489,12 +495,12 @@ std::optional<ResolvedReadableArtifact> CatalogRegistry::ResolveArtifact(const s
                     {
                         cache.m_Entries.clear();
                         LOG_ERROR_CAT(
-                            LogCategory::FileSystem, "Failed to load catalog '{}'", mount.m_MountRoot.string());
+                            LogCategory::k_FileSystem, "Failed to load catalog '{}'", mount.m_MountRoot.string());
                     }
                     else
                     {
                         cache.m_Entries = std::move(loadedEntries);
-                        LOG_INFO_CAT(LogCategory::FileSystem, "Loaded catalog '{}'", mount.m_MountRoot.string());
+                        LOG_INFO_CAT(LogCategory::k_FileSystem, "Loaded catalog '{}'", mount.m_MountRoot.string());
                     }
                 }
             }
@@ -528,7 +534,7 @@ std::optional<ResolvedReadableArtifact> CatalogRegistry::ResolveArtifact(const s
     const auto resolvedArtifact = ResolveReadableMountArtifact(mount, *artifact, &errorMessage);
     if (!resolvedArtifact.has_value() && !errorMessage.empty())
     {
-        LOG_ERROR_CAT(LogCategory::FileSystem,
+        LOG_ERROR_CAT(LogCategory::k_FileSystem,
                       "Failed to resolve artifact '{}' from mount '{}': {}",
                       artifact->m_RelativePath,
                       entryIt->second.m_MountRoot.string(),

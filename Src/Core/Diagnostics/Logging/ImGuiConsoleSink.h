@@ -16,10 +16,10 @@ namespace Diagnostics
 
 struct ConsoleLogEntry
 {
-    spdlog::level::level_enum Level;
-    std::string Category;
-    std::string Message;
-    std::string Timestamp;
+    spdlog::level::level_enum level;
+    std::string category;
+    std::string message;
+    std::string timestamp;
 };
 
 class ImGuiConsoleSink : public spdlog::sinks::base_sink<std::mutex>
