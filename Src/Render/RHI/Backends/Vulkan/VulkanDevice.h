@@ -37,13 +37,13 @@ public:
     VulkanCommandList(VulkanCommandList&&) = delete;
     VulkanCommandList& operator=(VulkanCommandList&&) = delete;
 
-    void initialize(VkDevice device, VkCommandPool commandPool);
-    void shutdown();
-    void beginRendering(const RenderingInfo& renderingInfo) override;
-    void endRendering() override;
+    void Initialize(VkDevice device, VkCommandPool commandPool);
+    void Shutdown();
+    void BeginRendering(const RenderingInfo& renderingInfo) override;
+    void EndRendering() override;
 
-    VkCommandBuffer getVkCommandBuffer() const { return m_CommandBuffer; }
-    bool isRenderingActive() const { return m_IsRendering; }
+    VkCommandBuffer GetVkCommandBuffer() const { return m_CommandBuffer; }
+    bool IsRenderingActive() const { return m_IsRendering; }
 
 private:
     VkDevice m_Device = VK_NULL_HANDLE;
@@ -62,23 +62,23 @@ public:
     VulkanSwapchain(VulkanSwapchain&&) = delete;
     VulkanSwapchain& operator=(VulkanSwapchain&&) = delete;
 
-    uint32_t acquireNextImage() override;
-    Texture* getImage(uint32_t imageIndex) const override;
-    TextureView* getImageView(uint32_t imageIndex) const override;
-    void present(uint32_t imageIndex) override;
-    void resize(uint32_t newWidth, uint32_t newHeight) override;
-    uint32_t width() const override { return m_Desc.width; }
-    uint32_t height() const override { return m_Desc.height; }
-    Format format() const override { return m_Desc.format; }
-    uint32_t imageCount() const override { return static_cast<uint32_t>(m_Images.size()); }
+    uint32_t AcquireNextImage() override;
+    Texture* GetImage(uint32_t imageIndex) const override;
+    TextureView* GetImageView(uint32_t imageIndex) const override;
+    void Present(uint32_t imageIndex) override;
+    void Resize(uint32_t newWidth, uint32_t newHeight) override;
+    uint32_t GetWidth() const override { return m_Desc.m_Width; }
+    uint32_t GetHeight() const override { return m_Desc.m_Height; }
+    Format GetFormat() const override { return m_Desc.m_Format; }
+    uint32_t GetImageCount() const override { return static_cast<uint32_t>(m_Images.size()); }
 
-    VkSwapchainKHR getVkSwapchain() const { return m_Swapchain; }
-    VkFormat getVkFormat() const { return m_VkFormat; }
+    VkSwapchainKHR GetVkSwapchain() const { return m_Swapchain; }
+    VkFormat GetVkFormat() const { return m_VkFormat; }
 
 private:
-    void recreateSwapchain(VkSwapchainKHR oldSwapchain = VK_NULL_HANDLE);
-    void destroySwapchain();
-    TextureDesc buildSwapchainImageDesc() const;
+    void RecreateSwapchain(VkSwapchainKHR oldSwapchain = VK_NULL_HANDLE);
+    void DestroySwapchain();
+    TextureDesc BuildSwapchainImageDesc() const;
 
 private:
     // Now used by the real Vulkan swapchain ownership path.
@@ -97,42 +97,42 @@ public:
     VulkanDevice();
     ~VulkanDevice() override;
 
-    Scope<Swapchain> createSwapchain(const SwapchainDesc& desc, const NativeWindowHandle& nativeWindowHandle) override;
+    Scope<Swapchain> CreateSwapchain(const SwapchainDesc& desc, const NativeWindowHandle& nativeWindowHandle) override;
 
-    CommandList* beginCommandList() override;
-    void submit(CommandList* commandList) override;
-    FrameContext* beginFrame() override;
-    void endFrame(FrameContext* frameContext) override;
+    CommandList* BeginCommandList() override;
+    void Submit(CommandList* commandList) override;
+    FrameContext* BeginFrame() override;
+    void EndFrame(FrameContext* frameContext) override;
 
-    VkInstance getVkInstance() const { return m_Instance; }
-    VkPhysicalDevice getVkPhysicalDevice() const { return m_PhysicalDevice; }
-    VkDevice getVkDevice() const { return m_Device; }
-    VkSurfaceKHR getVkSurface() const { return m_Surface; }
-    VkQueue getGraphicsQueue() const { return m_GraphicsQueue; }
-    VkQueue getPresentQueue() const { return m_PresentQueue; }
-    uint32_t getGraphicsQueueFamily() const { return m_GraphicsQueueFamily; }
-    uint32_t getPresentQueueFamily() const { return m_PresentQueueFamily; }
-    VkCommandPool getVkCommandPool() const { return m_CommandPool; }
-    VkSemaphore getCurrentImageAvailableSemaphore() const;
-    VkSemaphore getCurrentRenderFinishedSemaphore() const;
-    void recycleCurrentRenderFinishedSemaphore();
-    void advanceFrameSync();
+    VkInstance GetVkInstance() const { return m_Instance; }
+    VkPhysicalDevice GetVkPhysicalDevice() const { return m_PhysicalDevice; }
+    VkDevice GetVkDevice() const { return m_Device; }
+    VkSurfaceKHR GetVkSurface() const { return m_Surface; }
+    VkQueue GetGraphicsQueue() const { return m_GraphicsQueue; }
+    VkQueue GetPresentQueue() const { return m_PresentQueue; }
+    uint32_t GetGraphicsQueueFamily() const { return m_GraphicsQueueFamily; }
+    uint32_t GetPresentQueueFamily() const { return m_PresentQueueFamily; }
+    VkCommandPool GetVkCommandPool() const { return m_CommandPool; }
+    VkSemaphore GetCurrentImageAvailableSemaphore() const;
+    VkSemaphore GetCurrentRenderFinishedSemaphore() const;
+    void RecycleCurrentRenderFinishedSemaphore();
+    void AdvanceFrameSync();
 
 private:
     struct FrameSync
     {
-        VkSemaphore imageAvailable = VK_NULL_HANDLE;
-        VkSemaphore renderFinished = VK_NULL_HANDLE;
-        VkFence inFlightFence = VK_NULL_HANDLE;
+        VkSemaphore m_ImageAvailable = VK_NULL_HANDLE;
+        VkSemaphore m_RenderFinished = VK_NULL_HANDLE;
+        VkFence m_InFlightFence = VK_NULL_HANDLE;
     };
 
-    FrameSync& currentFrameSync();
-    const FrameSync& currentFrameSync() const;
-    void initializeInstance(NativeWindowSystem windowSystem);
-    void initializeFrameSyncObjects();
-    void shutdownFrameSyncObjects();
-    void initializePresentationObjects(const NativeWindowHandle& nativeWindowHandle);
-    void shutdownPresentationObjects();
+    FrameSync& GetCurrentFrameSync();
+    const FrameSync& GetCurrentFrameSync() const;
+    void InitializeInstance(NativeWindowSystem windowSystem);
+    void InitializeFrameSyncObjects();
+    void ShutdownFrameSyncObjects();
+    void InitializePresentationObjects(const NativeWindowHandle& nativeWindowHandle);
+    void ShutdownPresentationObjects();
 
 private:
     VkInstance m_Instance = VK_NULL_HANDLE;

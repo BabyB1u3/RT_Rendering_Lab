@@ -16,11 +16,11 @@ enum class NativeWindowSystem
 
 struct NativeWindowHandle
 {
-    NativeWindowSystem system = NativeWindowSystem::Win32;
-    uintptr_t window = 0;
+    NativeWindowSystem m_System = NativeWindowSystem::Win32;
+    uintptr_t m_Window = 0;
     // Platform-native pointers/handles in this struct are borrowed. The platform/window layer
     // keeps them alive; any RHI backend that wants to store them across calls must retain/own
     // the platform object explicitly on the backend side.
-    void* display = nullptr;
-    void* layer = nullptr;
+    void* m_Display = nullptr;
+    void* m_Layer = nullptr;
 };

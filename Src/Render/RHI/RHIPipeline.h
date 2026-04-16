@@ -22,18 +22,18 @@ enum class ResourceKind
 
 struct BindingInfo
 {
-    std::string name;
-    uint32_t setIndex = 0;
-    uint32_t binding = 0;
-    ResourceKind kind = ResourceKind::UniformBuffer;
-    uint32_t arrayCount = 1;
-    ShaderStage stageMask = ShaderStage::None;
+    std::string m_Name;
+    uint32_t m_SetIndex = 0;
+    uint32_t m_Binding = 0;
+    ResourceKind m_Kind = ResourceKind::UniformBuffer;
+    uint32_t m_ArrayCount = 1;
+    ShaderStage m_StageMask = ShaderStage::None;
 };
 
 struct PipelineLayoutDesc
 {
-    std::vector<BindingInfo> bindings;
-    std::vector<PushConstantRangeDesc> pushConstants;
+    std::vector<BindingInfo> m_Bindings;
+    std::vector<PushConstantRangeDesc> m_PushConstants;
 };
 
 class PipelineLayout
@@ -41,27 +41,27 @@ class PipelineLayout
 public:
     virtual ~PipelineLayout() = default;
 
-    virtual const PipelineLayoutDesc& getDesc() const = 0;
+    virtual const PipelineLayoutDesc& GetDesc() const = 0;
 };
 
 struct VertexAttributeDesc
 {
-    uint32_t location = 0;
-    Format format = Format::Unknown;
-    uint32_t offset = 0;
-    uint32_t bufferSlot = 0;
+    uint32_t m_Location = 0;
+    Format m_Format = Format::Unknown;
+    uint32_t m_Offset = 0;
+    uint32_t m_BufferSlot = 0;
 };
 
 struct VertexBufferLayoutDesc
 {
-    uint32_t stride = 0;
-    bool perInstance = false;
+    uint32_t m_Stride = 0;
+    bool m_PerInstance = false;
 };
 
 struct VertexInputLayoutDesc
 {
-    std::vector<VertexAttributeDesc> attributes;
-    std::vector<VertexBufferLayoutDesc> buffers;
+    std::vector<VertexAttributeDesc> m_Attributes;
+    std::vector<VertexBufferLayoutDesc> m_Buffers;
 };
 
 class VertexInputLayout
@@ -69,7 +69,7 @@ class VertexInputLayout
 public:
     virtual ~VertexInputLayout() = default;
 
-    virtual const VertexInputLayoutDesc& getDesc() const = 0;
+    virtual const VertexInputLayoutDesc& GetDesc() const = 0;
 };
 
 enum class IndexType
@@ -80,9 +80,9 @@ enum class IndexType
 
 struct MeshBinding
 {
-    std::vector<Buffer*> vertexBuffers;
-    Buffer* indexBuffer = nullptr;
-    IndexType indexType = IndexType::UInt32;
+    std::vector<Buffer*> m_VertexBuffers;
+    Buffer* m_IndexBuffer = nullptr;
+    IndexType m_IndexType = IndexType::UInt32;
 };
 
 enum class PrimitiveTopology
@@ -115,13 +115,13 @@ enum class FillMode
 
 struct RasterState
 {
-    CullMode cullMode = CullMode::Back;
-    FrontFace frontFace = FrontFace::CCW;
-    FillMode fillMode = FillMode::Solid;
-    bool depthClampEnable = false;
-    bool depthBiasEnable = false;
-    float depthBiasConstant = 0.0f;
-    float depthBiasSlopeFactor = 0.0f;
+    CullMode m_CullMode = CullMode::Back;
+    FrontFace m_FrontFace = FrontFace::CCW;
+    FillMode m_FillMode = FillMode::Solid;
+    bool m_DepthClampEnable = false;
+    bool m_DepthBiasEnable = false;
+    float m_DepthBiasConstant = 0.0f;
+    float m_DepthBiasSlopeFactor = 0.0f;
 };
 
 enum class CompareOp
@@ -138,9 +138,9 @@ enum class CompareOp
 
 struct DepthStencilState
 {
-    bool depthTestEnable = false;
-    bool depthWriteEnable = false;
-    CompareOp depthCompareOp = CompareOp::Less;
+    bool m_DepthTestEnable = false;
+    bool m_DepthWriteEnable = false;
+    CompareOp m_DepthCompareOp = CompareOp::Less;
 };
 
 enum class BlendFactor
@@ -168,35 +168,35 @@ enum class BlendOp
 
 struct BlendState
 {
-    bool blendEnable = false;
-    BlendFactor srcColorFactor = BlendFactor::One;
-    BlendFactor dstColorFactor = BlendFactor::Zero;
-    BlendOp colorBlendOp = BlendOp::Add;
-    BlendFactor srcAlphaFactor = BlendFactor::One;
-    BlendFactor dstAlphaFactor = BlendFactor::Zero;
-    BlendOp alphaBlendOp = BlendOp::Add;
-    uint8_t colorWriteMask = 0xF;
+    bool m_BlendEnable = false;
+    BlendFactor m_SrcColorFactor = BlendFactor::One;
+    BlendFactor m_DstColorFactor = BlendFactor::Zero;
+    BlendOp m_ColorBlendOp = BlendOp::Add;
+    BlendFactor m_SrcAlphaFactor = BlendFactor::One;
+    BlendFactor m_DstAlphaFactor = BlendFactor::Zero;
+    BlendOp m_AlphaBlendOp = BlendOp::Add;
+    uint8_t m_ColorWriteMask = 0xF;
 };
 
 struct GraphicsPipelineDesc
 {
-    PipelineLayout* pipelineLayout = nullptr;
-    class ShaderProgram* shaderProgram = nullptr;
-    VertexInputLayout* vertexInput = nullptr;
+    PipelineLayout* m_PipelineLayout = nullptr;
+    class ShaderProgram* m_ShaderProgram = nullptr;
+    VertexInputLayout* m_VertexInput = nullptr;
 
-    BlendState blendState;
-    DepthStencilState depthStencilState;
-    RasterState rasterState;
-    PrimitiveTopology topology = PrimitiveTopology::TriangleList;
+    BlendState m_BlendState;
+    DepthStencilState m_DepthStencilState;
+    RasterState m_RasterState;
+    PrimitiveTopology m_Topology = PrimitiveTopology::TriangleList;
 
-    std::vector<Format> colorFormats;
-    Format depthFormat = Format::Unknown;
+    std::vector<Format> m_ColorFormats;
+    Format m_DepthFormat = Format::Unknown;
 };
 
 struct ComputePipelineDesc
 {
-    PipelineLayout* pipelineLayout = nullptr;
-    class ShaderProgram* shaderProgram = nullptr;
+    PipelineLayout* m_PipelineLayout = nullptr;
+    class ShaderProgram* m_ShaderProgram = nullptr;
 };
 
 class ShaderProgram
@@ -204,8 +204,8 @@ class ShaderProgram
 public:
     virtual ~ShaderProgram() = default;
 
-    virtual const ShaderReflectionData& getReflection() const = 0;
-    virtual PipelineLayoutDesc derivePipelineLayoutDesc() const = 0;
+    virtual const ShaderReflectionData& GetReflection() const = 0;
+    virtual PipelineLayoutDesc DerivePipelineLayoutDesc() const = 0;
 };
 
 class GraphicsPipeline
@@ -213,7 +213,7 @@ class GraphicsPipeline
 public:
     virtual ~GraphicsPipeline() = default;
 
-    virtual const GraphicsPipelineDesc& getDesc() const = 0;
+    virtual const GraphicsPipelineDesc& GetDesc() const = 0;
 };
 
 class ComputePipeline
@@ -221,5 +221,5 @@ class ComputePipeline
 public:
     virtual ~ComputePipeline() = default;
 
-    virtual const ComputePipelineDesc& getDesc() const = 0;
+    virtual const ComputePipelineDesc& GetDesc() const = 0;
 };

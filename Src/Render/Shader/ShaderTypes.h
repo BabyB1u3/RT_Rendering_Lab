@@ -44,15 +44,15 @@ constexpr ShaderStage& operator|=(ShaderStage& lhs, ShaderStage rhs)
 
 struct ShaderEntryPointDesc
 {
-    std::string moduleName;
-    std::string entryName;
-    ShaderStage stage = ShaderStage::None;
+    std::string m_ModuleName;
+    std::string m_EntryName;
+    ShaderStage m_Stage = ShaderStage::None;
 };
 
 struct ShaderSourceDesc
 {
-    std::vector<ShaderEntryPointDesc> entries;
-    std::vector<std::string> defines;
+    std::vector<ShaderEntryPointDesc> m_Entries;
+    std::vector<std::string> m_Defines;
 };
 
 enum class MetalCodeFormat
@@ -80,47 +80,47 @@ enum class LayoutConvention
 
 struct ReflectedField
 {
-    std::string name;
-    ReflectedTypeKind typeKind = ReflectedTypeKind::Struct;
+    std::string m_Name;
+    ReflectedTypeKind m_TypeKind = ReflectedTypeKind::Struct;
 
-    uint32_t offset = 0;
-    uint32_t size = 0;
-    uint32_t alignment = 0;
-    uint32_t arrayStride = 0;
-    uint32_t matrixStride = 0;
-    LayoutConvention layoutConvention = LayoutConvention::Std430;
+    uint32_t m_Offset = 0;
+    uint32_t m_Size = 0;
+    uint32_t m_Alignment = 0;
+    uint32_t m_ArrayStride = 0;
+    uint32_t m_MatrixStride = 0;
+    LayoutConvention m_LayoutConvention = LayoutConvention::Std430;
 
-    uint32_t setIndex = 0;
-    uint32_t binding = 0;
-    uint32_t arrayCount = 1;
-    ShaderStage stageMask = ShaderStage::None;
+    uint32_t m_SetIndex = 0;
+    uint32_t m_Binding = 0;
+    uint32_t m_ArrayCount = 1;
+    ShaderStage m_StageMask = ShaderStage::None;
 
-    std::vector<ReflectedField> children;
+    std::vector<ReflectedField> m_Children;
 };
 
 struct PushConstantRangeDesc
 {
-    ShaderStage stageMask = ShaderStage::None;
-    uint32_t offset = 0;
-    uint32_t size = 0;
+    ShaderStage m_StageMask = ShaderStage::None;
+    uint32_t m_Offset = 0;
+    uint32_t m_Size = 0;
 };
 
 struct ShaderReflectionData
 {
-    std::vector<ReflectedField> globals;
-    std::vector<PushConstantRangeDesc> pushConstants;
+    std::vector<ReflectedField> m_Globals;
+    std::vector<PushConstantRangeDesc> m_PushConstants;
 };
 
 struct CompiledShaderBlob
 {
-    BackendType backend = BackendType::Vulkan;
-    ShaderStage stage = ShaderStage::None;
-    std::vector<uint8_t> code;
-    MetalCodeFormat metalCodeFormat = MetalCodeFormat::MslSource;
+    BackendType m_Backend = BackendType::Vulkan;
+    ShaderStage m_Stage = ShaderStage::None;
+    std::vector<uint8_t> m_Code;
+    MetalCodeFormat m_MetalCodeFormat = MetalCodeFormat::MslSource;
 };
 
 struct CompiledShaderProgramDesc
 {
-    std::vector<CompiledShaderBlob> blobs;
-    ShaderReflectionData reflection;
+    std::vector<CompiledShaderBlob> m_Blobs;
+    ShaderReflectionData m_Reflection;
 };

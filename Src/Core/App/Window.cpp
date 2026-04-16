@@ -197,8 +197,8 @@ NativeWindowHandle Window::GetNativeWindowHandle() const
 
 #if defined(_WIN32)
     NativeWindowHandle nativeWindowHandle{};
-    nativeWindowHandle.system = NativeWindowSystem::Win32;
-    nativeWindowHandle.window = reinterpret_cast<uintptr_t>(glfwGetWin32Window(m_Handle));
+    nativeWindowHandle.m_System = NativeWindowSystem::Win32;
+    nativeWindowHandle.m_Window = reinterpret_cast<uintptr_t>(glfwGetWin32Window(m_Handle));
     return nativeWindowHandle;
 #elif defined(__APPLE__)
     return CreateCocoaNativeWindowHandle(m_Handle);

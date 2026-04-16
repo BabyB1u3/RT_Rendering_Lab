@@ -10,12 +10,12 @@
 NativeWindowHandle CreateCocoaNativeWindowHandle(GLFWwindow* window)
 {
     NativeWindowHandle nativeWindowHandle{};
-    nativeWindowHandle.system = NativeWindowSystem::Cocoa;
+    nativeWindowHandle.m_System = NativeWindowSystem::Cocoa;
 
     NSWindow* nsWindow = glfwGetCocoaWindow(window);
     NSView* nsView = glfwGetCocoaView(window);
 
-    nativeWindowHandle.window = reinterpret_cast<uintptr_t>((__bridge void*)nsWindow);
+    nativeWindowHandle.m_Window = reinterpret_cast<uintptr_t>((__bridge void*)nsWindow);
 
 #if defined(GLAB_BACKEND_METAL) || defined(GLAB_BACKEND_VULKAN)
     // Layer creation is best-effort here. If GLFW/Cocoa does not currently expose
@@ -47,7 +47,7 @@ NativeWindowHandle CreateCocoaNativeWindowHandle(GLFWwindow* window)
         layer.drawableSize = drawableSize;
     }
 
-    nativeWindowHandle.layer = (__bridge void*)layer;
+    nativeWindowHandle.m_Layer = (__bridge void*)layer;
 #endif
 
     return nativeWindowHandle;

@@ -10,9 +10,9 @@
 
 namespace RHIInternal
 {
-bool isNativeWindowHandleValid(const NativeWindowHandle& nativeWindowHandle);
-SwapchainDesc sanitizeSwapchainDesc(const SwapchainDesc& desc);
-PipelineLayoutDesc buildPipelineLayoutDescFromReflection(const ShaderReflectionData& reflection);
+bool IsNativeWindowHandleValid(const NativeWindowHandle& nativeWindowHandle);
+SwapchainDesc SanitizeSwapchainDesc(const SwapchainDesc& desc);
+PipelineLayoutDesc BuildPipelineLayoutDescFromReflection(const ShaderReflectionData& reflection);
 
 class ShellFrameContext : public FrameContext
 {
@@ -23,7 +23,7 @@ class ShellBuffer final : public Buffer
 public:
     explicit ShellBuffer(const BufferDesc& desc) : m_Desc(desc) {}
 
-    const BufferDesc& getDesc() const override { return m_Desc; }
+    const BufferDesc& GetDesc() const override { return m_Desc; }
 
 private:
     BufferDesc m_Desc;
@@ -34,7 +34,7 @@ class ShellTexture final : public Texture
 public:
     explicit ShellTexture(const TextureDesc& desc) : m_Desc(desc) {}
 
-    const TextureDesc& getDesc() const override { return m_Desc; }
+    const TextureDesc& GetDesc() const override { return m_Desc; }
 
 private:
     TextureDesc m_Desc;
@@ -45,8 +45,8 @@ class ShellTextureView final : public TextureView
 public:
     ShellTextureView(Texture* texture, const TextureViewDesc& desc) : m_Texture(texture), m_Desc(desc) {}
 
-    Texture* getTexture() const override { return m_Texture; }
-    const TextureViewDesc& getDesc() const override { return m_Desc; }
+    Texture* GetTexture() const override { return m_Texture; }
+    const TextureViewDesc& GetDesc() const override { return m_Desc; }
 
 private:
     Texture* m_Texture = nullptr;
@@ -58,7 +58,7 @@ class ShellSampler final : public Sampler
 public:
     explicit ShellSampler(const SamplerDesc& desc) : m_Desc(desc) {}
 
-    const SamplerDesc& getDesc() const override { return m_Desc; }
+    const SamplerDesc& GetDesc() const override { return m_Desc; }
 
 private:
     SamplerDesc m_Desc;
@@ -69,7 +69,7 @@ class ShellPipelineLayout final : public PipelineLayout
 public:
     explicit ShellPipelineLayout(const PipelineLayoutDesc& desc) : m_Desc(desc) {}
 
-    const PipelineLayoutDesc& getDesc() const override { return m_Desc; }
+    const PipelineLayoutDesc& GetDesc() const override { return m_Desc; }
 
 private:
     PipelineLayoutDesc m_Desc;
@@ -80,7 +80,7 @@ class ShellVertexInputLayout final : public VertexInputLayout
 public:
     explicit ShellVertexInputLayout(const VertexInputLayoutDesc& desc) : m_Desc(desc) {}
 
-    const VertexInputLayoutDesc& getDesc() const override { return m_Desc; }
+    const VertexInputLayoutDesc& GetDesc() const override { return m_Desc; }
 
 private:
     VertexInputLayoutDesc m_Desc;
@@ -92,10 +92,10 @@ public:
     // Milestone 1 keeps shader-program shells intentionally thin. Reflection is stored
     // so the public interface is satisfied, but backend code generation still belongs
     // to the later shader milestone.
-    explicit ShellShaderProgram(const CompiledShaderProgramDesc& desc) : m_Reflection(desc.reflection) {}
+    explicit ShellShaderProgram(const CompiledShaderProgramDesc& desc) : m_Reflection(desc.m_Reflection) {}
 
-    const ShaderReflectionData& getReflection() const override { return m_Reflection; }
-    PipelineLayoutDesc derivePipelineLayoutDesc() const override;
+    const ShaderReflectionData& GetReflection() const override { return m_Reflection; }
+    PipelineLayoutDesc DerivePipelineLayoutDesc() const override;
 
 private:
     ShaderReflectionData m_Reflection;
@@ -106,7 +106,7 @@ class ShellGraphicsPipeline final : public GraphicsPipeline
 public:
     explicit ShellGraphicsPipeline(const GraphicsPipelineDesc& desc) : m_Desc(desc) {}
 
-    const GraphicsPipelineDesc& getDesc() const override { return m_Desc; }
+    const GraphicsPipelineDesc& GetDesc() const override { return m_Desc; }
 
 private:
     GraphicsPipelineDesc m_Desc;
@@ -117,7 +117,7 @@ class ShellComputePipeline final : public ComputePipeline
 public:
     explicit ShellComputePipeline(const ComputePipelineDesc& desc) : m_Desc(desc) {}
 
-    const ComputePipelineDesc& getDesc() const override { return m_Desc; }
+    const ComputePipelineDesc& GetDesc() const override { return m_Desc; }
 
 private:
     ComputePipelineDesc m_Desc;
@@ -128,17 +128,17 @@ class ShellResourceSet final : public ResourceSet
 public:
     ShellResourceSet(PipelineLayout* layout, uint32_t setIndex);
 
-    PipelineLayout* getLayout() const override { return m_Layout; }
-    uint32_t getSetIndex() const override { return m_SetIndex; }
+    PipelineLayout* GetLayout() const override { return m_Layout; }
+    uint32_t GetSetIndex() const override { return m_SetIndex; }
 
-    ParameterBlockData& constants() override { return m_Constants; }
-    const ParameterBlockData& constants() const override { return m_Constants; }
+    ParameterBlockData& GetConstants() override { return m_Constants; }
+    const ParameterBlockData& GetConstants() const override { return m_Constants; }
 
-    void setBuffer(uint32_t binding, const BufferBinding& bufferBinding) override;
-    void setTexture(uint32_t binding, const TextureBinding& textureBinding) override;
-    void setSampler(uint32_t binding, const SamplerBinding& samplerBinding) override;
+    void SetBuffer(uint32_t binding, const BufferBinding& bufferBinding) override;
+    void SetTexture(uint32_t binding, const TextureBinding& textureBinding) override;
+    void SetSampler(uint32_t binding, const SamplerBinding& samplerBinding) override;
 
-    uint32_t version() const override { return m_Version; }
+    uint32_t GetVersion() const override { return m_Version; }
 
 private:
     PipelineLayout* m_Layout = nullptr;
@@ -153,34 +153,34 @@ private:
 class ShellCommandListBase : public CommandList
 {
 public:
-    void beginRendering(const RenderingInfo& renderingInfo) override;
-    void endRendering() override;
+    void BeginRendering(const RenderingInfo& renderingInfo) override;
+    void EndRendering() override;
 
-    void bindGraphicsPipeline(GraphicsPipeline* pipeline) override;
-    void bindComputePipeline(ComputePipeline* pipeline) override;
+    void BindGraphicsPipeline(GraphicsPipeline* pipeline) override;
+    void BindComputePipeline(ComputePipeline* pipeline) override;
 
-    void bindResourceSet(uint32_t setIndex, ResourceSet* resourceSet) override;
-    void pushConstants(ShaderStage stageMask, uint32_t offset, uint32_t size, const void* data) override;
+    void BindResourceSet(uint32_t setIndex, ResourceSet* resourceSet) override;
+    void PushConstants(ShaderStage stageMask, uint32_t offset, uint32_t size, const void* data) override;
 
-    void bindMesh(const MeshBinding& meshBinding, const uint64_t* vertexOffsets = nullptr) override;
+    void BindMesh(const MeshBinding& meshBinding, const uint64_t* vertexOffsets = nullptr) override;
     void
-    bindVertexBuffers(uint32_t firstSlot, Buffer* const* buffers, uint32_t count, const uint64_t* offsets) override;
-    void bindIndexBuffer(Buffer* buffer, uint64_t offset, IndexType indexType) override;
+    BindVertexBuffers(uint32_t firstSlot, Buffer* const* buffers, uint32_t count, const uint64_t* offsets) override;
+    void BindIndexBuffer(Buffer* buffer, uint64_t offset, IndexType indexType) override;
 
-    void setViewport(float x, float y, float w, float h, float zmin, float zmax) override;
-    void setScissor(int32_t x, int32_t y, uint32_t w, uint32_t h) override;
+    void SetViewport(float x, float y, float w, float h, float zmin, float zmax) override;
+    void SetScissor(int32_t x, int32_t y, uint32_t w, uint32_t h) override;
 
-    void draw(uint32_t vertexCount, uint32_t firstVertex) override;
-    void drawIndexed(uint32_t indexCount, uint32_t firstIndex, int32_t vertexOffset) override;
+    void Draw(uint32_t vertexCount, uint32_t firstVertex) override;
+    void DrawIndexed(uint32_t indexCount, uint32_t firstIndex, int32_t vertexOffset) override;
 
-    void dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ) override;
+    void Dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ) override;
 
-    void textureBarrier(Texture* texture,
+    void TextureBarrier(Texture* texture,
                         TextureState oldState,
                         TextureState newState,
                         ShaderStage srcStage,
                         ShaderStage dstStage) override;
-    void bufferBarrier(Buffer* buffer,
+    void BufferBarrier(Buffer* buffer,
                        BufferState oldState,
                        BufferState newState,
                        ShaderStage srcStage,
@@ -215,19 +215,19 @@ class ShellSwapchainBase : public Swapchain
 public:
     ShellSwapchainBase(const SwapchainDesc& desc, const NativeWindowHandle& nativeWindowHandle);
 
-    uint32_t acquireNextImage() override;
-    Texture* getImage(uint32_t imageIndex) const override;
-    TextureView* getImageView(uint32_t imageIndex) const override;
-    void present(uint32_t imageIndex) override;
-    void resize(uint32_t newWidth, uint32_t newHeight) override;
-    uint32_t width() const override { return m_Desc.width; }
-    uint32_t height() const override { return m_Desc.height; }
-    Format format() const override { return m_Desc.format; }
-    uint32_t imageCount() const override { return static_cast<uint32_t>(m_Images.size()); }
+    uint32_t AcquireNextImage() override;
+    Texture* GetImage(uint32_t imageIndex) const override;
+    TextureView* GetImageView(uint32_t imageIndex) const override;
+    void Present(uint32_t imageIndex) override;
+    void Resize(uint32_t newWidth, uint32_t newHeight) override;
+    uint32_t GetWidth() const override { return m_Desc.m_Width; }
+    uint32_t GetHeight() const override { return m_Desc.m_Height; }
+    Format GetFormat() const override { return m_Desc.m_Format; }
+    uint32_t GetImageCount() const override { return static_cast<uint32_t>(m_Images.size()); }
 
 protected:
-    virtual TextureDesc buildSwapchainImageDesc() const;
-    void rebuildImages();
+    virtual TextureDesc BuildSwapchainImageDesc() const;
+    void RebuildImages();
 
     SwapchainDesc m_Desc;
     NativeWindowHandle m_NativeWindowHandle;
@@ -239,21 +239,21 @@ protected:
 class ShellDeviceBase : public Device
 {
 public:
-    Scope<Buffer> createBuffer(const BufferDesc& desc) override;
-    Scope<Texture> createTexture(const TextureDesc& desc) override;
-    Scope<TextureView> createTextureView(Texture* texture, const TextureViewDesc& desc) override;
-    Scope<Sampler> createSampler(const SamplerDesc& desc) override;
+    Scope<Buffer> CreateBuffer(const BufferDesc& desc) override;
+    Scope<Texture> CreateTexture(const TextureDesc& desc) override;
+    Scope<TextureView> CreateTextureView(Texture* texture, const TextureViewDesc& desc) override;
+    Scope<Sampler> CreateSampler(const SamplerDesc& desc) override;
 
-    Scope<ShaderProgram> createShaderProgram(const CompiledShaderProgramDesc& desc) override;
-    Scope<PipelineLayout> createPipelineLayout(const PipelineLayoutDesc& desc) override;
-    Scope<ResourceSet> createResourceSet(PipelineLayout* layout, uint32_t setIndex) override;
+    Scope<ShaderProgram> CreateShaderProgram(const CompiledShaderProgramDesc& desc) override;
+    Scope<PipelineLayout> CreatePipelineLayout(const PipelineLayoutDesc& desc) override;
+    Scope<ResourceSet> CreateResourceSet(PipelineLayout* layout, uint32_t setIndex) override;
 
-    Scope<VertexInputLayout> createVertexInputLayout(const VertexInputLayoutDesc& desc) override;
+    Scope<VertexInputLayout> CreateVertexInputLayout(const VertexInputLayoutDesc& desc) override;
 
-    Scope<GraphicsPipeline> createGraphicsPipeline(const GraphicsPipelineDesc& desc) override;
-    Scope<ComputePipeline> createComputePipeline(const ComputePipelineDesc& desc) override;
+    Scope<GraphicsPipeline> CreateGraphicsPipeline(const GraphicsPipelineDesc& desc) override;
+    Scope<ComputePipeline> CreateComputePipeline(const ComputePipelineDesc& desc) override;
 
-    void submit(CommandList* commandList) override;
-    void endFrame(FrameContext* frameContext) override;
+    void Submit(CommandList* commandList) override;
+    void EndFrame(FrameContext* frameContext) override;
 };
 } // namespace RHIInternal

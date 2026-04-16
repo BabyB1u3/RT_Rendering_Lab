@@ -23,9 +23,9 @@ NativeWindowHandle CreateLinuxNativeWindowHandle(GLFWwindow* window)
 #if defined(GLAB_GLFW_WAYLAND_NATIVE)
     if (platform == GLFW_PLATFORM_WAYLAND)
     {
-        nativeWindowHandle.system = NativeWindowSystem::Wayland;
-        nativeWindowHandle.window = reinterpret_cast<uintptr_t>(glfwGetWaylandWindow(window));
-        nativeWindowHandle.display = glfwGetWaylandDisplay();
+        nativeWindowHandle.m_System = NativeWindowSystem::Wayland;
+        nativeWindowHandle.m_Window = reinterpret_cast<uintptr_t>(glfwGetWaylandWindow(window));
+        nativeWindowHandle.m_Display = glfwGetWaylandDisplay();
         return nativeWindowHandle;
     }
 #endif
@@ -33,9 +33,9 @@ NativeWindowHandle CreateLinuxNativeWindowHandle(GLFWwindow* window)
 #if defined(GLAB_GLFW_X11_NATIVE)
     if (platform == GLFW_PLATFORM_X11)
     {
-        nativeWindowHandle.system = NativeWindowSystem::Xlib;
-        nativeWindowHandle.window = static_cast<uintptr_t>(glfwGetX11Window(window));
-        nativeWindowHandle.display = glfwGetX11Display();
+        nativeWindowHandle.m_System = NativeWindowSystem::Xlib;
+        nativeWindowHandle.m_Window = static_cast<uintptr_t>(glfwGetX11Window(window));
+        nativeWindowHandle.m_Display = glfwGetX11Display();
         return nativeWindowHandle;
     }
 #endif

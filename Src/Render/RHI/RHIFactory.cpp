@@ -13,7 +13,7 @@
 #include "Render/RHI/Backends/Vulkan/VulkanDevice.h"
 #endif
 
-BackendType getDefaultBackendType()
+BackendType GetDefaultBackendType()
 {
 #if defined(GLAB_BACKEND_OPENGL)
     return BackendType::OpenGL;
@@ -26,7 +26,7 @@ BackendType getDefaultBackendType()
 #endif
 }
 
-const char* getBackendName(BackendType backend)
+const char* GetBackendName(BackendType backend)
 {
     switch (backend)
     {
@@ -41,9 +41,9 @@ const char* getBackendName(BackendType backend)
     return "Unknown";
 }
 
-Scope<Device> createDevice(BackendType backend)
+Scope<Device> CreateDevice(BackendType backend)
 {
-    LOG_INFO_CAT(LogCategory::Graphics, "Creating {} RHI device shell", getBackendName(backend));
+    LOG_INFO_CAT(LogCategory::Graphics, "Creating {} RHI device shell", GetBackendName(backend));
 
     switch (backend)
     {

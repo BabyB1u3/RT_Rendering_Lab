@@ -7,7 +7,7 @@
 
 namespace
 {
-ResourceKind mapReflectedResourceKind(ReflectedTypeKind typeKind)
+ResourceKind MapReflectedResourceKind(ReflectedTypeKind typeKind)
 {
     switch (typeKind)
     {
@@ -29,116 +29,116 @@ ResourceKind mapReflectedResourceKind(ReflectedTypeKind typeKind)
 
 namespace RHIInternal
 {
-bool isNativeWindowHandleValid(const NativeWindowHandle& nativeWindowHandle)
+bool IsNativeWindowHandleValid(const NativeWindowHandle& nativeWindowHandle)
 {
-    switch (nativeWindowHandle.system)
+    switch (nativeWindowHandle.m_System)
     {
         case NativeWindowSystem::Win32:
-            return nativeWindowHandle.window != 0;
+            return nativeWindowHandle.m_Window != 0;
         case NativeWindowSystem::Cocoa:
-            return nativeWindowHandle.window != 0 && nativeWindowHandle.layer != nullptr;
+            return nativeWindowHandle.m_Window != 0 && nativeWindowHandle.m_Layer != nullptr;
         case NativeWindowSystem::Xlib:
         case NativeWindowSystem::Xcb:
         case NativeWindowSystem::Wayland:
-            return nativeWindowHandle.window != 0 && nativeWindowHandle.display != nullptr;
+            return nativeWindowHandle.m_Window != 0 && nativeWindowHandle.m_Display != nullptr;
     }
 
     return false;
 }
 
-SwapchainDesc sanitizeSwapchainDesc(const SwapchainDesc& desc)
+SwapchainDesc SanitizeSwapchainDesc(const SwapchainDesc& desc)
 {
     SwapchainDesc sanitized = desc;
-    sanitized.width = std::max(desc.width, 1u);
-    sanitized.height = std::max(desc.height, 1u);
-    sanitized.imageCount = std::max(desc.imageCount, 1u);
-    if (sanitized.format == Format::Unknown)
-        sanitized.format = Format::BGRA8_UNORM;
+    sanitized.m_Width = std::max(desc.m_Width, 1u);
+    sanitized.m_Height = std::max(desc.m_Height, 1u);
+    sanitized.m_ImageCount = std::max(desc.m_ImageCount, 1u);
+    if (sanitized.m_Format == Format::Unknown)
+        sanitized.m_Format = Format::BGRA8_UNORM;
     return sanitized;
 }
 
-PipelineLayoutDesc buildPipelineLayoutDescFromReflection(const ShaderReflectionData& reflection)
+PipelineLayoutDesc BuildPipelineLayoutDescFromReflection(const ShaderReflectionData& reflection)
 {
     PipelineLayoutDesc layoutDesc;
 
-    for (const ReflectedField& field : reflection.globals)
+    for (const ReflectedField& field : reflection.m_Globals)
     {
         const bool isBindableResource =
-            field.typeKind == ReflectedTypeKind::Texture || field.typeKind == ReflectedTypeKind::Sampler ||
-            field.typeKind == ReflectedTypeKind::Buffer || field.typeKind == ReflectedTypeKind::ParameterBlock ||
-            field.typeKind == ReflectedTypeKind::ConstantData;
+            field.m_TypeKind == ReflectedTypeKind::Texture || field.m_TypeKind == ReflectedTypeKind::Sampler ||
+            field.m_TypeKind == ReflectedTypeKind::Buffer || field.m_TypeKind == ReflectedTypeKind::ParameterBlock ||
+            field.m_TypeKind == ReflectedTypeKind::ConstantData;
 
         if (!isBindableResource)
             continue;
 
         BindingInfo bindingInfo;
-        bindingInfo.name = field.name;
-        bindingInfo.setIndex = field.setIndex;
-        bindingInfo.binding = field.binding;
-        bindingInfo.kind = mapReflectedResourceKind(field.typeKind);
-        bindingInfo.arrayCount = field.arrayCount;
-        bindingInfo.stageMask = field.stageMask;
-        layoutDesc.bindings.push_back(std::move(bindingInfo));
+        bindingInfo.m_Name = field.m_Name;
+        bindingInfo.m_SetIndex = field.m_SetIndex;
+        bindingInfo.m_Binding = field.m_Binding;
+        bindingInfo.m_Kind = MapReflectedResourceKind(field.m_TypeKind);
+        bindingInfo.m_ArrayCount = field.m_ArrayCount;
+        bindingInfo.m_StageMask = field.m_StageMask;
+        layoutDesc.m_Bindings.push_back(std::move(bindingInfo));
     }
 
-    layoutDesc.pushConstants = reflection.pushConstants;
+    layoutDesc.m_PushConstants = reflection.m_PushConstants;
     return layoutDesc;
 }
 
-PipelineLayoutDesc ShellShaderProgram::derivePipelineLayoutDesc() const
+PipelineLayoutDesc ShellShaderProgram::DerivePipelineLayoutDesc() const
 {
-    return buildPipelineLayoutDescFromReflection(m_Reflection);
+    return BuildPipelineLayoutDescFromReflection(m_Reflection);
 }
 
 ShellResourceSet::ShellResourceSet(PipelineLayout* layout, uint32_t setIndex) : m_Layout(layout), m_SetIndex(setIndex)
 {
 }
 
-void ShellResourceSet::setBuffer(uint32_t binding, const BufferBinding& bufferBinding)
+void ShellResourceSet::SetBuffer(uint32_t binding, const BufferBinding& bufferBinding)
 {
     m_BufferBindings[binding] = bufferBinding;
     ++m_Version;
 }
 
-void ShellResourceSet::setTexture(uint32_t binding, const TextureBinding& textureBinding)
+void ShellResourceSet::SetTexture(uint32_t binding, const TextureBinding& textureBinding)
 {
     m_TextureBindings[binding] = textureBinding;
     ++m_Version;
 }
 
-void ShellResourceSet::setSampler(uint32_t binding, const SamplerBinding& samplerBinding)
+void ShellResourceSet::SetSampler(uint32_t binding, const SamplerBinding& samplerBinding)
 {
     m_SamplerBindings[binding] = samplerBinding;
     ++m_Version;
 }
 
-void ShellCommandListBase::beginRendering(const RenderingInfo& renderingInfo)
+void ShellCommandListBase::BeginRendering(const RenderingInfo& renderingInfo)
 {
     m_RenderingInfo = renderingInfo;
     m_IsRendering = true;
 }
 
-void ShellCommandListBase::endRendering()
+void ShellCommandListBase::EndRendering()
 {
     m_IsRendering = false;
 }
 
-void ShellCommandListBase::bindGraphicsPipeline(GraphicsPipeline* pipeline)
+void ShellCommandListBase::BindGraphicsPipeline(GraphicsPipeline* pipeline)
 {
     m_GraphicsPipeline = pipeline;
 }
 
-void ShellCommandListBase::bindComputePipeline(ComputePipeline* pipeline)
+void ShellCommandListBase::BindComputePipeline(ComputePipeline* pipeline)
 {
     m_ComputePipeline = pipeline;
 }
 
-void ShellCommandListBase::bindResourceSet(uint32_t setIndex, ResourceSet* resourceSet)
+void ShellCommandListBase::BindResourceSet(uint32_t setIndex, ResourceSet* resourceSet)
 {
     m_ResourceSets[setIndex] = resourceSet;
 }
 
-void ShellCommandListBase::pushConstants(ShaderStage, uint32_t offset, uint32_t size, const void* data)
+void ShellCommandListBase::PushConstants(ShaderStage, uint32_t offset, uint32_t size, const void* data)
 {
     if (size == 0 || data == nullptr)
         return;
@@ -149,42 +149,42 @@ void ShellCommandListBase::pushConstants(ShaderStage, uint32_t offset, uint32_t 
     std::memcpy(m_PushConstants.data() + offset, data, size);
 }
 
-void ShellCommandListBase::bindMesh(const MeshBinding& meshBinding, const uint64_t* vertexOffsets)
+void ShellCommandListBase::BindMesh(const MeshBinding& meshBinding, const uint64_t* vertexOffsets)
 {
     m_MeshBinding = meshBinding;
     m_VertexOffsets.clear();
 
     if (vertexOffsets != nullptr)
     {
-        m_VertexOffsets.assign(vertexOffsets, vertexOffsets + meshBinding.vertexBuffers.size());
+        m_VertexOffsets.assign(vertexOffsets, vertexOffsets + meshBinding.m_VertexBuffers.size());
     }
 }
 
-void ShellCommandListBase::bindVertexBuffers(uint32_t firstSlot,
+void ShellCommandListBase::BindVertexBuffers(uint32_t firstSlot,
                                              Buffer* const* buffers,
                                              uint32_t count,
                                              const uint64_t* offsets)
 {
-    if (m_MeshBinding.vertexBuffers.size() < firstSlot + count)
-        m_MeshBinding.vertexBuffers.resize(firstSlot + count);
+    if (m_MeshBinding.m_VertexBuffers.size() < firstSlot + count)
+        m_MeshBinding.m_VertexBuffers.resize(firstSlot + count);
     if (m_VertexOffsets.size() < firstSlot + count)
         m_VertexOffsets.resize(firstSlot + count, 0);
 
     for (uint32_t index = 0; index < count; ++index)
     {
-        m_MeshBinding.vertexBuffers[firstSlot + index] = buffers[index];
+        m_MeshBinding.m_VertexBuffers[firstSlot + index] = buffers[index];
         m_VertexOffsets[firstSlot + index] = offsets != nullptr ? offsets[index] : 0;
     }
 }
 
-void ShellCommandListBase::bindIndexBuffer(Buffer* buffer, uint64_t offset, IndexType indexType)
+void ShellCommandListBase::BindIndexBuffer(Buffer* buffer, uint64_t offset, IndexType indexType)
 {
     m_IndexBuffer = buffer;
     m_IndexOffset = offset;
     m_IndexType = indexType;
 }
 
-void ShellCommandListBase::setViewport(float x, float y, float w, float h, float zmin, float zmax)
+void ShellCommandListBase::SetViewport(float x, float y, float w, float h, float zmin, float zmax)
 {
     m_Viewport[0] = x;
     m_Viewport[1] = y;
@@ -194,103 +194,103 @@ void ShellCommandListBase::setViewport(float x, float y, float w, float h, float
     m_Viewport[5] = zmax;
 }
 
-void ShellCommandListBase::setScissor(int32_t x, int32_t y, uint32_t w, uint32_t h)
+void ShellCommandListBase::SetScissor(int32_t x, int32_t y, uint32_t w, uint32_t h)
 {
     m_Scissor = Rect2D{x, y, w, h};
 }
 
-void ShellCommandListBase::draw(uint32_t vertexCount, uint32_t firstVertex)
+void ShellCommandListBase::Draw(uint32_t vertexCount, uint32_t firstVertex)
 {
     m_LastDrawVertexCount = vertexCount;
     m_LastDrawFirstVertex = firstVertex;
 }
 
-void ShellCommandListBase::drawIndexed(uint32_t indexCount, uint32_t firstIndex, int32_t vertexOffset)
+void ShellCommandListBase::DrawIndexed(uint32_t indexCount, uint32_t firstIndex, int32_t vertexOffset)
 {
     m_LastDrawIndexedCount = indexCount;
     m_LastDrawFirstIndex = firstIndex;
     m_LastDrawVertexOffset = vertexOffset;
 }
 
-void ShellCommandListBase::dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ)
+void ShellCommandListBase::Dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ)
 {
     m_LastDispatchX = groupX;
     m_LastDispatchY = groupY;
     m_LastDispatchZ = groupZ;
 }
 
-void ShellCommandListBase::textureBarrier(Texture*, TextureState, TextureState, ShaderStage, ShaderStage) {}
+void ShellCommandListBase::TextureBarrier(Texture*, TextureState, TextureState, ShaderStage, ShaderStage) {}
 
-void ShellCommandListBase::bufferBarrier(Buffer*, BufferState, BufferState, ShaderStage, ShaderStage) {}
+void ShellCommandListBase::BufferBarrier(Buffer*, BufferState, BufferState, ShaderStage, ShaderStage) {}
 
 ShellSwapchainBase::ShellSwapchainBase(const SwapchainDesc& desc, const NativeWindowHandle& nativeWindowHandle)
-    : m_Desc(sanitizeSwapchainDesc(desc)), m_NativeWindowHandle(nativeWindowHandle)
+    : m_Desc(SanitizeSwapchainDesc(desc)), m_NativeWindowHandle(nativeWindowHandle)
 {
-    RTRLAB_ASSERT_MSG(isNativeWindowHandleValid(nativeWindowHandle), "Native window handle is incomplete.");
-    rebuildImages();
+    RTRLAB_ASSERT_MSG(IsNativeWindowHandleValid(nativeWindowHandle), "Native window handle is incomplete.");
+    RebuildImages();
 }
 
-uint32_t ShellSwapchainBase::acquireNextImage()
+uint32_t ShellSwapchainBase::AcquireNextImage()
 {
     const uint32_t currentImageIndex = m_NextImageIndex;
-    m_NextImageIndex = (m_NextImageIndex + 1) % imageCount();
+    m_NextImageIndex = (m_NextImageIndex + 1) % GetImageCount();
     return currentImageIndex;
 }
 
-Texture* ShellSwapchainBase::getImage(uint32_t imageIndex) const
+Texture* ShellSwapchainBase::GetImage(uint32_t imageIndex) const
 {
     RTRLAB_ASSERT_MSG(imageIndex < m_Images.size(), "Swapchain image index out of range.");
     return m_Images[imageIndex].get();
 }
 
-TextureView* ShellSwapchainBase::getImageView(uint32_t imageIndex) const
+TextureView* ShellSwapchainBase::GetImageView(uint32_t imageIndex) const
 {
     RTRLAB_ASSERT_MSG(imageIndex < m_ImageViews.size(), "Swapchain image-view index out of range.");
     return m_ImageViews[imageIndex].get();
 }
 
-void ShellSwapchainBase::present(uint32_t imageIndex)
+void ShellSwapchainBase::Present(uint32_t imageIndex)
 {
     RTRLAB_ASSERT_MSG(imageIndex < m_Images.size(), "Swapchain present index out of range.");
 }
 
-void ShellSwapchainBase::resize(uint32_t newWidth, uint32_t newHeight)
+void ShellSwapchainBase::Resize(uint32_t newWidth, uint32_t newHeight)
 {
-    m_Desc.width = std::max(newWidth, 1u);
-    m_Desc.height = std::max(newHeight, 1u);
-    rebuildImages();
+    m_Desc.m_Width = std::max(newWidth, 1u);
+    m_Desc.m_Height = std::max(newHeight, 1u);
+    RebuildImages();
 }
 
-TextureDesc ShellSwapchainBase::buildSwapchainImageDesc() const
+TextureDesc ShellSwapchainBase::BuildSwapchainImageDesc() const
 {
     TextureDesc textureDesc;
-    textureDesc.type = TextureType::Tex2D;
-    textureDesc.format = m_Desc.format;
-    textureDesc.extent = Extent3D{m_Desc.width, m_Desc.height, 1};
-    textureDesc.mipLevels = 1;
-    textureDesc.arrayLayers = 1;
-    textureDesc.usageMask = TextureUsage::RenderTarget | TextureUsage::CopySrc;
-    textureDesc.debugName = "SwapchainImage";
+    textureDesc.m_Type = TextureType::Tex2D;
+    textureDesc.m_Format = m_Desc.m_Format;
+    textureDesc.m_Extent = Extent3D{m_Desc.m_Width, m_Desc.m_Height, 1};
+    textureDesc.m_MipLevels = 1;
+    textureDesc.m_ArrayLayers = 1;
+    textureDesc.m_UsageMask = TextureUsage::RenderTarget | TextureUsage::CopySrc;
+    textureDesc.m_DebugName = "SwapchainImage";
     return textureDesc;
 }
 
-void ShellSwapchainBase::rebuildImages()
+void ShellSwapchainBase::RebuildImages()
 {
     m_Images.clear();
     m_ImageViews.clear();
-    m_Images.reserve(m_Desc.imageCount);
-    m_ImageViews.reserve(m_Desc.imageCount);
+    m_Images.reserve(m_Desc.m_ImageCount);
+    m_ImageViews.reserve(m_Desc.m_ImageCount);
 
-    const TextureDesc imageDesc = buildSwapchainImageDesc();
+    const TextureDesc imageDesc = BuildSwapchainImageDesc();
 
-    for (uint32_t imageIndex = 0; imageIndex < m_Desc.imageCount; ++imageIndex)
+    for (uint32_t imageIndex = 0; imageIndex < m_Desc.m_ImageCount; ++imageIndex)
     {
         auto image = CreateScope<ShellTexture>(imageDesc);
 
         TextureViewDesc viewDesc;
-        viewDesc.type = TextureType::Tex2D;
-        viewDesc.format = imageDesc.format;
-        viewDesc.aspect = TextureAspect::Color;
+        viewDesc.m_Type = TextureType::Tex2D;
+        viewDesc.m_Format = imageDesc.m_Format;
+        viewDesc.m_Aspect = TextureAspect::Color;
 
         auto view = CreateScope<ShellTextureView>(image.get(), viewDesc);
         m_ImageViews.push_back(std::move(view));
@@ -300,57 +300,57 @@ void ShellSwapchainBase::rebuildImages()
     m_NextImageIndex = 0;
 }
 
-Scope<Buffer> ShellDeviceBase::createBuffer(const BufferDesc& desc)
+Scope<Buffer> ShellDeviceBase::CreateBuffer(const BufferDesc& desc)
 {
     return CreateScope<ShellBuffer>(desc);
 }
 
-Scope<Texture> ShellDeviceBase::createTexture(const TextureDesc& desc)
+Scope<Texture> ShellDeviceBase::CreateTexture(const TextureDesc& desc)
 {
     return CreateScope<ShellTexture>(desc);
 }
 
-Scope<TextureView> ShellDeviceBase::createTextureView(Texture* texture, const TextureViewDesc& desc)
+Scope<TextureView> ShellDeviceBase::CreateTextureView(Texture* texture, const TextureViewDesc& desc)
 {
     return CreateScope<ShellTextureView>(texture, desc);
 }
 
-Scope<Sampler> ShellDeviceBase::createSampler(const SamplerDesc& desc)
+Scope<Sampler> ShellDeviceBase::CreateSampler(const SamplerDesc& desc)
 {
     return CreateScope<ShellSampler>(desc);
 }
 
-Scope<ShaderProgram> ShellDeviceBase::createShaderProgram(const CompiledShaderProgramDesc& desc)
+Scope<ShaderProgram> ShellDeviceBase::CreateShaderProgram(const CompiledShaderProgramDesc& desc)
 {
     return CreateScope<ShellShaderProgram>(desc);
 }
 
-Scope<PipelineLayout> ShellDeviceBase::createPipelineLayout(const PipelineLayoutDesc& desc)
+Scope<PipelineLayout> ShellDeviceBase::CreatePipelineLayout(const PipelineLayoutDesc& desc)
 {
     return CreateScope<ShellPipelineLayout>(desc);
 }
 
-Scope<ResourceSet> ShellDeviceBase::createResourceSet(PipelineLayout* layout, uint32_t setIndex)
+Scope<ResourceSet> ShellDeviceBase::CreateResourceSet(PipelineLayout* layout, uint32_t setIndex)
 {
     return CreateScope<ShellResourceSet>(layout, setIndex);
 }
 
-Scope<VertexInputLayout> ShellDeviceBase::createVertexInputLayout(const VertexInputLayoutDesc& desc)
+Scope<VertexInputLayout> ShellDeviceBase::CreateVertexInputLayout(const VertexInputLayoutDesc& desc)
 {
     return CreateScope<ShellVertexInputLayout>(desc);
 }
 
-Scope<GraphicsPipeline> ShellDeviceBase::createGraphicsPipeline(const GraphicsPipelineDesc& desc)
+Scope<GraphicsPipeline> ShellDeviceBase::CreateGraphicsPipeline(const GraphicsPipelineDesc& desc)
 {
     return CreateScope<ShellGraphicsPipeline>(desc);
 }
 
-Scope<ComputePipeline> ShellDeviceBase::createComputePipeline(const ComputePipelineDesc& desc)
+Scope<ComputePipeline> ShellDeviceBase::CreateComputePipeline(const ComputePipelineDesc& desc)
 {
     return CreateScope<ShellComputePipeline>(desc);
 }
 
-void ShellDeviceBase::submit(CommandList*) {}
+void ShellDeviceBase::Submit(CommandList*) {}
 
-void ShellDeviceBase::endFrame(FrameContext*) {}
+void ShellDeviceBase::EndFrame(FrameContext*) {}
 } // namespace RHIInternal
