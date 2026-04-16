@@ -14,7 +14,7 @@
 #include "Core/Util/Base.h"
 #include "Demos/DemoBase.h"
 
-class IRenderTarget;
+class RenderTarget;
 
 class HelloWindow : public DemoBase
 {
@@ -31,7 +31,7 @@ private:
     uint32_t m_ViewportWidth = 0;
     uint32_t m_ViewportHeight = 0;
 
-    Ref<IRenderTarget> m_BackBuffer;
+    Ref<RenderTarget> m_BackBuffer;
 
     glm::vec3 m_ClearColor{0.2f, 0.3f, 0.3f};
 };

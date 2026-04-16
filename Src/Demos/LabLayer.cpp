@@ -26,7 +26,7 @@ void LabLayer::OnAttach()
         LOG_INFO_CAT(LogCategory::Demo, "Loading default demo: 01 - Hello Window");
         auto defaultDemo = DemoRegistry::Create("01 - Hello Window");
         RTRLAB_ASSERT_MSG(defaultDemo, "Failed to create default demo: 01 - Hello Window");
-        SetActiveDemo(std::move(defaultDemo), "01 - Hellow Window");
+        SetActiveDemo(std::move(defaultDemo), "01 - Hello Window");
     }
 
     if (m_ActiveDemo)

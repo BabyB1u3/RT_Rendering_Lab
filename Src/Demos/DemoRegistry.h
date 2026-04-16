@@ -31,8 +31,8 @@ public:
 private:
     struct Entry
     {
-        std::string Name;
-        Factory Create;
+        std::string m_Name;
+        Factory m_Create;
     };
 
     static std::vector<Entry>& Entries();

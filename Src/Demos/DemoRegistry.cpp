@@ -25,7 +25,7 @@ void DemoRegistry::Register(const std::string& name, Factory factory)
     // Silently ignore duplicate registrations (idempotent).
     for (const auto& entry : entries)
     {
-        if (entry.Name == name)
+        if (entry.m_Name == name)
             return;
     }
 
@@ -37,8 +37,8 @@ Scope<DemoBase> DemoRegistry::Create(const std::string& name)
 {
     for (const auto& entry : Entries())
     {
-        if (entry.Name == name)
-            return entry.Create();
+        if (entry.m_Name == name)
+            return entry.m_Create();
     }
 
     ERR_FAIL_COND_V_MSG_CAT(LogCategory::Demo, true, nullptr, "unknown demo: " + name);
