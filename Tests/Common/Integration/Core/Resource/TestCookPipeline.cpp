@@ -67,23 +67,23 @@ TEST_F(CookPipelineTests, CookRepositoryCatalogsCopiesArtifactsAndWritesCookedCa
     std::string errorMessageFromLoad;
     const auto metadata = Resource::ReadCookedTextureMetadata(cookedArtifactPath, &errorMessageFromLoad);
     ASSERT_TRUE(metadata.has_value()) << errorMessageFromLoad;
-    EXPECT_EQ(metadata->width, 1u);
-    EXPECT_EQ(metadata->height, 1u);
-    EXPECT_EQ(metadata->channelCount, 4u);
-    EXPECT_EQ(metadata->mipLevelCount, 1u);
-    EXPECT_EQ(metadata->rowPitch, 4u);
-    EXPECT_EQ(metadata->dataSize, 4u);
-    EXPECT_EQ(metadata->pixelFormat, Resource::CookedTexturePixelFormat::RGBA8_UNorm);
+    EXPECT_EQ(metadata->m_Width, 1u);
+    EXPECT_EQ(metadata->m_Height, 1u);
+    EXPECT_EQ(metadata->m_ChannelCount, 4u);
+    EXPECT_EQ(metadata->m_MipLevelCount, 1u);
+    EXPECT_EQ(metadata->m_RowPitch, 4u);
+    EXPECT_EQ(metadata->m_DataSize, 4u);
+    EXPECT_EQ(metadata->m_PixelFormat, Resource::CookedTexturePixelFormat::RGBA8_UNORM);
 
     const auto cookedTexture = Resource::LoadCookedTexture(cookedArtifactPath, &errorMessageFromLoad);
     ASSERT_TRUE(cookedTexture.has_value()) << errorMessageFromLoad;
-    EXPECT_EQ(cookedTexture->width, 1u);
-    EXPECT_EQ(cookedTexture->height, 1u);
-    EXPECT_EQ(cookedTexture->channelCount, 4u);
-    EXPECT_EQ(cookedTexture->mipLevelCount, 1u);
-    EXPECT_EQ(cookedTexture->rowPitch, 4u);
-    EXPECT_EQ(cookedTexture->pixelFormat, Resource::CookedTexturePixelFormat::RGBA8_UNorm);
-    EXPECT_EQ(cookedTexture->pixelData.size(), 4u);
+    EXPECT_EQ(cookedTexture->m_Width, 1u);
+    EXPECT_EQ(cookedTexture->m_Height, 1u);
+    EXPECT_EQ(cookedTexture->m_ChannelCount, 4u);
+    EXPECT_EQ(cookedTexture->m_MipLevelCount, 1u);
+    EXPECT_EQ(cookedTexture->m_RowPitch, 4u);
+    EXPECT_EQ(cookedTexture->m_PixelFormat, Resource::CookedTexturePixelFormat::RGBA8_UNORM);
+    EXPECT_EQ(cookedTexture->m_PixelData.size(), 4u);
 }
 
 TEST_F(CookPipelineTests, CookRepositoryCatalogsPreservesLogicalPathsAcrossProjectAndEngineMounts)

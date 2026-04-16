@@ -15,28 +15,28 @@ using Json = nlohmann::json;
 
 struct PakHeader
 {
-    char magic[8] = {'R', 'T', 'R', 'P', 'A', 'K', '0', '1'};
-    uint32_t version = 1;
-    uint32_t entryCount = 0;
-    uint64_t indexOffset = 0;
-    uint64_t indexSize = 0;
+    char m_Magic[8] = {'R', 'T', 'R', 'P', 'A', 'K', '0', '1'};
+    uint32_t m_Version = 1;
+    uint32_t m_EntryCount = 0;
+    uint64_t m_IndexOffset = 0;
+    uint64_t m_IndexSize = 0;
 };
 
 struct PakIndexEntry
 {
-    std::string relativePath;
-    uint64_t dataOffset = 0;
-    uint64_t dataSize = 0;
+    std::string m_RelativePath;
+    uint64_t m_DataOffset = 0;
+    uint64_t m_DataSize = 0;
 };
 
 static_assert(sizeof(PakHeader) == 32);
 
-constexpr std::array<char, 8> kPakMagic{'R', 'T', 'R', 'P', 'A', 'K', '0', '1'};
-constexpr uint32_t kPakVersion = 1;
+constexpr std::array<char, 8> k_PakMagic{'R', 'T', 'R', 'P', 'A', 'K', '0', '1'};
+constexpr uint32_t k_PakVersion = 1;
 
 bool HasExpectedMagic(const PakHeader& header)
 {
-    return std::equal(kPakMagic.begin(), kPakMagic.end(), header.magic);
+    return std::equal(k_PakMagic.begin(), k_PakMagic.end(), header.m_Magic);
 }
 
 bool IsSafeRelativePath(const std::filesystem::path& path)
@@ -56,8 +56,8 @@ bool IsSafeRelativePath(const std::filesystem::path& path)
 
 struct StagedPakEntry
 {
-    std::filesystem::path sourcePath;
-    std::string archiveRelativePath;
+    std::filesystem::path m_SourcePath;
+    std::string m_ArchiveRelativePath;
 };
 
 bool CollectPakEntriesFromRoot(const std::filesystem::path& sourceRoot,
@@ -90,8 +90,8 @@ bool CollectPakEntriesFromRoot(const std::filesystem::path& sourceRoot,
         }
 
         entries.push_back(StagedPakEntry{
-            .sourcePath = entry.path(),
-            .archiveRelativePath = (archiveRoot / relativePath).generic_string(),
+            .m_SourcePath = entry.path(),
+            .m_ArchiveRelativePath = (archiveRoot / relativePath).generic_string(),
         });
     }
 
@@ -203,7 +203,7 @@ bool BuildMergedGamePakArchive(const std::filesystem::path& projectRoot,
 
     std::sort(stagedEntries.begin(),
               stagedEntries.end(),
-              [](const auto& lhs, const auto& rhs) { return lhs.archiveRelativePath < rhs.archiveRelativePath; });
+              [](const auto& lhs, const auto& rhs) { return lhs.m_ArchiveRelativePath < rhs.m_ArchiveRelativePath; });
 
     std::filesystem::create_directories(pakPath.parent_path());
     std::ofstream out(pakPath, std::ios::binary | std::ios::trunc);
@@ -233,18 +233,18 @@ bool BuildMergedGamePakArchive(const std::filesystem::path& projectRoot,
         return false;
     }
     indexEntries.push_back(PakIndexEntry{
-        .relativePath = ".rtr/catalog.json",
-        .dataOffset = catalogOffset,
-        .dataSize = static_cast<uint64_t>(mergedCatalogJson.size()),
+        .m_RelativePath = ".rtr/catalog.json",
+        .m_DataOffset = catalogOffset,
+        .m_DataSize = static_cast<uint64_t>(mergedCatalogJson.size()),
     });
 
     for (const auto& entry : stagedEntries)
     {
-        std::ifstream in(entry.sourcePath, std::ios::binary);
+        std::ifstream in(entry.m_SourcePath, std::ios::binary);
         if (!in.is_open())
         {
             if (errorMessage != nullptr)
-                *errorMessage = "failed to open pak source file: " + entry.sourcePath.string();
+                *errorMessage = "failed to open pak source file: " + entry.m_SourcePath.string();
             return false;
         }
 
@@ -254,25 +254,25 @@ bool BuildMergedGamePakArchive(const std::filesystem::path& projectRoot,
         if (!out.good())
         {
             if (errorMessage != nullptr)
-                *errorMessage = "failed to write pak entry: " + entry.archiveRelativePath;
+                *errorMessage = "failed to write pak entry: " + entry.m_ArchiveRelativePath;
             return false;
         }
 
         indexEntries.push_back(PakIndexEntry{
-            .relativePath = entry.archiveRelativePath,
-            .dataOffset = dataOffset,
-            .dataSize = static_cast<uint64_t>(buffer.size()),
+            .m_RelativePath = entry.m_ArchiveRelativePath,
+            .m_DataOffset = dataOffset,
+            .m_DataSize = static_cast<uint64_t>(buffer.size()),
         });
     }
 
     const auto indexOffset = static_cast<uint64_t>(out.tellp());
     for (const auto& entry : indexEntries)
     {
-        const uint32_t pathLength = static_cast<uint32_t>(entry.relativePath.size());
+        const uint32_t pathLength = static_cast<uint32_t>(entry.m_RelativePath.size());
         out.write(reinterpret_cast<const char*>(&pathLength), sizeof(pathLength));
-        out.write(reinterpret_cast<const char*>(&entry.dataOffset), sizeof(entry.dataOffset));
-        out.write(reinterpret_cast<const char*>(&entry.dataSize), sizeof(entry.dataSize));
-        out.write(entry.relativePath.data(), static_cast<std::streamsize>(entry.relativePath.size()));
+        out.write(reinterpret_cast<const char*>(&entry.m_DataOffset), sizeof(entry.m_DataOffset));
+        out.write(reinterpret_cast<const char*>(&entry.m_DataSize), sizeof(entry.m_DataSize));
+        out.write(entry.m_RelativePath.data(), static_cast<std::streamsize>(entry.m_RelativePath.size()));
     }
     if (!out.good())
     {
@@ -282,9 +282,9 @@ bool BuildMergedGamePakArchive(const std::filesystem::path& projectRoot,
     }
 
     const auto endOffset = static_cast<uint64_t>(out.tellp());
-    header.entryCount = static_cast<uint32_t>(indexEntries.size());
-    header.indexOffset = indexOffset;
-    header.indexSize = endOffset - indexOffset;
+    header.m_EntryCount = static_cast<uint32_t>(indexEntries.size());
+    header.m_IndexOffset = indexOffset;
+    header.m_IndexSize = endOffset - indexOffset;
 
     out.seekp(0, std::ios::beg);
     out.write(reinterpret_cast<const char*>(&header), sizeof(header));
@@ -322,14 +322,14 @@ bool LoadPakIndex(const std::filesystem::path& pakPath, std::vector<PakIndexEntr
         return false;
     }
 
-    if (!HasExpectedMagic(header) || header.version != kPakVersion)
+    if (!HasExpectedMagic(header) || header.m_Version != k_PakVersion)
     {
         if (errorMessage != nullptr)
             *errorMessage = "pak archive has invalid header: " + pakPath.string();
         return false;
     }
 
-    in.seekg(static_cast<std::streamoff>(header.indexOffset), std::ios::beg);
+    in.seekg(static_cast<std::streamoff>(header.m_IndexOffset), std::ios::beg);
     if (!in.good())
     {
         if (errorMessage != nullptr)
@@ -338,9 +338,9 @@ bool LoadPakIndex(const std::filesystem::path& pakPath, std::vector<PakIndexEntr
     }
 
     entries.clear();
-    entries.reserve(header.entryCount);
+    entries.reserve(header.m_EntryCount);
 
-    for (uint32_t i = 0; i < header.entryCount; ++i)
+    for (uint32_t i = 0; i < header.m_EntryCount; ++i)
     {
         uint32_t pathLength = 0;
         uint64_t dataOffset = 0;
@@ -373,9 +373,9 @@ bool LoadPakIndex(const std::filesystem::path& pakPath, std::vector<PakIndexEntr
         }
 
         entries.push_back(PakIndexEntry{
-            .relativePath = std::move(relativePath),
-            .dataOffset = dataOffset,
-            .dataSize = dataSize,
+            .m_RelativePath = std::move(relativePath),
+            .m_DataOffset = dataOffset,
+            .m_DataSize = dataSize,
         });
     }
 
@@ -391,7 +391,7 @@ FindPakEntry(const std::filesystem::path& pakPath, const std::filesystem::path& 
 
     const auto wantedPath = PakPathToGenericString(relativePath);
     const auto it = std::find_if(
-        entries.begin(), entries.end(), [&](const PakIndexEntry& entry) { return entry.relativePath == wantedPath; });
+        entries.begin(), entries.end(), [&](const PakIndexEntry& entry) { return entry.m_RelativePath == wantedPath; });
     if (it == entries.end())
         return std::nullopt;
 
@@ -490,20 +490,20 @@ bool BuildPakArchive(const std::filesystem::path& sourceRoot,
         }
 
         indexEntries.push_back(PakIndexEntry{
-            .relativePath = PakPathToGenericString(relativePath),
-            .dataOffset = dataOffset,
-            .dataSize = static_cast<uint64_t>(buffer.size()),
+            .m_RelativePath = PakPathToGenericString(relativePath),
+            .m_DataOffset = dataOffset,
+            .m_DataSize = static_cast<uint64_t>(buffer.size()),
         });
     }
 
     const auto indexOffset = static_cast<uint64_t>(out.tellp());
     for (const auto& entry : indexEntries)
     {
-        const uint32_t pathLength = static_cast<uint32_t>(entry.relativePath.size());
+        const uint32_t pathLength = static_cast<uint32_t>(entry.m_RelativePath.size());
         out.write(reinterpret_cast<const char*>(&pathLength), sizeof(pathLength));
-        out.write(reinterpret_cast<const char*>(&entry.dataOffset), sizeof(entry.dataOffset));
-        out.write(reinterpret_cast<const char*>(&entry.dataSize), sizeof(entry.dataSize));
-        out.write(entry.relativePath.data(), static_cast<std::streamsize>(entry.relativePath.size()));
+        out.write(reinterpret_cast<const char*>(&entry.m_DataOffset), sizeof(entry.m_DataOffset));
+        out.write(reinterpret_cast<const char*>(&entry.m_DataSize), sizeof(entry.m_DataSize));
+        out.write(entry.m_RelativePath.data(), static_cast<std::streamsize>(entry.m_RelativePath.size()));
     }
     if (!out.good())
     {
@@ -513,9 +513,9 @@ bool BuildPakArchive(const std::filesystem::path& sourceRoot,
     }
 
     const auto endOffset = static_cast<uint64_t>(out.tellp());
-    header.entryCount = static_cast<uint32_t>(indexEntries.size());
-    header.indexOffset = indexOffset;
-    header.indexSize = endOffset - indexOffset;
+    header.m_EntryCount = static_cast<uint32_t>(indexEntries.size());
+    header.m_IndexOffset = indexOffset;
+    header.m_IndexSize = endOffset - indexOffset;
 
     out.seekp(0, std::ios::beg);
     out.write(reinterpret_cast<const char*>(&header), sizeof(header));
@@ -544,20 +544,20 @@ ReadPakEntry(const std::filesystem::path& pakPath, const std::filesystem::path& 
         return std::nullopt;
     }
 
-    in.seekg(static_cast<std::streamoff>(entry->dataOffset), std::ios::beg);
+    in.seekg(static_cast<std::streamoff>(entry->m_DataOffset), std::ios::beg);
     if (!in.good())
     {
         if (errorMessage != nullptr)
-            *errorMessage = "failed to seek to pak entry: " + entry->relativePath;
+            *errorMessage = "failed to seek to pak entry: " + entry->m_RelativePath;
         return std::nullopt;
     }
 
-    std::vector<uint8_t> bytes(static_cast<size_t>(entry->dataSize));
+    std::vector<uint8_t> bytes(static_cast<size_t>(entry->m_DataSize));
     in.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
     if (in.gcount() != static_cast<std::streamsize>(bytes.size()))
     {
         if (errorMessage != nullptr)
-            *errorMessage = "pak entry payload is truncated: " + entry->relativePath;
+            *errorMessage = "pak entry payload is truncated: " + entry->m_RelativePath;
         return std::nullopt;
     }
 

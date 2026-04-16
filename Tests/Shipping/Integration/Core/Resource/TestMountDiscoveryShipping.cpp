@@ -18,9 +18,9 @@ using MountDiscoveryShippingTests = test_support::RootDiscoveryTestsBase;
 
 struct ArchiveEntry
 {
-    std::string logicalPath;
-    std::string relativePath;
-    std::string contents;
+    std::string m_LogicalPath;
+    std::string m_RelativePath;
+    std::string m_Contents;
 };
 
 void BuildSharedGameArchiveFixture(const std::filesystem::path& repoRoot)
@@ -62,12 +62,12 @@ void BuildArchiveFixture(const std::filesystem::path& archiveRoot,
 
         catalog += "    {\n"
                    "      \"logicalPath\": \"" +
-                   entry.logicalPath +
+                   entry.m_LogicalPath +
                    "\",\n"
                    "      \"artifacts\": [\n"
                    "        {\n"
                    "          \"relativePath\": \"" +
-                   entry.relativePath +
+                   entry.m_RelativePath +
                    "\",\n"
                    "          \"format\": \"bin\",\n"
                    "          \"profileTag\": \"cooked\",\n"
@@ -81,7 +81,7 @@ void BuildArchiveFixture(const std::filesystem::path& archiveRoot,
 
     test_support::WriteTextFileOrFail(test_support::MountCatalogPath(archiveRoot), catalog);
     for (const auto& entry : entries)
-        test_support::WriteMountFileOrFail(archiveRoot, entry.relativePath, entry.contents);
+        test_support::WriteMountFileOrFail(archiveRoot, entry.m_RelativePath, entry.m_Contents);
 
     std::string errorMessage;
     ASSERT_TRUE(Resource::BuildPakArchive(archiveRoot, archivePath, &errorMessage)) << errorMessage;
@@ -96,9 +96,9 @@ bool ContainsMount(const std::vector<Resource::ReadableMount>& mounts,
                        mounts.end(),
                        [&](const auto& mount)
                        {
-                           return mount.sourceKey == sourceKey && mount.priority == priority &&
-                                  mount.backend == Resource::MountBackendKind::PakArchive &&
-                                  mount.mountRoot == mountRoot;
+                           return mount.m_SourceKey == sourceKey && mount.m_Priority == priority &&
+                                  mount.m_Backend == Resource::MountBackendKind::PakArchive &&
+                                  mount.m_MountRoot == mountRoot;
                        });
 }
 } // namespace
@@ -112,14 +112,14 @@ TEST_F(MountDiscoveryShippingTests, DiscoverReadableMountBackendsUsesGameArchive
         repoRoot, test_support::EngineRoot(repoRoot), repoRoot / "Saved" / "Cache", "Project", "shipping");
 
     ASSERT_EQ(mounts.size(), 2u);
-    EXPECT_EQ(mounts[0].sourceKey, "Project");
-    EXPECT_EQ(mounts[0].priority, Resource::MountPriority::Packaged);
-    EXPECT_EQ(mounts[0].backend, Resource::MountBackendKind::PakArchive);
-    EXPECT_EQ(mounts[0].mountRoot, test_support::GamePackagedArchivePath(repoRoot));
-    EXPECT_EQ(mounts[1].sourceKey, "Engine");
-    EXPECT_EQ(mounts[1].priority, Resource::MountPriority::Packaged);
-    EXPECT_EQ(mounts[1].backend, Resource::MountBackendKind::PakArchive);
-    EXPECT_EQ(mounts[1].mountRoot, test_support::GamePackagedArchivePath(repoRoot));
+    EXPECT_EQ(mounts[0].m_SourceKey, "Project");
+    EXPECT_EQ(mounts[0].m_Priority, Resource::MountPriority::Packaged);
+    EXPECT_EQ(mounts[0].m_Backend, Resource::MountBackendKind::PakArchive);
+    EXPECT_EQ(mounts[0].m_MountRoot, test_support::GamePackagedArchivePath(repoRoot));
+    EXPECT_EQ(mounts[1].m_SourceKey, "Engine");
+    EXPECT_EQ(mounts[1].m_Priority, Resource::MountPriority::Packaged);
+    EXPECT_EQ(mounts[1].m_Backend, Resource::MountBackendKind::PakArchive);
+    EXPECT_EQ(mounts[1].m_MountRoot, test_support::GamePackagedArchivePath(repoRoot));
 }
 
 TEST_F(MountDiscoveryShippingTests, DiscoverReadableMountBackendsFindsDlcPatchAndModArchives)
@@ -131,29 +131,29 @@ TEST_F(MountDiscoveryShippingTests, DiscoverReadableMountBackendsFindsDlcPatchAn
                         repoRoot / "DLC" / "Expansion1.rtrpak",
                         {
                             ArchiveEntry{
-                                .logicalPath = "/Project/Textures/Grassy_Square",
-                                .relativePath = "Project/Textures/Grassy_Square.rtrtex",
-                                .contents = "dlc",
+                                .m_LogicalPath = "/Project/Textures/Grassy_Square",
+                                .m_RelativePath = "Project/Textures/Grassy_Square.rtrtex",
+                                .m_Contents = "dlc",
                             },
                             ArchiveEntry{
-                                .logicalPath = "/DLC/Expansion1/Weapons/LaserRifle",
-                                .relativePath = "DLC/Expansion1/Weapons/LaserRifle.bin",
-                                .contents = "laser",
+                                .m_LogicalPath = "/DLC/Expansion1/Weapons/LaserRifle",
+                                .m_RelativePath = "DLC/Expansion1/Weapons/LaserRifle.bin",
+                                .m_Contents = "laser",
                             },
                         });
     BuildArchiveFixture(repoRoot / "Patches" / "Patch_001_Source",
                         repoRoot / "Patches" / "Patch_001.rtrpak",
                         {ArchiveEntry{
-                            .logicalPath = "/Project/Textures/Grassy_Square",
-                            .relativePath = "Project/Textures/Grassy_Square.rtrtex",
-                            .contents = "patch",
+                            .m_LogicalPath = "/Project/Textures/Grassy_Square",
+                            .m_RelativePath = "Project/Textures/Grassy_Square.rtrtex",
+                            .m_Contents = "patch",
                         }});
     BuildArchiveFixture(repoRoot / "Mods" / "CoolMod_Source",
                         repoRoot / "Mods" / "CoolMod.rtrpak",
                         {ArchiveEntry{
-                            .logicalPath = "/Project/Textures/Grassy_Square",
-                            .relativePath = "Project/Textures/Grassy_Square.rtrtex",
-                            .contents = "mod",
+                            .m_LogicalPath = "/Project/Textures/Grassy_Square",
+                            .m_RelativePath = "Project/Textures/Grassy_Square.rtrtex",
+                            .m_Contents = "mod",
                         }});
 
     const auto mounts = Resource::DiscoverReadableMountBackends(
@@ -180,23 +180,23 @@ TEST_F(MountDiscoveryShippingTests, CatalogRegistryPrefersModOverPatchDlcAndBase
     BuildArchiveFixture(repoRoot / "DLC" / "Expansion1_Source",
                         repoRoot / "DLC" / "Expansion1.rtrpak",
                         {ArchiveEntry{
-                            .logicalPath = "/Project/Textures/Grassy_Square",
-                            .relativePath = "Project/Textures/Grassy_Square.rtrtex",
-                            .contents = "dlc",
+                            .m_LogicalPath = "/Project/Textures/Grassy_Square",
+                            .m_RelativePath = "Project/Textures/Grassy_Square.rtrtex",
+                            .m_Contents = "dlc",
                         }});
     BuildArchiveFixture(repoRoot / "Patches" / "Patch_001_Source",
                         repoRoot / "Patches" / "Patch_001.rtrpak",
                         {ArchiveEntry{
-                            .logicalPath = "/Project/Textures/Grassy_Square",
-                            .relativePath = "Project/Textures/Grassy_Square.rtrtex",
-                            .contents = "patch",
+                            .m_LogicalPath = "/Project/Textures/Grassy_Square",
+                            .m_RelativePath = "Project/Textures/Grassy_Square.rtrtex",
+                            .m_Contents = "patch",
                         }});
     BuildArchiveFixture(repoRoot / "Mods" / "CoolMod_Source",
                         repoRoot / "Mods" / "CoolMod.rtrpak",
                         {ArchiveEntry{
-                            .logicalPath = "/Project/Textures/Grassy_Square",
-                            .relativePath = "Project/Textures/Grassy_Square.rtrtex",
-                            .contents = "mod",
+                            .m_LogicalPath = "/Project/Textures/Grassy_Square",
+                            .m_RelativePath = "Project/Textures/Grassy_Square.rtrtex",
+                            .m_Contents = "mod",
                         }});
 
     Resource::CatalogRegistry registry;
@@ -210,9 +210,9 @@ TEST_F(MountDiscoveryShippingTests, CatalogRegistryPrefersModOverPatchDlcAndBase
                                                           "/Project/Textures/Grassy_Square",
                                                           "Project");
     ASSERT_TRUE(projectResolved.has_value());
-    EXPECT_EQ(projectResolved->backend, Resource::MountBackendKind::PakArchive);
-    EXPECT_EQ(projectResolved->mountRoot, repoRoot / "Mods" / "CoolMod.rtrpak");
-    EXPECT_EQ(projectResolved->relativePath, std::filesystem::path("Project/Textures/Grassy_Square.rtrtex"));
+    EXPECT_EQ(projectResolved->m_Backend, Resource::MountBackendKind::PakArchive);
+    EXPECT_EQ(projectResolved->m_MountRoot, repoRoot / "Mods" / "CoolMod.rtrpak");
+    EXPECT_EQ(projectResolved->m_RelativePath, std::filesystem::path("Project/Textures/Grassy_Square.rtrtex"));
 
     std::string errorMessage;
     const auto projectBytes = Resource::ReadReadableArtifactBinary(*projectResolved, &errorMessage);
@@ -228,16 +228,16 @@ TEST_F(MountDiscoveryShippingTests, CatalogRegistryResolvesDlcAndModNamespaceEnt
     BuildArchiveFixture(repoRoot / "DLC" / "Expansion1_Source",
                         repoRoot / "DLC" / "Expansion1.rtrpak",
                         {ArchiveEntry{
-                            .logicalPath = "/DLC/Expansion1/Weapons/LaserRifle",
-                            .relativePath = "DLC/Expansion1/Weapons/LaserRifle.bin",
-                            .contents = "laser",
+                            .m_LogicalPath = "/DLC/Expansion1/Weapons/LaserRifle",
+                            .m_RelativePath = "DLC/Expansion1/Weapons/LaserRifle.bin",
+                            .m_Contents = "laser",
                         }});
     BuildArchiveFixture(repoRoot / "Mods" / "CoolMod_Source",
                         repoRoot / "Mods" / "CoolMod.rtrpak",
                         {ArchiveEntry{
-                            .logicalPath = "/Mod/CoolMod/Weapons/Hammer",
-                            .relativePath = "Mod/CoolMod/Weapons/Hammer.bin",
-                            .contents = "hammer",
+                            .m_LogicalPath = "/Mod/CoolMod/Weapons/Hammer",
+                            .m_RelativePath = "Mod/CoolMod/Weapons/Hammer.bin",
+                            .m_Contents = "hammer",
                         }});
 
     Resource::CatalogRegistry registry;
@@ -252,8 +252,8 @@ TEST_F(MountDiscoveryShippingTests, CatalogRegistryResolvesDlcAndModNamespaceEnt
                                                       "/DLC/Expansion1/Weapons/LaserRifle",
                                                       "Project");
     ASSERT_TRUE(dlcResolved.has_value());
-    EXPECT_EQ(dlcResolved->mountRoot, repoRoot / "DLC" / "Expansion1.rtrpak");
-    EXPECT_EQ(dlcResolved->relativePath, std::filesystem::path("DLC/Expansion1/Weapons/LaserRifle.bin"));
+    EXPECT_EQ(dlcResolved->m_MountRoot, repoRoot / "DLC" / "Expansion1.rtrpak");
+    EXPECT_EQ(dlcResolved->m_RelativePath, std::filesystem::path("DLC/Expansion1/Weapons/LaserRifle.bin"));
     const auto dlcBytes = Resource::ReadReadableArtifactBinary(*dlcResolved, &errorMessage);
     ASSERT_TRUE(dlcBytes.has_value()) << errorMessage;
     EXPECT_EQ(std::string(dlcBytes->begin(), dlcBytes->end()), "laser");
@@ -267,8 +267,8 @@ TEST_F(MountDiscoveryShippingTests, CatalogRegistryResolvesDlcAndModNamespaceEnt
                                                       "/Mod/CoolMod/Weapons/Hammer",
                                                       "Project");
     ASSERT_TRUE(modResolved.has_value());
-    EXPECT_EQ(modResolved->mountRoot, repoRoot / "Mods" / "CoolMod.rtrpak");
-    EXPECT_EQ(modResolved->relativePath, std::filesystem::path("Mod/CoolMod/Weapons/Hammer.bin"));
+    EXPECT_EQ(modResolved->m_MountRoot, repoRoot / "Mods" / "CoolMod.rtrpak");
+    EXPECT_EQ(modResolved->m_RelativePath, std::filesystem::path("Mod/CoolMod/Weapons/Hammer.bin"));
     const auto modBytes = Resource::ReadReadableArtifactBinary(*modResolved, &errorMessage);
     ASSERT_TRUE(modBytes.has_value()) << errorMessage;
     EXPECT_EQ(std::string(modBytes->begin(), modBytes->end()), "hammer");
@@ -290,9 +290,9 @@ TEST_F(MountDiscoveryShippingTests, CatalogRegistryResolvesProjectAndEngineEntri
                                                           "/Project/Textures/Grassy_Square",
                                                           "Project");
     ASSERT_TRUE(projectResolved.has_value());
-    EXPECT_EQ(projectResolved->backend, Resource::MountBackendKind::PakArchive);
-    EXPECT_EQ(projectResolved->mountRoot, test_support::GamePackagedArchivePath(repoRoot));
-    EXPECT_EQ(projectResolved->relativePath, std::filesystem::path("Project/Textures/Grassy_Square.rtrtex"));
+    EXPECT_EQ(projectResolved->m_Backend, Resource::MountBackendKind::PakArchive);
+    EXPECT_EQ(projectResolved->m_MountRoot, test_support::GamePackagedArchivePath(repoRoot));
+    EXPECT_EQ(projectResolved->m_RelativePath, std::filesystem::path("Project/Textures/Grassy_Square.rtrtex"));
     std::string errorMessage;
     const auto projectBytes = Resource::ReadReadableArtifactBinary(*projectResolved, &errorMessage);
     ASSERT_TRUE(projectBytes.has_value()) << errorMessage;
@@ -307,9 +307,9 @@ TEST_F(MountDiscoveryShippingTests, CatalogRegistryResolvesProjectAndEngineEntri
                                                          "/Engine/Defaults/Materials/ErrorMaterial",
                                                          "Project");
     ASSERT_TRUE(engineResolved.has_value());
-    EXPECT_EQ(engineResolved->backend, Resource::MountBackendKind::PakArchive);
-    EXPECT_EQ(engineResolved->mountRoot, test_support::GamePackagedArchivePath(repoRoot));
-    EXPECT_EQ(engineResolved->relativePath, std::filesystem::path("Engine/Defaults/Materials/ErrorMaterial.json"));
+    EXPECT_EQ(engineResolved->m_Backend, Resource::MountBackendKind::PakArchive);
+    EXPECT_EQ(engineResolved->m_MountRoot, test_support::GamePackagedArchivePath(repoRoot));
+    EXPECT_EQ(engineResolved->m_RelativePath, std::filesystem::path("Engine/Defaults/Materials/ErrorMaterial.json"));
     const auto engineText = Resource::ReadReadableArtifactText(*engineResolved, &errorMessage);
     ASSERT_TRUE(engineText.has_value()) << errorMessage;
     EXPECT_EQ(*engineText, "engine");

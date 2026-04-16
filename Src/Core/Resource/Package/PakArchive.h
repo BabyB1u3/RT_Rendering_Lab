@@ -8,7 +8,7 @@
 
 namespace Resource
 {
-inline constexpr std::string_view kPakArchiveExtension = ".rtrpak";
+inline constexpr std::string_view k_PakArchiveExtension = ".rtrpak";
 
 std::filesystem::path GetGamePackagedArchivePath(const std::filesystem::path& packagedRootPath);
 

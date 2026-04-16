@@ -70,7 +70,7 @@ TEST_F(CookedCatalogTests, LoadCookedTextureSupportsLegacyVersion1Artifacts)
         .width = 1,
         .height = 1,
         .channelCount = 4,
-        .pixelFormat = static_cast<uint32_t>(Resource::CookedTexturePixelFormat::RGBA8_UNorm),
+        .pixelFormat = static_cast<uint32_t>(Resource::CookedTexturePixelFormat::RGBA8_UNORM),
         .dataSize = 4,
     };
 
@@ -85,19 +85,19 @@ TEST_F(CookedCatalogTests, LoadCookedTextureSupportsLegacyVersion1Artifacts)
     std::string errorMessage;
     const auto metadata = Resource::ReadCookedTextureMetadata(cookedArtifactPath, &errorMessage);
     ASSERT_TRUE(metadata.has_value()) << errorMessage;
-    EXPECT_EQ(metadata->mipLevelCount, 1u);
-    EXPECT_EQ(metadata->rowPitch, 4u);
+    EXPECT_EQ(metadata->m_MipLevelCount, 1u);
+    EXPECT_EQ(metadata->m_RowPitch, 4u);
 
     const auto cookedTexture = Resource::LoadCookedTexture(cookedArtifactPath, &errorMessage);
     ASSERT_TRUE(cookedTexture.has_value()) << errorMessage;
-    EXPECT_EQ(cookedTexture->width, 1u);
-    EXPECT_EQ(cookedTexture->height, 1u);
-    EXPECT_EQ(cookedTexture->channelCount, 4u);
-    EXPECT_EQ(cookedTexture->mipLevelCount, 1u);
-    EXPECT_EQ(cookedTexture->rowPitch, 4u);
-    ASSERT_EQ(cookedTexture->pixelData.size(), 4u);
-    EXPECT_EQ(cookedTexture->pixelData[0], 255u);
-    EXPECT_EQ(cookedTexture->pixelData[1], 128u);
-    EXPECT_EQ(cookedTexture->pixelData[2], 64u);
-    EXPECT_EQ(cookedTexture->pixelData[3], 32u);
+    EXPECT_EQ(cookedTexture->m_Width, 1u);
+    EXPECT_EQ(cookedTexture->m_Height, 1u);
+    EXPECT_EQ(cookedTexture->m_ChannelCount, 4u);
+    EXPECT_EQ(cookedTexture->m_MipLevelCount, 1u);
+    EXPECT_EQ(cookedTexture->m_RowPitch, 4u);
+    ASSERT_EQ(cookedTexture->m_PixelData.size(), 4u);
+    EXPECT_EQ(cookedTexture->m_PixelData[0], 255u);
+    EXPECT_EQ(cookedTexture->m_PixelData[1], 128u);
+    EXPECT_EQ(cookedTexture->m_PixelData[2], 64u);
+    EXPECT_EQ(cookedTexture->m_PixelData[3], 32u);
 }

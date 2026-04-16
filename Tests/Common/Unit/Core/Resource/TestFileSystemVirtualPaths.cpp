@@ -7,9 +7,9 @@ TEST(FileSystemVirtualPathTests, ParseProjectPathNormalizesRepeatedSlashes)
     const auto parsed = FileSystem::ParseVirtualPath("/Project//Config///input/DebugCameraControl.json");
 
     ASSERT_TRUE(parsed.has_value());
-    EXPECT_EQ(parsed->domain, FileSystem::PathDomain::Project);
-    EXPECT_FALSE(parsed->mountName.has_value());
-    EXPECT_EQ(parsed->relativePath, "Config/input/DebugCameraControl.json");
+    EXPECT_EQ(parsed->m_Domain, FileSystem::PathDomain::Project);
+    EXPECT_FALSE(parsed->m_MountName.has_value());
+    EXPECT_EQ(parsed->m_RelativePath, "Config/input/DebugCameraControl.json");
 }
 
 TEST(FileSystemVirtualPathTests, ParseRejectsMissingLeadingSlash)
@@ -44,12 +44,12 @@ TEST(FileSystemVirtualPathTests, ParseRecognizesSavedAndCacheDomains)
     const auto cache = FileSystem::ParseVirtualPath("/Cache/Shaders/bootstrap.bin");
 
     ASSERT_TRUE(saved.has_value());
-    EXPECT_EQ(saved->domain, FileSystem::PathDomain::Saved);
-    EXPECT_EQ(saved->relativePath, "Logs/RTRLab.log");
+    EXPECT_EQ(saved->m_Domain, FileSystem::PathDomain::Saved);
+    EXPECT_EQ(saved->m_RelativePath, "Logs/RTRLab.log");
 
     ASSERT_TRUE(cache.has_value());
-    EXPECT_EQ(cache->domain, FileSystem::PathDomain::Cache);
-    EXPECT_EQ(cache->relativePath, "Shaders/bootstrap.bin");
+    EXPECT_EQ(cache->m_Domain, FileSystem::PathDomain::Cache);
+    EXPECT_EQ(cache->m_RelativePath, "Shaders/bootstrap.bin");
 }
 
 TEST(FileSystemVirtualPathTests, ParseRecognizesDlcAndModDomainsWithMountNames)
@@ -58,16 +58,16 @@ TEST(FileSystemVirtualPathTests, ParseRecognizesDlcAndModDomainsWithMountNames)
     const auto mod = FileSystem::ParseVirtualPath("/Mod/CoolMod/Weapons/Hammer");
 
     ASSERT_TRUE(dlc.has_value());
-    EXPECT_EQ(dlc->domain, FileSystem::PathDomain::DLC);
-    ASSERT_TRUE(dlc->mountName.has_value());
-    EXPECT_EQ(*dlc->mountName, "Expansion1");
-    EXPECT_EQ(dlc->relativePath, "Weapons/LaserRifle");
+    EXPECT_EQ(dlc->m_Domain, FileSystem::PathDomain::DLC);
+    ASSERT_TRUE(dlc->m_MountName.has_value());
+    EXPECT_EQ(*dlc->m_MountName, "Expansion1");
+    EXPECT_EQ(dlc->m_RelativePath, "Weapons/LaserRifle");
 
     ASSERT_TRUE(mod.has_value());
-    EXPECT_EQ(mod->domain, FileSystem::PathDomain::Mod);
-    ASSERT_TRUE(mod->mountName.has_value());
-    EXPECT_EQ(*mod->mountName, "CoolMod");
-    EXPECT_EQ(mod->relativePath, "Weapons/Hammer");
+    EXPECT_EQ(mod->m_Domain, FileSystem::PathDomain::Mod);
+    ASSERT_TRUE(mod->m_MountName.has_value());
+    EXPECT_EQ(*mod->m_MountName, "CoolMod");
+    EXPECT_EQ(mod->m_RelativePath, "Weapons/Hammer");
 }
 
 TEST(FileSystemVirtualPathTests, ParseRejectsDlcAndModPathsWithoutMountNames)

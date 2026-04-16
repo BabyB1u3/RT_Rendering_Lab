@@ -37,11 +37,11 @@ TEST_F(MountDiscoveryDevTests, DiscoverReadableMountBackendsFindsSourceDirectory
         repoRoot, test_support::EngineRoot(repoRoot), test_support::CookedRoot(repoRoot), "Project", "dev");
 
     ASSERT_EQ(mounts.size(), 2u);
-    EXPECT_EQ(mounts[0].sourceKey, "Project");
-    EXPECT_EQ(mounts[0].priority, Resource::MountPriority::Source);
-    EXPECT_EQ(mounts[0].backend, Resource::MountBackendKind::Directory);
+    EXPECT_EQ(mounts[0].m_SourceKey, "Project");
+    EXPECT_EQ(mounts[0].m_Priority, Resource::MountPriority::Source);
+    EXPECT_EQ(mounts[0].m_Backend, Resource::MountBackendKind::Directory);
 
-    EXPECT_EQ(mounts[1].sourceKey, "Engine");
-    EXPECT_EQ(mounts[1].priority, Resource::MountPriority::Source);
-    EXPECT_EQ(mounts[1].backend, Resource::MountBackendKind::Directory);
+    EXPECT_EQ(mounts[1].m_SourceKey, "Engine");
+    EXPECT_EQ(mounts[1].m_Priority, Resource::MountPriority::Source);
+    EXPECT_EQ(mounts[1].m_Backend, Resource::MountBackendKind::Directory);
 }

@@ -17,8 +17,8 @@ enum class PathDomain
 
 struct VirtualPath
 {
-    PathDomain domain;
-    std::optional<std::string> mountName;
-    std::string relativePath;
+    PathDomain m_Domain;
+    std::optional<std::string> m_MountName;
+    std::string m_RelativePath;
 };
 } // namespace Resource

@@ -37,26 +37,26 @@ enum class MountPriority
 
 struct ArtifactRecord
 {
-    std::string relativePath;
-    std::string format;
-    std::string platformTag = "any";
-    std::string backendTag = "any";
-    std::string profileTag = "any";
-    uint64_t contentHash = 0;
+    std::string m_RelativePath;
+    std::string m_Format;
+    std::string m_PlatformTag = "any";
+    std::string m_BackendTag = "any";
+    std::string m_ProfileTag = "any";
+    uint64_t m_ContentHash = 0;
 };
 
 struct ResourceCatalogEntry
 {
-    std::string logicalPath;
-    std::optional<std::string> sourceRelativePath;
-    std::vector<ArtifactRecord> artifacts;
+    std::string m_LogicalPath;
+    std::optional<std::string> m_SourceRelativePath;
+    std::vector<ArtifactRecord> m_Artifacts;
 };
 
 struct ResolvedReadableArtifact
 {
-    MountBackendKind backend = MountBackendKind::Directory;
-    std::filesystem::path mountRoot;
-    std::filesystem::path relativePath;
+    MountBackendKind m_Backend = MountBackendKind::Directory;
+    std::filesystem::path m_MountRoot;
+    std::filesystem::path m_RelativePath;
 };
 
 class CatalogRegistry
@@ -64,21 +64,21 @@ class CatalogRegistry
 public:
     struct MountCatalogCache
     {
-        bool attemptedLoad = false;
-        CatalogKind kind = CatalogKind::Source;
-        int version = 0;
-        std::unordered_map<std::string, ResourceCatalogEntry> entries;
+        bool m_HasAttemptedLoad = false;
+        CatalogKind m_Kind = CatalogKind::Source;
+        int m_Version = 0;
+        std::unordered_map<std::string, ResourceCatalogEntry> m_Entries;
     };
 
     struct GlobalCatalogEntry
     {
-        ResourceCatalogEntry entry;
-        CatalogKind kind = CatalogKind::Source;
-        int version = 0;
-        MountPriority priority = MountPriority::Source;
-        MountBackendKind backend = MountBackendKind::Directory;
-        std::filesystem::path mountRoot;
-        std::string sourceMountKey;
+        ResourceCatalogEntry m_Entry;
+        CatalogKind m_Kind = CatalogKind::Source;
+        int m_Version = 0;
+        MountPriority m_Priority = MountPriority::Source;
+        MountBackendKind m_Backend = MountBackendKind::Directory;
+        std::filesystem::path m_MountRoot;
+        std::string m_SourceMountKey;
     };
 
     void Reset();

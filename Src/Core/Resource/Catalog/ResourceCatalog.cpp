@@ -16,9 +16,9 @@ using Json = nlohmann::json;
 
 struct ArtifactSelectionContext
 {
-    std::string_view platformTag;
-    std::string_view backendTag;
-    std::string_view profileTag;
+    std::string_view m_PlatformTag;
+    std::string_view m_BackendTag;
+    std::string_view m_ProfileTag;
 };
 
 std::filesystem::path GetMountRoot(const std::filesystem::path& rootPath,
@@ -26,7 +26,7 @@ std::filesystem::path GetMountRoot(const std::filesystem::path& rootPath,
                                    const Resource::VirtualPath& virtualPath,
                                    std::string_view projectContentDirName)
 {
-    switch (virtualPath.domain)
+    switch (virtualPath.m_Domain)
     {
         case Resource::PathDomain::Project:
             return rootPath / projectContentDirName;
@@ -45,7 +45,7 @@ std::filesystem::path GetMountRoot(const std::filesystem::path& rootPath,
 
 bool DomainMatchesMount(const Resource::VirtualPath& catalogPath, const Resource::VirtualPath& requestedPath)
 {
-    return catalogPath.domain == requestedPath.domain && catalogPath.mountName == requestedPath.mountName;
+    return catalogPath.m_Domain == requestedPath.m_Domain && catalogPath.m_MountName == requestedPath.m_MountName;
 }
 
 bool IsCatalogLogicalPathForMount(const Resource::VirtualPath& catalogPath, const Resource::VirtualPath& mountPath)
@@ -53,17 +53,17 @@ bool IsCatalogLogicalPathForMount(const Resource::VirtualPath& catalogPath, cons
     if (!DomainMatchesMount(catalogPath, mountPath))
         return false;
 
-    if (catalogPath.relativePath.empty())
+    if (catalogPath.m_RelativePath.empty())
         return false;
 
-    switch (catalogPath.domain)
+    switch (catalogPath.m_Domain)
     {
         case Resource::PathDomain::Project:
         case Resource::PathDomain::Engine:
-            return !catalogPath.mountName.has_value();
+            return !catalogPath.m_MountName.has_value();
         case Resource::PathDomain::DLC:
         case Resource::PathDomain::Mod:
-            return catalogPath.mountName.has_value();
+            return catalogPath.m_MountName.has_value();
         case Resource::PathDomain::Saved:
         case Resource::PathDomain::Cache:
             return false;
@@ -82,18 +82,18 @@ std::optional<Resource::ArtifactRecord> ParseArtifactRecord(const Json& artifact
         return std::nullopt;
 
     Resource::ArtifactRecord artifact;
-    artifact.relativePath = relativePathIt->get<std::string>();
+    artifact.m_RelativePath = relativePathIt->get<std::string>();
 
     if (const auto it = artifactJson.find("format"); it != artifactJson.end() && it->is_string())
-        artifact.format = it->get<std::string>();
+        artifact.m_Format = it->get<std::string>();
     if (const auto it = artifactJson.find("platformTag"); it != artifactJson.end() && it->is_string())
-        artifact.platformTag = it->get<std::string>();
+        artifact.m_PlatformTag = it->get<std::string>();
     if (const auto it = artifactJson.find("backendTag"); it != artifactJson.end() && it->is_string())
-        artifact.backendTag = it->get<std::string>();
+        artifact.m_BackendTag = it->get<std::string>();
     if (const auto it = artifactJson.find("profileTag"); it != artifactJson.end() && it->is_string())
-        artifact.profileTag = it->get<std::string>();
+        artifact.m_ProfileTag = it->get<std::string>();
     if (const auto it = artifactJson.find("contentHash"); it != artifactJson.end() && it->is_number_unsigned())
-        artifact.contentHash = it->get<uint64_t>();
+        artifact.m_ContentHash = it->get<uint64_t>();
 
     return artifact;
 }
@@ -176,7 +176,7 @@ bool ParseCatalogFromJson(const Json& rootJson,
         }
 
         Resource::ResourceCatalogEntry entry;
-        entry.logicalPath = logicalPath;
+        entry.m_LogicalPath = logicalPath;
         if (!isCookedCatalog)
         {
             const auto sourceRelativePathIt = entryJson.find("sourceRelativePath");
@@ -189,7 +189,7 @@ bool ParseCatalogFromJson(const Json& rootJson,
                 return false;
             }
 
-            entry.sourceRelativePath = sourceRelativePathIt->get<std::string>();
+            entry.m_SourceRelativePath = sourceRelativePathIt->get<std::string>();
         }
 
         const auto artifactsIt = entryJson.find("artifacts");
@@ -212,10 +212,10 @@ bool ParseCatalogFromJson(const Json& rootJson,
                 return false;
             }
 
-            entry.artifacts.push_back(*artifact);
+            entry.m_Artifacts.push_back(*artifact);
         }
 
-        const auto [it, inserted] = entries.emplace(entry.logicalPath, std::move(entry));
+        const auto [it, inserted] = entries.emplace(entry.m_LogicalPath, std::move(entry));
         if (!inserted)
         {
             LOG_ERROR_CAT(
@@ -239,7 +239,7 @@ bool LoadCatalogFromMount(const Resource::ReadableMount& mount,
         if (!errorMessage.empty())
             LOG_ERROR_CAT(LogCategory::FileSystem,
                           "Failed to read mount catalog '{}': {}",
-                          mount.mountRoot.string(),
+                          mount.m_MountRoot.string(),
                           errorMessage);
         return false;
     }
@@ -251,14 +251,15 @@ bool LoadCatalogFromMount(const Resource::ReadableMount& mount,
     }
     catch (const std::exception& e)
     {
-        LOG_ERROR_CAT(LogCategory::FileSystem, "Failed to parse catalog '{}': {}", mount.mountRoot.string(), e.what());
+        LOG_ERROR_CAT(
+            LogCategory::FileSystem, "Failed to parse catalog '{}': {}", mount.m_MountRoot.string(), e.what());
         return false;
     }
 
-    const std::string catalogLabel = mount.backend == Resource::MountBackendKind::PakArchive
-                                         ? mount.mountRoot.string() + "::/.rtr/catalog.json"
-                                         : (mount.mountRoot / ".rtr" / "catalog.json").string();
-    return ParseCatalogFromJson(rootJson, catalogLabel, mount.mountPath, catalogKind, catalogVersion, entries);
+    const std::string catalogLabel = mount.m_Backend == Resource::MountBackendKind::PakArchive
+                                         ? mount.m_MountRoot.string() + "::/.rtr/catalog.json"
+                                         : (mount.m_MountRoot / ".rtr" / "catalog.json").string();
+    return ParseCatalogFromJson(rootJson, catalogLabel, mount.m_MountPath, catalogKind, catalogVersion, entries);
 }
 
 bool ShouldBuildSourceCatalogInMemory(const Resource::ReadableMount& mount, std::string_view currentProfileTag)
@@ -266,10 +267,10 @@ bool ShouldBuildSourceCatalogInMemory(const Resource::ReadableMount& mount, std:
     if (currentProfileTag != "dev")
         return false;
 
-    return mount.priority == Resource::MountPriority::Source &&
-           mount.backend == Resource::MountBackendKind::Directory &&
-           (mount.mountPath.domain == Resource::PathDomain::Project ||
-            mount.mountPath.domain == Resource::PathDomain::Engine);
+    return mount.m_Priority == Resource::MountPriority::Source &&
+           mount.m_Backend == Resource::MountBackendKind::Directory &&
+           (mount.m_MountPath.m_Domain == Resource::PathDomain::Project ||
+            mount.m_MountPath.m_Domain == Resource::PathDomain::Engine);
 }
 
 std::string_view GetCurrentPlatformTag()
@@ -344,11 +345,11 @@ std::optional<Resource::ArtifactRecord> ChooseArtifact(const Resource::ResourceC
     const Resource::ArtifactRecord* bestArtifact = nullptr;
     int bestScore = -1;
 
-    for (const auto& artifact : entry.artifacts)
+    for (const auto& artifact : entry.m_Artifacts)
     {
-        const int profileScore = ScoreTag(artifact.profileTag, context.profileTag);
-        const int backendScore = ScoreTag(artifact.backendTag, context.backendTag);
-        const int platformScore = ScoreTag(artifact.platformTag, context.platformTag);
+        const int profileScore = ScoreTag(artifact.m_ProfileTag, context.m_ProfileTag);
+        const int backendScore = ScoreTag(artifact.m_BackendTag, context.m_BackendTag);
+        const int platformScore = ScoreTag(artifact.m_PlatformTag, context.m_PlatformTag);
         if (profileScore < 0 || backendScore < 0 || platformScore < 0)
             continue;
 
@@ -372,7 +373,7 @@ void MergeMountEntriesIntoGlobalTable(
     std::unordered_map<std::string, Resource::CatalogRegistry::GlobalCatalogEntry>& globalEntries,
     std::unordered_set<std::string>& conflictedLogicalPaths)
 {
-    for (const auto& [logicalPath, entry] : cache.entries)
+    for (const auto& [logicalPath, entry] : cache.m_Entries)
     {
         if (conflictedLogicalPaths.contains(logicalPath))
             continue;
@@ -380,28 +381,28 @@ void MergeMountEntriesIntoGlobalTable(
         const auto existingIt = globalEntries.find(logicalPath);
         if (existingIt != globalEntries.end())
         {
-            if (static_cast<int>(mount.priority) > static_cast<int>(existingIt->second.priority))
+            if (static_cast<int>(mount.m_Priority) > static_cast<int>(existingIt->second.m_Priority))
             {
                 existingIt->second = Resource::CatalogRegistry::GlobalCatalogEntry{
                     entry,
-                    cache.kind,
-                    cache.version,
-                    mount.priority,
-                    mount.backend,
-                    mount.mountRoot,
-                    mount.sourceKey,
+                    cache.m_Kind,
+                    cache.m_Version,
+                    mount.m_Priority,
+                    mount.m_Backend,
+                    mount.m_MountRoot,
+                    mount.m_SourceKey,
                 };
                 continue;
             }
 
-            if (static_cast<int>(mount.priority) < static_cast<int>(existingIt->second.priority))
+            if (static_cast<int>(mount.m_Priority) < static_cast<int>(existingIt->second.m_Priority))
                 continue;
 
             LOG_ERROR_CAT(LogCategory::FileSystem,
                           "Logical path '{}' is provided by multiple equal-precedence mounts ('{}' and '{}')",
                           logicalPath,
-                          existingIt->second.sourceMountKey,
-                          mount.sourceKey);
+                          existingIt->second.m_SourceMountKey,
+                          mount.m_SourceKey);
             conflictedLogicalPaths.insert(logicalPath);
             globalEntries.erase(existingIt);
             continue;
@@ -410,12 +411,12 @@ void MergeMountEntriesIntoGlobalTable(
         globalEntries.emplace(logicalPath,
                               Resource::CatalogRegistry::GlobalCatalogEntry{
                                   entry,
-                                  cache.kind,
-                                  cache.version,
-                                  mount.priority,
-                                  mount.backend,
-                                  mount.mountRoot,
-                                  mount.sourceKey,
+                                  cache.m_Kind,
+                                  cache.m_Version,
+                                  mount.m_Priority,
+                                  mount.m_Backend,
+                                  mount.m_MountRoot,
+                                  mount.m_SourceKey,
                               });
     }
 }
@@ -452,47 +453,48 @@ std::optional<ResolvedReadableArtifact> CatalogRegistry::ResolveArtifact(const s
         for (const auto& mount : Resource::DiscoverReadableMountBackends(
                  rootPath, engineDir, cacheDir, projectContentDirName, currentProfileTag))
         {
-            auto& cache = m_MountCatalogs[mount.cacheKey];
-            if (!cache.attemptedLoad)
+            auto& cache = m_MountCatalogs[mount.m_CacheKey];
+            if (!cache.m_HasAttemptedLoad)
             {
-                cache.attemptedLoad = true;
+                cache.m_HasAttemptedLoad = true;
                 if (ShouldBuildSourceCatalogInMemory(mount, currentProfileTag))
                 {
-                    cache.kind = CatalogKind::Source;
-                    cache.version = 1;
+                    cache.m_Kind = CatalogKind::Source;
+                    cache.m_Version = 1;
                     std::vector<ResourceCatalogEntry> loadedEntries;
-                    if (!Resource::BuildSourceCatalogEntries(mount.mountRoot, mount.mountPath, loadedEntries))
+                    if (!Resource::BuildSourceCatalogEntries(mount.m_MountRoot, mount.m_MountPath, loadedEntries))
                     {
-                        cache.entries.clear();
+                        cache.m_Entries.clear();
                         LOG_ERROR_CAT(LogCategory::FileSystem,
                                       "Failed to build in-memory source catalog '{}'",
-                                      mount.mountRoot.string());
+                                      mount.m_MountRoot.string());
                     }
                     else
                     {
-                        cache.entries.clear();
-                        cache.entries.reserve(loadedEntries.size());
+                        cache.m_Entries.clear();
+                        cache.m_Entries.reserve(loadedEntries.size());
                         for (auto& entry : loadedEntries)
-                            cache.entries.emplace(entry.logicalPath, std::move(entry));
+                            cache.m_Entries.emplace(entry.m_LogicalPath, std::move(entry));
                         LOG_INFO_CAT(
-                            LogCategory::FileSystem, "Built in-memory source catalog '{}'", mount.mountRoot.string());
+                            LogCategory::FileSystem, "Built in-memory source catalog '{}'", mount.m_MountRoot.string());
                     }
                 }
                 else if (Resource::MountHasCatalog(mount))
                 {
-                    cache.kind = CatalogKind::Source;
-                    cache.version = 0;
+                    cache.m_Kind = CatalogKind::Source;
+                    cache.m_Version = 0;
                     std::unordered_map<std::string, ResourceCatalogEntry> loadedEntries;
-                    const bool loaded = LoadCatalogFromMount(mount, cache.kind, cache.version, loadedEntries);
+                    const bool loaded = LoadCatalogFromMount(mount, cache.m_Kind, cache.m_Version, loadedEntries);
                     if (!loaded)
                     {
-                        cache.entries.clear();
-                        LOG_ERROR_CAT(LogCategory::FileSystem, "Failed to load catalog '{}'", mount.mountRoot.string());
+                        cache.m_Entries.clear();
+                        LOG_ERROR_CAT(
+                            LogCategory::FileSystem, "Failed to load catalog '{}'", mount.m_MountRoot.string());
                     }
                     else
                     {
-                        cache.entries = std::move(loadedEntries);
-                        LOG_INFO_CAT(LogCategory::FileSystem, "Loaded catalog '{}'", mount.mountRoot.string());
+                        cache.m_Entries = std::move(loadedEntries);
+                        LOG_INFO_CAT(LogCategory::FileSystem, "Loaded catalog '{}'", mount.m_MountRoot.string());
                     }
                 }
             }
@@ -509,17 +511,17 @@ std::optional<ResolvedReadableArtifact> CatalogRegistry::ResolveArtifact(const s
     if (entryIt == m_GlobalEntries.end())
         return std::nullopt;
 
-    const auto artifact = ChooseArtifact(entryIt->second.entry);
+    const auto artifact = ChooseArtifact(entryIt->second.m_Entry);
     if (!artifact.has_value())
         return std::nullopt;
 
     const ReadableMount mount{
-        .cacheKey = {},
-        .sourceKey = entryIt->second.sourceMountKey,
-        .mountPath = virtualPath,
-        .priority = entryIt->second.priority,
-        .backend = entryIt->second.backend,
-        .mountRoot = entryIt->second.mountRoot,
+        .m_CacheKey = {},
+        .m_SourceKey = entryIt->second.m_SourceMountKey,
+        .m_MountPath = virtualPath,
+        .m_Priority = entryIt->second.m_Priority,
+        .m_Backend = entryIt->second.m_Backend,
+        .m_MountRoot = entryIt->second.m_MountRoot,
     };
 
     std::string errorMessage;
@@ -528,8 +530,8 @@ std::optional<ResolvedReadableArtifact> CatalogRegistry::ResolveArtifact(const s
     {
         LOG_ERROR_CAT(LogCategory::FileSystem,
                       "Failed to resolve artifact '{}' from mount '{}': {}",
-                      artifact->relativePath,
-                      entryIt->second.mountRoot.string(),
+                      artifact->m_RelativePath,
+                      entryIt->second.m_MountRoot.string(),
                       errorMessage);
     }
 

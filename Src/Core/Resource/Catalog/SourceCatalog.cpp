@@ -35,7 +35,7 @@ bool IsExcludedRelativePath(const std::filesystem::path& relativePath)
 
 std::string MakeLogicalPath(const Resource::VirtualPath& mountPath, const std::filesystem::path& logicalRelativePath)
 {
-    static const std::unordered_map<std::string, std::string> kCanonicalSegmentNames{
+    static const std::unordered_map<std::string, std::string> k_CanonicalSegmentNames{
         {"textures", "Textures"},
         {"shaders", "Shaders"},
         {"materials", "Materials"},
@@ -49,26 +49,28 @@ std::string MakeLogicalPath(const Resource::VirtualPath& mountPath, const std::f
     for (const auto& segment : logicalRelativePath)
     {
         const auto segmentText = segment.generic_string();
-        const auto lookupIt = kCanonicalSegmentNames.find(ToLowerAscii(segmentText));
-        canonicalRelative /= (lookupIt != kCanonicalSegmentNames.end()) ? lookupIt->second : segmentText;
+        const auto lookupIt = k_CanonicalSegmentNames.find(ToLowerAscii(segmentText));
+        canonicalRelative /= (lookupIt != k_CanonicalSegmentNames.end()) ? lookupIt->second : segmentText;
     }
 
     const auto relative = CatalogPathToGenericString(canonicalRelative);
 
-    switch (mountPath.domain)
+    switch (mountPath.m_Domain)
     {
         case Resource::PathDomain::Project:
             return relative.empty() ? "/Project" : "/Project/" + relative;
         case Resource::PathDomain::Engine:
             return relative.empty() ? "/Engine" : "/Engine/" + relative;
         case Resource::PathDomain::DLC:
-            if (!mountPath.mountName.has_value())
+            if (!mountPath.m_MountName.has_value())
                 return {};
-            return relative.empty() ? "/DLC/" + *mountPath.mountName : "/DLC/" + *mountPath.mountName + "/" + relative;
+            return relative.empty() ? "/DLC/" + *mountPath.m_MountName
+                                    : "/DLC/" + *mountPath.m_MountName + "/" + relative;
         case Resource::PathDomain::Mod:
-            if (!mountPath.mountName.has_value())
+            if (!mountPath.m_MountName.has_value())
                 return {};
-            return relative.empty() ? "/Mod/" + *mountPath.mountName : "/Mod/" + *mountPath.mountName + "/" + relative;
+            return relative.empty() ? "/Mod/" + *mountPath.m_MountName
+                                    : "/Mod/" + *mountPath.m_MountName + "/" + relative;
         case Resource::PathDomain::Saved:
             return relative.empty() ? "/Saved" : "/Saved/" + relative;
         case Resource::PathDomain::Cache:
@@ -94,7 +96,7 @@ bool RelativePathStartsWith(const std::filesystem::path& relativePath, std::stri
 
 bool RelativePathContainsAssetDirectory(const std::filesystem::path& relativePath)
 {
-    static const std::unordered_set<std::string> kAssetDirectories{
+    static const std::unordered_set<std::string> k_AssetDirectories{
         "textures",
         "shaders",
         "materials",
@@ -104,7 +106,7 @@ bool RelativePathContainsAssetDirectory(const std::filesystem::path& relativePat
 
     for (const auto& segment : relativePath)
     {
-        if (kAssetDirectories.contains(ToLowerAscii(segment.generic_string())))
+        if (k_AssetDirectories.contains(ToLowerAscii(segment.generic_string())))
             return true;
     }
 
@@ -199,15 +201,15 @@ bool BuildSourceCatalogEntries(const std::filesystem::path& mountRoot,
         }
 
         ResourceCatalogEntry catalogEntry;
-        catalogEntry.logicalPath = logicalPath;
-        catalogEntry.sourceRelativePath = CatalogPathToGenericString(relativePath);
-        catalogEntry.artifacts.push_back(ArtifactRecord{
-            .relativePath = CatalogPathToGenericString(relativePath),
-            .format = isDocument ? "document" : DetectFormat(relativePath),
-            .platformTag = "any",
-            .backendTag = "any",
-            .profileTag = "dev",
-            .contentHash = 0,
+        catalogEntry.m_LogicalPath = logicalPath;
+        catalogEntry.m_SourceRelativePath = CatalogPathToGenericString(relativePath);
+        catalogEntry.m_Artifacts.push_back(ArtifactRecord{
+            .m_RelativePath = CatalogPathToGenericString(relativePath),
+            .m_Format = isDocument ? "document" : DetectFormat(relativePath),
+            .m_PlatformTag = "any",
+            .m_BackendTag = "any",
+            .m_ProfileTag = "dev",
+            .m_ContentHash = 0,
         });
 
         entryIndexByLogicalPath.emplace(logicalPath, entries.size());

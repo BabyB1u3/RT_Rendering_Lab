@@ -157,7 +157,7 @@ Offset  Size  Field
 12      4     width
 16      4     height
 20      4     channelCount (4)
-24      4     pixelFormat (1 = RGBA8_UNorm)
+24      4     pixelFormat (1 = RGBA8_UNORM)
 28      4     mipLevelCount (1)
 32      4     rowPitch (width * 4)
 36      4     dataOffset (44)

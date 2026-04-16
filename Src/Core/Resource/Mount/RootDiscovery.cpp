@@ -17,7 +17,7 @@
 
 namespace
 {
-constexpr std::string_view kProjectMarkerFileName = ".rtrproject";
+constexpr std::string_view k_ProjectMarkerFileName = ".rtrproject";
 
 std::optional<std::string_view> GetRootOverride()
 {
@@ -76,7 +76,7 @@ std::filesystem::path GetExecutableDirectory()
 
 bool HasProjectMarker(const std::filesystem::path& directory)
 {
-    return std::filesystem::exists(directory / kProjectMarkerFileName);
+    return std::filesystem::exists(directory / k_ProjectMarkerFileName);
 }
 
 std::filesystem::path FindRootFromExecutable()
@@ -85,8 +85,8 @@ std::filesystem::path FindRootFromExecutable()
     if (dir.empty())
         return {};
 
-    constexpr int kMaxDepth = 5;
-    for (int i = 0; i < kMaxDepth; ++i)
+    constexpr int k_MaxDepth = 5;
+    for (int i = 0; i < k_MaxDepth; ++i)
     {
         if (HasProjectMarker(dir))
             return dir;
@@ -113,7 +113,7 @@ std::filesystem::path DiscoverRootPath()
         LOG_WARN_CAT(LogCategory::FileSystem,
                      "Root override is set to '{}' but no '{}' marker file found there",
                      *rootOverride,
-                     kProjectMarkerFileName);
+                     k_ProjectMarkerFileName);
     }
 
     if (const auto exeDir = GetExecutableDirectory(); !exeDir.empty())
@@ -130,7 +130,7 @@ std::filesystem::path DiscoverRootPath()
         LOG_WARN_CAT(LogCategory::FileSystem,
                      "Root override is set to '{}' but no '{}' marker file found there",
                      *rootOverride,
-                     kProjectMarkerFileName);
+                     k_ProjectMarkerFileName);
     }
 
     {
@@ -144,8 +144,10 @@ std::filesystem::path DiscoverRootPath()
         std::filesystem::path path(GLAB_ROOT_DIR);
         if (HasProjectMarker(path))
             return std::filesystem::canonical(path);
-        LOG_WARN_CAT(
-            LogCategory::FileSystem, "GLAB_ROOT_DIR='{}' does not contain '{}'", GLAB_ROOT_DIR, kProjectMarkerFileName);
+        LOG_WARN_CAT(LogCategory::FileSystem,
+                     "GLAB_ROOT_DIR='{}' does not contain '{}'",
+                     GLAB_ROOT_DIR,
+                     k_ProjectMarkerFileName);
     }
 #endif
 
@@ -156,7 +158,7 @@ std::filesystem::path DiscoverRootPath()
     }
 
     LOG_ERROR_CAT(
-        LogCategory::FileSystem, "FileSystem: could not locate '{}' from any known root", kProjectMarkerFileName);
+        LogCategory::FileSystem, "FileSystem: could not locate '{}' from any known root", k_ProjectMarkerFileName);
     return std::filesystem::current_path();
 #endif
 }

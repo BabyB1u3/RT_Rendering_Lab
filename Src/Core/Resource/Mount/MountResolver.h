@@ -10,8 +10,8 @@ namespace Resource
 {
 struct WritableRoots
 {
-    std::filesystem::path savedDir;
-    std::filesystem::path cacheDir;
+    std::filesystem::path m_SavedDir;
+    std::filesystem::path m_CacheDir;
 };
 
 WritableRoots ResolveWritableRoots(const std::filesystem::path& rootPath, std::string_view appName);

@@ -41,9 +41,9 @@ TEST_F(CatalogRegistryDevTests, CatalogRegistryCanReturnReadableArtifactDescript
                                                    "Project");
 
     ASSERT_TRUE(resolved.has_value());
-    EXPECT_EQ(resolved->backend, Resource::MountBackendKind::Directory);
-    EXPECT_EQ(resolved->mountRoot, test_support::ProjectContentRoot(repoRoot));
-    EXPECT_EQ(resolved->relativePath, std::filesystem::path("Textures/Grassy_Square.jpg"));
+    EXPECT_EQ(resolved->m_Backend, Resource::MountBackendKind::Directory);
+    EXPECT_EQ(resolved->m_MountRoot, test_support::ProjectContentRoot(repoRoot));
+    EXPECT_EQ(resolved->m_RelativePath, std::filesystem::path("Textures/Grassy_Square.jpg"));
 }
 
 TEST_F(CatalogRegistryDevTests, CatalogRegistryBuildsProjectConfigDocumentEntriesInMemoryDuringDevResolution)
@@ -61,9 +61,9 @@ TEST_F(CatalogRegistryDevTests, CatalogRegistryBuildsProjectConfigDocumentEntrie
                                                    "Project");
 
     ASSERT_TRUE(resolved.has_value());
-    EXPECT_EQ(resolved->backend, Resource::MountBackendKind::Directory);
-    EXPECT_EQ(resolved->mountRoot, test_support::ProjectContentRoot(repoRoot));
-    EXPECT_EQ(resolved->relativePath, std::filesystem::path("Config/Graphics.json"));
+    EXPECT_EQ(resolved->m_Backend, Resource::MountBackendKind::Directory);
+    EXPECT_EQ(resolved->m_MountRoot, test_support::ProjectContentRoot(repoRoot));
+    EXPECT_EQ(resolved->m_RelativePath, std::filesystem::path("Config/Graphics.json"));
 }
 
 TEST_F(CatalogRegistryDevTests, CatalogRegistryBuildsEngineSourceCatalogInMemoryDuringDevResolution)
@@ -82,7 +82,7 @@ TEST_F(CatalogRegistryDevTests, CatalogRegistryBuildsEngineSourceCatalogInMemory
                                                    "Project");
 
     ASSERT_TRUE(resolved.has_value());
-    EXPECT_EQ(resolved->backend, Resource::MountBackendKind::Directory);
-    EXPECT_EQ(resolved->mountRoot, test_support::EngineRoot(repoRoot));
-    EXPECT_EQ(resolved->relativePath, std::filesystem::path("Defaults/Materials/ErrorMaterial.json"));
+    EXPECT_EQ(resolved->m_Backend, Resource::MountBackendKind::Directory);
+    EXPECT_EQ(resolved->m_MountRoot, test_support::EngineRoot(repoRoot));
+    EXPECT_EQ(resolved->m_RelativePath, std::filesystem::path("Defaults/Materials/ErrorMaterial.json"));
 }

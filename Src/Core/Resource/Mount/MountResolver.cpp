@@ -57,11 +57,11 @@ WritableRoots ResolveWritableRoots(const std::filesystem::path& rootPath, std::s
 #ifdef GLAB_ROOT_DIR
     (void)rootPath;
     (void)appName;
-    writableRoots.savedDir = std::filesystem::path(GLAB_ROOT_DIR) / "Saved";
-    writableRoots.cacheDir = writableRoots.savedDir / "Cache";
+    writableRoots.m_SavedDir = std::filesystem::path(GLAB_ROOT_DIR) / "Saved";
+    writableRoots.m_CacheDir = writableRoots.m_SavedDir / "Cache";
 #else
-    writableRoots.savedDir = GetPlatformUserDataDir(rootPath, appName);
-    writableRoots.cacheDir = GetPlatformCacheDir(rootPath, appName);
+    writableRoots.m_SavedDir = GetPlatformUserDataDir(rootPath, appName);
+    writableRoots.m_CacheDir = GetPlatformCacheDir(rootPath, appName);
 #endif
 
     return writableRoots;
@@ -69,6 +69,6 @@ WritableRoots ResolveWritableRoots(const std::filesystem::path& rootPath, std::s
 
 std::filesystem::path GetPhysicalRelativePath(const VirtualPath& virtualPath)
 {
-    return std::filesystem::path(virtualPath.relativePath);
+    return std::filesystem::path(virtualPath.m_RelativePath);
 }
 } // namespace Resource

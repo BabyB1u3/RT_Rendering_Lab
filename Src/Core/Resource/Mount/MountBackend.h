@@ -14,18 +14,18 @@ namespace Resource
 {
 struct ReadableMount
 {
-    std::string cacheKey;
-    std::string sourceKey;
-    VirtualPath mountPath;
-    MountPriority priority = MountPriority::Source;
-    MountBackendKind backend = MountBackendKind::Directory;
-    std::filesystem::path mountRoot;
+    std::string m_CacheKey;
+    std::string m_SourceKey;
+    VirtualPath m_MountPath;
+    MountPriority m_Priority = MountPriority::Source;
+    MountBackendKind m_Backend = MountBackendKind::Directory;
+    std::filesystem::path m_MountRoot;
 };
 
 struct WritableMount
 {
-    PathDomain domain = PathDomain::Saved;
-    std::filesystem::path rootPath;
+    PathDomain m_Domain = PathDomain::Saved;
+    std::filesystem::path m_RootPath;
 };
 
 std::vector<ReadableMount> DiscoverReadableMountBackends(const std::filesystem::path& rootPath,

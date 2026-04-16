@@ -62,29 +62,29 @@ std::optional<VirtualPath> ParseVirtualPath(std::string_view path)
     VirtualPath virtualPath{};
     if (segments[0] == "Project")
     {
-        virtualPath.domain = PathDomain::Project;
-        virtualPath.relativePath = JoinSegments(segments, 1);
+        virtualPath.m_Domain = PathDomain::Project;
+        virtualPath.m_RelativePath = JoinSegments(segments, 1);
         return virtualPath;
     }
 
     if (segments[0] == "Engine")
     {
-        virtualPath.domain = PathDomain::Engine;
-        virtualPath.relativePath = JoinSegments(segments, 1);
+        virtualPath.m_Domain = PathDomain::Engine;
+        virtualPath.m_RelativePath = JoinSegments(segments, 1);
         return virtualPath;
     }
 
     if (segments[0] == "Saved")
     {
-        virtualPath.domain = PathDomain::Saved;
-        virtualPath.relativePath = JoinSegments(segments, 1);
+        virtualPath.m_Domain = PathDomain::Saved;
+        virtualPath.m_RelativePath = JoinSegments(segments, 1);
         return virtualPath;
     }
 
     if (segments[0] == "Cache")
     {
-        virtualPath.domain = PathDomain::Cache;
-        virtualPath.relativePath = JoinSegments(segments, 1);
+        virtualPath.m_Domain = PathDomain::Cache;
+        virtualPath.m_RelativePath = JoinSegments(segments, 1);
         return virtualPath;
     }
 
@@ -93,9 +93,9 @@ std::optional<VirtualPath> ParseVirtualPath(std::string_view path)
         if (segments.size() < 2)
             return std::nullopt;
 
-        virtualPath.domain = PathDomain::DLC;
-        virtualPath.mountName = segments[1];
-        virtualPath.relativePath = JoinSegments(segments, 2);
+        virtualPath.m_Domain = PathDomain::DLC;
+        virtualPath.m_MountName = segments[1];
+        virtualPath.m_RelativePath = JoinSegments(segments, 2);
         return virtualPath;
     }
 
@@ -104,9 +104,9 @@ std::optional<VirtualPath> ParseVirtualPath(std::string_view path)
         if (segments.size() < 2)
             return std::nullopt;
 
-        virtualPath.domain = PathDomain::Mod;
-        virtualPath.mountName = segments[1];
-        virtualPath.relativePath = JoinSegments(segments, 2);
+        virtualPath.m_Domain = PathDomain::Mod;
+        virtualPath.m_MountName = segments[1];
+        virtualPath.m_RelativePath = JoinSegments(segments, 2);
         return virtualPath;
     }
 

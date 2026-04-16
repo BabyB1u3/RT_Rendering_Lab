@@ -29,7 +29,7 @@ std::vector<std::filesystem::path> CollectPakArchives(const std::filesystem::pat
         if (!entry.is_regular_file())
             continue;
 
-        if (entry.path().extension() == kPakArchiveExtension)
+        if (entry.path().extension() == k_PakArchiveExtension)
             archives.push_back(entry.path());
     }
 
@@ -173,14 +173,14 @@ std::vector<ReadableMount> DiscoverReadableMountBackends(const std::filesystem::
 
 bool MountHasCatalog(const ReadableMount& mount)
 {
-    switch (mount.backend)
+    switch (mount.m_Backend)
     {
         case MountBackendKind::Directory:
-            return std::filesystem::exists(mount.mountRoot / ".rtr" / "catalog.json");
+            return std::filesystem::exists(mount.m_MountRoot / ".rtr" / "catalog.json");
         case MountBackendKind::PakArchive:
         {
             std::string errorMessage;
-            return PakEntryExists(mount.mountRoot, ".rtr/catalog.json", &errorMessage);
+            return PakEntryExists(mount.m_MountRoot, ".rtr/catalog.json", &errorMessage);
         }
     }
 
@@ -189,11 +189,11 @@ bool MountHasCatalog(const ReadableMount& mount)
 
 bool ReadMountCatalogBytes(const ReadableMount& mount, std::vector<uint8_t>& bytes, std::string* errorMessage)
 {
-    switch (mount.backend)
+    switch (mount.m_Backend)
     {
         case MountBackendKind::Directory:
         {
-            const auto catalogPath = mount.mountRoot / ".rtr" / "catalog.json";
+            const auto catalogPath = mount.m_MountRoot / ".rtr" / "catalog.json";
             std::ifstream in(catalogPath, std::ios::binary);
             if (!in.is_open())
             {
@@ -207,7 +207,7 @@ bool ReadMountCatalogBytes(const ReadableMount& mount, std::vector<uint8_t>& byt
         }
         case MountBackendKind::PakArchive:
         {
-            const auto pakBytes = ReadPakEntry(mount.mountRoot, ".rtr/catalog.json", errorMessage);
+            const auto pakBytes = ReadPakEntry(mount.m_MountRoot, ".rtr/catalog.json", errorMessage);
             if (!pakBytes.has_value())
                 return false;
 
@@ -224,19 +224,19 @@ ResolveReadableMountArtifact(const ReadableMount& mount, const ArtifactRecord& a
 {
     (void)errorMessage;
 
-    switch (mount.backend)
+    switch (mount.m_Backend)
     {
         case MountBackendKind::Directory:
             return ResolvedReadableArtifact{
-                .backend = mount.backend,
-                .mountRoot = mount.mountRoot,
-                .relativePath = artifact.relativePath,
+                .m_Backend = mount.m_Backend,
+                .m_MountRoot = mount.m_MountRoot,
+                .m_RelativePath = artifact.m_RelativePath,
             };
         case MountBackendKind::PakArchive:
             return ResolvedReadableArtifact{
-                .backend = mount.backend,
-                .mountRoot = mount.mountRoot,
-                .relativePath = artifact.relativePath,
+                .m_Backend = mount.m_Backend,
+                .m_MountRoot = mount.m_MountRoot,
+                .m_RelativePath = artifact.m_RelativePath,
             };
     }
 
@@ -245,18 +245,19 @@ ResolveReadableMountArtifact(const ReadableMount& mount, const ArtifactRecord& a
 
 std::optional<std::string> ReadReadableArtifactText(const ResolvedReadableArtifact& artifact, std::string* errorMessage)
 {
-    switch (artifact.backend)
+    switch (artifact.m_Backend)
     {
         case MountBackendKind::Directory:
         {
-            const auto text = ReadTextFile(artifact.mountRoot / artifact.relativePath);
+            const auto text = ReadTextFile(artifact.m_MountRoot / artifact.m_RelativePath);
             if (!text.has_value() && errorMessage != nullptr)
-                *errorMessage = "failed to read text file: " + (artifact.mountRoot / artifact.relativePath).string();
+                *errorMessage =
+                    "failed to read text file: " + (artifact.m_MountRoot / artifact.m_RelativePath).string();
             return text;
         }
         case MountBackendKind::PakArchive:
         {
-            const auto bytes = ReadPakEntry(artifact.mountRoot, artifact.relativePath, errorMessage);
+            const auto bytes = ReadPakEntry(artifact.m_MountRoot, artifact.m_RelativePath, errorMessage);
             if (!bytes.has_value())
                 return std::nullopt;
 
@@ -270,17 +271,18 @@ std::optional<std::string> ReadReadableArtifactText(const ResolvedReadableArtifa
 std::optional<std::vector<uint8_t>> ReadReadableArtifactBinary(const ResolvedReadableArtifact& artifact,
                                                                std::string* errorMessage)
 {
-    switch (artifact.backend)
+    switch (artifact.m_Backend)
     {
         case MountBackendKind::Directory:
         {
-            const auto bytes = ReadBinaryFile(artifact.mountRoot / artifact.relativePath);
+            const auto bytes = ReadBinaryFile(artifact.m_MountRoot / artifact.m_RelativePath);
             if (!bytes.has_value() && errorMessage != nullptr)
-                *errorMessage = "failed to read binary file: " + (artifact.mountRoot / artifact.relativePath).string();
+                *errorMessage =
+                    "failed to read binary file: " + (artifact.m_MountRoot / artifact.m_RelativePath).string();
             return bytes;
         }
         case MountBackendKind::PakArchive:
-            return ReadPakEntry(artifact.mountRoot, artifact.relativePath, errorMessage);
+            return ReadPakEntry(artifact.m_MountRoot, artifact.m_RelativePath, errorMessage);
     }
 
     return std::nullopt;
@@ -289,16 +291,17 @@ std::optional<std::vector<uint8_t>> ReadReadableArtifactBinary(const ResolvedRea
 std::unique_ptr<std::istream> OpenReadableArtifactStream(const ResolvedReadableArtifact& artifact,
                                                          std::string* errorMessage)
 {
-    switch (artifact.backend)
+    switch (artifact.m_Backend)
     {
         case MountBackendKind::Directory:
         {
-            auto stream = std::make_unique<std::ifstream>(artifact.mountRoot / artifact.relativePath, std::ios::binary);
+            auto stream =
+                std::make_unique<std::ifstream>(artifact.m_MountRoot / artifact.m_RelativePath, std::ios::binary);
             if (!stream->is_open())
             {
                 if (errorMessage != nullptr)
                     *errorMessage = "failed to open readable artifact stream: " +
-                                    (artifact.mountRoot / artifact.relativePath).string();
+                                    (artifact.m_MountRoot / artifact.m_RelativePath).string();
                 return nullptr;
             }
 
@@ -306,7 +309,7 @@ std::unique_ptr<std::istream> OpenReadableArtifactStream(const ResolvedReadableA
         }
         case MountBackendKind::PakArchive:
         {
-            const auto bytes = ReadPakEntry(artifact.mountRoot, artifact.relativePath, errorMessage);
+            const auto bytes = ReadPakEntry(artifact.m_MountRoot, artifact.m_RelativePath, errorMessage);
             if (!bytes.has_value())
                 return nullptr;
 
