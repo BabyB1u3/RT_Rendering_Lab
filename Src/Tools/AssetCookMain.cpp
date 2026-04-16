@@ -6,7 +6,7 @@
 
 namespace
 {
-constexpr std::string_view kProjectContentDirName = "Project";
+constexpr std::string_view k_ProjectContentDirName = "Project";
 
 Util::CommandLineSpec BuildCommandLineSpec()
 {
@@ -52,7 +52,7 @@ int main(int argc, char** argv)
     const std::filesystem::path rootPath = std::string(*rootOverride);
     const std::filesystem::path cookedRootPath = std::string(*outputOverride);
 
-    if (!Resource::CookRepositoryCatalogs(rootPath, cookedRootPath, kProjectContentDirName, &errorMessage))
+    if (!Resource::CookRepositoryCatalogs(rootPath, cookedRootPath, k_ProjectContentDirName, &errorMessage))
     {
         std::cerr << "rtr_asset_cook: " << errorMessage << "\n";
         return 1;

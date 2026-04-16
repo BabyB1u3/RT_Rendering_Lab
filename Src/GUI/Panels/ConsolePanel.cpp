@@ -96,7 +96,7 @@ ImVec4 GetColorForLevel(spdlog::level::level_enum level)
     }
 }
 
-const char* LevelTag(spdlog::level::level_enum level)
+const char* GetLevelTag(spdlog::level::level_enum level)
 {
     switch (level)
     {
@@ -239,7 +239,7 @@ void ConsolePanel::DrawLogEntries()
                  "%s [%s] %s %s",
                  entry.Timestamp.c_str(),
                  entry.Category.c_str(),
-                 LevelTag(entry.Level),
+                 GetLevelTag(entry.Level),
                  entry.Message.c_str());
         ImGui::TextUnformatted(lineBuf);
 

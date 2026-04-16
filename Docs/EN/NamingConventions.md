@@ -108,15 +108,35 @@ bool m_Running = true;
 uint32_t m_FrameIndex = 0;
 ```
 
-### Static Class Fields
+### Static Storage (Non-Constant)
 
 Use `s_` followed by `PascalCase`.
+
+Use this style for:
+
+- class static fields
+- function-local `static` variables that hold mutable persistent state
+  (including the SIOF-safe "Construct-On-First-Use" idiom)
+
+Constants follow the `k_` rule below regardless of scope.
 
 Examples:
 
 ```cpp
 static Application* s_Instance;
 inline static int s_LiveCount = 0;
+
+std::vector<Entry>& Entries()
+{
+    static std::vector<Entry> s_Entries; // SIOF-safe class-level state
+    return s_Entries;
+}
+
+void OnAttach()
+{
+    static std::string s_IniPath; // function-private persistent state
+    // ...
+}
 ```
 
 ### Namespace-Scope Globals
