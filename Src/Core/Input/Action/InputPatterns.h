@@ -8,7 +8,7 @@
 /// A chord requires all listed sources to be active simultaneously.
 struct ChordBinding
 {
-    std::vector<InputSource> Sources;
+    std::vector<InputSource> sources;
 };
 
 /// A combo requires a sequence of source presses within per-step time limits.
@@ -16,11 +16,11 @@ struct ComboBinding
 {
     struct Step
     {
-        InputSource Source;
-        float MaxDelay = 0.0f;
+        InputSource source;
+        float maxDelay = 0.0f;
     };
 
-    std::vector<Step> Steps;
+    std::vector<Step> steps;
 };
 
 class ComboTracker

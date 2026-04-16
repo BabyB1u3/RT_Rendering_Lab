@@ -73,7 +73,7 @@ void Input::RestoreDefaultDevices()
     s_DeviceManager->AddDevice(CreateScope<KeyboardDevice>(s_Window));
     s_DeviceManager->AddDevice(CreateScope<MouseDevice>(s_Window));
 
-    for (uint8_t i = 0; i < MAX_GAMEPAD_COUNT; ++i)
+    for (uint8_t i = 0; i < k_MaxGamepadCount; ++i)
         s_DeviceManager->AddDevice(CreateScope<GamepadDevice>(i));
 
     ResetDevices();
@@ -97,7 +97,7 @@ bool Input::IsKeyDown(Key::Code key)
         return false;
 
     const auto* device = GetDevice(InputDevice::Type::Keyboard);
-    return device && IsPressed(device->GetInput(key).X);
+    return device && IsPressed(device->GetInput(key).x);
 }
 
 bool Input::WasKeyPressedThisFrame(Key::Code key)
@@ -106,7 +106,7 @@ bool Input::WasKeyPressedThisFrame(Key::Code key)
         return false;
 
     const auto* device = GetDevice(InputDevice::Type::Keyboard);
-    return device && IsPressed(device->GetInput(key).X) && !IsPressed(device->GetPreviousInput(key).X);
+    return device && IsPressed(device->GetInput(key).x) && !IsPressed(device->GetPreviousInput(key).x);
 }
 
 bool Input::WasKeyReleasedThisFrame(Key::Code key)
@@ -115,7 +115,7 @@ bool Input::WasKeyReleasedThisFrame(Key::Code key)
         return false;
 
     const auto* device = GetDevice(InputDevice::Type::Keyboard);
-    return device && !IsPressed(device->GetInput(key).X) && IsPressed(device->GetPreviousInput(key).X);
+    return device && !IsPressed(device->GetInput(key).x) && IsPressed(device->GetPreviousInput(key).x);
 }
 
 bool Input::IsMouseButtonDown(Mouse::Code button)
@@ -124,7 +124,7 @@ bool Input::IsMouseButtonDown(Mouse::Code button)
         return false;
 
     const auto* device = GetDevice(InputDevice::Type::Mouse);
-    return device && IsPressed(device->GetInput(button).X);
+    return device && IsPressed(device->GetInput(button).x);
 }
 
 bool Input::WasMouseButtonPressedThisFrame(Mouse::Code button)
@@ -133,7 +133,7 @@ bool Input::WasMouseButtonPressedThisFrame(Mouse::Code button)
         return false;
 
     const auto* device = GetDevice(InputDevice::Type::Mouse);
-    return device && IsPressed(device->GetInput(button).X) && !IsPressed(device->GetPreviousInput(button).X);
+    return device && IsPressed(device->GetInput(button).x) && !IsPressed(device->GetPreviousInput(button).x);
 }
 
 bool Input::WasMouseButtonReleasedThisFrame(Mouse::Code button)
@@ -142,7 +142,7 @@ bool Input::WasMouseButtonReleasedThisFrame(Mouse::Code button)
         return false;
 
     const auto* device = GetDevice(InputDevice::Type::Mouse);
-    return device && !IsPressed(device->GetInput(button).X) && IsPressed(device->GetPreviousInput(button).X);
+    return device && !IsPressed(device->GetInput(button).x) && IsPressed(device->GetPreviousInput(button).x);
 }
 
 std::pair<float, float> Input::GetMousePosition()
@@ -151,7 +151,7 @@ std::pair<float, float> Input::GetMousePosition()
     if (!device)
         return {0.0f, 0.0f};
 
-    return {device->GetAxis(MouseAxisId::PositionX).X, device->GetAxis(MouseAxisId::PositionY).X};
+    return {device->GetAxis(MouseAxis::PositionX).x, device->GetAxis(MouseAxis::PositionY).x};
 }
 
 std::pair<float, float> Input::GetMouseDelta()
@@ -163,7 +163,7 @@ std::pair<float, float> Input::GetMouseDelta()
     if (!device)
         return {0.0f, 0.0f};
 
-    return {device->GetAxis(MouseAxisId::DeltaX).X, device->GetAxis(MouseAxisId::DeltaY).X};
+    return {device->GetAxis(MouseAxis::DeltaX).x, device->GetAxis(MouseAxis::DeltaY).x};
 }
 
 float Input::GetMouseX()
@@ -182,7 +182,7 @@ float Input::GetScrollDelta()
         return 0.0f;
 
     const auto* device = GetDevice(InputDevice::Type::Mouse);
-    return device ? device->GetAxis(MouseAxisId::ScrollY).X : 0.0f;
+    return device ? device->GetAxis(MouseAxis::ScrollY).x : 0.0f;
 }
 
 void Input::AccumulateScroll(float yOffset)
@@ -200,25 +200,25 @@ bool Input::IsGamepadConnected(uint8_t deviceIndex)
 bool Input::IsGamepadButtonDown(GamepadButton::Code button, uint8_t deviceIndex)
 {
     const auto* device = GetDevice(InputDevice::Type::Gamepad, deviceIndex);
-    return device && IsPressed(device->GetInput(button).X);
+    return device && IsPressed(device->GetInput(button).x);
 }
 
 bool Input::WasGamepadButtonPressedThisFrame(GamepadButton::Code button, uint8_t deviceIndex)
 {
     const auto* device = GetDevice(InputDevice::Type::Gamepad, deviceIndex);
-    return device && IsPressed(device->GetInput(button).X) && !IsPressed(device->GetPreviousInput(button).X);
+    return device && IsPressed(device->GetInput(button).x) && !IsPressed(device->GetPreviousInput(button).x);
 }
 
 bool Input::WasGamepadButtonReleasedThisFrame(GamepadButton::Code button, uint8_t deviceIndex)
 {
     const auto* device = GetDevice(InputDevice::Type::Gamepad, deviceIndex);
-    return device && !IsPressed(device->GetInput(button).X) && IsPressed(device->GetPreviousInput(button).X);
+    return device && !IsPressed(device->GetInput(button).x) && IsPressed(device->GetPreviousInput(button).x);
 }
 
 float Input::GetGamepadAxis(GamepadAxis::Code axis, uint8_t deviceIndex)
 {
     const auto* device = GetDevice(InputDevice::Type::Gamepad, deviceIndex);
-    return device ? device->GetAxis(axis).X : 0.0f;
+    return device ? device->GetAxis(axis).x : 0.0f;
 }
 
 void Input::SetKeyboardCaptured(bool captured)
@@ -255,7 +255,7 @@ void Input::EnsureDevices(GLFWwindow* window)
     if (!s_DeviceManager->GetDevice(InputDevice::Type::Mouse))
         s_DeviceManager->AddDevice(CreateScope<MouseDevice>(window));
 
-    for (uint8_t i = 0; i < MAX_GAMEPAD_COUNT; ++i)
+    for (uint8_t i = 0; i < k_MaxGamepadCount; ++i)
     {
         if (!s_DeviceManager->GetDevice(InputDevice::Type::Gamepad, i))
             s_DeviceManager->AddDevice(CreateScope<GamepadDevice>(i));
@@ -283,16 +283,16 @@ void Input::ApplyPolledState(const PolledState& state)
 {
     EnsureDevices(nullptr);
     if (auto* keyboard = GetKeyboardDevice())
-        keyboard->ApplyState(state.Keys);
+        keyboard->ApplyState(state.keys);
     if (auto* mouse = GetMouseDevice())
-        mouse->ApplyState(state.MouseButtons, state.MouseX, state.MouseY);
+        mouse->ApplyState(state.mouseButtons, state.mouseX, state.mouseY);
 }
 
 void Input::ApplyGamepadState(uint8_t deviceIndex, const GamepadPolledState& state)
 {
     EnsureDevices(nullptr);
     if (auto* gamepad = GetGamepadDevice(deviceIndex))
-        gamepad->ApplyState(state.Connected, state.Buttons, state.Axes);
+        gamepad->ApplyState(state.isConnected, state.buttons, state.axes);
 }
 
 KeyboardDevice* Input::GetKeyboardDevice()

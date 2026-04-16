@@ -36,7 +36,7 @@ class GamepadDevice;
 class InputDeviceManager;
 struct GLFWwindow;
 
-namespace test_support
+namespace TestSupport
 {
 struct InputTestAccess;
 }
@@ -44,23 +44,23 @@ struct InputTestAccess;
 class Input
 {
 public:
-    static constexpr int KEY_STATE_SIZE = KeyboardDevice::KEY_STATE_SIZE;
-    static constexpr int MOUSE_BUTTON_COUNT = MouseDevice::BUTTON_COUNT;
-    static constexpr int MAX_GAMEPAD_COUNT = 4;
+    static constexpr int k_KeyStateSize = KeyboardDevice::k_KeyStateSize;
+    static constexpr int k_MouseButtonCount = MouseDevice::k_ButtonCount;
+    static constexpr int k_MaxGamepadCount = 4;
 
     struct PolledState
     {
-        std::array<bool, KEY_STATE_SIZE> Keys{};
-        std::array<bool, MOUSE_BUTTON_COUNT> MouseButtons{};
-        float MouseX = 0.0f;
-        float MouseY = 0.0f;
+        std::array<bool, k_KeyStateSize> keys{};
+        std::array<bool, k_MouseButtonCount> mouseButtons{};
+        float mouseX = 0.0f;
+        float mouseY = 0.0f;
     };
 
     struct GamepadPolledState
     {
-        bool Connected = false;
-        std::array<bool, GamepadButton::Count> Buttons{};
-        std::array<float, GamepadAxis::Count> Axes{};
+        bool isConnected = false;
+        std::array<bool, GamepadButton::Count> buttons{};
+        std::array<float, GamepadAxis::Count> axes{};
     };
 
 public:
@@ -135,7 +135,7 @@ public:
     static bool IsMouseCaptured();
 
 private:
-    friend struct test_support::InputTestAccess;
+    friend struct TestSupport::InputTestAccess;
 
     static void EnsureDevices(GLFWwindow* window);
     static void ResetDevices();

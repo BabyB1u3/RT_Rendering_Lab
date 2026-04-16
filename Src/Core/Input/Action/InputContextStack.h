@@ -15,11 +15,11 @@ class InputActionMap;
 /// A single entry in the context stack.
 struct InputContext
 {
-    std::string Name;
-    InputActionMap* ActionMap; ///< Non-owning. Lifetime managed by the layer/demo.
-    int Priority;              ///< Higher = processed first.
-    bool ConsumesInput;        ///< If true AND active, lower-priority contexts are blocked.
-    bool Active = true;        ///< Can be temporarily disabled without removing.
+    std::string name;
+    InputActionMap* actionMap; ///< Non-owning. Lifetime managed by the layer/demo.
+    int priority;              ///< Higher = processed first.
+    bool consumesInput;        ///< If true AND active, lower-priority contexts are blocked.
+    bool isActive = true;      ///< Can be temporarily disabled without removing.
 };
 
 /// Coordinates multiple InputActionMap instances by priority.

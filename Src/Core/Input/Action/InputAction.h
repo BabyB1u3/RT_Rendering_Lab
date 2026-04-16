@@ -23,8 +23,8 @@
 /// Value is +1 when positive is held, -1 when negative is held, 0 when neither/both.
 struct AxisBinding
 {
-    InputSource Positive;
-    InputSource Negative;
+    InputSource positive;
+    InputSource negative;
 };
 
 class InputActionMap
@@ -151,10 +151,10 @@ private:
 
     struct ActionState
     {
-        bool HasAvailableBinding = false;
-        bool Down = false;
-        bool Pressed = false;
-        bool Released = false;
+        bool hasAvailableBinding = false;
+        bool isDown = false;
+        bool wasPressed = false;
+        bool wasReleased = false;
     };
 
     ActionState EvaluateActionState(const std::string& name, const std::vector<InputSource>& blockedSources) const;

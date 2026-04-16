@@ -8,9 +8,9 @@
 
 namespace
 {
-using test_support::ConstantTrigger;
-using test_support::FixedValueModifier;
-using test_support::InputTestAccess;
+using TestSupport::ConstantTrigger;
+using TestSupport::FixedValueModifier;
+using TestSupport::InputTestAccess;
 
 class InputActionMapTest : public ::testing::Test
 {
@@ -42,8 +42,8 @@ TEST_F(InputActionMapTest, BindActionAndHasActionReturnsTrue)
     EXPECT_TRUE(map.HasAction("Jump"));
     ASSERT_TRUE(map.GetActions().contains("Jump"));
     ASSERT_EQ(map.GetActions().at("Jump").size(), 1u);
-    EXPECT_EQ(map.GetActions().at("Jump")[0].SourceType, InputSource::Type::Key);
-    EXPECT_EQ(map.GetActions().at("Jump")[0].Code, Key::Space);
+    EXPECT_EQ(map.GetActions().at("Jump")[0].sourceType, InputSource::Type::Key);
+    EXPECT_EQ(map.GetActions().at("Jump")[0].code, Key::Space);
 }
 
 TEST_F(InputActionMapTest, BindAxisAndHasAxisReturnsTrue)
@@ -62,8 +62,8 @@ TEST_F(InputActionMapTest, BindActionMultipleTimesAccumulatesSources)
 
     ASSERT_TRUE(map.GetActions().contains("Confirm"));
     ASSERT_EQ(map.GetActions().at("Confirm").size(), 2u);
-    EXPECT_EQ(map.GetActions().at("Confirm")[1].SourceType, InputSource::Type::MouseButton);
-    EXPECT_EQ(map.GetActions().at("Confirm")[1].Code, Mouse::Left);
+    EXPECT_EQ(map.GetActions().at("Confirm")[1].sourceType, InputSource::Type::MouseButton);
+    EXPECT_EQ(map.GetActions().at("Confirm")[1].code, Mouse::Left);
 }
 
 TEST_F(InputActionMapTest, BindChordActionStoresChordBinding)
@@ -72,9 +72,9 @@ TEST_F(InputActionMapTest, BindChordActionStoresChordBinding)
 
     ASSERT_TRUE(map.GetChordActions().contains("Save"));
     ASSERT_EQ(map.GetChordActions().at("Save").size(), 1u);
-    ASSERT_EQ(map.GetChordActions().at("Save")[0].Sources.size(), 2u);
-    EXPECT_EQ(map.GetChordActions().at("Save")[0].Sources[0].Code, Key::LeftControl);
-    EXPECT_EQ(map.GetChordActions().at("Save")[0].Sources[1].Code, Key::S);
+    ASSERT_EQ(map.GetChordActions().at("Save")[0].sources.size(), 2u);
+    EXPECT_EQ(map.GetChordActions().at("Save")[0].sources[0].code, Key::LeftControl);
+    EXPECT_EQ(map.GetChordActions().at("Save")[0].sources[1].code, Key::S);
 }
 
 TEST_F(InputActionMapTest, BindAxisSameNameOverwritesPreviousBinding)
@@ -496,7 +496,7 @@ TEST_F(InputActionMapTest, SerializeAndDeserializeChordBindingsRemainCompatibleW
     ASSERT_TRUE(roundTrip.GetActions().contains("Confirm"));
     ASSERT_TRUE(roundTrip.GetChordActions().contains("Save"));
     ASSERT_EQ(roundTrip.GetChordActions().at("Save").size(), 1u);
-    ASSERT_EQ(roundTrip.GetChordActions().at("Save")[0].Sources.size(), 2u);
+    ASSERT_EQ(roundTrip.GetChordActions().at("Save")[0].sources.size(), 2u);
 }
 
 TEST_F(InputActionMapTest, GamepadButtonActionTracksDownPressAndReleaseAcrossFrames)

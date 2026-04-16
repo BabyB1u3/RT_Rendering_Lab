@@ -6,7 +6,7 @@
 
 struct GLFWwindow;
 
-namespace MouseAxisId
+namespace MouseAxis
 {
 using Code = uint16_t;
 
@@ -18,12 +18,12 @@ enum : Code
     DeltaY,
     ScrollY
 };
-} // namespace MouseAxisId
+} // namespace MouseAxis
 
 class MouseDevice final : public InputDevice
 {
 public:
-    static constexpr int BUTTON_COUNT = 8;
+    static constexpr int k_ButtonCount = 8;
 
     explicit MouseDevice(GLFWwindow* window = nullptr);
 
@@ -38,13 +38,13 @@ public:
 
     void SetWindow(GLFWwindow* window) { m_Window = window; }
     void AccumulateScroll(float yOffset);
-    void ApplyState(const std::array<bool, BUTTON_COUNT>& buttons, float x, float y);
+    void ApplyState(const std::array<bool, k_ButtonCount>& buttons, float x, float y);
 
 private:
     GLFWwindow* m_Window = nullptr; // Non-owning. Lifetime is managed by Window/Application.
 
-    std::array<bool, BUTTON_COUNT> m_CurrentButtons{};
-    std::array<bool, BUTTON_COUNT> m_PreviousButtons{};
+    std::array<bool, k_ButtonCount> m_CurrentButtons{};
+    std::array<bool, k_ButtonCount> m_PreviousButtons{};
 
     float m_MouseX = 0.0f;
     float m_MouseY = 0.0f;

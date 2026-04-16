@@ -36,21 +36,21 @@ inline void Serialize(PropertyTree& tree, const InputSource& src)
     tree = PropertyTree::Object{};
     // InputSource::Type uses magic_enum (tokens: "Key", "MouseButton", etc.)
     PropertyTree typeTree;
-    Serialize(typeTree, src.SourceType);
+    Serialize(typeTree, src.sourceType);
     tree["type"] = std::move(typeTree);
 
     // Code uses InputNames.h for stable names
-    if (src.SourceType == InputSource::Type::MouseButton)
-        tree["code"] = PropertyTree(Mouse::ToName(static_cast<Mouse::Code>(src.Code)));
-    else if (src.SourceType == InputSource::Type::GamepadButton)
-        tree["code"] = PropertyTree(GamepadButton::ToName(static_cast<GamepadButton::Code>(src.Code)));
-    else if (src.SourceType == InputSource::Type::GamepadAxis)
-        tree["code"] = PropertyTree(GamepadAxis::ToName(static_cast<GamepadAxis::Code>(src.Code)));
+    if (src.sourceType == InputSource::Type::MouseButton)
+        tree["code"] = PropertyTree(Mouse::ToName(static_cast<Mouse::Code>(src.code)));
+    else if (src.sourceType == InputSource::Type::GamepadButton)
+        tree["code"] = PropertyTree(GamepadButton::ToName(static_cast<GamepadButton::Code>(src.code)));
+    else if (src.sourceType == InputSource::Type::GamepadAxis)
+        tree["code"] = PropertyTree(GamepadAxis::ToName(static_cast<GamepadAxis::Code>(src.code)));
     else
-        tree["code"] = PropertyTree(Key::ToName(static_cast<Key::Code>(src.Code)));
+        tree["code"] = PropertyTree(Key::ToName(static_cast<Key::Code>(src.code)));
 
-    if (src.DeviceIndex != 0)
-        tree["device"] = PropertyTree(static_cast<int>(src.DeviceIndex));
+    if (src.deviceIndex != 0)
+        tree["device"] = PropertyTree(static_cast<int>(src.deviceIndex));
 }
 
 inline bool Deserialize(const PropertyTree& tree, InputSource& src)
@@ -94,9 +94,9 @@ inline bool Deserialize(const PropertyTree& tree, InputSource& src)
             return false;
     }
 
-    src.SourceType = type;
-    src.Code = code;
-    src.DeviceIndex = static_cast<uint8_t>(tree.GetOr<int>("device", 0));
+    src.sourceType = type;
+    src.code = code;
+    src.deviceIndex = static_cast<uint8_t>(tree.GetOr<int>("device", 0));
     return true;
 }
 
@@ -108,7 +108,7 @@ inline void Serialize(PropertyTree& tree, const ChordBinding& binding)
     tree["kind"] = PropertyTree("Chord");
 
     PropertyTree sourcesTree;
-    Serialize(sourcesTree, binding.Sources);
+    Serialize(sourcesTree, binding.sources);
     tree["sources"] = std::move(sourcesTree);
 }
 
@@ -132,7 +132,7 @@ inline bool Deserialize(const PropertyTree& tree, ChordBinding& binding)
     if (!Deserialize(tree["sources"], sources) || sources.empty())
         return false;
 
-    binding.Sources = std::move(sources);
+    binding.sources = std::move(sources);
     return true;
 }
 
@@ -175,8 +175,8 @@ inline void Serialize(PropertyTree& tree, const InputActionMap& map)
         if (entry.kind == InputActionMap::AxisEntry::Kind::KeyPair)
         {
             axisObj["kind"] = PropertyTree("KeyPair");
-            axisObj["positive"] = PropertyTree(Key::ToName(static_cast<Key::Code>(entry.keyPair.Positive.Code)));
-            axisObj["negative"] = PropertyTree(Key::ToName(static_cast<Key::Code>(entry.keyPair.Negative.Code)));
+            axisObj["positive"] = PropertyTree(Key::ToName(static_cast<Key::Code>(entry.keyPair.positive.code)));
+            axisObj["negative"] = PropertyTree(Key::ToName(static_cast<Key::Code>(entry.keyPair.negative.code)));
         }
         else if (entry.kind == InputActionMap::AxisEntry::Kind::MouseAxis)
         {
@@ -218,7 +218,7 @@ inline bool Deserialize(const PropertyTree& tree, InputActionMap& map)
                 ChordBinding chord{};
                 if (Deserialize(srcTree, chord))
                 {
-                    temp.BindChordAction(name, chord.Sources);
+                    temp.BindChordAction(name, chord.sources);
                     continue;
                 }
 

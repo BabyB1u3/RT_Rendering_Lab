@@ -62,51 +62,51 @@ bool ReadArray(const std::vector<uint8_t>& bytes, std::size_t& offset, std::arra
 void CaptureKeyboardState(const InputDeviceManager& manager, RecordedKeyboardState& state)
 {
     const auto* device = manager.GetDevice(InputDevice::Type::Keyboard);
-    state.Present = (device != nullptr);
-    state.Connected = device ? device->IsConnected() : false;
-    state.Keys.fill(0);
+    state.isPresent = (device != nullptr);
+    state.isConnected = device ? device->IsConnected() : false;
+    state.keys.fill(0);
 
     if (!device)
         return;
 
-    for (uint16_t key = 0; key < KeyboardDevice::KEY_STATE_SIZE; ++key)
-        state.Keys[key] = IsPressed(device->GetInput(key).X) ? 1u : 0u;
+    for (uint16_t key = 0; key < KeyboardDevice::k_KeyStateSize; ++key)
+        state.keys[key] = IsPressed(device->GetInput(key).x) ? 1u : 0u;
 }
 
 void CaptureMouseState(const InputDeviceManager& manager, RecordedMouseState& state)
 {
     const auto* device = manager.GetDevice(InputDevice::Type::Mouse);
-    state.Present = (device != nullptr);
-    state.Connected = device ? device->IsConnected() : false;
-    state.Buttons.fill(0);
-    state.X = 0.0f;
-    state.Y = 0.0f;
-    state.ScrollDelta = 0.0f;
+    state.isPresent = (device != nullptr);
+    state.isConnected = device ? device->IsConnected() : false;
+    state.buttons.fill(0);
+    state.x = 0.0f;
+    state.y = 0.0f;
+    state.scrollDelta = 0.0f;
 
     if (!device)
         return;
 
-    for (uint16_t button = 0; button < MouseDevice::BUTTON_COUNT; ++button)
-        state.Buttons[button] = IsPressed(device->GetInput(button).X) ? 1u : 0u;
+    for (uint16_t button = 0; button < MouseDevice::k_ButtonCount; ++button)
+        state.buttons[button] = IsPressed(device->GetInput(button).x) ? 1u : 0u;
 
-    state.X = device->GetAxis(MouseAxisId::PositionX).X;
-    state.Y = device->GetAxis(MouseAxisId::PositionY).X;
-    state.ScrollDelta = device->GetAxis(MouseAxisId::ScrollY).X;
+    state.x = device->GetAxis(MouseAxis::PositionX).x;
+    state.y = device->GetAxis(MouseAxis::PositionY).x;
+    state.scrollDelta = device->GetAxis(MouseAxis::ScrollY).x;
 }
 
 RecordedGamepadState CaptureGamepadState(const InputDevice& device)
 {
     RecordedGamepadState state;
-    state.DeviceIndex = device.GetDeviceIndex();
-    state.Connected = device.IsConnected();
-    state.Buttons.fill(0);
-    state.Axes.fill(0.0f);
+    state.deviceIndex = device.GetDeviceIndex();
+    state.isConnected = device.IsConnected();
+    state.buttons.fill(0);
+    state.axes.fill(0.0f);
 
     for (uint16_t button = 0; button < GamepadButton::Count; ++button)
-        state.Buttons[button] = IsPressed(device.GetInput(button).X) ? 1u : 0u;
+        state.buttons[button] = IsPressed(device.GetInput(button).x) ? 1u : 0u;
 
     for (uint16_t axis = 0; axis < GamepadAxis::Count; ++axis)
-        state.Axes[axis] = device.GetAxis(axis).X;
+        state.axes[axis] = device.GetAxis(axis).x;
 
     return state;
 }
@@ -138,71 +138,71 @@ void InputRecorder::Clear()
 void InputRecorder::CaptureFrame(const InputDeviceManager& manager, uint64_t frameNumber, float dt)
 {
     InputFrame frame;
-    frame.FrameNumber = frameNumber;
-    frame.DeltaTime = dt;
+    frame.frameNumber = frameNumber;
+    frame.deltaTime = dt;
 
-    CaptureKeyboardState(manager, frame.Keyboard);
-    CaptureMouseState(manager, frame.Mouse);
+    CaptureKeyboardState(manager, frame.keyboard);
+    CaptureMouseState(manager, frame.mouse);
 
     for (const auto* device : manager.GetDevices(InputDevice::Type::Gamepad))
     {
         if (!device)
             continue;
 
-        frame.Gamepads.push_back(CaptureGamepadState(*device));
+        frame.gamepads.push_back(CaptureGamepadState(*device));
     }
 
-    m_Recording.Frames.push_back(std::move(frame));
+    m_Recording.frames.push_back(std::move(frame));
 }
 
 void InputRecorder::SetRecording(InputRecording recording)
 {
     m_Recording = std::move(recording);
-    m_NextFrameNumber = m_Recording.Frames.empty() ? 0 : (m_Recording.Frames.back().FrameNumber + 1);
+    m_NextFrameNumber = m_Recording.frames.empty() ? 0 : (m_Recording.frames.back().frameNumber + 1);
     m_IsRecording = false;
 }
 
 bool InputRecorder::SaveToFile(const std::filesystem::path& path) const
 {
     std::vector<uint8_t> bytes;
-    bytes.reserve(32 + m_Recording.Frames.size() * 1024);
+    bytes.reserve(32 + m_Recording.frames.size() * 1024);
 
     AppendPod(bytes, kInputRecordingMagic);
     AppendPod(bytes, kInputRecordingVersion);
 
-    const uint32_t frameCount = static_cast<uint32_t>(m_Recording.Frames.size());
+    const uint32_t frameCount = static_cast<uint32_t>(m_Recording.frames.size());
     AppendPod(bytes, frameCount);
 
-    for (const auto& frame : m_Recording.Frames)
+    for (const auto& frame : m_Recording.frames)
     {
-        AppendPod(bytes, frame.FrameNumber);
-        AppendPod(bytes, frame.DeltaTime);
+        AppendPod(bytes, frame.frameNumber);
+        AppendPod(bytes, frame.deltaTime);
 
-        const uint8_t keyboardPresent = frame.Keyboard.Present ? 1u : 0u;
-        const uint8_t keyboardConnected = frame.Keyboard.Connected ? 1u : 0u;
+        const uint8_t keyboardPresent = frame.keyboard.isPresent ? 1u : 0u;
+        const uint8_t keyboardConnected = frame.keyboard.isConnected ? 1u : 0u;
         AppendPod(bytes, keyboardPresent);
         AppendPod(bytes, keyboardConnected);
-        AppendArray(bytes, frame.Keyboard.Keys);
+        AppendArray(bytes, frame.keyboard.keys);
 
-        const uint8_t mousePresent = frame.Mouse.Present ? 1u : 0u;
-        const uint8_t mouseConnected = frame.Mouse.Connected ? 1u : 0u;
+        const uint8_t mousePresent = frame.mouse.isPresent ? 1u : 0u;
+        const uint8_t mouseConnected = frame.mouse.isConnected ? 1u : 0u;
         AppendPod(bytes, mousePresent);
         AppendPod(bytes, mouseConnected);
-        AppendArray(bytes, frame.Mouse.Buttons);
-        AppendPod(bytes, frame.Mouse.X);
-        AppendPod(bytes, frame.Mouse.Y);
-        AppendPod(bytes, frame.Mouse.ScrollDelta);
+        AppendArray(bytes, frame.mouse.buttons);
+        AppendPod(bytes, frame.mouse.x);
+        AppendPod(bytes, frame.mouse.y);
+        AppendPod(bytes, frame.mouse.scrollDelta);
 
-        const uint32_t gamepadCount = static_cast<uint32_t>(frame.Gamepads.size());
+        const uint32_t gamepadCount = static_cast<uint32_t>(frame.gamepads.size());
         AppendPod(bytes, gamepadCount);
 
-        for (const auto& gamepad : frame.Gamepads)
+        for (const auto& gamepad : frame.gamepads)
         {
-            AppendPod(bytes, gamepad.DeviceIndex);
-            const uint8_t connected = gamepad.Connected ? 1u : 0u;
+            AppendPod(bytes, gamepad.deviceIndex);
+            const uint8_t connected = gamepad.isConnected ? 1u : 0u;
             AppendPod(bytes, connected);
-            AppendArray(bytes, gamepad.Buttons);
-            AppendArray(bytes, gamepad.Axes);
+            AppendArray(bytes, gamepad.buttons);
+            AppendArray(bytes, gamepad.axes);
         }
     }
 
@@ -227,7 +227,7 @@ bool InputRecorder::LoadFromFile(const std::filesystem::path& path)
     }
 
     InputRecording recording;
-    recording.Frames.reserve(frameCount);
+    recording.frames.reserve(frameCount);
 
     for (uint32_t i = 0; i < frameCount; ++i)
     {
@@ -239,38 +239,38 @@ bool InputRecorder::LoadFromFile(const std::filesystem::path& path)
         uint8_t mouseConnected = 0;
         uint32_t gamepadCount = 0;
 
-        if (!ReadPod(*bytes, offset, frame.FrameNumber) || !ReadPod(*bytes, offset, frame.DeltaTime) ||
+        if (!ReadPod(*bytes, offset, frame.frameNumber) || !ReadPod(*bytes, offset, frame.deltaTime) ||
             !ReadPod(*bytes, offset, keyboardPresent) || !ReadPod(*bytes, offset, keyboardConnected) ||
-            !ReadArray(*bytes, offset, frame.Keyboard.Keys) || !ReadPod(*bytes, offset, mousePresent) ||
-            !ReadPod(*bytes, offset, mouseConnected) || !ReadArray(*bytes, offset, frame.Mouse.Buttons) ||
-            !ReadPod(*bytes, offset, frame.Mouse.X) || !ReadPod(*bytes, offset, frame.Mouse.Y) ||
-            !ReadPod(*bytes, offset, frame.Mouse.ScrollDelta) || !ReadPod(*bytes, offset, gamepadCount))
+            !ReadArray(*bytes, offset, frame.keyboard.keys) || !ReadPod(*bytes, offset, mousePresent) ||
+            !ReadPod(*bytes, offset, mouseConnected) || !ReadArray(*bytes, offset, frame.mouse.buttons) ||
+            !ReadPod(*bytes, offset, frame.mouse.x) || !ReadPod(*bytes, offset, frame.mouse.y) ||
+            !ReadPod(*bytes, offset, frame.mouse.scrollDelta) || !ReadPod(*bytes, offset, gamepadCount))
         {
             return false;
         }
 
-        frame.Keyboard.Present = (keyboardPresent != 0);
-        frame.Keyboard.Connected = (keyboardConnected != 0);
-        frame.Mouse.Present = (mousePresent != 0);
-        frame.Mouse.Connected = (mouseConnected != 0);
-        frame.Gamepads.reserve(gamepadCount);
+        frame.keyboard.isPresent = (keyboardPresent != 0);
+        frame.keyboard.isConnected = (keyboardConnected != 0);
+        frame.mouse.isPresent = (mousePresent != 0);
+        frame.mouse.isConnected = (mouseConnected != 0);
+        frame.gamepads.reserve(gamepadCount);
 
         for (uint32_t gamepadIndex = 0; gamepadIndex < gamepadCount; ++gamepadIndex)
         {
             RecordedGamepadState gamepad;
             uint8_t connected = 0;
 
-            if (!ReadPod(*bytes, offset, gamepad.DeviceIndex) || !ReadPod(*bytes, offset, connected) ||
-                !ReadArray(*bytes, offset, gamepad.Buttons) || !ReadArray(*bytes, offset, gamepad.Axes))
+            if (!ReadPod(*bytes, offset, gamepad.deviceIndex) || !ReadPod(*bytes, offset, connected) ||
+                !ReadArray(*bytes, offset, gamepad.buttons) || !ReadArray(*bytes, offset, gamepad.axes))
             {
                 return false;
             }
 
-            gamepad.Connected = (connected != 0);
-            frame.Gamepads.push_back(std::move(gamepad));
+            gamepad.isConnected = (connected != 0);
+            frame.gamepads.push_back(std::move(gamepad));
         }
 
-        recording.Frames.push_back(std::move(frame));
+        recording.frames.push_back(std::move(frame));
     }
 
     if (offset != bytes->size())
@@ -331,7 +331,7 @@ void InputReplaySession::Reset()
     m_PreviousFrame = nullptr;
     m_CurrentFrame = nullptr;
     m_NextFrameIndex = 0;
-    m_IsFinished = m_Recording.Frames.empty();
+    m_IsFinished = m_Recording.frames.empty();
     m_HasTimingMismatch = false;
 }
 
@@ -356,27 +356,27 @@ void InputReplaySession::Detach()
 
 const RecordedKeyboardState* InputReplaySession::GetKeyboardState() const
 {
-    return (m_CurrentFrame && m_CurrentFrame->Keyboard.Present) ? &m_CurrentFrame->Keyboard : nullptr;
+    return (m_CurrentFrame && m_CurrentFrame->keyboard.isPresent) ? &m_CurrentFrame->keyboard : nullptr;
 }
 
 const RecordedKeyboardState* InputReplaySession::GetPreviousKeyboardState() const
 {
-    return (m_PreviousFrame && m_PreviousFrame->Keyboard.Present) ? &m_PreviousFrame->Keyboard : nullptr;
+    return (m_PreviousFrame && m_PreviousFrame->keyboard.isPresent) ? &m_PreviousFrame->keyboard : nullptr;
 }
 
 const RecordedMouseState* InputReplaySession::GetMouseState() const
 {
-    return (m_CurrentFrame && m_CurrentFrame->Mouse.Present) ? &m_CurrentFrame->Mouse : nullptr;
+    return (m_CurrentFrame && m_CurrentFrame->mouse.isPresent) ? &m_CurrentFrame->mouse : nullptr;
 }
 
 const RecordedMouseState* InputReplaySession::GetPreviousMouseState() const
 {
-    return (m_PreviousFrame && m_PreviousFrame->Mouse.Present) ? &m_PreviousFrame->Mouse : nullptr;
+    return (m_PreviousFrame && m_PreviousFrame->mouse.isPresent) ? &m_PreviousFrame->mouse : nullptr;
 }
 
 const RecordedMouseState* InputReplaySession::GetMouseStateBeforePrevious() const
 {
-    return (m_FrameBeforePrevious && m_FrameBeforePrevious->Mouse.Present) ? &m_FrameBeforePrevious->Mouse : nullptr;
+    return (m_FrameBeforePrevious && m_FrameBeforePrevious->mouse.isPresent) ? &m_FrameBeforePrevious->mouse : nullptr;
 }
 
 const RecordedGamepadState* InputReplaySession::GetGamepadState(uint8_t deviceIndex) const
@@ -394,19 +394,19 @@ void InputReplaySession::OnBeforePollAll(InputDeviceManager&, float dt)
     m_FrameBeforePrevious = m_PreviousFrame;
     m_PreviousFrame = m_CurrentFrame;
 
-    if (m_NextFrameIndex >= m_Recording.Frames.size())
+    if (m_NextFrameIndex >= m_Recording.frames.size())
     {
         m_CurrentFrame = nullptr;
         m_IsFinished = true;
         return;
     }
 
-    m_CurrentFrame = &m_Recording.Frames[m_NextFrameIndex];
-    if (std::fabs(m_CurrentFrame->DeltaTime - dt) > kTimingTolerance)
+    m_CurrentFrame = &m_Recording.frames[m_NextFrameIndex];
+    if (std::fabs(m_CurrentFrame->deltaTime - dt) > kTimingTolerance)
         m_HasTimingMismatch = true;
 
     ++m_NextFrameIndex;
-    m_IsFinished = (m_NextFrameIndex >= m_Recording.Frames.size());
+    m_IsFinished = (m_NextFrameIndex >= m_Recording.frames.size());
 }
 
 const RecordedGamepadState* InputReplaySession::FindGamepadState(const InputFrame* frame, uint8_t deviceIndex)
@@ -414,9 +414,9 @@ const RecordedGamepadState* InputReplaySession::FindGamepadState(const InputFram
     if (!frame)
         return nullptr;
 
-    for (const auto& gamepad : frame->Gamepads)
+    for (const auto& gamepad : frame->gamepads)
     {
-        if (gamepad.DeviceIndex == deviceIndex)
+        if (gamepad.deviceIndex == deviceIndex)
             return &gamepad;
     }
 

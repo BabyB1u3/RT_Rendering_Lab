@@ -8,9 +8,9 @@
 
 namespace
 {
-using test_support::BindConstantAxis;
-using test_support::BindConstantTrigger;
-using test_support::InputTestAccess;
+using TestSupport::BindConstantAxis;
+using TestSupport::BindConstantTrigger;
+using TestSupport::InputTestAccess;
 } // namespace
 
 // These tests verify the contract behavior of InputContextStack:

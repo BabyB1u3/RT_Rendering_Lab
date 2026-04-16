@@ -11,22 +11,22 @@ InputValue BoolToValue(bool down)
 
 bool IsKeyboardKeyDown(const RecordedKeyboardState* state, uint16_t code)
 {
-    return state && code < state->Keys.size() && state->Keys[code] != 0;
+    return state && code < state->keys.size() && state->keys[code] != 0;
 }
 
 bool IsMouseButtonDown(const RecordedMouseState* state, uint16_t code)
 {
-    return state && code < state->Buttons.size() && state->Buttons[code] != 0;
+    return state && code < state->buttons.size() && state->buttons[code] != 0;
 }
 
 bool IsGamepadButtonDown(const RecordedGamepadState* state, uint16_t code)
 {
-    return state && code < state->Buttons.size() && state->Buttons[code] != 0;
+    return state && code < state->buttons.size() && state->buttons[code] != 0;
 }
 
 float GetGamepadAxisValue(const RecordedGamepadState* state, uint16_t axisId)
 {
-    return (state && axisId < state->Axes.size()) ? state->Axes[axisId] : 0.0f;
+    return (state && axisId < state->axes.size()) ? state->axes[axisId] : 0.0f;
 }
 } // namespace
 
@@ -43,13 +43,13 @@ InputValue ReplayKeyboardDevice::GetPreviousInput(uint16_t code) const
 bool ReplayKeyboardDevice::IsConnected() const
 {
     const auto* state = m_Session.GetKeyboardState();
-    return state ? state->Connected : false;
+    return state ? state->isConnected : false;
 }
 
 bool ReplayKeyboardDevice::WasConnected() const
 {
     const auto* state = m_Session.GetPreviousKeyboardState();
-    return state ? state->Connected : false;
+    return state ? state->isConnected : false;
 }
 
 InputValue ReplayMouseDevice::GetInput(uint16_t code) const
@@ -69,16 +69,16 @@ InputValue ReplayMouseDevice::GetAxis(uint16_t axisId) const
 
     switch (axisId)
     {
-        case MouseAxisId::PositionX:
-            return {current ? current->X : (previous ? previous->X : 0.0f), 0.0f};
-        case MouseAxisId::PositionY:
-            return {current ? current->Y : (previous ? previous->Y : 0.0f), 0.0f};
-        case MouseAxisId::DeltaX:
-            return {(current && previous) ? (current->X - previous->X) : 0.0f, 0.0f};
-        case MouseAxisId::DeltaY:
-            return {(current && previous) ? (current->Y - previous->Y) : 0.0f, 0.0f};
-        case MouseAxisId::ScrollY:
-            return {current ? current->ScrollDelta : 0.0f, 0.0f};
+        case MouseAxis::PositionX:
+            return {current ? current->x : (previous ? previous->x : 0.0f), 0.0f};
+        case MouseAxis::PositionY:
+            return {current ? current->y : (previous ? previous->y : 0.0f), 0.0f};
+        case MouseAxis::DeltaX:
+            return {(current && previous) ? (current->x - previous->x) : 0.0f, 0.0f};
+        case MouseAxis::DeltaY:
+            return {(current && previous) ? (current->y - previous->y) : 0.0f, 0.0f};
+        case MouseAxis::ScrollY:
+            return {current ? current->scrollDelta : 0.0f, 0.0f};
         default:
             return {};
     }
@@ -91,16 +91,16 @@ InputValue ReplayMouseDevice::GetPreviousAxis(uint16_t axisId) const
 
     switch (axisId)
     {
-        case MouseAxisId::PositionX:
-            return {previous ? previous->X : 0.0f, 0.0f};
-        case MouseAxisId::PositionY:
-            return {previous ? previous->Y : 0.0f, 0.0f};
-        case MouseAxisId::DeltaX:
-            return {(previous && beforePrevious) ? (previous->X - beforePrevious->X) : 0.0f, 0.0f};
-        case MouseAxisId::DeltaY:
-            return {(previous && beforePrevious) ? (previous->Y - beforePrevious->Y) : 0.0f, 0.0f};
-        case MouseAxisId::ScrollY:
-            return {previous ? previous->ScrollDelta : 0.0f, 0.0f};
+        case MouseAxis::PositionX:
+            return {previous ? previous->x : 0.0f, 0.0f};
+        case MouseAxis::PositionY:
+            return {previous ? previous->y : 0.0f, 0.0f};
+        case MouseAxis::DeltaX:
+            return {(previous && beforePrevious) ? (previous->x - beforePrevious->x) : 0.0f, 0.0f};
+        case MouseAxis::DeltaY:
+            return {(previous && beforePrevious) ? (previous->y - beforePrevious->y) : 0.0f, 0.0f};
+        case MouseAxis::ScrollY:
+            return {previous ? previous->scrollDelta : 0.0f, 0.0f};
         default:
             return {};
     }
@@ -109,13 +109,13 @@ InputValue ReplayMouseDevice::GetPreviousAxis(uint16_t axisId) const
 bool ReplayMouseDevice::IsConnected() const
 {
     const auto* state = m_Session.GetMouseState();
-    return state ? state->Connected : false;
+    return state ? state->isConnected : false;
 }
 
 bool ReplayMouseDevice::WasConnected() const
 {
     const auto* state = m_Session.GetPreviousMouseState();
-    return state ? state->Connected : false;
+    return state ? state->isConnected : false;
 }
 
 InputValue ReplayGamepadDevice::GetInput(uint16_t code) const
@@ -141,11 +141,11 @@ InputValue ReplayGamepadDevice::GetPreviousAxis(uint16_t axisId) const
 bool ReplayGamepadDevice::IsConnected() const
 {
     const auto* state = m_Session.GetGamepadState(m_DeviceIndex);
-    return state ? state->Connected : false;
+    return state ? state->isConnected : false;
 }
 
 bool ReplayGamepadDevice::WasConnected() const
 {
     const auto* state = m_Session.GetPreviousGamepadState(m_DeviceIndex);
-    return state ? state->Connected : false;
+    return state ? state->isConnected : false;
 }

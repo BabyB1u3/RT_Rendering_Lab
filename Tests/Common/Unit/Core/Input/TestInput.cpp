@@ -6,7 +6,7 @@
 
 namespace
 {
-using test_support::InputTestAccess;
+using TestSupport::InputTestAccess;
 
 class FakeKeyboardDevice final : public InputDevice
 {
@@ -242,10 +242,10 @@ TEST_F(InputPollingTests, MouseDevicePreviousDeltaTracksPriorFrameMotion)
 
     const auto* mouse = manager->GetDevice(InputDevice::Type::Mouse);
     ASSERT_NE(mouse, nullptr);
-    EXPECT_FLOAT_EQ(mouse->GetPreviousAxis(MouseAxisId::DeltaX).X, 14.0f);
-    EXPECT_FLOAT_EQ(mouse->GetPreviousAxis(MouseAxisId::DeltaY).X, -2.0f);
-    EXPECT_FLOAT_EQ(mouse->GetAxis(MouseAxisId::DeltaX).X, 6.0f);
-    EXPECT_FLOAT_EQ(mouse->GetAxis(MouseAxisId::DeltaY).X, 12.0f);
+    EXPECT_FLOAT_EQ(mouse->GetPreviousAxis(MouseAxis::DeltaX).x, 14.0f);
+    EXPECT_FLOAT_EQ(mouse->GetPreviousAxis(MouseAxis::DeltaY).x, -2.0f);
+    EXPECT_FLOAT_EQ(mouse->GetAxis(MouseAxis::DeltaX).x, 6.0f);
+    EXPECT_FLOAT_EQ(mouse->GetAxis(MouseAxis::DeltaY).x, 12.0f);
 }
 
 TEST_F(InputPollingTests, MouseCaptureBlocksButtonDeltaAndScrollQueries)

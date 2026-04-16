@@ -5,7 +5,7 @@
 
 #include "Core/Input/Action/InputAction.h"
 
-namespace test_support
+namespace TestSupport
 {
 class FixedValueModifier final : public InputModifier
 {
@@ -50,4 +50,4 @@ BindConstantTrigger(InputActionMap& map, const std::string& name, TriggerState s
     map.BindAction(name, Key::Space);
     map.SetTrigger(name, std::make_unique<ConstantTrigger>(state, resetCount));
 }
-} // namespace test_support
+} // namespace TestSupport

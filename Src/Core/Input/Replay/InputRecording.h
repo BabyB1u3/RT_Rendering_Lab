@@ -13,45 +13,45 @@
 
 struct RecordedKeyboardState
 {
-    bool Present = false;
-    bool Connected = false;
-    std::array<uint8_t, KeyboardDevice::KEY_STATE_SIZE> Keys{};
+    bool isPresent = false;
+    bool isConnected = false;
+    std::array<uint8_t, KeyboardDevice::k_KeyStateSize> keys{};
 };
 
 struct RecordedMouseState
 {
-    bool Present = false;
-    bool Connected = false;
-    std::array<uint8_t, MouseDevice::BUTTON_COUNT> Buttons{};
-    float X = 0.0f;
-    float Y = 0.0f;
-    float ScrollDelta = 0.0f;
+    bool isPresent = false;
+    bool isConnected = false;
+    std::array<uint8_t, MouseDevice::k_ButtonCount> buttons{};
+    float x = 0.0f;
+    float y = 0.0f;
+    float scrollDelta = 0.0f;
 };
 
 struct RecordedGamepadState
 {
-    uint8_t DeviceIndex = 0;
-    bool Connected = false;
-    std::array<uint8_t, GamepadButton::Count> Buttons{};
-    std::array<float, GamepadAxis::Count> Axes{};
+    uint8_t deviceIndex = 0;
+    bool isConnected = false;
+    std::array<uint8_t, GamepadButton::Count> buttons{};
+    std::array<float, GamepadAxis::Count> axes{};
 };
 
 struct InputFrame
 {
-    uint64_t FrameNumber = 0;
-    float DeltaTime = 0.0f;
-    RecordedKeyboardState Keyboard;
-    RecordedMouseState Mouse;
-    std::vector<RecordedGamepadState> Gamepads;
+    uint64_t frameNumber = 0;
+    float deltaTime = 0.0f;
+    RecordedKeyboardState keyboard;
+    RecordedMouseState mouse;
+    std::vector<RecordedGamepadState> gamepads;
 };
 
 struct InputRecording
 {
-    std::vector<InputFrame> Frames;
+    std::vector<InputFrame> frames;
 
-    void Clear() { Frames.clear(); }
-    bool Empty() const { return Frames.empty(); }
-    std::size_t GetFrameCount() const { return Frames.size(); }
+    void Clear() { frames.clear(); }
+    bool Empty() const { return frames.empty(); }
+    std::size_t GetFrameCount() const { return frames.size(); }
 };
 
 class InputRecorder final : public InputDeviceManagerObserver

@@ -4,8 +4,8 @@
 
 struct InputValue
 {
-    float X = 0.0f;
-    float Y = 0.0f;
+    float x = 0.0f;
+    float y = 0.0f;
 };
 
 class InputDevice

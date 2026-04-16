@@ -21,7 +21,7 @@ bool IsDown(const InputSource& source)
     if (!manager)
         return false;
 
-    switch (source.SourceType)
+    switch (source.sourceType)
     {
         case InputSource::Type::Key:
         {
@@ -29,7 +29,7 @@ bool IsDown(const InputSource& source)
                 return false;
 
             const auto* device = manager->GetDevice(InputDevice::Type::Keyboard);
-            return device && device->GetInput(source.Code).X > kInputPressThreshold;
+            return device && device->GetInput(source.code).x > kInputPressThreshold;
         }
         case InputSource::Type::MouseButton:
         {
@@ -37,17 +37,17 @@ bool IsDown(const InputSource& source)
                 return false;
 
             const auto* device = manager->GetDevice(InputDevice::Type::Mouse);
-            return device && device->GetInput(source.Code).X > kInputPressThreshold;
+            return device && device->GetInput(source.code).x > kInputPressThreshold;
         }
         case InputSource::Type::GamepadButton:
         {
-            const auto* device = manager->GetDevice(InputDevice::Type::Gamepad, source.DeviceIndex);
-            return device && device->GetInput(source.Code).X > kInputPressThreshold;
+            const auto* device = manager->GetDevice(InputDevice::Type::Gamepad, source.deviceIndex);
+            return device && device->GetInput(source.code).x > kInputPressThreshold;
         }
         case InputSource::Type::GamepadAxis:
         {
-            const auto* device = manager->GetDevice(InputDevice::Type::Gamepad, source.DeviceIndex);
-            return device && IsActive(device->GetAxis(source.Code).X);
+            const auto* device = manager->GetDevice(InputDevice::Type::Gamepad, source.deviceIndex);
+            return device && IsActive(device->GetAxis(source.code).x);
         }
         default:
             return false;
@@ -60,7 +60,7 @@ bool WasDown(const InputSource& source)
     if (!manager)
         return false;
 
-    switch (source.SourceType)
+    switch (source.sourceType)
     {
         case InputSource::Type::Key:
         {
@@ -68,7 +68,7 @@ bool WasDown(const InputSource& source)
                 return false;
 
             const auto* device = manager->GetDevice(InputDevice::Type::Keyboard);
-            return device && device->GetPreviousInput(source.Code).X > kInputPressThreshold;
+            return device && device->GetPreviousInput(source.code).x > kInputPressThreshold;
         }
         case InputSource::Type::MouseButton:
         {
@@ -76,17 +76,17 @@ bool WasDown(const InputSource& source)
                 return false;
 
             const auto* device = manager->GetDevice(InputDevice::Type::Mouse);
-            return device && device->GetPreviousInput(source.Code).X > kInputPressThreshold;
+            return device && device->GetPreviousInput(source.code).x > kInputPressThreshold;
         }
         case InputSource::Type::GamepadButton:
         {
-            const auto* device = manager->GetDevice(InputDevice::Type::Gamepad, source.DeviceIndex);
-            return device && device->GetPreviousInput(source.Code).X > kInputPressThreshold;
+            const auto* device = manager->GetDevice(InputDevice::Type::Gamepad, source.deviceIndex);
+            return device && device->GetPreviousInput(source.code).x > kInputPressThreshold;
         }
         case InputSource::Type::GamepadAxis:
         {
-            const auto* device = manager->GetDevice(InputDevice::Type::Gamepad, source.DeviceIndex);
-            return device && IsActive(device->GetPreviousAxis(source.Code).X);
+            const auto* device = manager->GetDevice(InputDevice::Type::Gamepad, source.deviceIndex);
+            return device && IsActive(device->GetPreviousAxis(source.code).x);
         }
         default:
             return false;
@@ -105,7 +105,7 @@ bool WasReleasedThisFrame(const InputSource& source)
 
 bool Equals(const InputSource& lhs, const InputSource& rhs)
 {
-    return lhs.SourceType == rhs.SourceType && lhs.Code == rhs.Code && lhs.DeviceIndex == rhs.DeviceIndex;
+    return lhs.sourceType == rhs.sourceType && lhs.code == rhs.code && lhs.deviceIndex == rhs.deviceIndex;
 }
 
 bool IsBlocked(const InputSource& source, const std::vector<InputSource>& blockedSources)

@@ -18,9 +18,9 @@ struct InputSource
         GamepadAxis
     };
 
-    Type SourceType = Type::Key;
-    uint16_t Code = 0; // Key::Code, Mouse::Code, or device-specific code
-    uint8_t DeviceIndex = 0;
+    Type sourceType = Type::Key;
+    uint16_t code = 0; // Key::Code, Mouse::Code, or device-specific code
+    uint8_t deviceIndex = 0;
 
     static InputSource FromKey(Key::Code key) { return {Type::Key, key, 0}; }
 

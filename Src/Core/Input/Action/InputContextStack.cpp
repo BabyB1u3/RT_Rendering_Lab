@@ -11,11 +11,11 @@ void InputContextStack::Push(const std::string& name, InputActionMap* map, int p
     Pop(name);
 
     InputContext ctx;
-    ctx.Name = name;
-    ctx.ActionMap = map;
-    ctx.Priority = priority;
-    ctx.ConsumesInput = consumesInput;
-    ctx.Active = true;
+    ctx.name = name;
+    ctx.actionMap = map;
+    ctx.priority = priority;
+    ctx.consumesInput = consumesInput;
+    ctx.isActive = true;
 
     m_Contexts.push_back(std::move(ctx));
     SortByPriority();
@@ -23,11 +23,11 @@ void InputContextStack::Push(const std::string& name, InputActionMap* map, int p
 
 void InputContextStack::Pop(const std::string& name)
 {
-    auto it = std::find_if(m_Contexts.begin(), m_Contexts.end(), [&](const InputContext& c) { return c.Name == name; });
+    auto it = std::find_if(m_Contexts.begin(), m_Contexts.end(), [&](const InputContext& c) { return c.name == name; });
     if (it != m_Contexts.end())
     {
-        if (it->ActionMap != nullptr)
-            it->ActionMap->ResetRuntimeState();
+        if (it->actionMap != nullptr)
+            it->actionMap->ResetRuntimeState();
 
         m_Contexts.erase(it);
     }
@@ -35,13 +35,13 @@ void InputContextStack::Pop(const std::string& name)
 
 void InputContextStack::SetActive(const std::string& name, bool active)
 {
-    auto it = std::find_if(m_Contexts.begin(), m_Contexts.end(), [&](const InputContext& c) { return c.Name == name; });
+    auto it = std::find_if(m_Contexts.begin(), m_Contexts.end(), [&](const InputContext& c) { return c.name == name; });
     if (it != m_Contexts.end())
     {
-        if (it->Active && !active && it->ActionMap != nullptr)
-            it->ActionMap->ResetRuntimeState();
+        if (it->isActive && !active && it->actionMap != nullptr)
+            it->actionMap->ResetRuntimeState();
 
-        it->Active = active;
+        it->isActive = active;
     }
 }
 
@@ -53,13 +53,13 @@ void InputContextStack::Update(float dt)
 
     for (auto& ctx : m_Contexts)
     {
-        if (!ctx.Active || ctx.ActionMap == nullptr)
+        if (!ctx.isActive || ctx.actionMap == nullptr)
             continue;
 
-        ctx.ActionMap->Update(dt, blockedSources);
-        ctx.ActionMap->AppendBlockingChordSources(blockedSources);
+        ctx.actionMap->Update(dt, blockedSources);
+        ctx.actionMap->AppendBlockingChordSources(blockedSources);
 
-        if (ctx.ConsumesInput)
+        if (ctx.consumesInput)
             break;
     }
 }
@@ -72,15 +72,15 @@ bool InputContextStack::IsActionDown(const std::string& action) const
 
     for (const auto& ctx : m_Contexts)
     {
-        if (!ctx.Active || ctx.ActionMap == nullptr)
+        if (!ctx.isActive || ctx.actionMap == nullptr)
             continue;
 
-        if (ctx.ActionMap->HasActionAvailable(action, blockedSources))
-            return ctx.ActionMap->IsActionDown(action, blockedSources);
+        if (ctx.actionMap->HasActionAvailable(action, blockedSources))
+            return ctx.actionMap->IsActionDown(action, blockedSources);
 
-        ctx.ActionMap->AppendBlockingChordSources(blockedSources);
+        ctx.actionMap->AppendBlockingChordSources(blockedSources);
 
-        if (ctx.ConsumesInput)
+        if (ctx.consumesInput)
             break;
     }
 
@@ -93,15 +93,15 @@ bool InputContextStack::WasActionTriggeredThisFrame(const std::string& action) c
 
     for (const auto& ctx : m_Contexts)
     {
-        if (!ctx.Active || ctx.ActionMap == nullptr)
+        if (!ctx.isActive || ctx.actionMap == nullptr)
             continue;
 
-        if (ctx.ActionMap->HasActionAvailable(action, blockedSources))
-            return ctx.ActionMap->WasActionTriggeredThisFrame(action, blockedSources);
+        if (ctx.actionMap->HasActionAvailable(action, blockedSources))
+            return ctx.actionMap->WasActionTriggeredThisFrame(action, blockedSources);
 
-        ctx.ActionMap->AppendBlockingChordSources(blockedSources);
+        ctx.actionMap->AppendBlockingChordSources(blockedSources);
 
-        if (ctx.ConsumesInput)
+        if (ctx.consumesInput)
             break;
     }
 
@@ -112,13 +112,13 @@ float InputContextStack::GetAxis(const std::string& axis) const
 {
     for (const auto& ctx : m_Contexts)
     {
-        if (!ctx.Active || ctx.ActionMap == nullptr)
+        if (!ctx.isActive || ctx.actionMap == nullptr)
             continue;
 
-        if (ctx.ActionMap->HasAxis(axis))
-            return ctx.ActionMap->GetAxis(axis);
+        if (ctx.actionMap->HasAxis(axis))
+            return ctx.actionMap->GetAxis(axis);
 
-        if (ctx.ConsumesInput)
+        if (ctx.consumesInput)
             break;
     }
 
@@ -129,12 +129,12 @@ float InputContextStack::GetAxis(const std::string& axis) const
 
 bool InputContextStack::HasContext(const std::string& name) const
 {
-    return std::any_of(m_Contexts.begin(), m_Contexts.end(), [&](const InputContext& c) { return c.Name == name; });
+    return std::any_of(m_Contexts.begin(), m_Contexts.end(), [&](const InputContext& c) { return c.name == name; });
 }
 
 void InputContextStack::SortByPriority()
 {
     std::stable_sort(m_Contexts.begin(),
                      m_Contexts.end(),
-                     [](const InputContext& a, const InputContext& b) { return a.Priority > b.Priority; });
+                     [](const InputContext& a, const InputContext& b) { return a.priority > b.priority; });
 }

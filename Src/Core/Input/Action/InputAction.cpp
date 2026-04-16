@@ -41,8 +41,8 @@ void InputActionMap::BindAxis(const std::string& name, Key::Code positive, Key::
 {
     AxisEntry entry{};
     entry.kind = AxisEntry::Kind::KeyPair;
-    entry.keyPair.Positive = InputSource::FromKey(positive);
-    entry.keyPair.Negative = InputSource::FromKey(negative);
+    entry.keyPair.positive = InputSource::FromKey(positive);
+    entry.keyPair.negative = InputSource::FromKey(negative);
     m_Axes[name] = entry;
 }
 
@@ -158,13 +158,13 @@ void InputActionMap::Update(float dt, const std::vector<InputSource>& blockedSou
     {
         const ActionState state = m_CachedActionStates.contains(name) ? m_CachedActionStates.at(name)
                                                                       : EvaluateActionState(name, blockedSources);
-        if (!state.HasAvailableBinding)
+        if (!state.hasAvailableBinding)
         {
             m_TriggerStates[name] = TriggerState::None;
             continue;
         }
 
-        m_TriggerStates[name] = trigger->Evaluate(state.Down, state.Pressed, state.Released, dt);
+        m_TriggerStates[name] = trigger->Evaluate(state.isDown, state.wasPressed, state.wasReleased, dt);
     }
 }
 
@@ -174,7 +174,7 @@ bool InputActionMap::IsActionDown(const std::string& name) const
 {
     auto it = m_CachedActionStates.find(name);
     if (it != m_CachedActionStates.end())
-        return it->second.HasAvailableBinding && it->second.Down;
+        return it->second.hasAvailableBinding && it->second.isDown;
 
     return IsActionDown(name, NoBlockedSources());
 }
@@ -182,14 +182,14 @@ bool InputActionMap::IsActionDown(const std::string& name) const
 bool InputActionMap::IsActionDown(const std::string& name, const std::vector<InputSource>& blockedSources) const
 {
     const ActionState state = EvaluateActionState(name, blockedSources);
-    return state.HasAvailableBinding && state.Down;
+    return state.hasAvailableBinding && state.isDown;
 }
 
 bool InputActionMap::WasActionPressedThisFrame(const std::string& name) const
 {
     auto it = m_CachedActionStates.find(name);
     if (it != m_CachedActionStates.end())
-        return it->second.HasAvailableBinding && it->second.Pressed;
+        return it->second.hasAvailableBinding && it->second.wasPressed;
 
     return WasActionPressedThisFrame(name, NoBlockedSources());
 }
@@ -198,14 +198,14 @@ bool InputActionMap::WasActionPressedThisFrame(const std::string& name,
                                                const std::vector<InputSource>& blockedSources) const
 {
     const ActionState state = EvaluateActionState(name, blockedSources);
-    return state.HasAvailableBinding && state.Pressed;
+    return state.hasAvailableBinding && state.wasPressed;
 }
 
 bool InputActionMap::WasActionReleasedThisFrame(const std::string& name) const
 {
     auto it = m_CachedActionStates.find(name);
     if (it != m_CachedActionStates.end())
-        return it->second.HasAvailableBinding && it->second.Released;
+        return it->second.hasAvailableBinding && it->second.wasReleased;
 
     return WasActionReleasedThisFrame(name, NoBlockedSources());
 }
@@ -214,7 +214,7 @@ bool InputActionMap::WasActionReleasedThisFrame(const std::string& name,
                                                 const std::vector<InputSource>& blockedSources) const
 {
     const ActionState state = EvaluateActionState(name, blockedSources);
-    return state.HasAvailableBinding && state.Released;
+    return state.hasAvailableBinding && state.wasReleased;
 }
 
 float InputActionMap::GetAxis(const std::string& name) const
@@ -243,7 +243,7 @@ bool InputActionMap::WasActionTriggeredThisFrame(const std::string& name) const
 
     auto actionIt = m_CachedActionStates.find(name);
     if (actionIt != m_CachedActionStates.end())
-        return actionIt->second.HasAvailableBinding && actionIt->second.Pressed;
+        return actionIt->second.hasAvailableBinding && actionIt->second.wasPressed;
 
     return WasActionTriggeredThisFrame(name, NoBlockedSources());
 }
@@ -293,7 +293,7 @@ void InputActionMap::ResetRuntimeState()
 
 bool InputActionMap::HasActionAvailable(const std::string& name, const std::vector<InputSource>& blockedSources) const
 {
-    return EvaluateActionState(name, blockedSources).HasAvailableBinding;
+    return EvaluateActionState(name, blockedSources).hasAvailableBinding;
 }
 
 void InputActionMap::AppendBlockingChordSources(std::vector<InputSource>& blockedSources) const
@@ -306,7 +306,7 @@ void InputActionMap::AppendBlockingChordSources(std::vector<InputSource>& blocke
             if (!IsChordBlocking(chord))
                 continue;
 
-            for (const auto& source : chord.Sources)
+            for (const auto& source : chord.sources)
                 InputSourceState::AppendUnique(blockedSources, source);
         }
     }
@@ -317,9 +317,9 @@ float InputActionMap::ComputeRawAxis(const AxisEntry& entry) const
     if (entry.kind == AxisEntry::Kind::KeyPair)
     {
         float value = 0.0f;
-        if (InputSourceState::IsDown(entry.keyPair.Positive))
+        if (InputSourceState::IsDown(entry.keyPair.positive))
             value += 1.0f;
-        if (InputSourceState::IsDown(entry.keyPair.Negative))
+        if (InputSourceState::IsDown(entry.keyPair.negative))
             value -= 1.0f;
         return value;
     }
@@ -342,7 +342,7 @@ float InputActionMap::ComputeRawAxis(const AxisEntry& entry) const
         return 0.0f;
 
     const auto* device = manager->GetDevice(InputDevice::Type::Gamepad, entry.deviceIndex);
-    return device ? device->GetAxis(entry.gamepadAxis).X : 0.0f;
+    return device ? device->GetAxis(entry.gamepadAxis).x : 0.0f;
 }
 
 InputActionMap::ActionState InputActionMap::EvaluateActionState(const std::string& name,
@@ -358,10 +358,10 @@ InputActionMap::ActionState InputActionMap::EvaluateActionState(const std::strin
             if (InputSourceState::IsBlocked(source, blockedSources))
                 continue;
 
-            state.HasAvailableBinding = true;
-            state.Down = state.Down || InputSourceState::IsDown(source);
-            state.Pressed = state.Pressed || InputSourceState::WasPressedThisFrame(source);
-            state.Released = state.Released || InputSourceState::WasReleasedThisFrame(source);
+            state.hasAvailableBinding = true;
+            state.isDown = state.isDown || InputSourceState::IsDown(source);
+            state.wasPressed = state.wasPressed || InputSourceState::WasPressedThisFrame(source);
+            state.wasReleased = state.wasReleased || InputSourceState::WasReleasedThisFrame(source);
         }
     }
 
@@ -373,14 +373,14 @@ InputActionMap::ActionState InputActionMap::EvaluateActionState(const std::strin
             if (IsChordBlocked(binding, blockedSources))
                 continue;
 
-            state.HasAvailableBinding = true;
+            state.hasAvailableBinding = true;
 
             const bool down = IsChordDown(binding);
             const bool wasDown = WasChordDown(binding);
 
-            state.Down = state.Down || down;
-            state.Pressed = state.Pressed || (down && !wasDown);
-            state.Released = state.Released || (!down && wasDown);
+            state.isDown = state.isDown || down;
+            state.wasPressed = state.wasPressed || (down && !wasDown);
+            state.wasReleased = state.wasReleased || (!down && wasDown);
         }
     }
 
@@ -389,10 +389,10 @@ InputActionMap::ActionState InputActionMap::EvaluateActionState(const std::strin
 
 bool InputActionMap::IsChordDown(const ChordBinding& binding)
 {
-    if (binding.Sources.empty())
+    if (binding.sources.empty())
         return false;
 
-    for (const auto& source : binding.Sources)
+    for (const auto& source : binding.sources)
     {
         if (!InputSourceState::IsDown(source))
             return false;
@@ -403,10 +403,10 @@ bool InputActionMap::IsChordDown(const ChordBinding& binding)
 
 bool InputActionMap::WasChordDown(const ChordBinding& binding)
 {
-    if (binding.Sources.empty())
+    if (binding.sources.empty())
         return false;
 
-    for (const auto& source : binding.Sources)
+    for (const auto& source : binding.sources)
     {
         if (!InputSourceState::WasDown(source))
             return false;
@@ -417,7 +417,7 @@ bool InputActionMap::WasChordDown(const ChordBinding& binding)
 
 bool InputActionMap::IsChordBlocking(const ChordBinding& binding)
 {
-    for (const auto& source : binding.Sources)
+    for (const auto& source : binding.sources)
     {
         if (InputSourceState::IsDown(source))
             return true;
@@ -428,7 +428,7 @@ bool InputActionMap::IsChordBlocking(const ChordBinding& binding)
 
 bool InputActionMap::IsChordBlocked(const ChordBinding& binding, const std::vector<InputSource>& blockedSources)
 {
-    for (const auto& source : binding.Sources)
+    for (const auto& source : binding.sources)
     {
         if (InputSourceState::IsBlocked(source, blockedSources))
             return true;

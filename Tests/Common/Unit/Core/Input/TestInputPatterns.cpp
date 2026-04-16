@@ -6,7 +6,7 @@
 
 namespace
 {
-using test_support::InputTestAccess;
+using TestSupport::InputTestAccess;
 
 class ComboTrackerTests : public ::testing::Test
 {
