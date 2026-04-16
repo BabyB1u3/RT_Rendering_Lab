@@ -12,6 +12,6 @@
 class DemoSelectorPanel
 {
 public:
-    /// Render the selectable list. Returns true if selectedIndex changed.
+    /// Render the selectable list. Returns true if the selection changed.
     bool OnImGuiRender(const std::vector<std::string>& demoNames, int& selectedIndex);
 };

@@ -48,9 +48,9 @@ constexpr auto BuildCategoryMenu()
     return categories;
 }
 
-constexpr auto kCategories = BuildCategoryMenu();
+constexpr auto k_Categories = BuildCategoryMenu();
 
-constexpr const char* kLevelNames[] = {"All", "Trace", "Debug", "Info", "Warn", "Error", "Critical"};
+constexpr const char* k_LevelNames[] = {"All", "Trace", "Debug", "Info", "Warn", "Error", "Critical"};
 
 bool PassesLevelFilter(spdlog::level::level_enum level, int filterIndex)
 {
@@ -131,9 +131,9 @@ std::optional<spdlog::level::level_enum> ParseLevel(const std::string& str)
 
 std::optional<int> FindCategoryMenuIndex(const std::string& category)
 {
-    for (size_t i = 1; i < kCategories.size(); ++i)
+    for (size_t i = 1; i < k_Categories.size(); ++i)
     {
-        if (category == kCategories[i])
+        if (category == k_Categories[i])
             return static_cast<int>(i);
     }
 
@@ -177,7 +177,7 @@ void ConsolePanel::DrawMenuBar()
     ImGui::SameLine();
     ImGui::SetNextItemWidth(120);
     const int previousCategoryFilter = m_CategoryFilter;
-    ImGui::Combo("Category", &m_CategoryFilter, kCategories.data(), static_cast<int>(kCategories.size()));
+    ImGui::Combo("Category", &m_CategoryFilter, k_Categories.data(), static_cast<int>(k_Categories.size()));
     if (m_CategoryFilter != previousCategoryFilter)
         m_CommandCategoryFilter.clear();
 
@@ -195,7 +195,7 @@ void ConsolePanel::DrawMenuBar()
 
     ImGui::SameLine();
     ImGui::SetNextItemWidth(100);
-    ImGui::Combo("Level", &m_LevelFilter, kLevelNames, IM_ARRAYSIZE(kLevelNames));
+    ImGui::Combo("Level", &m_LevelFilter, k_LevelNames, IM_ARRAYSIZE(k_LevelNames));
 
     ImGui::Separator();
 }
@@ -222,7 +222,7 @@ void ConsolePanel::DrawLogEntries()
     if (!m_CommandCategoryFilter.empty())
         categoryFilter = m_CommandCategoryFilter.c_str();
     else if (m_CategoryFilter > 0)
-        categoryFilter = kCategories[m_CategoryFilter];
+        categoryFilter = k_Categories[m_CategoryFilter];
 
     for (const auto& entry : entries)
     {
@@ -256,7 +256,7 @@ void ConsolePanel::DrawCommandInput()
 {
     ImGui::Separator();
 
-    bool reclaim = false;
+    bool shouldReclaimFocus = false;
     ImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue;
     if (ImGui::InputText("##cmd", m_InputBuf, sizeof(m_InputBuf), flags))
     {
@@ -266,11 +266,11 @@ void ConsolePanel::DrawCommandInput()
             ExecuteCommand(cmd);
             m_InputBuf[0] = '\0';
         }
-        reclaim = true;
+        shouldReclaimFocus = true;
     }
 
     ImGui::SetItemDefaultFocus();
-    if (reclaim)
+    if (shouldReclaimFocus)
         ImGui::SetKeyboardFocusHere(-1);
 
     ImGui::SameLine();

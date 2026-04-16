@@ -42,8 +42,8 @@ public:
     void MoveDown(double deltaTime);
 
     // Mouse delta
-    // clamp to [-89, 89] when constrainPitch == true
-    void OnMouseDelta(float deltaX, float deltaY, bool constrainPitch = true);
+    // clamp to [-89, 89] when shouldConstrainPitch == true
+    void OnMouseDelta(float deltaX, float deltaY, bool shouldConstrainPitch = true);
 
     // Scroll delta (typically y offset)
     // Revise verticalFov and clamp to [1, 90]

@@ -10,10 +10,10 @@
 #include <vector>
 
 #include "Scene/Light.h"
-#include "renderer/RenderItem.h"
+// #include "renderer/RenderItem.h"
 
 struct SceneData
 {
-    DirectionalLight MainDirectionalLight;
-    std::vector<RenderItem> RenderItems;
+    DirectionalLight m_MainDirectionalLight;
+    // std::vector<RenderItem> m_RenderItems;
 };
