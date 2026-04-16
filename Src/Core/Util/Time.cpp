@@ -9,7 +9,7 @@ void Time::Reset()
 {
     s_LastTime = 0.0;
     s_TotalTime = 0.0;
-    s_DeltaTime = 0.0f;
+    s_DeltaTime = 0.0;
     s_Initialized = false;
 }
 

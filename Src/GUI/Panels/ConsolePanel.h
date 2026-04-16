@@ -10,9 +10,9 @@ class ConsolePanel
 {
 public:
     void OnImGuiRender();
-    void ExecuteCommand(const std::string &command);
+    void ExecuteCommand(const std::string& command);
 
-    const std::string &GetCommandCategoryFilter() const { return m_CommandCategoryFilter; }
+    const std::string& GetCommandCategoryFilter() const { return m_CommandCategoryFilter; }
     int GetCategoryFilterIndex() const { return m_CategoryFilter; }
 
 private:

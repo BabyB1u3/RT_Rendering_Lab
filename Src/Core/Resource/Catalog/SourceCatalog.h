@@ -10,8 +10,8 @@
 
 namespace Resource
 {
-    bool BuildSourceCatalogEntries(const std::filesystem::path &mountRoot,
-                                   const VirtualPath &mountPath,
-                                   std::vector<ResourceCatalogEntry> &entries,
-                                   std::string *errorMessage = nullptr);
+bool BuildSourceCatalogEntries(const std::filesystem::path& mountRoot,
+                               const VirtualPath& mountPath,
+                               std::vector<ResourceCatalogEntry>& entries,
+                               std::string* errorMessage = nullptr);
 } // namespace Resource

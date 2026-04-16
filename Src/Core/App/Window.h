@@ -23,9 +23,9 @@ class EventBus;
 
 struct WindowProps
 {
-    std::string Title = "RTRLab";
-    uint32_t Width = 1600;
-    uint32_t Height = 900;
+    std::string m_Title = "RTRLab";
+    uint32_t m_Width = 1600;
+    uint32_t m_Height = 900;
 };
 
 class Window
@@ -33,11 +33,11 @@ class Window
 public:
     using RefreshCallback = std::function<void()>;
 
-    explicit Window(const WindowProps &props = {});
+    explicit Window(const WindowProps& props = {});
     ~Window();
 
-    Window(const Window &) = delete;
-    Window &operator=(const Window &) = delete;
+    Window(const Window&) = delete;
+    Window& operator=(const Window&) = delete;
 
     /// Process pending OS/input events (non-blocking).
     void PollEvents();
@@ -48,7 +48,7 @@ public:
     uint32_t GetHeight() const { return m_Height; }
 
     /// Return the underlying GLFW window pointer (needed by Input, ImGui, etc.).
-    GLFWwindow *GetNativeHandle() const { return m_Handle; }
+    GLFWwindow* GetNativeHandle() const { return m_Handle; }
     /// Return the platform-native presentation handle package for the RHI.
     NativeWindowHandle GetNativeWindowHandle() const;
 
@@ -58,10 +58,10 @@ public:
 
     /// Give Window a reference to the EventBus so GLFW callbacks can
     /// publish events (WindowResize, KeyPressed, MouseScrolled, etc.).
-    void SetEventBus(EventBus *bus);
+    void SetEventBus(EventBus* bus);
 
 private:
-    void Init(const WindowProps &props);
+    void Init(const WindowProps& props);
     void Shutdown();
 
     /// Install all GLFW callbacks that publish events into the EventBus.
@@ -69,10 +69,10 @@ private:
     void InstallCallbacks();
 
 private:
-    GLFWwindow *m_Handle = nullptr; // Non-owning; destroyed manually in Shutdown().
+    GLFWwindow* m_Handle = nullptr; // Non-owning; destroyed manually in Shutdown().
     uint32_t m_Width = 0;
     uint32_t m_Height = 0;
 
     RefreshCallback m_RefreshCallback;
-    EventBus *m_EventBus = nullptr; // Non-owning. Lifetime managed by Application.
+    EventBus* m_EventBus = nullptr; // Non-owning. Lifetime managed by Application.
 };

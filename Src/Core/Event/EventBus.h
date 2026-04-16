@@ -25,94 +25,90 @@ class EventBus
 public:
     /// Subscribe to events of type T. Returns an RAII handle that
     /// auto-unsubscribes on destruction.
-    template <typename T>
-    ScopedConnection Subscribe(std::function<void(const T &)> handler)
+    template <typename T> ScopedConnection Subscribe(std::function<void(const T&)> handler)
     {
-        auto &subs = GetSubscribers<T>();
+        auto& subscribers = GetSubscribers<T>();
         uint64_t id = m_NextId++;
 
-        subs.Entries.push_back({id, std::move(handler), false});
+        subscribers.m_Entries.push_back({id, std::move(handler), false});
 
-        return ScopedConnection([this, id]()
-                                {
-            auto& s = GetSubscribers<T>();
-            for (auto& entry : s.Entries)
+        return ScopedConnection(
+            [this, id]()
             {
-                if (entry.Id == id)
+                auto& subscribers = GetSubscribers<T>();
+                for (auto& entry : subscribers.m_Entries)
                 {
-                    entry.PendingRemoval = true;
-                    s.Dirty = true;
-                    break;
+                    if (entry.m_Id == id)
+                    {
+                        entry.m_IsPendingRemoval = true;
+                        subscribers.m_IsDirty = true;
+                        break;
+                    }
                 }
-            } });
+            });
     }
 
     /// Publish an event. All subscribers of type T are called synchronously.
     /// Safe to subscribe/unsubscribe from within a handler.
-    template <typename T>
-    void Publish(const T &event)
+    template <typename T> void Publish(const T& event)
     {
-        auto &subs = GetSubscribers<T>();
-        subs.DispatchDepth++;
+        auto& subscribers = GetSubscribers<T>();
+        subscribers.m_DispatchDepth++;
 
-        for (size_t i = 0; i < subs.Entries.size(); ++i)
+        for (size_t i = 0; i < subscribers.m_Entries.size(); ++i)
         {
-            auto &entry = subs.Entries[i];
-            if (!entry.PendingRemoval)
-                entry.Handler(event);
+            auto& entry = subscribers.m_Entries[i];
+            if (!entry.m_IsPendingRemoval)
+                entry.m_Handler(event);
         }
 
-        subs.DispatchDepth--;
+        subscribers.m_DispatchDepth--;
 
         // Compact removed entries only when all nested dispatches are done.
-        if (subs.DispatchDepth == 0 && subs.Dirty)
+        if (subscribers.m_DispatchDepth == 0 && subscribers.m_IsDirty)
         {
-            subs.Entries.erase(
-                std::remove_if(subs.Entries.begin(), subs.Entries.end(),
-                               [](const auto &e)
-                               { return e.PendingRemoval; }),
-                subs.Entries.end());
-            subs.Dirty = false;
+            subscribers.m_Entries.erase(std::remove_if(subscribers.m_Entries.begin(),
+                                                       subscribers.m_Entries.end(),
+                                                       [](const auto& entry) { return entry.m_IsPendingRemoval; }),
+                                        subscribers.m_Entries.end());
+            subscribers.m_IsDirty = false;
         }
     }
 
 private:
-    struct ISubscriberList
+    struct SubscriberListBase
     {
-        virtual ~ISubscriberList() = default;
+        virtual ~SubscriberListBase() = default;
     };
 
-    template <typename T>
-    struct SubscriberEntry
+    template <typename T> struct SubscriberEntry
     {
-        uint64_t Id;
-        std::function<void(const T &)> Handler;
-        bool PendingRemoval = false;
+        uint64_t m_Id;
+        std::function<void(const T&)> m_Handler;
+        bool m_IsPendingRemoval = false;
     };
 
-    template <typename T>
-    struct SubscriberList : ISubscriberList
+    template <typename T> struct SubscriberList : SubscriberListBase
     {
-        std::vector<SubscriberEntry<T>> Entries;
-        int DispatchDepth = 0;
-        bool Dirty = false;
+        std::vector<SubscriberEntry<T>> m_Entries;
+        int m_DispatchDepth = 0;
+        bool m_IsDirty = false;
     };
 
-    template <typename T>
-    SubscriberList<T> &GetSubscribers()
+    template <typename T> SubscriberList<T>& GetSubscribers()
     {
         auto key = std::type_index(typeid(T));
         auto it = m_Subscribers.find(key);
         if (it == m_Subscribers.end())
         {
             auto list = std::make_unique<SubscriberList<T>>();
-            auto *ptr = list.get();
+            auto* ptr = list.get();
             m_Subscribers[key] = std::move(list);
             return *ptr;
         }
-        return *static_cast<SubscriberList<T> *>(it->second.get());
+        return *static_cast<SubscriberList<T>*>(it->second.get());
     }
 
-    std::unordered_map<std::type_index, std::unique_ptr<ISubscriberList>> m_Subscribers;
+    std::unordered_map<std::type_index, std::unique_ptr<SubscriberListBase>> m_Subscribers;
     uint64_t m_NextId = 0;
 };

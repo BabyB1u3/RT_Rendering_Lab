@@ -35,7 +35,7 @@ public:
     /// Called when the window is resized (width and height in pixels).
     virtual void OnResize(uint32_t, uint32_t) {}
 
-    const std::string &GetName() const { return m_Name; }
+    const std::string& GetName() const { return m_Name; }
 
 protected:
     std::string m_Name;

@@ -11,37 +11,29 @@
 
 namespace
 {
-    const std::vector<unsigned char> kOnePixelPng{
-        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
-        0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
-        0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00,
-        0x0D, 0x49, 0x44, 0x41, 0x54, 0x78, 0xDA, 0x63, 0xF8, 0xCF, 0xC0, 0xF0,
-        0x1F, 0x00, 0x05, 0x00, 0x01, 0xFF, 0x89, 0x99, 0x3D, 0x1D, 0x00, 0x00,
-        0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
-    };
+const std::vector<unsigned char> kOnePixelPng{
+    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, 0x00, 0x00,
+    0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00,
+    0x0D, 0x49, 0x44, 0x41, 0x54, 0x78, 0xDA, 0x63, 0xF8, 0xCF, 0xC0, 0xF0, 0x1F, 0x00, 0x05, 0x00, 0x01, 0xFF,
+    0x89, 0x99, 0x3D, 0x1D, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+};
 
-    class CookPipelineTests : public ::testing::Test
+class CookPipelineTests : public ::testing::Test
+{
+protected:
+    void SetUp() override
     {
-    protected:
-        void SetUp() override
-        {
-            m_TestRoot = test_support::CurrentTestRoot("cook-pipeline");
-            test_support::ResetCurrentTestRoot("cook-pipeline");
-        }
+        m_TestRoot = test_support::CurrentTestRoot("cook-pipeline");
+        test_support::ResetCurrentTestRoot("cook-pipeline");
+    }
 
-        void TearDown() override
-        {
-            test_support::RemoveCurrentTestArtifacts("cook-pipeline");
-        }
+    void TearDown() override { test_support::RemoveCurrentTestArtifacts("cook-pipeline"); }
 
-        std::filesystem::path TestRoot() const
-        {
-            return m_TestRoot;
-        }
+    std::filesystem::path TestRoot() const { return m_TestRoot; }
 
-    private:
-        std::filesystem::path m_TestRoot;
-    };
+private:
+    std::filesystem::path m_TestRoot;
+};
 } // namespace
 
 TEST_F(CookPipelineTests, CookRepositoryCatalogsCopiesArtifactsAndWritesCookedCatalog)
@@ -75,23 +67,23 @@ TEST_F(CookPipelineTests, CookRepositoryCatalogsCopiesArtifactsAndWritesCookedCa
     std::string errorMessageFromLoad;
     const auto metadata = Resource::ReadCookedTextureMetadata(cookedArtifactPath, &errorMessageFromLoad);
     ASSERT_TRUE(metadata.has_value()) << errorMessageFromLoad;
-    EXPECT_EQ(metadata->width, 1u);
-    EXPECT_EQ(metadata->height, 1u);
-    EXPECT_EQ(metadata->channelCount, 4u);
-    EXPECT_EQ(metadata->mipLevelCount, 1u);
-    EXPECT_EQ(metadata->rowPitch, 4u);
-    EXPECT_EQ(metadata->dataSize, 4u);
-    EXPECT_EQ(metadata->pixelFormat, Resource::CookedTexturePixelFormat::RGBA8_UNorm);
+    EXPECT_EQ(metadata->m_Width, 1u);
+    EXPECT_EQ(metadata->m_Height, 1u);
+    EXPECT_EQ(metadata->m_ChannelCount, 4u);
+    EXPECT_EQ(metadata->m_MipLevelCount, 1u);
+    EXPECT_EQ(metadata->m_RowPitch, 4u);
+    EXPECT_EQ(metadata->m_DataSize, 4u);
+    EXPECT_EQ(metadata->m_PixelFormat, Resource::CookedTexturePixelFormat::RGBA8_UNORM);
 
     const auto cookedTexture = Resource::LoadCookedTexture(cookedArtifactPath, &errorMessageFromLoad);
     ASSERT_TRUE(cookedTexture.has_value()) << errorMessageFromLoad;
-    EXPECT_EQ(cookedTexture->width, 1u);
-    EXPECT_EQ(cookedTexture->height, 1u);
-    EXPECT_EQ(cookedTexture->channelCount, 4u);
-    EXPECT_EQ(cookedTexture->mipLevelCount, 1u);
-    EXPECT_EQ(cookedTexture->rowPitch, 4u);
-    EXPECT_EQ(cookedTexture->pixelFormat, Resource::CookedTexturePixelFormat::RGBA8_UNorm);
-    EXPECT_EQ(cookedTexture->pixelData.size(), 4u);
+    EXPECT_EQ(cookedTexture->m_Width, 1u);
+    EXPECT_EQ(cookedTexture->m_Height, 1u);
+    EXPECT_EQ(cookedTexture->m_ChannelCount, 4u);
+    EXPECT_EQ(cookedTexture->m_MipLevelCount, 1u);
+    EXPECT_EQ(cookedTexture->m_RowPitch, 4u);
+    EXPECT_EQ(cookedTexture->m_PixelFormat, Resource::CookedTexturePixelFormat::RGBA8_UNORM);
+    EXPECT_EQ(cookedTexture->m_PixelData.size(), 4u);
 }
 
 TEST_F(CookPipelineTests, CookRepositoryCatalogsPreservesLogicalPathsAcrossProjectAndEngineMounts)
@@ -99,9 +91,7 @@ TEST_F(CookPipelineTests, CookRepositoryCatalogsPreservesLogicalPathsAcrossProje
     const auto repoRoot = test_support::CreateRepoRootOrFail(TestRoot());
     test_support::WriteProjectBinaryFileOrFail(repoRoot, "textures/Grassy_Square.png", kOnePixelPng);
     test_support::WriteEngineFileOrFail(
-        repoRoot,
-        "Defaults/Materials/ErrorMaterial.json",
-        "{\n  \"name\": \"error-material\"\n}\n");
+        repoRoot, "Defaults/Materials/ErrorMaterial.json", "{\n  \"name\": \"error-material\"\n}\n");
     EXPECT_FALSE(std::filesystem::exists(test_support::ProjectSourceCatalogPath(repoRoot)));
     EXPECT_FALSE(std::filesystem::exists(test_support::EngineSourceCatalogPath(repoRoot)));
 
@@ -109,7 +99,8 @@ TEST_F(CookPipelineTests, CookRepositoryCatalogsPreservesLogicalPathsAcrossProje
     const auto cookedRoot = test_support::CookedRoot(repoRoot);
     ASSERT_TRUE(Resource::CookRepositoryCatalogs(repoRoot, cookedRoot, "Project", &errorMessage)) << errorMessage;
 
-    const auto readFile = [](const std::filesystem::path &path) {
+    const auto readFile = [](const std::filesystem::path& path)
+    {
         std::ifstream in(path);
         EXPECT_TRUE(in.is_open()) << path.string();
         return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
@@ -121,6 +112,8 @@ TEST_F(CookPipelineTests, CookRepositoryCatalogsPreservesLogicalPathsAcrossProje
     EXPECT_NE(projectCookedCatalog.find("/Project/Textures/Grassy_Square"), std::string::npos);
     EXPECT_NE(engineCookedCatalog.find("/Engine/Defaults/Materials/ErrorMaterial"), std::string::npos);
 
-    EXPECT_TRUE(std::filesystem::exists(test_support::ProjectCookedRoot(cookedRoot) / "Textures" / "Grassy_Square.rtrtex"));
-    EXPECT_TRUE(std::filesystem::exists(test_support::EngineCookedRoot(cookedRoot) / "Defaults" / "Materials" / "ErrorMaterial.json"));
+    EXPECT_TRUE(
+        std::filesystem::exists(test_support::ProjectCookedRoot(cookedRoot) / "Textures" / "Grassy_Square.rtrtex"));
+    EXPECT_TRUE(std::filesystem::exists(test_support::EngineCookedRoot(cookedRoot) / "Defaults" / "Materials" /
+                                        "ErrorMaterial.json"));
 }

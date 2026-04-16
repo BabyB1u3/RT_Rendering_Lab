@@ -38,7 +38,7 @@ public:
 
 private:
     void RegisterBuiltInDemos();
-    void SetActiveDemo(Scope<DemoBase> demo, const std::string &name);
+    void SetActiveDemo(Scope<DemoBase> demo, const std::string& name);
 
 private:
     bool m_DemosRegistered = false;

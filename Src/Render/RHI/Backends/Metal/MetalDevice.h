@@ -16,51 +16,51 @@ public:
     MetalCommandList();
     ~MetalCommandList() override;
 
-    MetalCommandList(const MetalCommandList &) = delete;
-    MetalCommandList &operator=(const MetalCommandList &) = delete;
-    MetalCommandList(MetalCommandList &&) = delete;
-    MetalCommandList &operator=(MetalCommandList &&) = delete;
+    MetalCommandList(const MetalCommandList&) = delete;
+    MetalCommandList& operator=(const MetalCommandList&) = delete;
+    MetalCommandList(MetalCommandList&&) = delete;
+    MetalCommandList& operator=(MetalCommandList&&) = delete;
 
-    void initialize(MetalDeviceData *deviceData);
-    void shutdown();
-    void beginRendering(const RenderingInfo &renderingInfo) override;
-    void endRendering() override;
+    void Initialize(MetalDeviceData* deviceData);
+    void Shutdown();
+    void BeginRendering(const RenderingInfo& renderingInfo) override;
+    void EndRendering() override;
 
-    bool isRenderingActive() const { return m_IsRendering; }
+    bool IsRenderingActive() const { return m_IsRendering; }
 
 private:
-    MetalCommandListData *m_Data = nullptr;
+    MetalCommandListData* m_Data = nullptr;
 };
 
 class MetalSwapchain final : public Swapchain
 {
 public:
-    MetalSwapchain(MetalDevice &device, const SwapchainDesc &desc, const NativeWindowHandle &nativeWindowHandle);
+    MetalSwapchain(MetalDevice& device, const SwapchainDesc& desc, const NativeWindowHandle& nativeWindowHandle);
     ~MetalSwapchain() override;
 
-    MetalSwapchain(const MetalSwapchain &) = delete;
-    MetalSwapchain &operator=(const MetalSwapchain &) = delete;
-    MetalSwapchain(MetalSwapchain &&) = delete;
-    MetalSwapchain &operator=(MetalSwapchain &&) = delete;
+    MetalSwapchain(const MetalSwapchain&) = delete;
+    MetalSwapchain& operator=(const MetalSwapchain&) = delete;
+    MetalSwapchain(MetalSwapchain&&) = delete;
+    MetalSwapchain& operator=(MetalSwapchain&&) = delete;
 
-    uint32_t acquireNextImage() override;
-    Texture *getImage(uint32_t imageIndex) const override;
-    TextureView *getImageView(uint32_t imageIndex) const override;
-    void present(uint32_t imageIndex) override;
-    void resize(uint32_t newWidth, uint32_t newHeight) override;
-    uint32_t width() const override { return m_Desc.width; }
-    uint32_t height() const override { return m_Desc.height; }
-    Format format() const override { return m_Desc.format; }
-    uint32_t imageCount() const override { return 1; }
-
-private:
-    void updateDrawableSize();
+    uint32_t AcquireNextImage() override;
+    Texture* GetImage(uint32_t imageIndex) const override;
+    TextureView* GetImageView(uint32_t imageIndex) const override;
+    void Present(uint32_t imageIndex) override;
+    void Resize(uint32_t newWidth, uint32_t newHeight) override;
+    uint32_t GetWidth() const override { return m_Desc.m_Width; }
+    uint32_t GetHeight() const override { return m_Desc.m_Height; }
+    Format GetFormat() const override { return m_Desc.m_Format; }
+    uint32_t GetImageCount() const override { return 1; }
 
 private:
-    MetalDevice &m_Device;
+    void UpdateDrawableSize();
+
+private:
+    MetalDevice& m_Device;
     SwapchainDesc m_Desc;
     NativeWindowHandle m_NativeWindowHandle;
-    MetalSwapchainData *m_Data = nullptr;
+    MetalSwapchainData* m_Data = nullptr;
     Scope<Texture> m_Image;
     Scope<TextureView> m_ImageView;
 };
@@ -71,19 +71,18 @@ public:
     MetalDevice();
     ~MetalDevice() override;
 
-    Scope<Swapchain> createSwapchain(const SwapchainDesc &desc, const NativeWindowHandle &nativeWindowHandle) override;
+    Scope<Swapchain> CreateSwapchain(const SwapchainDesc& desc, const NativeWindowHandle& nativeWindowHandle) override;
 
-    CommandList *beginCommandList() override;
-    void submit(CommandList *commandList) override;
-    FrameContext *beginFrame() override;
-    void endFrame(FrameContext *frameContext) override;
+    CommandList* BeginCommandList() override;
+    void Submit(CommandList* commandList) override;
+    FrameContext* BeginFrame() override;
+    void EndFrame(FrameContext* frameContext) override;
 
-    MetalDeviceData *getData() const { return m_Data; }
-    void presentDrawable(void *drawable);
+    MetalDeviceData* GetData() const { return m_Data; }
+    void PresentDrawable(void* drawable);
 
 private:
-    MetalDeviceData *m_Data = nullptr;
+    MetalDeviceData* m_Data = nullptr;
     MetalCommandList m_CommandList;
     RHIInternal::ShellFrameContext m_FrameContext;
 };
-

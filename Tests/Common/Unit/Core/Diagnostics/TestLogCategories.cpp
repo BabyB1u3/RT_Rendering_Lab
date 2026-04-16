@@ -4,9 +4,9 @@
 
 TEST(LogCategoriesTests, IsKnownCategoryRecognizesPredefinedNames)
 {
-    EXPECT_TRUE(LogCategory::IsKnownCategory(LogCategory::Core));
-    EXPECT_TRUE(LogCategory::IsKnownCategory(LogCategory::Demo));
-    EXPECT_TRUE(LogCategory::IsKnownCategory(LogCategory::Crash));
+    EXPECT_TRUE(LogCategory::IsKnownCategory(LogCategory::k_Core));
+    EXPECT_TRUE(LogCategory::IsKnownCategory(LogCategory::k_Demo));
+    EXPECT_TRUE(LogCategory::IsKnownCategory(LogCategory::k_Crash));
 }
 
 TEST(LogCategoriesTests, IsKnownCategoryRejectsUnknownNames)

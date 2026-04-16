@@ -6,28 +6,27 @@
 
 namespace
 {
-    using test_support::InputTestAccess;
+using TestSupport::InputTestAccess;
 
-    class ComboTrackerTests : public ::testing::Test
+class ComboTrackerTests : public ::testing::Test
+{
+protected:
+    void SetUp() override
     {
-    protected:
-        void SetUp() override
-        {
-            InputTestAccess::RestoreDefaultDevices();
-            Input::Initialize(nullptr);
-        }
-    };
-}
+        InputTestAccess::RestoreDefaultDevices();
+        Input::Initialize(nullptr);
+    }
+};
+} // namespace
 
 TEST_F(ComboTrackerTests, ComboTrackerCompletesSequenceWithinStepWindows)
 {
     ComboTracker tracker;
-    tracker.SetCombo(ComboBinding{
-        {
-            {InputSource::FromKey(Key::W), 0.0f},
-            {InputSource::FromKey(Key::S), 0.1f},
-            {InputSource::FromKey(Key::D), 0.1f},
-        }});
+    tracker.SetCombo(ComboBinding{{
+        {InputSource::FromKey(Key::W), 0.0f},
+        {InputSource::FromKey(Key::S), 0.1f},
+        {InputSource::FromKey(Key::D), 0.1f},
+    }});
 
     auto wFrame = InputTestAccess::MakeFrame();
     InputTestAccess::SetKey(wFrame, Key::W, true);
@@ -55,11 +54,10 @@ TEST_F(ComboTrackerTests, ComboTrackerCompletesSequenceWithinStepWindows)
 TEST_F(ComboTrackerTests, ComboTrackerResetsAfterTimeout)
 {
     ComboTracker tracker;
-    tracker.SetCombo(ComboBinding{
-        {
-            {InputSource::FromKey(Key::W), 0.0f},
-            {InputSource::FromKey(Key::S), 0.05f},
-        }});
+    tracker.SetCombo(ComboBinding{{
+        {InputSource::FromKey(Key::W), 0.0f},
+        {InputSource::FromKey(Key::S), 0.05f},
+    }});
 
     auto wFrame = InputTestAccess::MakeFrame();
     InputTestAccess::SetKey(wFrame, Key::W, true);
@@ -74,11 +72,10 @@ TEST_F(ComboTrackerTests, ComboTrackerResetsAfterTimeout)
 TEST_F(ComboTrackerTests, ComboTrackerCanRestartAfterTimeoutOnNewPress)
 {
     ComboTracker tracker;
-    tracker.SetCombo(ComboBinding{
-        {
-            {InputSource::FromKey(Key::W), 0.0f},
-            {InputSource::FromKey(Key::S), 0.05f},
-        }});
+    tracker.SetCombo(ComboBinding{{
+        {InputSource::FromKey(Key::W), 0.0f},
+        {InputSource::FromKey(Key::S), 0.05f},
+    }});
 
     auto wFrame = InputTestAccess::MakeFrame();
     InputTestAccess::SetKey(wFrame, Key::W, true);

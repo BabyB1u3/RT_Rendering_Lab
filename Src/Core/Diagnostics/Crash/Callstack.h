@@ -8,6 +8,6 @@
 namespace Diagnostics
 {
 
-    std::string CaptureCallstack(int framesToSkip = 0, int maxFrames = 32);
+std::string CaptureCallstack(int framesToSkip = 0, int maxFrames = 32);
 
 } // namespace Diagnostics

@@ -12,10 +12,7 @@
 #include "DemoRegistry.h"
 #include "Demos/01_HelloWindow/HelloWindow.h"
 
-LabLayer::LabLayer()
-    : Layer("LabLayer")
-{
-}
+LabLayer::LabLayer() : Layer("LabLayer") {}
 
 LabLayer::~LabLayer() = default;
 
@@ -26,10 +23,10 @@ void LabLayer::OnAttach()
     if (!m_ActiveDemo)
     {
         // Default demo
-        LOG_INFO_CAT(LogCategory::Demo, "Loading default demo: 01 - Hello Window");
+        LOG_INFO_CAT(LogCategory::k_Demo, "Loading default demo: 01 - Hello Window");
         auto defaultDemo = DemoRegistry::Create("01 - Hello Window");
         RTRLAB_ASSERT_MSG(defaultDemo, "Failed to create default demo: 01 - Hello Window");
-        SetActiveDemo(std::move(defaultDemo), "01 - Hellow Window");
+        SetActiveDemo(std::move(defaultDemo), "01 - Hello Window");
     }
 
     if (m_ActiveDemo)
@@ -65,7 +62,7 @@ void LabLayer::OnImGuiRender()
     //     auto demo = DemoRegistry::Create(name);
     //     if (!demo)
     //     {
-    //         LOG_ERROR_CAT(LogCategory::Demo, "Failed to create demo: {}", name);
+    //         LOG_ERROR_CAT(LogCategory::k_Demo, "Failed to create demo: {}", name);
     //         return;
     //     }
 
@@ -92,19 +89,21 @@ void LabLayer::RegisterBuiltInDemos()
     if (m_DemosRegistered)
         return;
     // --- Demos ---
-    DemoRegistry::Register("01 - Hello Window", []()
+    DemoRegistry::Register("01 - Hello Window",
+                           []()
                            {
-            const auto& window = Application::Get().GetWindow();
-            return CreateScope<HelloWindow>(window.GetWidth(), window.GetHeight()); });
+                               const auto& window = Application::Get().GetWindow();
+                               return CreateScope<HelloWindow>(window.GetWidth(), window.GetHeight());
+                           });
 
     m_DemosRegistered = true;
 }
 
-void LabLayer::SetActiveDemo(Scope<DemoBase> demo, const std::string &name)
+void LabLayer::SetActiveDemo(Scope<DemoBase> demo, const std::string& name)
 {
     if (!demo)
     {
-        LOG_ERROR_CAT(LogCategory::Demo, "SetActiveDemo called with null demo: {}", name);
+        LOG_ERROR_CAT(LogCategory::k_Demo, "SetActiveDemo called with null demo: {}", name);
         return;
     }
 
@@ -113,8 +112,7 @@ void LabLayer::SetActiveDemo(Scope<DemoBase> demo, const std::string &name)
 
     m_ActiveDemo = std::move(demo);
     m_ActiveDemoName = name;
-    LOG_INFO_CAT(LogCategory::Demo, "Active demo: {}", m_ActiveDemoName);
+    LOG_INFO_CAT(LogCategory::k_Demo, "Active demo: {}", m_ActiveDemoName);
 
-    Application::Get().GetEventBus().Publish(
-        DemoSwitchedEvent{m_SelectedDemoIndex, m_ActiveDemoName.c_str()});
+    Application::Get().GetEventBus().Publish(DemoSwitchedEvent{m_SelectedDemoIndex, m_ActiveDemoName.c_str()});
 }

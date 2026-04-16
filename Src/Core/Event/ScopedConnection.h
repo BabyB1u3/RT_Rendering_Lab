@@ -23,11 +23,11 @@ public:
     }
 
     // Move-only
-    ScopedConnection(ScopedConnection &&) = default;
-    ScopedConnection &operator=(ScopedConnection &&) = default;
+    ScopedConnection(ScopedConnection&&) = default;
+    ScopedConnection& operator=(ScopedConnection&&) = default;
 
-    ScopedConnection(const ScopedConnection &) = delete;
-    ScopedConnection &operator=(const ScopedConnection &) = delete;
+    ScopedConnection(const ScopedConnection&) = delete;
+    ScopedConnection& operator=(const ScopedConnection&) = delete;
 
     void Disconnect()
     {

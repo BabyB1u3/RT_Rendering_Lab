@@ -9,8 +9,8 @@
 
 namespace MetalImGuiBridge
 {
-void Init(void *mtlDevice);
+void Init(void* mtlDevice);
 void Shutdown();
-void NewFrame(void *drawableTexture);
-void RenderDrawData(void *drawData, void *commandBuffer, void *drawableTexture);
-}
+void NewFrame(void* drawableTexture);
+void RenderDrawData(void* drawData, void* commandBuffer, void* drawableTexture);
+} // namespace MetalImGuiBridge

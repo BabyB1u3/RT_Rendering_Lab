@@ -14,20 +14,14 @@ struct LayerLifecycleState
 class LifecycleTrackingLayer : public Layer
 {
 public:
-    LifecycleTrackingLayer(const std::string &name, std::shared_ptr<LayerLifecycleState> state)
+    LifecycleTrackingLayer(const std::string& name, std::shared_ptr<LayerLifecycleState> state)
         : Layer(name), m_State(std::move(state))
     {
     }
 
-    void OnAttach() override
-    {
-        ++m_State->AttachCount;
-    }
+    void OnAttach() override { ++m_State->AttachCount; }
 
-    void OnDetach() override
-    {
-        ++m_State->DetachCount;
-    }
+    void OnDetach() override { ++m_State->DetachCount; }
 
 private:
     std::shared_ptr<LayerLifecycleState> m_State;

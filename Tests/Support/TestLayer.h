@@ -6,11 +6,7 @@
 class TestLayer : public Layer
 {
 public:
-    explicit TestLayer(const std::string &name)
-        : Layer(name)
-    {
-        ++s_LiveCount;
-    }
+    explicit TestLayer(const std::string& name) : Layer(name) { ++s_LiveCount; }
 
     ~TestLayer() override
     {

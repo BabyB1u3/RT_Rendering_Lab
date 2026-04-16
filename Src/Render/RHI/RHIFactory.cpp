@@ -13,7 +13,7 @@
 #include "Render/RHI/Backends/Vulkan/VulkanDevice.h"
 #endif
 
-BackendType getDefaultBackendType()
+BackendType GetDefaultBackendType()
 {
 #if defined(GLAB_BACKEND_OPENGL)
     return BackendType::OpenGL;
@@ -26,44 +26,44 @@ BackendType getDefaultBackendType()
 #endif
 }
 
-const char *getBackendName(BackendType backend)
+const char* GetBackendName(BackendType backend)
 {
     switch (backend)
     {
-    case BackendType::Vulkan:
-        return "Vulkan";
-    case BackendType::Metal:
-        return "Metal";
-    case BackendType::OpenGL:
-        return "OpenGL";
+        case BackendType::Vulkan:
+            return "Vulkan";
+        case BackendType::Metal:
+            return "Metal";
+        case BackendType::OpenGL:
+            return "OpenGL";
     }
 
     return "Unknown";
 }
 
-Scope<Device> createDevice(BackendType backend)
+Scope<Device> CreateDevice(BackendType backend)
 {
-    LOG_INFO_CAT(LogCategory::Graphics, "Creating {} RHI device shell", getBackendName(backend));
+    LOG_INFO_CAT(LogCategory::k_Graphics, "Creating {} RHI device shell", GetBackendName(backend));
 
     switch (backend)
     {
-    case BackendType::Vulkan:
+        case BackendType::Vulkan:
 #if defined(GLAB_BACKEND_VULKAN)
-        return CreateScope<VulkanDevice>();
+            return CreateScope<VulkanDevice>();
 #else
-        break;
+            break;
 #endif
-    case BackendType::Metal:
+        case BackendType::Metal:
 #if defined(GLAB_BACKEND_METAL)
-        return CreateScope<MetalDevice>();
+            return CreateScope<MetalDevice>();
 #else
-        break;
+            break;
 #endif
-    case BackendType::OpenGL:
+        case BackendType::OpenGL:
 #if defined(GLAB_BACKEND_OPENGL)
-        return CreateScope<OpenGLDevice>();
+            return CreateScope<OpenGLDevice>();
 #else
-        break;
+            break;
 #endif
     }
 

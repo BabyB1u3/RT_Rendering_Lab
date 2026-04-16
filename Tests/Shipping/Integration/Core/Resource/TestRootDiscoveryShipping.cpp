@@ -8,7 +8,7 @@
 
 namespace
 {
-    using RootDiscoveryTests = test_support::RootDiscoveryTestsBase;
+using RootDiscoveryTests = test_support::RootDiscoveryTestsBase;
 }
 
 TEST_F(RootDiscoveryTests, DiscoverRootPathIgnoresEnvOverrideInShipping)
@@ -37,7 +37,7 @@ TEST_F(RootDiscoveryTests, DiscoverRootPathIgnoresCliOverrideWithoutDevModeInShi
     test_support::WriteProjectMarkerOrFail(repoRoot);
 
     Util::ParsedCommandLine commandLine;
-    commandLine.options.emplace("root", std::string(repoRoot.string()));
+    commandLine.m_Options.emplace("root", std::string(repoRoot.string()));
     Util::SetProcessCommandLine(commandLine);
 
     const auto discoveredRoot = Resource::DiscoverRootPath();
@@ -57,8 +57,8 @@ TEST_F(RootDiscoveryTests, DiscoverRootPathUsesCliOverrideWhenDevModeIsEnabledIn
     test_support::WriteProjectMarkerOrFail(repoRoot);
 
     Util::ParsedCommandLine commandLine;
-    commandLine.options.emplace("dev-mode", std::nullopt);
-    commandLine.options.emplace("root", std::string(repoRoot.string()));
+    commandLine.m_Options.emplace("dev-mode", std::nullopt);
+    commandLine.m_Options.emplace("root", std::string(repoRoot.string()));
     Util::SetProcessCommandLine(commandLine);
 
     const auto discoveredRoot = Resource::DiscoverRootPath();

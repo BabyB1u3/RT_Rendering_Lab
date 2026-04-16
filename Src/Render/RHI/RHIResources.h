@@ -44,13 +44,13 @@ enum class Format
 
 enum class BufferUsage : uint32_t
 {
-    None     = 0,
-    Vertex   = BIT(0),
-    Index    = BIT(1),
-    Uniform  = BIT(2),
-    Storage  = BIT(3),
-    CopySrc  = BIT(4),
-    CopyDst  = BIT(5),
+    None = 0,
+    Vertex = BIT(0),
+    Index = BIT(1),
+    Uniform = BIT(2),
+    Storage = BIT(3),
+    CopySrc = BIT(4),
+    CopyDst = BIT(5),
     Indirect = BIT(6),
 };
 
@@ -64,7 +64,7 @@ constexpr BufferUsage operator&(BufferUsage lhs, BufferUsage rhs)
     return static_cast<BufferUsage>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
 
-constexpr BufferUsage &operator|=(BufferUsage &lhs, BufferUsage rhs)
+constexpr BufferUsage& operator|=(BufferUsage& lhs, BufferUsage rhs)
 {
     lhs = lhs | rhs;
     return lhs;
@@ -79,10 +79,10 @@ enum class MemoryUsage
 
 struct BufferDesc
 {
-    uint64_t size = 0;
-    BufferUsage usageMask = BufferUsage::None;
-    MemoryUsage memoryUsage = MemoryUsage::GpuOnly;
-    const char *debugName = nullptr;
+    uint64_t m_Size = 0;
+    BufferUsage m_UsageMask = BufferUsage::None;
+    MemoryUsage m_MemoryUsage = MemoryUsage::GpuOnly;
+    const char* m_DebugName = nullptr;
 };
 
 class Buffer
@@ -90,7 +90,7 @@ class Buffer
 public:
     virtual ~Buffer() = default;
 
-    virtual const BufferDesc &getDesc() const = 0;
+    virtual const BufferDesc& GetDesc() const = 0;
 };
 
 enum class TextureType
@@ -103,13 +103,13 @@ enum class TextureType
 
 enum class TextureUsage : uint32_t
 {
-    None         = 0,
-    Sampled      = BIT(0),
-    Storage      = BIT(1),
+    None = 0,
+    Sampled = BIT(0),
+    Storage = BIT(1),
     RenderTarget = BIT(2),
     DepthStencil = BIT(3),
-    CopySrc      = BIT(4),
-    CopyDst      = BIT(5),
+    CopySrc = BIT(4),
+    CopyDst = BIT(5),
 };
 
 constexpr TextureUsage operator|(TextureUsage lhs, TextureUsage rhs)
@@ -122,7 +122,7 @@ constexpr TextureUsage operator&(TextureUsage lhs, TextureUsage rhs)
     return static_cast<TextureUsage>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
 
-constexpr TextureUsage &operator|=(TextureUsage &lhs, TextureUsage rhs)
+constexpr TextureUsage& operator|=(TextureUsage& lhs, TextureUsage rhs)
 {
     lhs = lhs | rhs;
     return lhs;
@@ -130,20 +130,20 @@ constexpr TextureUsage &operator|=(TextureUsage &lhs, TextureUsage rhs)
 
 struct Extent3D
 {
-    uint32_t width = 1;
-    uint32_t height = 1;
-    uint32_t depth = 1;
+    uint32_t m_Width = 1;
+    uint32_t m_Height = 1;
+    uint32_t m_Depth = 1;
 };
 
 struct TextureDesc
 {
-    TextureType type = TextureType::Tex2D;
-    Format format = Format::Unknown;
-    Extent3D extent;
-    uint32_t mipLevels = 1;
-    uint32_t arrayLayers = 1;
-    TextureUsage usageMask = TextureUsage::None;
-    const char *debugName = nullptr;
+    TextureType m_Type = TextureType::Tex2D;
+    Format m_Format = Format::Unknown;
+    Extent3D m_Extent;
+    uint32_t m_MipLevels = 1;
+    uint32_t m_ArrayLayers = 1;
+    TextureUsage m_UsageMask = TextureUsage::None;
+    const char* m_DebugName = nullptr;
 };
 
 class Texture
@@ -151,7 +151,7 @@ class Texture
 public:
     virtual ~Texture() = default;
 
-    virtual const TextureDesc &getDesc() const = 0;
+    virtual const TextureDesc& GetDesc() const = 0;
 };
 
 enum class FilterMode
@@ -177,17 +177,17 @@ enum class AddressMode
 
 struct SamplerDesc
 {
-    FilterMode minFilter = FilterMode::Linear;
-    FilterMode magFilter = FilterMode::Linear;
-    MipFilterMode mipFilter = MipFilterMode::Linear;
-    AddressMode addressU = AddressMode::Repeat;
-    AddressMode addressV = AddressMode::Repeat;
-    AddressMode addressW = AddressMode::Repeat;
-    float minLod = 0.0f;
-    float maxLod = FLT_MAX;
-    float mipLodBias = 0.0f;
-    bool anisotropyEnable = false;
-    float maxAnisotropy = 1.0f;
+    FilterMode m_MinFilter = FilterMode::Linear;
+    FilterMode m_MagFilter = FilterMode::Linear;
+    MipFilterMode m_MipFilter = MipFilterMode::Linear;
+    AddressMode m_AddressU = AddressMode::Repeat;
+    AddressMode m_AddressV = AddressMode::Repeat;
+    AddressMode m_AddressW = AddressMode::Repeat;
+    float m_MinLod = 0.0f;
+    float m_MaxLod = FLT_MAX;
+    float m_MipLodBias = 0.0f;
+    bool m_AnisotropyEnable = false;
+    float m_MaxAnisotropy = 1.0f;
 };
 
 class Sampler
@@ -195,14 +195,14 @@ class Sampler
 public:
     virtual ~Sampler() = default;
 
-    virtual const SamplerDesc &getDesc() const = 0;
+    virtual const SamplerDesc& GetDesc() const = 0;
 };
 
 enum class TextureAspect : uint32_t
 {
-    None    = 0,
-    Color   = BIT(0),
-    Depth   = BIT(1),
+    None = 0,
+    Color = BIT(0),
+    Depth = BIT(1),
     Stencil = BIT(2),
 };
 
@@ -216,7 +216,7 @@ constexpr TextureAspect operator&(TextureAspect lhs, TextureAspect rhs)
     return static_cast<TextureAspect>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
 }
 
-constexpr TextureAspect &operator|=(TextureAspect &lhs, TextureAspect rhs)
+constexpr TextureAspect& operator|=(TextureAspect& lhs, TextureAspect rhs)
 {
     lhs = lhs | rhs;
     return lhs;
@@ -224,13 +224,13 @@ constexpr TextureAspect &operator|=(TextureAspect &lhs, TextureAspect rhs)
 
 struct TextureViewDesc
 {
-    TextureType type = TextureType::Tex2D;
-    Format format = Format::Unknown;
-    TextureAspect aspect = TextureAspect::Color;
-    uint32_t baseMipLevel = 0;
-    uint32_t mipLevelCount = 1;
-    uint32_t baseArrayLayer = 0;
-    uint32_t arrayLayerCount = 1;
+    TextureType m_Type = TextureType::Tex2D;
+    Format m_Format = Format::Unknown;
+    TextureAspect m_Aspect = TextureAspect::Color;
+    uint32_t m_BaseMipLevel = 0;
+    uint32_t m_MipLevelCount = 1;
+    uint32_t m_BaseArrayLayer = 0;
+    uint32_t m_ArrayLayerCount = 1;
 };
 
 class TextureView
@@ -238,17 +238,17 @@ class TextureView
 public:
     virtual ~TextureView() = default;
 
-    virtual Texture *getTexture() const = 0;
-    virtual const TextureViewDesc &getDesc() const = 0;
+    virtual Texture* GetTexture() const = 0;
+    virtual const TextureViewDesc& GetDesc() const = 0;
 };
 
 struct SwapchainDesc
 {
-    uint32_t width = 0;
-    uint32_t height = 0;
-    Format format = Format::BGRA8_UNORM;
-    uint32_t imageCount = 2;
-    bool vsync = true;
+    uint32_t m_Width = 0;
+    uint32_t m_Height = 0;
+    Format m_Format = Format::BGRA8_UNORM;
+    uint32_t m_ImageCount = 2;
+    bool m_Vsync = true;
 };
 
 class Swapchain
@@ -256,21 +256,21 @@ class Swapchain
 public:
     virtual ~Swapchain() = default;
 
-    virtual uint32_t acquireNextImage() = 0;
-    virtual Texture *getImage(uint32_t imageIndex) const = 0;
-    virtual TextureView *getImageView(uint32_t imageIndex) const = 0;
-    virtual void present(uint32_t imageIndex) = 0;
-    virtual void resize(uint32_t newWidth, uint32_t newHeight) = 0;
-    virtual uint32_t width() const = 0;
-    virtual uint32_t height() const = 0;
-    virtual Format format() const = 0;
-    virtual uint32_t imageCount() const = 0;
+    virtual uint32_t AcquireNextImage() = 0;
+    virtual Texture* GetImage(uint32_t imageIndex) const = 0;
+    virtual TextureView* GetImageView(uint32_t imageIndex) const = 0;
+    virtual void Present(uint32_t imageIndex) = 0;
+    virtual void Resize(uint32_t newWidth, uint32_t newHeight) = 0;
+    virtual uint32_t GetWidth() const = 0;
+    virtual uint32_t GetHeight() const = 0;
+    virtual Format GetFormat() const = 0;
+    virtual uint32_t GetImageCount() const = 0;
 };
 
 class ParameterBlockData
 {
 public:
-    void setRaw(uint32_t offset, const void *data, size_t size)
+    void SetRaw(uint32_t offset, const void* data, size_t size)
     {
         if (size == 0)
             return;
@@ -281,15 +281,11 @@ public:
         std::memcpy(m_Data.data() + offset, data, size);
     }
 
-    template <typename T>
-    void set(uint32_t offset, const T &value)
-    {
-        setRaw(offset, &value, sizeof(T));
-    }
+    template <typename T> void Set(uint32_t offset, const T& value) { SetRaw(offset, &value, sizeof(T)); }
 
-    const void *data() const { return m_Data.empty() ? nullptr : m_Data.data(); }
-    size_t size() const { return m_Data.size(); }
-    void resize(size_t bytes) { m_Data.resize(bytes); }
+    const void* GetData() const { return m_Data.empty() ? nullptr : m_Data.data(); }
+    size_t GetSize() const { return m_Data.size(); }
+    void Resize(size_t bytes) { m_Data.resize(bytes); }
 
 private:
     std::vector<uint8_t> m_Data;
@@ -297,20 +293,20 @@ private:
 
 struct BufferBinding
 {
-    Buffer *buffer = nullptr;
-    uint64_t offset = 0;
-    uint64_t size = 0;
+    Buffer* m_Buffer = nullptr;
+    uint64_t m_Offset = 0;
+    uint64_t m_Size = 0;
 };
 
 struct TextureBinding
 {
-    Texture *texture = nullptr;
-    TextureView *view = nullptr;
+    Texture* m_Texture = nullptr;
+    TextureView* m_View = nullptr;
 };
 
 struct SamplerBinding
 {
-    Sampler *sampler = nullptr;
+    Sampler* m_Sampler = nullptr;
 };
 
 class ResourceSet
@@ -318,15 +314,15 @@ class ResourceSet
 public:
     virtual ~ResourceSet() = default;
 
-    virtual PipelineLayout *getLayout() const = 0;
-    virtual uint32_t getSetIndex() const = 0;
+    virtual PipelineLayout* GetLayout() const = 0;
+    virtual uint32_t GetSetIndex() const = 0;
 
-    virtual ParameterBlockData &constants() = 0;
-    virtual const ParameterBlockData &constants() const = 0;
+    virtual ParameterBlockData& GetConstants() = 0;
+    virtual const ParameterBlockData& GetConstants() const = 0;
 
-    virtual void setBuffer(uint32_t binding, const BufferBinding &bufferBinding) = 0;
-    virtual void setTexture(uint32_t binding, const TextureBinding &textureBinding) = 0;
-    virtual void setSampler(uint32_t binding, const SamplerBinding &samplerBinding) = 0;
+    virtual void SetBuffer(uint32_t binding, const BufferBinding& bufferBinding) = 0;
+    virtual void SetTexture(uint32_t binding, const TextureBinding& textureBinding) = 0;
+    virtual void SetSampler(uint32_t binding, const SamplerBinding& samplerBinding) = 0;
 
-    virtual uint32_t version() const = 0;
+    virtual uint32_t GetVersion() const = 0;
 };

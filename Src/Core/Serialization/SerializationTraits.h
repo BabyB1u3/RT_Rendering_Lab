@@ -13,11 +13,11 @@
 namespace Serialization
 {
 
-    /// Concept: T is Serializable if free functions Serialize/Deserialize exist.
-    template <typename T>
-    concept Serializable = requires(PropertyTree &tree, const PropertyTree &ctree, T &val, const T &cval) {
-        { Serialize(tree, cval) };
-        { Deserialize(ctree, val) } -> std::same_as<bool>;
-    };
+/// Concept: T is Serializable if free functions Serialize/Deserialize exist.
+template <typename T>
+concept Serializable = requires(PropertyTree& tree, const PropertyTree& ctree, T& val, const T& cval) {
+    { Serialize(tree, cval) };
+    { Deserialize(ctree, val) } -> std::same_as<bool>;
+};
 
 } // namespace Serialization

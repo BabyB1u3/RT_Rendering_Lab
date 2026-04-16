@@ -9,54 +9,54 @@ using Serialization::PropertyTree;
 
 namespace
 {
-    void ExpectTreesEqual(const PropertyTree &actual, const PropertyTree &expected)
+void ExpectTreesEqual(const PropertyTree& actual, const PropertyTree& expected)
+{
+    ASSERT_EQ(actual.IsNull(), expected.IsNull());
+    ASSERT_EQ(actual.IsBool(), expected.IsBool());
+    ASSERT_EQ(actual.IsInt(), expected.IsInt());
+    ASSERT_EQ(actual.IsFloat(), expected.IsFloat());
+    ASSERT_EQ(actual.IsString(), expected.IsString());
+    ASSERT_EQ(actual.IsArray(), expected.IsArray());
+    ASSERT_EQ(actual.IsObject(), expected.IsObject());
+
+    if (expected.IsNull())
+        return;
+    if (expected.IsBool())
     {
-        ASSERT_EQ(actual.IsNull(), expected.IsNull());
-        ASSERT_EQ(actual.IsBool(), expected.IsBool());
-        ASSERT_EQ(actual.IsInt(), expected.IsInt());
-        ASSERT_EQ(actual.IsFloat(), expected.IsFloat());
-        ASSERT_EQ(actual.IsString(), expected.IsString());
-        ASSERT_EQ(actual.IsArray(), expected.IsArray());
-        ASSERT_EQ(actual.IsObject(), expected.IsObject());
-
-        if (expected.IsNull())
-            return;
-        if (expected.IsBool())
-        {
-            EXPECT_EQ(actual.AsBool(), expected.AsBool());
-            return;
-        }
-        if (expected.IsInt())
-        {
-            EXPECT_EQ(actual.AsInt(), expected.AsInt());
-            return;
-        }
-        if (expected.IsFloat())
-        {
-            EXPECT_DOUBLE_EQ(actual.AsFloat(), expected.AsFloat());
-            return;
-        }
-        if (expected.IsString())
-        {
-            EXPECT_EQ(actual.AsString(), expected.AsString());
-            return;
-        }
-        if (expected.IsArray())
-        {
-            ASSERT_EQ(actual.Size(), expected.Size());
-            for (size_t i = 0; i < expected.Size(); ++i)
-                ExpectTreesEqual(actual[i], expected[i]);
-            return;
-        }
-
-        ASSERT_TRUE(expected.IsObject());
-        ASSERT_EQ(actual.Size(), expected.Size());
-        for (const auto &[key, child] : expected.AsObject())
-        {
-            ASSERT_TRUE(actual.Contains(key));
-            ExpectTreesEqual(actual[key], child);
-        }
+        EXPECT_EQ(actual.AsBool(), expected.AsBool());
+        return;
     }
+    if (expected.IsInt())
+    {
+        EXPECT_EQ(actual.AsInt(), expected.AsInt());
+        return;
+    }
+    if (expected.IsFloat())
+    {
+        EXPECT_DOUBLE_EQ(actual.AsFloat(), expected.AsFloat());
+        return;
+    }
+    if (expected.IsString())
+    {
+        EXPECT_EQ(actual.AsString(), expected.AsString());
+        return;
+    }
+    if (expected.IsArray())
+    {
+        ASSERT_EQ(actual.Size(), expected.Size());
+        for (size_t i = 0; i < expected.Size(); ++i)
+            ExpectTreesEqual(actual[i], expected[i]);
+        return;
+    }
+
+    ASSERT_TRUE(expected.IsObject());
+    ASSERT_EQ(actual.Size(), expected.Size());
+    for (const auto& [key, child] : expected.AsObject())
+    {
+        ASSERT_TRUE(actual.HasKey(key));
+        ExpectTreesEqual(actual[key], child);
+    }
+}
 } // namespace
 
 TEST(JsonBackendTests, WriteNullProducesNullLiteral)
@@ -118,9 +118,8 @@ TEST(JsonBackendTests, WriteNestedStructureIsCorrect)
     tree["items"] = PropertyTree::Array{PropertyTree(1), PropertyTree(2)};
     tree["nested"] = PropertyTree::Object{{"flag", PropertyTree(true)}};
 
-    EXPECT_EQ(
-        backend.WriteToString(tree),
-        "{\n  \"items\": [\n    1,\n    2\n  ],\n  \"nested\": {\n    \"flag\": true\n  }\n}");
+    EXPECT_EQ(backend.WriteToString(tree),
+              "{\n  \"items\": [\n    1,\n    2\n  ],\n  \"nested\": {\n    \"flag\": true\n  }\n}");
 }
 
 TEST(JsonBackendTests, DefaultIndentUsesTwoSpacePrettyPrint)
@@ -207,7 +206,7 @@ TEST(JsonBackendTests, ReadObjectJsonGivesObjectTree)
 
     ASSERT_TRUE(backend.ReadFromString("{\"x\":1}", tree));
     EXPECT_TRUE(tree.IsObject());
-    ASSERT_TRUE(tree.Contains("x"));
+    ASSERT_TRUE(tree.HasKey("x"));
     EXPECT_EQ(tree["x"].AsInt(), 1);
 }
 
@@ -216,13 +215,12 @@ TEST(JsonBackendTests, ReadNestedStructureIsCorrect)
     JsonBackend backend;
     PropertyTree tree;
 
-    ASSERT_TRUE(backend.ReadFromString(
-        "{\"array\":[1,2.5,null],\"nested\":{\"flag\":true,\"name\":\"RTRLab\"}}",
-        tree));
+    ASSERT_TRUE(
+        backend.ReadFromString("{\"array\":[1,2.5,null],\"nested\":{\"flag\":true,\"name\":\"RTRLab\"}}", tree));
 
     ASSERT_TRUE(tree.IsObject());
-    ASSERT_TRUE(tree.Contains("array"));
-    ASSERT_TRUE(tree.Contains("nested"));
+    ASSERT_TRUE(tree.HasKey("array"));
+    ASSERT_TRUE(tree.HasKey("nested"));
     ASSERT_TRUE(tree["array"].IsArray());
     EXPECT_EQ(tree["array"][0].AsInt(), 1);
     EXPECT_DOUBLE_EQ(tree["array"][1].AsFloat(), 2.5);

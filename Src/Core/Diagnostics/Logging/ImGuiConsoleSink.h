@@ -14,28 +14,28 @@
 namespace Diagnostics
 {
 
-    struct ConsoleLogEntry
-    {
-        spdlog::level::level_enum Level;
-        std::string Category;
-        std::string Message;
-        std::string Timestamp;
-    };
+struct ConsoleLogEntry
+{
+    spdlog::level::level_enum level;
+    std::string category;
+    std::string message;
+    std::string timestamp;
+};
 
-    class ImGuiConsoleSink : public spdlog::sinks::base_sink<std::mutex>
-    {
-    public:
-        std::vector<ConsoleLogEntry> GetEntries() const;
-        void Clear();
+class ImGuiConsoleSink : public spdlog::sinks::base_sink<std::mutex>
+{
+public:
+    std::vector<ConsoleLogEntry> GetEntries() const;
+    void Clear();
 
-    protected:
-        void sink_it_(const spdlog::details::log_msg &msg) override;
-        void flush_() override {}
+protected:
+    void sink_it_(const spdlog::details::log_msg& msg) override;
+    void flush_() override {}
 
-    private:
-        static constexpr size_t kMaxEntries = 1024;
-        mutable std::mutex m_BufferMutex;
-        std::deque<ConsoleLogEntry> m_Entries;
-    };
+private:
+    static constexpr size_t kMaxEntries = 1024;
+    mutable std::mutex m_BufferMutex;
+    std::deque<ConsoleLogEntry> m_Entries;
+};
 
 } // namespace Diagnostics

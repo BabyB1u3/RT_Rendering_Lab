@@ -7,4 +7,4 @@
 
 struct GLFWwindow;
 
-NativeWindowHandle CreateLinuxNativeWindowHandle(GLFWwindow *window);
+NativeWindowHandle CreateLinuxNativeWindowHandle(GLFWwindow* window);

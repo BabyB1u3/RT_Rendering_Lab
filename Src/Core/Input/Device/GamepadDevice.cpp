@@ -4,16 +4,13 @@
 
 namespace
 {
-    int ToGlfwJoystickId(uint8_t deviceIndex)
-    {
-        return GLFW_JOYSTICK_1 + static_cast<int>(deviceIndex);
-    }
-}
-
-GamepadDevice::GamepadDevice(uint8_t deviceIndex)
-    : m_DeviceIndex(deviceIndex)
+int ToGlfwJoystickId(uint8_t deviceIndex)
 {
+    return GLFW_JOYSTICK_1 + static_cast<int>(deviceIndex);
 }
+} // namespace
+
+GamepadDevice::GamepadDevice(uint8_t deviceIndex) : m_DeviceIndex(deviceIndex) {}
 
 void GamepadDevice::Poll()
 {
@@ -88,8 +85,8 @@ void GamepadDevice::Reset()
 }
 
 void GamepadDevice::ApplyState(bool connected,
-                               const std::array<bool, GamepadButton::Count> &buttons,
-                               const std::array<float, GamepadAxis::Count> &axes)
+                               const std::array<bool, GamepadButton::Count>& buttons,
+                               const std::array<float, GamepadAxis::Count>& axes)
 {
     m_PreviousConnected = m_Connected;
     m_PreviousButtons = m_CurrentButtons;

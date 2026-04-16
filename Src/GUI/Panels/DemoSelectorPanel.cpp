@@ -2,9 +2,9 @@
 
 #include <imgui.h>
 
-bool DemoSelectorPanel::OnImGuiRender(const std::vector<std::string> &demoNames, int &selectedIndex)
+bool DemoSelectorPanel::OnImGuiRender(const std::vector<std::string>& demoNames, int& selectedIndex)
 {
-    bool changed = false;
+    bool hasSelectionChanged = false;
 
     ImGui::Begin("Demo Selector");
 
@@ -16,12 +16,12 @@ bool DemoSelectorPanel::OnImGuiRender(const std::vector<std::string> &demoNames,
             if (i != selectedIndex)
             {
                 selectedIndex = i;
-                changed = true;
+                hasSelectionChanged = true;
             }
         }
     }
 
     ImGui::End();
 
-    return changed;
+    return hasSelectionChanged;
 }

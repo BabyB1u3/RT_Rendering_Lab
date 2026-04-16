@@ -15,8 +15,8 @@
 
 struct WindowResizeEvent
 {
-    uint32_t Width;
-    uint32_t Height;
+    uint32_t m_Width;
+    uint32_t m_Height;
 };
 
 struct WindowCloseEvent
@@ -30,36 +30,36 @@ struct WindowCloseEvent
 
 struct KeyPressedEvent
 {
-    Key::Code KeyCode;
-    bool IsRepeat;
+    Key::Code m_KeyCode;
+    bool m_IsRepeat;
 };
 
 struct KeyReleasedEvent
 {
-    Key::Code KeyCode;
+    Key::Code m_KeyCode;
 };
 
 struct CharTypedEvent
 {
-    uint32_t Codepoint;
+    uint32_t m_Codepoint;
 };
 
 // ---- Mouse events (discrete) ----
 
 struct MouseButtonPressedEvent
 {
-    Mouse::Code Button;
+    Mouse::Code m_Button;
 };
 
 struct MouseButtonReleasedEvent
 {
-    Mouse::Code Button;
+    Mouse::Code m_Button;
 };
 
 struct MouseScrolledEvent
 {
-    float XOffset;
-    float YOffset;
+    float m_XOffset;
+    float m_YOffset;
 };
 
 // ---- Device lifecycle events ----
@@ -68,21 +68,21 @@ struct MouseScrolledEvent
 
 struct DeviceAttachedToSlotEvent
 {
-    InputDevice::Type DeviceType;
-    uint8_t DeviceIndex;
+    InputDevice::Type m_DeviceType;
+    uint8_t m_DeviceIndex;
 };
 
 struct DeviceDetachedFromSlotEvent
 {
-    InputDevice::Type DeviceType;
-    uint8_t DeviceIndex;
+    InputDevice::Type m_DeviceType;
+    uint8_t m_DeviceIndex;
 };
 
 struct DeviceConnectionChangedEvent
 {
-    InputDevice::Type DeviceType;
-    uint8_t DeviceIndex;
-    bool Connected;
+    InputDevice::Type m_DeviceType;
+    uint8_t m_DeviceIndex;
+    bool m_IsConnected;
 };
 
 // ---- Gamepad compatibility events ----
@@ -93,18 +93,18 @@ struct DeviceConnectionChangedEvent
 
 struct GamepadConnectedEvent
 {
-    uint8_t DeviceIndex;
+    uint8_t m_DeviceIndex;
 };
 
 struct GamepadDisconnectedEvent
 {
-    uint8_t DeviceIndex;
+    uint8_t m_DeviceIndex;
 };
 
 // ---- Application-level events ----
 
 struct DemoSwitchedEvent
 {
-    int NewIndex;
-    const char *NewName;
+    int m_NewIndex;
+    const char* m_NewName;
 };

@@ -1,6 +1,6 @@
 #include "Core/Input/Action/InputPatterns.h"
 
-void ComboTracker::SetCombo(const ComboBinding &combo)
+void ComboTracker::SetCombo(const ComboBinding& combo)
 {
     m_Combo = combo;
     Reset();
@@ -8,26 +8,26 @@ void ComboTracker::SetCombo(const ComboBinding &combo)
 
 bool ComboTracker::Update(float dt)
 {
-    if (m_Combo.Steps.empty())
+    if (m_Combo.steps.empty())
         return false;
 
     if (m_CurrentStep > 0)
     {
         m_StepTimer += dt;
 
-        const auto &step = m_Combo.Steps[m_CurrentStep];
-        if (m_StepTimer > step.MaxDelay)
+        const auto& step = m_Combo.steps[m_CurrentStep];
+        if (m_StepTimer > step.maxDelay)
             Reset();
     }
 
-    const auto &currentStep = m_Combo.Steps[m_CurrentStep];
-    if (!InputSourceState::WasPressedThisFrame(currentStep.Source))
+    const auto& currentStep = m_Combo.steps[m_CurrentStep];
+    if (!InputSourceState::WasPressedThisFrame(currentStep.source))
         return false;
 
     ++m_CurrentStep;
     m_StepTimer = 0.0f;
 
-    if (m_CurrentStep < m_Combo.Steps.size())
+    if (m_CurrentStep < m_Combo.steps.size())
         return false;
 
     Reset();

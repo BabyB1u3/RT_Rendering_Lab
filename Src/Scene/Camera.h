@@ -25,19 +25,19 @@ public:
     void SetViewportSize(uint32_t width, uint32_t height);
     void SetAspectRatio(float aspectRatio);
 
-    void SetPosition(const glm::vec3 &position);
+    void SetPosition(const glm::vec3& position);
     void SetRotation(float yawDegrees, float pitchDegrees);
 
-    const glm::vec3 &GetPosition() const { return m_Position; }
+    const glm::vec3& GetPosition() const { return m_Position; }
     float GetYaw() const { return m_Yaw; }
     float GetPitch() const { return m_Pitch; }
 
-    const glm::vec3 &GetForward() const { return m_Forward; }
-    const glm::vec3 &GetRight() const { return m_Right; }
-    const glm::vec3 &GetUp() const { return m_Up; }
+    const glm::vec3& GetForward() const { return m_Forward; }
+    const glm::vec3& GetRight() const { return m_Right; }
+    const glm::vec3& GetUp() const { return m_Up; }
 
-    const glm::mat4 &GetProjection() const { return m_Projection; }
-    const glm::mat4 &GetView() const { return m_View; }
+    const glm::mat4& GetProjection() const { return m_Projection; }
+    const glm::mat4& GetView() const { return m_View; }
     glm::mat4 GetViewProjection() const { return m_Projection * m_View; }
 
     float GetVerticalFovDegrees() const { return m_VerticalFovDegrees; }

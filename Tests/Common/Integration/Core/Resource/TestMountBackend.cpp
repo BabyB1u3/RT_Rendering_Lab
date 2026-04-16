@@ -10,28 +10,22 @@
 
 namespace
 {
-    class MountBackendTests : public ::testing::Test
+class MountBackendTests : public ::testing::Test
+{
+protected:
+    void SetUp() override
     {
-    protected:
-        void SetUp() override
-        {
-            m_TestRoot = test_support::CurrentTestRoot("mount-backend");
-            test_support::ResetCurrentTestRoot("mount-backend");
-        }
+        m_TestRoot = test_support::CurrentTestRoot("mount-backend");
+        test_support::ResetCurrentTestRoot("mount-backend");
+    }
 
-        void TearDown() override
-        {
-            test_support::RemoveCurrentTestArtifacts("mount-backend");
-        }
+    void TearDown() override { test_support::RemoveCurrentTestArtifacts("mount-backend"); }
 
-        std::filesystem::path TestRoot() const
-        {
-            return m_TestRoot;
-        }
+    std::filesystem::path TestRoot() const { return m_TestRoot; }
 
-    private:
-        std::filesystem::path m_TestRoot;
-    };
+private:
+    std::filesystem::path m_TestRoot;
+};
 } // namespace
 
 TEST_F(MountBackendTests, ResolveWritableMountReturnsSavedAndCacheRoots)
@@ -41,13 +35,13 @@ TEST_F(MountBackendTests, ResolveWritableMountReturnsSavedAndCacheRoots)
 
     const auto savedMount = Resource::ResolveWritableMount(Resource::PathDomain::Saved, savedDir, cacheDir);
     ASSERT_TRUE(savedMount.has_value());
-    EXPECT_EQ(savedMount->domain, Resource::PathDomain::Saved);
-    EXPECT_EQ(savedMount->rootPath, savedDir);
+    EXPECT_EQ(savedMount->m_Domain, Resource::PathDomain::Saved);
+    EXPECT_EQ(savedMount->m_RootPath, savedDir);
 
     const auto cacheMount = Resource::ResolveWritableMount(Resource::PathDomain::Cache, savedDir, cacheDir);
     ASSERT_TRUE(cacheMount.has_value());
-    EXPECT_EQ(cacheMount->domain, Resource::PathDomain::Cache);
-    EXPECT_EQ(cacheMount->rootPath, cacheDir);
+    EXPECT_EQ(cacheMount->m_Domain, Resource::PathDomain::Cache);
+    EXPECT_EQ(cacheMount->m_RootPath, cacheDir);
 
     EXPECT_FALSE(Resource::ResolveWritableMount(Resource::PathDomain::Project, savedDir, cacheDir).has_value());
 }
@@ -58,30 +52,31 @@ TEST_F(MountBackendTests, ResolveReadableMountArtifactReturnsPakBackedDescriptor
     const auto packagedRoot = TestRoot() / "out";
     const auto pakPath = test_support::GamePackagedArchivePath(packagedRoot);
 
-    test_support::WriteTextFileOrFail(test_support::MountCatalogPath(sourceRoot), "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": []\n}\n");
+    test_support::WriteTextFileOrFail(test_support::MountCatalogPath(sourceRoot),
+                                      "{\n  \"version\": 2,\n  \"kind\": \"cooked\",\n  \"entries\": []\n}\n");
     test_support::WriteMountFileOrFail(sourceRoot, "Materials/Checker.json", "{\n  \"name\": \"pak\"\n}\n");
 
     std::string errorMessage;
     ASSERT_TRUE(Resource::BuildPakArchive(sourceRoot, pakPath, &errorMessage)) << errorMessage;
 
     const Resource::ReadableMount mount{
-        .cacheKey = "Packaged:Project",
-        .sourceKey = "Project",
-        .mountPath = Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, {}},
-        .priority = Resource::MountPriority::Packaged,
-        .backend = Resource::MountBackendKind::PakArchive,
-        .mountRoot = pakPath,
+        .m_CacheKey = "Packaged:Project",
+        .m_SourceKey = "Project",
+        .m_MountPath = Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, {}},
+        .m_Priority = Resource::MountPriority::Packaged,
+        .m_Backend = Resource::MountBackendKind::PakArchive,
+        .m_MountRoot = pakPath,
     };
     const Resource::ArtifactRecord artifact{
-        .relativePath = "Materials/Checker.json",
-        .format = "json",
+        .m_RelativePath = "Materials/Checker.json",
+        .m_Format = "json",
     };
 
     const auto resolved = Resource::ResolveReadableMountArtifact(mount, artifact, &errorMessage);
     ASSERT_TRUE(resolved.has_value()) << errorMessage;
-    EXPECT_EQ(resolved->backend, Resource::MountBackendKind::PakArchive);
-    EXPECT_EQ(resolved->mountRoot, pakPath);
-    EXPECT_EQ(resolved->relativePath, std::filesystem::path("Materials/Checker.json"));
+    EXPECT_EQ(resolved->m_Backend, Resource::MountBackendKind::PakArchive);
+    EXPECT_EQ(resolved->m_MountRoot, pakPath);
+    EXPECT_EQ(resolved->m_RelativePath, std::filesystem::path("Materials/Checker.json"));
 
     const auto bytes = Resource::ReadReadableArtifactBinary(*resolved, &errorMessage);
     ASSERT_TRUE(bytes.has_value()) << errorMessage;
@@ -100,24 +95,24 @@ TEST_F(MountBackendTests, ResolveReadableMountArtifactReturnsDirectoryBackedDesc
     test_support::WriteMountFileOrFail(mountRoot, "Docs/Readme.txt", "hello");
 
     const Resource::ReadableMount mount{
-        .cacheKey = "Project",
-        .sourceKey = "Project",
-        .mountPath = Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, {}},
-        .priority = Resource::MountPriority::Source,
-        .backend = Resource::MountBackendKind::Directory,
-        .mountRoot = mountRoot,
+        .m_CacheKey = "Project",
+        .m_SourceKey = "Project",
+        .m_MountPath = Resource::VirtualPath{Resource::PathDomain::Project, std::nullopt, {}},
+        .m_Priority = Resource::MountPriority::Source,
+        .m_Backend = Resource::MountBackendKind::Directory,
+        .m_MountRoot = mountRoot,
     };
     const Resource::ArtifactRecord artifact{
-        .relativePath = "Docs/Readme.txt",
-        .format = "document",
+        .m_RelativePath = "Docs/Readme.txt",
+        .m_Format = "document",
     };
 
     std::string errorMessage;
     const auto resolved = Resource::ResolveReadableMountArtifact(mount, artifact, &errorMessage);
     ASSERT_TRUE(resolved.has_value()) << errorMessage;
-    EXPECT_EQ(resolved->backend, Resource::MountBackendKind::Directory);
-    EXPECT_EQ(resolved->mountRoot, mountRoot);
-    EXPECT_EQ(resolved->relativePath, std::filesystem::path("Docs/Readme.txt"));
+    EXPECT_EQ(resolved->m_Backend, Resource::MountBackendKind::Directory);
+    EXPECT_EQ(resolved->m_MountRoot, mountRoot);
+    EXPECT_EQ(resolved->m_RelativePath, std::filesystem::path("Docs/Readme.txt"));
 
     const auto text = Resource::ReadReadableArtifactText(*resolved, &errorMessage);
     ASSERT_TRUE(text.has_value()) << errorMessage;

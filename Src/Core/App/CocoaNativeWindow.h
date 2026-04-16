@@ -7,4 +7,4 @@
 
 struct GLFWwindow;
 
-NativeWindowHandle CreateCocoaNativeWindowHandle(GLFWwindow *window);
+NativeWindowHandle CreateCocoaNativeWindowHandle(GLFWwindow* window);

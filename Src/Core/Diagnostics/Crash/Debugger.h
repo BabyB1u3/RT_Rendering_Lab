@@ -6,7 +6,7 @@
 namespace Diagnostics
 {
 
-    bool IsDebuggerAttached();
-    void BreakInDebuggerIfAttached();
+bool IsDebuggerAttached();
+void BreakInDebuggerIfAttached();
 
 } // namespace Diagnostics

@@ -6,26 +6,26 @@
 // Function-local statics ensure the containers are initialized on first use,
 // avoiding the static initialization order fiasco (SIOF).
 
-std::vector<DemoRegistry::Entry> &DemoRegistry::Entries()
+std::vector<DemoRegistry::Entry>& DemoRegistry::Entries()
 {
     static std::vector<Entry> s_Entries;
     return s_Entries;
 }
 
-std::vector<std::string> &DemoRegistry::Names()
+std::vector<std::string>& DemoRegistry::Names()
 {
     static std::vector<std::string> s_Names;
     return s_Names;
 }
 
-void DemoRegistry::Register(const std::string &name, Factory factory)
+void DemoRegistry::Register(const std::string& name, Factory factory)
 {
-    auto &entries = Entries();
+    auto& entries = Entries();
 
     // Silently ignore duplicate registrations (idempotent).
-    for (const auto &entry : entries)
+    for (const auto& entry : entries)
     {
-        if (entry.Name == name)
+        if (entry.m_Name == name)
             return;
     }
 
@@ -33,18 +33,18 @@ void DemoRegistry::Register(const std::string &name, Factory factory)
     Names().push_back(name);
 }
 
-Scope<DemoBase> DemoRegistry::Create(const std::string &name)
+Scope<DemoBase> DemoRegistry::Create(const std::string& name)
 {
-    for (const auto &entry : Entries())
+    for (const auto& entry : Entries())
     {
-        if (entry.Name == name)
-            return entry.Create();
+        if (entry.m_Name == name)
+            return entry.m_Create();
     }
 
-    ERR_FAIL_COND_V_MSG_CAT(LogCategory::Demo, true, nullptr, "unknown demo: " + name);
+    ERR_FAIL_COND_V_MSG_CAT(LogCategory::k_Demo, true, nullptr, "unknown demo: " + name);
 }
 
-const std::vector<std::string> &DemoRegistry::GetNames()
+const std::vector<std::string>& DemoRegistry::GetNames()
 {
     return Names();
 }

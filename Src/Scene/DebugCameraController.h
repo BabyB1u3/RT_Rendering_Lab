@@ -19,10 +19,10 @@ class DebugCameraController
 {
 public:
     DebugCameraController() = default;
-    explicit DebugCameraController(Camera *camera);
+    explicit DebugCameraController(Camera* camera);
 
-    void SetCamera(Camera *camera);
-    Camera *GetCamera() const { return m_Camera; }
+    void SetCamera(Camera* camera);
+    Camera* GetCamera() const { return m_Camera; }
 
     void SetMoveSpeed(float speed) { m_MoveSpeed = speed; }
     void SetMouseSensitivity(float sensitivity) { m_MouseSensitivity = sensitivity; }
@@ -42,8 +42,8 @@ public:
     void MoveDown(double deltaTime);
 
     // Mouse delta
-    // clamp to [-89, 89] when constrainPitch == true
-    void OnMouseDelta(float deltaX, float deltaY, bool constrainPitch = true);
+    // clamp to [-89, 89] when shouldConstrainPitch == true
+    void OnMouseDelta(float deltaX, float deltaY, bool shouldConstrainPitch = true);
 
     // Scroll delta (typically y offset)
     // Revise verticalFov and clamp to [1, 90]
@@ -51,7 +51,7 @@ public:
 
 private:
     // Non-owning pointer. The controller does not manage camera lifetime.
-    Camera *m_Camera = nullptr;
+    Camera* m_Camera = nullptr;
 
     float m_MoveSpeed = 5.0f;
     float m_MouseSensitivity = 0.1f;

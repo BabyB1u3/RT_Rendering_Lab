@@ -2,12 +2,9 @@
 
 #include <algorithm>
 
-DebugCameraController::DebugCameraController(Camera *camera)
-    : m_Camera(camera)
-{
-}
+DebugCameraController::DebugCameraController(Camera* camera) : m_Camera(camera) {}
 
-void DebugCameraController::SetCamera(Camera *camera)
+void DebugCameraController::SetCamera(Camera* camera)
 {
     m_Camera = camera;
 }
@@ -66,7 +63,7 @@ void DebugCameraController::MoveDown(double deltaTime)
     m_Camera->SetPosition(position);
 }
 
-void DebugCameraController::OnMouseDelta(float deltaX, float deltaY, bool constrainPitch)
+void DebugCameraController::OnMouseDelta(float deltaX, float deltaY, bool shouldConstrainPitch)
 {
     if (!m_Camera)
         return;
@@ -77,7 +74,7 @@ void DebugCameraController::OnMouseDelta(float deltaX, float deltaY, bool constr
     yaw += deltaX * m_MouseSensitivity;
     pitch += deltaY * m_MouseSensitivity;
 
-    if (constrainPitch)
+    if (shouldConstrainPitch)
         pitch = std::clamp(pitch, -89.0f, 89.0f);
 
     m_Camera->SetRotation(yaw, pitch);
@@ -91,9 +88,5 @@ void DebugCameraController::OnMouseScroll(float deltaScroll)
     float newFov = m_Camera->GetVerticalFovDegrees() - deltaScroll * m_ScrollSensitivity;
     newFov = std::clamp(newFov, 1.0f, 90.0f);
 
-    m_Camera->SetPerspective(
-        newFov,
-        m_Camera->GetAspectRatio(),
-        m_Camera->GetNearClip(),
-        m_Camera->GetFarClip());
+    m_Camera->SetPerspective(newFov, m_Camera->GetAspectRatio(), m_Camera->GetNearClip(), m_Camera->GetFarClip());
 }

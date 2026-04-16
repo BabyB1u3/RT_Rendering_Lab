@@ -23,15 +23,12 @@ TEST(CameraTests, DefaultConstructionBuildsConsistentViewAndProjection)
 {
     Camera camera;
 
-    glm::mat4 expectedView = glm::lookAt(
-        camera.GetPosition(),
-        camera.GetPosition() + camera.GetForward(),
-        camera.GetUp());
-    glm::mat4 expectedProjection = glm::perspective(
-        glm::radians(camera.GetVerticalFovDegrees()),
-        camera.GetAspectRatio(),
-        camera.GetNearClip(),
-        camera.GetFarClip());
+    glm::mat4 expectedView =
+        glm::lookAt(camera.GetPosition(), camera.GetPosition() + camera.GetForward(), camera.GetUp());
+    glm::mat4 expectedProjection = glm::perspective(glm::radians(camera.GetVerticalFovDegrees()),
+                                                    camera.GetAspectRatio(),
+                                                    camera.GetNearClip(),
+                                                    camera.GetFarClip());
 
     ExpectMat4Near(camera.GetView(), expectedView);
     ExpectMat4Near(camera.GetProjection(), expectedProjection);
@@ -70,18 +67,13 @@ TEST(CameraTests, SetViewportSizeWithZeroHeightKeepsProjectionStateUnchanged)
 
 TEST(CameraTests, ExtremePitchKeepsBasisAndViewFinite)
 {
-    auto isFiniteVec3 = [](const glm::vec3 &value)
+    auto isFiniteVec3 = [](const glm::vec3& value)
     {
-        return std::isfinite(value.x) &&
-               std::isfinite(value.y) &&
-               std::isfinite(value.z);
+        return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z);
     };
-    auto isFiniteVec4 = [](const glm::vec4 &value)
+    auto isFiniteVec4 = [](const glm::vec4& value)
     {
-        return std::isfinite(value.x) &&
-               std::isfinite(value.y) &&
-               std::isfinite(value.z) &&
-               std::isfinite(value.w);
+        return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z) && std::isfinite(value.w);
     };
 
     Camera camera;
@@ -95,7 +87,7 @@ TEST(CameraTests, ExtremePitchKeepsBasisAndViewFinite)
     EXPECT_NEAR(glm::length2(camera.GetRight()), 1.0f, 1e-3f);
     EXPECT_NEAR(glm::length2(camera.GetUp()), 1.0f, 1e-3f);
 
-    const glm::mat4 &view = camera.GetView();
+    const glm::mat4& view = camera.GetView();
     for (int c = 0; c < 4; ++c)
         EXPECT_TRUE(isFiniteVec4(view[c]));
 }

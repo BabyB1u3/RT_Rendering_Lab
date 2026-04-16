@@ -24,8 +24,8 @@ public:
     uint8_t GetDeviceIndex() const override { return m_DeviceIndex; }
     void Reset() override;
     void ApplyState(bool connected,
-                    const std::array<bool, GamepadButton::Count> &buttons,
-                    const std::array<float, GamepadAxis::Count> &axes);
+                    const std::array<bool, GamepadButton::Count>& buttons,
+                    const std::array<float, GamepadAxis::Count>& axes);
 
 private:
     uint8_t m_DeviceIndex = 0;

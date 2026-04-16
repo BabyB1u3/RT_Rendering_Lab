@@ -8,7 +8,7 @@
 
 namespace
 {
-    using RootDiscoveryTests = test_support::RootDiscoveryTestsBase;
+using RootDiscoveryTests = test_support::RootDiscoveryTestsBase;
 }
 
 TEST_F(RootDiscoveryTests, DiscoverRootPathUsesEnvOverrideWhenProjectMarkerExistsInDev)
@@ -37,7 +37,7 @@ TEST_F(RootDiscoveryTests, DiscoverRootPathPrefersCliOverrideOverEnvInDev)
     test_support::WriteProjectMarkerOrFail(cliRepoRoot);
 
     Util::ParsedCommandLine commandLine;
-    commandLine.options.emplace("root", std::string(cliRepoRoot.string()));
+    commandLine.m_Options.emplace("root", std::string(cliRepoRoot.string()));
     Util::SetProcessCommandLine(commandLine);
 
     const test_support::ScopedEnvVar rootOverride("RTRL_ROOT", envRepoRoot.string());

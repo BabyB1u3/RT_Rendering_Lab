@@ -31,7 +31,7 @@ TEST(LayerStackLifecycleTests, PopLayerCallsOnDetachExactlyOnce)
     LayerStack stack;
     auto state = std::make_shared<LayerLifecycleState>();
 
-    Layer *layer = stack.PushLayer(CreateScope<LifecycleTrackingLayer>("LayerA", state));
+    Layer* layer = stack.PushLayer(CreateScope<LifecycleTrackingLayer>("LayerA", state));
     stack.PopLayer(layer);
 
     EXPECT_EQ(state->AttachCount, 1);
@@ -43,7 +43,7 @@ TEST(LayerStackLifecycleTests, PopOverlayCallsOnDetachExactlyOnce)
     LayerStack stack;
     auto state = std::make_shared<LayerLifecycleState>();
 
-    Layer *overlay = stack.PushOverlay(CreateScope<LifecycleTrackingLayer>("OverlayA", state));
+    Layer* overlay = stack.PushOverlay(CreateScope<LifecycleTrackingLayer>("OverlayA", state));
     stack.PopOverlay(overlay);
 
     EXPECT_EQ(state->AttachCount, 1);

@@ -3,69 +3,60 @@
 #include "Core/Input/Code/GamepadCode.h"
 #include "Core/Input/Input.h"
 
-namespace test_support
+namespace TestSupport
 {
 struct InputTestAccess
 {
-    static void RestoreDefaultDevices()
-    {
-        Input::RestoreDefaultDevices();
-    }
+    static void RestoreDefaultDevices() { Input::RestoreDefaultDevices(); }
 
     using FrameState = Input::PolledState;
 
-    static FrameState MakeFrame()
-    {
-        return {};
-    }
+    static FrameState MakeFrame() { return {}; }
 
     static void SetKey(FrameState& state, Key::Code key, bool down)
     {
-        if (key < Input::KEY_STATE_SIZE)
-            state.Keys[key] = down;
+        if (key < Input::k_KeyStateSize)
+            state.keys[key] = down;
     }
 
     static void SetMouseButton(FrameState& state, Mouse::Code button, bool down)
     {
-        if (button < Input::MOUSE_BUTTON_COUNT)
-            state.MouseButtons[button] = down;
+        if (button < Input::k_MouseButtonCount)
+            state.mouseButtons[button] = down;
     }
 
     static void SetMousePosition(FrameState& state, float x, float y)
     {
-        state.MouseX = x;
-        state.MouseY = y;
+        state.mouseX = x;
+        state.mouseY = y;
     }
 
-    static void ApplyFrame(const FrameState& state)
-    {
-        Input::ApplyPolledState(state);
-    }
+    static void ApplyFrame(const FrameState& state) { Input::ApplyPolledState(state); }
 
     using GamepadFrameState = Input::GamepadPolledState;
 
     static GamepadFrameState MakeGamepadFrame(bool connected = false)
     {
         GamepadFrameState state;
-        state.Connected = connected;
+        state.isConnected = connected;
         return state;
     }
 
-    static void SetGamepadButton(GamepadFrameState &state, GamepadButton::Code button, bool down)
+    static void SetGamepadButton(GamepadFrameState& state, GamepadButton::Code button, bool down)
     {
         if (button < GamepadButton::Count)
-            state.Buttons[button] = down;
+            state.buttons[button] = down;
     }
 
-    static void SetGamepadAxis(GamepadFrameState &state, GamepadAxis::Code axis, float value)
+    static void SetGamepadAxis(GamepadFrameState& state, GamepadAxis::Code axis, float value)
     {
         if (axis < GamepadAxis::Count)
-            state.Axes[axis] = value;
+            state.axes[axis] = value;
     }
 
-    static void ApplyGamepadFrame(uint8_t deviceIndex, const GamepadFrameState &state)
+    static void ApplyGamepadFrame(uint8_t deviceIndex, const GamepadFrameState& state)
     {
         Input::ApplyGamepadState(deviceIndex, state);
     }
 };
-} // namespace test_support
+} // namespace TestSupport

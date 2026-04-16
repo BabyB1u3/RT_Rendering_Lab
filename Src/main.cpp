@@ -14,21 +14,24 @@
 
 namespace
 {
-    Util::CommandLineSpec BuildMainCommandLineSpec()
-    {
-        Util::CommandLineSpec spec;
-        spec.AddFlag("help", 'h', "Show command-line help and exit.")
-            .AddValueOption("language", std::nullopt, "locale", "Requested language override.")
-            .AddFlag("windowed", std::nullopt, "Request windowed mode.")
-            .AddFlag("fullscreen", std::nullopt, "Request fullscreen mode.")
-            .AddFlag("dev-mode", std::nullopt, "Enable development-only command-line overrides in shipping builds.")
-            .AddValueOption("root", std::nullopt, "path", "Development-only root override.",
-                            Util::CommandLineOptionVisibility::DevelopmentOnly);
-        return spec;
-    }
+Util::CommandLineSpec BuildMainCommandLineSpec()
+{
+    Util::CommandLineSpec spec;
+    spec.AddFlag("help", 'h', "Show command-line help and exit.")
+        .AddValueOption("language", std::nullopt, "locale", "Requested language override.")
+        .AddFlag("windowed", std::nullopt, "Request windowed mode.")
+        .AddFlag("fullscreen", std::nullopt, "Request fullscreen mode.")
+        .AddFlag("dev-mode", std::nullopt, "Enable development-only command-line overrides in shipping builds.")
+        .AddValueOption("root",
+                        std::nullopt,
+                        "path",
+                        "Development-only root override.",
+                        Util::CommandLineOptionVisibility::DevelopmentOnly);
+    return spec;
 }
+} // namespace
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     const auto commandLineSpec = BuildMainCommandLineSpec();
     Util::ParsedCommandLine commandLine;
@@ -54,9 +57,9 @@ int main(int argc, char **argv)
     Util::SetProcessCommandLine(std::move(commandLine));
 
     ApplicationSpecification spec;
-    spec.Name = "RTRLab";
-    spec.Width = 1600;
-    spec.Height = 900;
+    spec.m_Name = "RTRLab";
+    spec.m_Width = 1600;
+    spec.m_Height = 900;
 
     Application app(spec);
     app.PushLayer(CreateScope<LabLayer>());

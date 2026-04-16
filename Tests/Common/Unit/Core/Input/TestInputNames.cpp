@@ -7,25 +7,25 @@ namespace
 struct KeyNameCase
 {
     Key::Code code;
-    const char *name;
+    const char* name;
 };
 
 struct MouseNameCase
 {
     Mouse::Code code;
-    const char *name;
+    const char* name;
 };
 
 struct GamepadButtonNameCase
 {
     GamepadButton::Code code;
-    const char *name;
+    const char* name;
 };
 
 struct GamepadAxisNameCase
 {
     GamepadAxis::Code code;
-    const char *name;
+    const char* name;
 };
 
 constexpr KeyNameCase kKeyCases[] = {
@@ -220,7 +220,7 @@ TEST(InputNamesTests, KeyFromNameIsCaseSensitiveAndExactMatch)
 
 TEST(InputNamesTests, KeyCanonicalEntriesRoundTrip)
 {
-    for (const auto &entry : kKeyCases)
+    for (const auto& entry : kKeyCases)
     {
         EXPECT_EQ(Key::ToName(entry.code), entry.name);
         EXPECT_EQ(Key::FromName(entry.name), entry.code);
@@ -248,7 +248,7 @@ TEST(InputNamesTests, MouseFromNameIsCaseSensitiveAndExactMatch)
 
 TEST(InputNamesTests, MouseCanonicalEntriesRoundTrip)
 {
-    for (const auto &entry : kMouseCases)
+    for (const auto& entry : kMouseCases)
     {
         EXPECT_EQ(Mouse::ToName(entry.code), entry.name);
         EXPECT_EQ(Mouse::FromName(entry.name), entry.code);
@@ -269,7 +269,7 @@ TEST(InputNamesTests, GamepadButtonFromNameReturnsInvalidForUnknownInputs)
 
 TEST(InputNamesTests, GamepadButtonCanonicalEntriesRoundTrip)
 {
-    for (const auto &entry : kGamepadButtonCases)
+    for (const auto& entry : kGamepadButtonCases)
     {
         EXPECT_EQ(GamepadButton::ToName(entry.code), entry.name);
         EXPECT_EQ(GamepadButton::FromName(entry.name), entry.code);
@@ -290,7 +290,7 @@ TEST(InputNamesTests, GamepadAxisFromNameReturnsInvalidForUnknownInputs)
 
 TEST(InputNamesTests, GamepadAxisCanonicalEntriesRoundTrip)
 {
-    for (const auto &entry : kGamepadAxisCases)
+    for (const auto& entry : kGamepadAxisCases)
     {
         EXPECT_EQ(GamepadAxis::ToName(entry.code), entry.name);
         EXPECT_EQ(GamepadAxis::FromName(entry.name), entry.code);

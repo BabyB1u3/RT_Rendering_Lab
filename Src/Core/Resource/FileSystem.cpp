@@ -21,8 +21,8 @@ bool FileSystem::s_WritableDirsResolved = false;
 
 namespace
 {
-    static constexpr std::string_view kProjectContentDirName = "Project";
-    static constexpr const char *kAppName = "RTRLab";
+static constexpr std::string_view k_ProjectContentDirName = "Project";
+static constexpr const char* k_AppName = "RTRLab";
 } // namespace
 
 void FileSystem::Init()
@@ -54,17 +54,17 @@ std::optional<Resource::ResolvedReadableArtifact> FileSystem::ResolveCatalogArti
     if (!virtualPath.has_value())
         return std::nullopt;
 
-    switch (virtualPath->domain)
+    switch (virtualPath->m_Domain)
     {
-    case Resource::PathDomain::Project:
-    case Resource::PathDomain::Engine:
-    case Resource::PathDomain::DLC:
-    case Resource::PathDomain::Mod:
-        return s_CatalogRegistry.ResolveArtifact(
-            s_RootPath, s_EngineDir, GetCacheDir(), *virtualPath, virtualPathString, kProjectContentDirName);
-    case Resource::PathDomain::Saved:
-    case Resource::PathDomain::Cache:
-        return std::nullopt;
+        case Resource::PathDomain::Project:
+        case Resource::PathDomain::Engine:
+        case Resource::PathDomain::DLC:
+        case Resource::PathDomain::Mod:
+            return s_CatalogRegistry.ResolveArtifact(
+                s_RootPath, s_EngineDir, GetCacheDir(), *virtualPath, virtualPathString, k_ProjectContentDirName);
+        case Resource::PathDomain::Saved:
+        case Resource::PathDomain::Cache:
+            return std::nullopt;
     }
 
     return std::nullopt;
@@ -76,23 +76,24 @@ std::optional<std::filesystem::path> FileSystem::ResolveWritableReadPath(std::st
     if (!virtualPath.has_value())
         return std::nullopt;
 
-    switch (virtualPath->domain)
+    switch (virtualPath->m_Domain)
     {
-    case Resource::PathDomain::Saved:
-    case Resource::PathDomain::Cache:
-    {
-        const auto writableMount = Resource::ResolveWritableMount(virtualPath->domain, GetSavedDir(), GetCacheDir());
-        if (!writableMount.has_value())
-            return std::nullopt;
+        case Resource::PathDomain::Saved:
+        case Resource::PathDomain::Cache:
+        {
+            const auto writableMount =
+                Resource::ResolveWritableMount(virtualPath->m_Domain, GetSavedDir(), GetCacheDir());
+            if (!writableMount.has_value())
+                return std::nullopt;
 
-        const auto relativePath = Resource::GetPhysicalRelativePath(*virtualPath);
-        return relativePath.empty() ? writableMount->rootPath : writableMount->rootPath / relativePath;
-    }
-    case Resource::PathDomain::Project:
-    case Resource::PathDomain::Engine:
-    case Resource::PathDomain::DLC:
-    case Resource::PathDomain::Mod:
-        return std::nullopt;
+            const auto relativePath = Resource::GetPhysicalRelativePath(*virtualPath);
+            return relativePath.empty() ? writableMount->m_RootPath : writableMount->m_RootPath / relativePath;
+        }
+        case Resource::PathDomain::Project:
+        case Resource::PathDomain::Engine:
+        case Resource::PathDomain::DLC:
+        case Resource::PathDomain::Mod:
+            return std::nullopt;
     }
 
     return std::nullopt;
@@ -104,12 +105,12 @@ std::optional<std::filesystem::path> FileSystem::ResolveWritePath(std::string_vi
     if (!virtualPath.has_value())
         return std::nullopt;
 
-    const auto writableMount = Resource::ResolveWritableMount(virtualPath->domain, GetSavedDir(), GetCacheDir());
+    const auto writableMount = Resource::ResolveWritableMount(virtualPath->m_Domain, GetSavedDir(), GetCacheDir());
     if (!writableMount.has_value())
         return std::nullopt;
 
     const auto relativePath = Resource::GetPhysicalRelativePath(*virtualPath);
-    const auto resolved = relativePath.empty() ? writableMount->rootPath : writableMount->rootPath / relativePath;
+    const auto resolved = relativePath.empty() ? writableMount->m_RootPath : writableMount->m_RootPath / relativePath;
 
     std::error_code ec;
     std::filesystem::create_directories(resolved.parent_path(), ec);
@@ -120,12 +121,12 @@ bool FileSystem::Exists(std::string_view virtualPath)
 {
     if (const auto artifact = ResolveCatalogArtifact(virtualPath))
     {
-        switch (artifact->backend)
+        switch (artifact->m_Backend)
         {
-        case Resource::MountBackendKind::Directory:
-            return std::filesystem::exists(artifact->mountRoot / artifact->relativePath);
-        case Resource::MountBackendKind::PakArchive:
-            return true;
+            case Resource::MountBackendKind::Directory:
+                return std::filesystem::exists(artifact->m_MountRoot / artifact->m_RelativePath);
+            case Resource::MountBackendKind::PakArchive:
+                return true;
         }
     }
 
@@ -178,7 +179,7 @@ bool FileSystem::WriteText(std::string_view virtualPath, std::string_view data)
     const auto resolved = ResolveWritePath(virtualPath);
     if (!resolved.has_value())
     {
-        LOG_ERROR_CAT(LogCategory::FileSystem, "WriteText rejected non-writable virtual path '{}'", virtualPath);
+        LOG_ERROR_CAT(LogCategory::k_FileSystem, "WriteText rejected non-writable virtual path '{}'", virtualPath);
         return false;
     }
 
@@ -190,14 +191,14 @@ bool FileSystem::WriteBinary(std::string_view virtualPath, std::span<const uint8
     const auto resolved = ResolveWritePath(virtualPath);
     if (!resolved.has_value())
     {
-        LOG_ERROR_CAT(LogCategory::FileSystem, "WriteBinary rejected non-writable virtual path '{}'", virtualPath);
+        LOG_ERROR_CAT(LogCategory::k_FileSystem, "WriteBinary rejected non-writable virtual path '{}'", virtualPath);
         return false;
     }
 
     return Resource::WriteBinaryFile(*resolved, data);
 }
 
-const std::filesystem::path &FileSystem::GetRootPath()
+const std::filesystem::path& FileSystem::GetRootPath()
 {
     return s_RootPath;
 }
@@ -207,22 +208,22 @@ void FileSystem::ResolveWritableDirs()
     if (s_WritableDirsResolved)
         return;
 
-    const auto writableRoots = Resource::ResolveWritableRoots(s_RootPath, kAppName);
-    s_SavedDir = writableRoots.savedDir;
-    s_CacheDir = writableRoots.cacheDir;
+    const auto writableRoots = Resource::ResolveWritableRoots(s_RootPath, k_AppName);
+    s_SavedDir = writableRoots.m_SavedDir;
+    s_CacheDir = writableRoots.m_CacheDir;
 
     std::filesystem::create_directories(s_SavedDir / "Config");
     std::filesystem::create_directories(s_CacheDir);
     s_WritableDirsResolved = true;
 }
 
-const std::filesystem::path &FileSystem::GetSavedDir()
+const std::filesystem::path& FileSystem::GetSavedDir()
 {
     ResolveWritableDirs();
     return s_SavedDir;
 }
 
-const std::filesystem::path &FileSystem::GetCacheDir()
+const std::filesystem::path& FileSystem::GetCacheDir()
 {
     ResolveWritableDirs();
     return s_CacheDir;

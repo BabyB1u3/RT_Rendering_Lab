@@ -31,19 +31,19 @@ class ImGuiLayer;
 
 struct ApplicationSpecification
 {
-    std::string Name = "RTRLab";
-    uint32_t Width = 1600;
-    uint32_t Height = 900;
+    std::string m_Name = "RTRLab";
+    uint32_t m_Width = 1600;
+    uint32_t m_Height = 900;
 };
 
 class Application
 {
 public:
-    explicit Application(const ApplicationSpecification &spec = {});
+    explicit Application(const ApplicationSpecification& spec = {});
     virtual ~Application();
 
-    Application(const Application &) = delete;
-    Application &operator=(const Application &) = delete;
+    Application(const Application&) = delete;
+    Application& operator=(const Application&) = delete;
 
     /// Enter the main loop. Blocks until the window is closed or Close() is called.
     void Run();
@@ -51,20 +51,20 @@ public:
     void Close();
 
     /// Push a regular layer (updated before overlays). Transfers ownership.
-    Layer *PushLayer(Scope<Layer> layer);
+    Layer* PushLayer(Scope<Layer> layer);
     /// Push an overlay layer (updated after regular layers, renders on top). Transfers ownership.
-    Layer *PushOverlay(Scope<Layer> overlay);
+    Layer* PushOverlay(Scope<Layer> overlay);
 
-    Window &GetWindow() { return *m_Window; }
-    const Window &GetWindow() const { return *m_Window; }
+    Window& GetWindow() { return *m_Window; }
+    const Window& GetWindow() const { return *m_Window; }
 
-    EventBus &GetEventBus() { return m_EventBus; }
+    EventBus& GetEventBus() { return m_EventBus; }
     /// Transitional accessor for the command list currently being recorded.
     /// Returns nullptr outside the active frame-recording window and should be
     /// removed once a dedicated renderer-facing context exists.
-    CommandList *GetCurrentCommandList() const { return m_CommandList; }
+    CommandList* GetCurrentCommandList() const { return m_CommandList; }
 
-    static Application &Get() { return *s_Instance; }
+    static Application& Get() { return *s_Instance; }
 
 private:
     /// Handles window resize: updates viewport and notifies all layers.
@@ -85,13 +85,13 @@ private:
 
 private:
     // Non-owning singleton-style pointer. Lifetime is managed externally by the actual Application object.
-    static Application *s_Instance;
+    static Application* s_Instance;
 
     Scope<Window> m_Window;
     EventBus m_EventBus;
     LayerStack m_LayerStack;
     // Non-owning pointer. Lifetime is managed by the LayerStack (pushed as overlay).
-    ImGuiLayer *m_ImGuiLayer = nullptr;
+    ImGuiLayer* m_ImGuiLayer = nullptr;
 
     bool m_Running = true;
     bool m_Minimized = false;
@@ -102,11 +102,11 @@ private:
     Scope<Device> m_Device;
     Scope<Swapchain> m_Swapchain;
     ResourceStateTracker m_ResourceStateTracker;
-    FrameContext *m_FrameContext = nullptr;
-    CommandList *m_CommandList = nullptr;
+    FrameContext* m_FrameContext = nullptr;
+    CommandList* m_CommandList = nullptr;
     uint32_t m_SwapchainImageIndex = std::numeric_limits<uint32_t>::max();
-    Texture *m_SwapchainImage = nullptr;
-    TextureView *m_SwapchainImageView = nullptr;
+    Texture* m_SwapchainImage = nullptr;
+    TextureView* m_SwapchainImageView = nullptr;
 
     ScopedConnection m_ResizeConnection;
 };

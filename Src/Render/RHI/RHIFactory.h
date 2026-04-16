@@ -6,17 +6,16 @@
 #include "Render/RHI/RHIDevice.h"
 
 /// Return the backend selected by the current build configuration.
-BackendType getDefaultBackendType();
+BackendType GetDefaultBackendType();
 
 /// Human-readable backend name used for diagnostics and logging.
-const char *getBackendName(BackendType backend);
+const char* GetBackendName(BackendType backend);
 
 /// Create a backend-specific RHI device shell for the requested backend.
-Scope<Device> createDevice(BackendType backend);
+Scope<Device> CreateDevice(BackendType backend);
 
 /// Convenience wrapper that creates the device matching the active build backend.
-inline Scope<Device> createDefaultDevice()
+inline Scope<Device> CreateDefaultDevice()
 {
-    return createDevice(getDefaultBackendType());
+    return CreateDevice(GetDefaultBackendType());
 }
-
