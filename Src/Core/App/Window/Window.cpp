@@ -1,21 +1,16 @@
-#include "Core/App/Window.h"
-
-#if defined(_WIN32)
-#define GLFW_EXPOSE_NATIVE_WIN32
-#endif
+#include "Core/App/Window/Window.h"
 
 #if defined(GLAB_BACKEND_OPENGL)
 #include <glad/glad.h>
 #endif
 #include <GLFW/glfw3.h>
-#if defined(_WIN32)
-#include <GLFW/glfw3native.h>
-#endif
 
-#if defined(__APPLE__)
-#include "Core/App/CocoaNativeWindow.h"
+#if defined(_WIN32)
+#include "Core/App/Window/Native/Win32/Win32NativeWindow.h"
+#elif defined(__APPLE__)
+#include "Core/App/Window/Native/Cocoa/CocoaNativeWindow.h"
 #elif defined(__linux__)
-#include "Core/App/LinuxNativeWindow.h"
+#include "Core/App/Window/Native/Linux/LinuxNativeWindow.h"
 #endif
 #include "Core/Diagnostics/Assert/Assert.h"
 #include "Core/Event/EventBus.h"
@@ -197,10 +192,7 @@ NativeWindowHandle Window::GetNativeWindowHandle() const
     RTRLAB_ASSERT_MSG(m_Handle != nullptr, "Window handle is null.");
 
 #if defined(_WIN32)
-    NativeWindowHandle nativeWindowHandle{};
-    nativeWindowHandle.m_System = NativeWindowSystem::Win32;
-    nativeWindowHandle.m_Window = reinterpret_cast<uintptr_t>(glfwGetWin32Window(m_Handle));
-    return nativeWindowHandle;
+    return CreateWin32NativeWindowHandle(m_Handle);
 #elif defined(__APPLE__)
     return CreateCocoaNativeWindowHandle(m_Handle);
 #elif defined(__linux__)

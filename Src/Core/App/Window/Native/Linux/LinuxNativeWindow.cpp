@@ -1,4 +1,4 @@
-#include "Core/App/LinuxNativeWindow.h"
+#include "Core/App/Window/Native/Linux/LinuxNativeWindow.h"
 
 #if defined(GLAB_GLFW_WAYLAND_NATIVE)
 #define GLFW_EXPOSE_NATIVE_WAYLAND

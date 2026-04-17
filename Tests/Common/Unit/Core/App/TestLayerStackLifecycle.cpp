@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "Core/Util/Base.h"
-#include "Core/App/LayerStack.h"
+#include "Core/App/Layer/LayerStack.h"
 #include "LifecycleTrackingLayer.h"
 
 TEST(LayerStackLifecycleTests, PushLayerCallsOnAttachExactlyOnce)
