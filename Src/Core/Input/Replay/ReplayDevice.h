@@ -29,6 +29,7 @@ public:
     InputValue GetPreviousInput(uint16_t code) const override;
     bool IsConnected() const override;
     bool WasConnected() const override;
+    bool HasConnectionStateChanged() const override;
 };
 
 class ReplayMouseDevice final : public ReplayDevice
@@ -44,6 +45,7 @@ public:
     InputValue GetPreviousAxis(uint16_t axisId) const override;
     bool IsConnected() const override;
     bool WasConnected() const override;
+    bool HasConnectionStateChanged() const override;
 };
 
 class ReplayGamepadDevice final : public ReplayDevice
@@ -59,4 +61,5 @@ public:
     InputValue GetPreviousAxis(uint16_t axisId) const override;
     bool IsConnected() const override;
     bool WasConnected() const override;
+    bool HasConnectionStateChanged() const override;
 };

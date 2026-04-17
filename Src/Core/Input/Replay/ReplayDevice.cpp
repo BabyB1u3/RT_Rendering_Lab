@@ -52,6 +52,12 @@ bool ReplayKeyboardDevice::WasConnected() const
     return state ? state->isConnected : false;
 }
 
+bool ReplayKeyboardDevice::HasConnectionStateChanged() const
+{
+    const auto* previous = m_Session.GetPreviousKeyboardState();
+    return previous != nullptr && IsConnected() != WasConnected();
+}
+
 InputValue ReplayMouseDevice::GetInput(uint16_t code) const
 {
     return BoolToValue(IsMouseButtonDown(m_Session.GetMouseState(), code));
@@ -118,6 +124,12 @@ bool ReplayMouseDevice::WasConnected() const
     return state ? state->isConnected : false;
 }
 
+bool ReplayMouseDevice::HasConnectionStateChanged() const
+{
+    const auto* previous = m_Session.GetPreviousMouseState();
+    return previous != nullptr && IsConnected() != WasConnected();
+}
+
 InputValue ReplayGamepadDevice::GetInput(uint16_t code) const
 {
     return BoolToValue(IsGamepadButtonDown(m_Session.GetGamepadState(m_DeviceIndex), code));
@@ -148,4 +160,10 @@ bool ReplayGamepadDevice::WasConnected() const
 {
     const auto* state = m_Session.GetPreviousGamepadState(m_DeviceIndex);
     return state ? state->isConnected : false;
+}
+
+bool ReplayGamepadDevice::HasConnectionStateChanged() const
+{
+    const auto* previous = m_Session.GetPreviousGamepadState(m_DeviceIndex);
+    return previous != nullptr && IsConnected() != WasConnected();
 }
