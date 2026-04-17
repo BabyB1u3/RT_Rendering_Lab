@@ -23,8 +23,8 @@
 #include "Core/Util/Base.h"
 #include "Core/Event/EventBus.h"
 #include "Core/Event/ScopedConnection.h"
-#include "Core/App/Window.h"
-#include "Core/App/LayerStack.h"
+#include "Core/App/Window/Window.h"
+#include "Core/App/Layer/LayerStack.h"
 #include "Render/RHI/RHI.h"
 
 class ImGuiLayer;

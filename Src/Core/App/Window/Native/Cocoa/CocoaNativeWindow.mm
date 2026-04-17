@@ -1,4 +1,4 @@
-#include "Core/App/CocoaNativeWindow.h"
+#include "Core/App/Window/Native/Cocoa/CocoaNativeWindow.h"
 
 #define GLFW_EXPOSE_NATIVE_COCOA
 #include <GLFW/glfw3.h>
