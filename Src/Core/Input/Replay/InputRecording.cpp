@@ -406,7 +406,6 @@ void InputReplaySession::OnBeforePollAll(InputDeviceManager&, float dt)
         m_HasTimingMismatch = true;
 
     ++m_NextFrameIndex;
-    m_IsFinished = (m_NextFrameIndex >= m_Recording.frames.size());
 }
 
 const RecordedGamepadState* InputReplaySession::FindGamepadState(const InputFrame* frame, uint8_t deviceIndex)
