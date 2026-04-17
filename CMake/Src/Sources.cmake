@@ -5,9 +5,9 @@ set(GLAB_APP_SOURCES
     Core/Util/Time.cpp
     Core/Util/CommandLine.cpp
     Core/App/Application.cpp
-    Core/App/Window.cpp
-    Core/App/Layer.cpp
-    Core/App/LayerStack.cpp
+    Core/App/Window/Window.cpp
+    Core/App/Layer/Layer.cpp
+    Core/App/Layer/LayerStack.cpp
 )
 
 set(GLAB_APP_HEADERS
@@ -15,31 +15,41 @@ set(GLAB_APP_HEADERS
     Core/Util/CommandLine.h
     Core/Util/Time.h
     Core/App/Application.h
-    Core/App/Layer.h
-    Core/App/LayerStack.h
-    Core/App/Window.h
+    Core/App/Layer/Layer.h
+    Core/App/Layer/LayerStack.h
+    Core/App/Window/Window.h
     Core/Event/EventBus.h
     Core/Event/Events.h
     Core/Event/ScopedConnection.h
 )
 
-if(APPLE)
+if(WIN32)
     list(APPEND GLAB_APP_SOURCES
-        Core/App/CocoaNativeWindow.mm
+        Core/App/Window/Native/Win32/Win32NativeWindow.cpp
     )
 
     list(APPEND GLAB_APP_HEADERS
-        Core/App/CocoaNativeWindow.h
+        Core/App/Window/Native/Win32/Win32NativeWindow.h
+    )
+endif()
+
+if(APPLE)
+    list(APPEND GLAB_APP_SOURCES
+        Core/App/Window/Native/Cocoa/CocoaNativeWindow.mm
+    )
+
+    list(APPEND GLAB_APP_HEADERS
+        Core/App/Window/Native/Cocoa/CocoaNativeWindow.h
     )
 endif()
 
 if(UNIX AND NOT APPLE)
     list(APPEND GLAB_APP_SOURCES
-        Core/App/LinuxNativeWindow.cpp
+        Core/App/Window/Native/Linux/LinuxNativeWindow.cpp
     )
 
     list(APPEND GLAB_APP_HEADERS
-        Core/App/LinuxNativeWindow.h
+        Core/App/Window/Native/Linux/LinuxNativeWindow.h
     )
 endif()
 
@@ -273,18 +283,24 @@ else()
 endif()
 
 set(GLAB_CORE_SKIP_UNITY_SOURCES
-    Core/App/Window.cpp
+    Core/App/Window/Window.cpp
 )
+
+if(WIN32)
+    list(APPEND GLAB_CORE_SKIP_UNITY_SOURCES
+        Core/App/Window/Native/Win32/Win32NativeWindow.cpp
+    )
+endif()
 
 if(APPLE)
     list(APPEND GLAB_CORE_SKIP_UNITY_SOURCES
-        Core/App/CocoaNativeWindow.mm
+        Core/App/Window/Native/Cocoa/CocoaNativeWindow.mm
     )
 endif()
 
 if(UNIX AND NOT APPLE)
     list(APPEND GLAB_CORE_SKIP_UNITY_SOURCES
-        Core/App/LinuxNativeWindow.cpp
+        Core/App/Window/Native/Linux/LinuxNativeWindow.cpp
     )
 endif()
 
