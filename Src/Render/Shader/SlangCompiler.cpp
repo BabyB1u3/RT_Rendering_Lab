@@ -15,6 +15,10 @@
 #include <unordered_set>
 #include <utility>
 
+#if defined(_WIN32)
+#include <windows.h>
+#endif
+
 namespace
 {
 struct ResolvedSlangExecutable
@@ -121,6 +125,22 @@ std::string GetOutputExtension(const SlangCompileJob& job)
     }
 
     return ".bin";
+}
+
+std::string GetBackendEntryPointName(const SlangCompileJob& job)
+{
+    switch (job.m_Backend)
+    {
+        case BackendType::Vulkan:
+            // Slang emits SPIR-V entry points with the exported name "main"
+            // even when the source entry function has a different identifier.
+            return "main";
+        case BackendType::Metal:
+        case BackendType::OpenGL:
+            return job.m_EntryPoint;
+    }
+
+    return job.m_EntryPoint;
 }
 
 std::string MakeJobStem(const SlangCompileJob& job, const size_t jobIndex)
@@ -246,8 +266,7 @@ std::string QuoteShellArgument(std::string_view argument)
 std::string BuildCommandLine(const SlangCompilerConfig& config,
                              const SlangCompileJob& job,
                              const std::filesystem::path& outputPath,
-                             const std::filesystem::path& reflectionPath,
-                             const std::filesystem::path& logPath)
+                             const std::filesystem::path& reflectionPath)
 {
     std::ostringstream command;
     command << QuoteShellArgument(config.m_ExecutablePath.generic_string());
@@ -262,17 +281,120 @@ std::string BuildCommandLine(const SlangCompilerConfig& config,
     }
 
     command << ' ' << QuoteShellArgument("-o") << ' ' << QuoteShellArgument(outputPath.generic_string());
-    command << " > " << QuoteShellArgument(logPath.generic_string()) << " 2>&1";
     return command.str();
 }
 
-std::string BuildVersionProbeCommandLine(const std::filesystem::path& executablePath,
-                                         const std::filesystem::path& logPath)
+std::string BuildVersionProbeCommandLine(const std::filesystem::path& executablePath)
 {
     std::ostringstream command;
     command << QuoteShellArgument(executablePath.generic_string()) << ' ' << QuoteShellArgument("-version");
-    command << " > " << QuoteShellArgument(logPath.generic_string()) << " 2>&1";
     return command.str();
+}
+
+#if defined(_WIN32)
+bool ExecuteWindowsProcess(const std::string& commandLine,
+                           const std::filesystem::path& logPath,
+                           int* outExitCode,
+                           std::string* errorMessage)
+{
+    if (outExitCode == nullptr)
+    {
+        AssignSlangCompilerPlanningError(errorMessage, "ExecuteWindowsProcess requires a valid exit-code output.");
+        return false;
+    }
+
+    SECURITY_ATTRIBUTES securityAttributes{};
+    securityAttributes.nLength = sizeof(securityAttributes);
+    securityAttributes.bInheritHandle = TRUE;
+
+    const std::string logPathString = logPath.string();
+    HANDLE logHandle = CreateFileA(logPathString.c_str(),
+                                   GENERIC_WRITE,
+                                   FILE_SHARE_READ,
+                                   &securityAttributes,
+                                   CREATE_ALWAYS,
+                                   FILE_ATTRIBUTE_NORMAL,
+                                   nullptr);
+    if (logHandle == INVALID_HANDLE_VALUE)
+    {
+        std::ostringstream message;
+        message << "Failed to create Slang compiler log file: " << logPath.generic_string() << '.';
+        AssignSlangCompilerPlanningError(errorMessage, message.str());
+        return false;
+    }
+
+    STARTUPINFOA startupInfo{};
+    startupInfo.cb = sizeof(startupInfo);
+    startupInfo.dwFlags = STARTF_USESTDHANDLES;
+    startupInfo.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+    startupInfo.hStdOutput = logHandle;
+    startupInfo.hStdError = logHandle;
+
+    PROCESS_INFORMATION processInfo{};
+    std::string mutableCommandLine = commandLine;
+    const BOOL created = CreateProcessA(nullptr,
+                                        mutableCommandLine.data(),
+                                        nullptr,
+                                        nullptr,
+                                        TRUE,
+                                        CREATE_NO_WINDOW,
+                                        nullptr,
+                                        nullptr,
+                                        &startupInfo,
+                                        &processInfo);
+    if (!created)
+    {
+        const DWORD win32Error = GetLastError();
+        CloseHandle(logHandle);
+
+        std::ostringstream message;
+        message << "Failed to launch Slang compiler process. Win32 error: " << win32Error << '.';
+        AssignSlangCompilerPlanningError(errorMessage, message.str());
+        return false;
+    }
+
+    WaitForSingleObject(processInfo.hProcess, INFINITE);
+    DWORD processExitCode = 0;
+    if (!GetExitCodeProcess(processInfo.hProcess, &processExitCode))
+    {
+        const DWORD win32Error = GetLastError();
+        CloseHandle(processInfo.hThread);
+        CloseHandle(processInfo.hProcess);
+        CloseHandle(logHandle);
+
+        std::ostringstream message;
+        message << "Failed to query Slang compiler process exit code. Win32 error: " << win32Error << '.';
+        AssignSlangCompilerPlanningError(errorMessage, message.str());
+        return false;
+    }
+
+    CloseHandle(processInfo.hThread);
+    CloseHandle(processInfo.hProcess);
+    CloseHandle(logHandle);
+
+    *outExitCode = static_cast<int>(processExitCode);
+    return true;
+}
+#endif
+
+bool ExecuteCommandLine(const std::string& commandLine,
+                        const std::filesystem::path& logPath,
+                        int* outExitCode,
+                        std::string* errorMessage)
+{
+#if defined(_WIN32)
+    return ExecuteWindowsProcess(commandLine, logPath, outExitCode, errorMessage);
+#else
+    std::ostringstream redirectedCommand;
+    redirectedCommand << commandLine << " > " << QuoteShellArgument(logPath.generic_string()) << " 2>&1";
+    if (outExitCode == nullptr)
+    {
+        AssignSlangCompilerPlanningError(errorMessage, "ExecuteCommandLine requires a valid exit-code output.");
+        return false;
+    }
+    *outExitCode = std::system(redirectedCommand.str().c_str());
+    return true;
+#endif
 }
 
 bool ExecuteCompileCommand(const std::string& commandLine,
@@ -281,7 +403,10 @@ bool ExecuteCompileCommand(const std::string& commandLine,
                            const ResolvedSlangExecutable& executable,
                            std::string* errorMessage)
 {
-    const int exitCode = std::system(commandLine.c_str());
+    int exitCode = 0;
+    if (!ExecuteCommandLine(commandLine, logPath, &exitCode, errorMessage))
+        return false;
+
     if (exitCode == 0)
         return true;
 
@@ -304,8 +429,11 @@ SlangCompilerProbeResult ProbeSlangCompiler(const ResolvedSlangExecutable& execu
     SlangCompilerProbeResult result;
 
     const std::filesystem::path logPath = sessionDir / "slangc_probe.log";
-    const std::string commandLine = BuildVersionProbeCommandLine(executable.m_Path, logPath);
-    const int exitCode = std::system(commandLine.c_str());
+    const std::string commandLine = BuildVersionProbeCommandLine(executable.m_Path);
+    int exitCode = 0;
+    if (!ExecuteCommandLine(commandLine, logPath, &exitCode, &result.m_ErrorMessage))
+        return result;
+
     const std::optional<std::string> compilerOutput = Resource::ReadTextFile(logPath);
 
     if (exitCode != 0)
@@ -615,7 +743,7 @@ ShaderCompileResult SlangCompiler::CompileProgramImpl(const ShaderCompileRequest
         const std::filesystem::path outputPath = sessionDir / (stem + GetOutputExtension(job));
         const std::filesystem::path reflectionPath = sessionDir / (stem + ".reflect.json");
         const std::filesystem::path logPath = sessionDir / (stem + ".slangc.log");
-        const std::string commandLine = BuildCommandLine(effectiveConfig, job, outputPath, reflectionPath, logPath);
+        const std::string commandLine = BuildCommandLine(effectiveConfig, job, outputPath, reflectionPath);
 
         if (!ExecuteCompileCommand(
                 commandLine, logPath, std::filesystem::current_path(), resolvedExecutable, &result.m_ErrorMessage))
@@ -632,7 +760,7 @@ ShaderCompileResult SlangCompiler::CompileProgramImpl(const ShaderCompileRequest
         CompiledShaderBlob blob;
         blob.m_Backend = job.m_Backend;
         blob.m_Stage = job.m_Stage;
-        blob.m_EntryPoint = job.m_EntryPoint;
+        blob.m_EntryPoint = GetBackendEntryPointName(job);
         blob.m_MetalCodeFormat = job.m_MetalCodeFormat;
         blob.m_Code = std::move(*codeBytes);
         result.m_Program.m_Blobs.push_back(std::move(blob));
