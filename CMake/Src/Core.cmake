@@ -105,6 +105,7 @@ target_compile_definitions(RTRLabCore PUBLIC
     $<$<CONFIG:Debug>:RTRLAB_CONFIG_DEBUG>
     $<$<CONFIG:RelWithDebInfo>:RTRLAB_CONFIG_RELWITHDEBINFO>
     $<$<CONFIG:Release>:RTRLAB_CONFIG_RELEASE>
+    $<$<AND:$<BOOL:${RTRLAB_SLANGC}>,$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>>:RTRLAB_SLANGC_PATH="${RTRLAB_SLANGC}">
     $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:GLAB_ROOT_DIR="${CMAKE_SOURCE_DIR}">
     $<$<CONFIG:Debug>:RTRLAB_LOG_MIN_LEVEL=0>
     $<$<CONFIG:RelWithDebInfo>:RTRLAB_LOG_MIN_LEVEL=1>

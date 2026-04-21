@@ -145,32 +145,6 @@ void AppendSessionDirectoryToError(std::string* errorMessage, const std::filesys
     *errorMessage += " Session artifacts were preserved at: " + sessionDir.generic_string();
 }
 
-std::filesystem::path GetPlatformSlangExecutableName()
-{
-#if defined(_WIN32)
-    return "slangc.exe";
-#else
-    return "slangc";
-#endif
-}
-
-std::string GetPlatformSlangToolchainFolderName()
-{
-#if defined(_WIN32)
-    return "windows-x86_64";
-#elif defined(__APPLE__) && defined(__aarch64__)
-    return "macos-aarch64";
-#elif defined(__APPLE__)
-    return "macos-x86_64";
-#elif defined(__linux__) && defined(__aarch64__)
-    return "linux-aarch64";
-#elif defined(__linux__)
-    return "linux-x86_64";
-#else
-    return "unknown";
-#endif
-}
-
 bool PathLooksExplicit(const std::filesystem::path& path)
 {
     return path.is_absolute() || path.has_parent_path();
@@ -186,22 +160,6 @@ std::optional<std::string> GetEnvironmentVariable(std::string_view name)
         return std::string(value);
 
     return std::nullopt;
-}
-
-std::vector<std::filesystem::path> BuildDefaultFallbackExecutablePaths()
-{
-    const std::filesystem::path rootPath = FileSystem::GetRootPath();
-    const std::filesystem::path executableName = GetPlatformSlangExecutableName();
-    const std::string platformFolder = GetPlatformSlangToolchainFolderName();
-
-    return {
-        rootPath / "Tools" / "Slang" / platformFolder / "bin" / executableName,
-        rootPath / "Tools" / "Slang" / "bin" / executableName,
-        rootPath / "Binaries" / "ThirdParty" / "Slang" / platformFolder / "bin" / executableName,
-        rootPath / "Binaries" / "ThirdParty" / "Slang" / "bin" / executableName,
-        rootPath / "Vendor" / "Slang" / platformFolder / "bin" / executableName,
-        rootPath / "Vendor" / "Slang" / "bin" / executableName,
-    };
 }
 
 bool ResolveSlangExecutable(const SlangCompilerConfig& config,
@@ -239,19 +197,10 @@ bool ResolveSlangExecutable(const SlangCompilerConfig& config,
         return false;
     }
 
-    for (const std::filesystem::path& fallbackPath : config.m_FallbackExecutablePaths)
-    {
-        if (fallbackPath.empty() || !std::filesystem::exists(fallbackPath))
-            continue;
-
-        outExecutable->m_Path = fallbackPath;
-        outExecutable->m_Source = "project-local fallback";
-        return true;
-    }
-
-    outExecutable->m_Path = config.m_ExecutablePath;
-    outExecutable->m_Source = "PATH lookup";
-    return true;
+    AssignSlangCompilerPlanningError(errorMessage,
+                                     "SlangCompiler requires an explicit slangc path. Configure it through the "
+                                     "RTRLAB_SLANGC environment variable or the CMake-injected RTRLAB_SLANGC_PATH.");
+    return false;
 }
 
 #if defined(_WIN32)
@@ -496,8 +445,9 @@ bool AppendJobArguments(const ShaderCompileTargetDesc& target,
 SlangCompilerConfig CreateDefaultSlangCompilerConfig()
 {
     SlangCompilerConfig config;
-    config.m_ExecutablePath = "slangc";
-    config.m_FallbackExecutablePaths = BuildDefaultFallbackExecutablePaths();
+#ifdef RTRLAB_SLANGC_PATH
+    config.m_ExecutablePath = RTRLAB_SLANGC_PATH;
+#endif
     return config;
 }
 
