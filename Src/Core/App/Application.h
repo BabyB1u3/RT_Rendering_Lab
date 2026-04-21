@@ -57,6 +57,10 @@ public:
 
     Window& GetWindow() { return *m_Window; }
     const Window& GetWindow() const { return *m_Window; }
+    Device& GetDevice() { return *m_Device; }
+    const Device& GetDevice() const { return *m_Device; }
+    Swapchain& GetSwapchain() { return *m_Swapchain; }
+    const Swapchain& GetSwapchain() const { return *m_Swapchain; }
 
     EventBus& GetEventBus() { return m_EventBus; }
     /// Transitional accessor for the command list currently being recorded.

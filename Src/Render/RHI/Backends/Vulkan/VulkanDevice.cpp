@@ -84,6 +84,7 @@ public:
 
     const BufferDesc& GetDesc() const override { return m_Desc; }
     VkBuffer GetVkBuffer() const { return m_Buffer; }
+    VkDeviceMemory GetVkMemory() const { return m_Memory; }
 
 private:
     VkDevice m_Device = VK_NULL_HANDLE;
@@ -800,11 +801,16 @@ const VulkanGraphicsPipeline& GetVulkanGraphicsPipeline(GraphicsPipeline* graphi
     return *vulkanGraphicsPipeline;
 }
 
-VkBuffer GetVkBufferFromBuffer(Buffer* buffer)
+VulkanBuffer& GetVulkanBuffer(Buffer* buffer)
 {
     auto* vulkanBuffer = dynamic_cast<VulkanBuffer*>(buffer);
     RTRLAB_ASSERT_MSG(vulkanBuffer != nullptr, "Buffer is not owned by the Vulkan backend.");
-    return vulkanBuffer->GetVkBuffer();
+    return *vulkanBuffer;
+}
+
+VkBuffer GetVkBufferFromBuffer(Buffer* buffer)
+{
+    return GetVulkanBuffer(buffer).GetVkBuffer();
 }
 
 VkIndexType ToVkIndexType(IndexType indexType)
@@ -2077,6 +2083,28 @@ Scope<GraphicsPipeline> VulkanDevice::CreateGraphicsPipeline(const GraphicsPipel
 
     return CreateScope<VulkanGraphicsPipeline>(
         m_Device, desc, pipelineLayout, std::move(descriptorSetLayouts), pipeline);
+}
+
+void VulkanDevice::WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size)
+{
+    InitializeDeviceObjects();
+
+    if (size == 0)
+        return;
+
+    RTRLAB_ASSERT_MSG(buffer != nullptr, "Vulkan WriteBuffer requires a valid buffer.");
+    RTRLAB_ASSERT_MSG(data != nullptr, "Vulkan WriteBuffer requires non-null source data.");
+
+    VulkanBuffer& vulkanBuffer = GetVulkanBuffer(buffer);
+    const BufferDesc& desc = vulkanBuffer.GetDesc();
+    RTRLAB_ASSERT_MSG(desc.m_MemoryUsage == MemoryUsage::CpuToGpu,
+                      "Vulkan WriteBuffer currently requires a CpuToGpu buffer.");
+    RTRLAB_ASSERT_MSG(offset + size <= desc.m_Size, "Vulkan WriteBuffer range exceeds the buffer size.");
+
+    void* mappedData = nullptr;
+    CheckVk(vkMapMemory(m_Device, vulkanBuffer.GetVkMemory(), offset, size, 0, &mappedData), "vkMapMemory");
+    std::memcpy(mappedData, data, static_cast<size_t>(size));
+    vkUnmapMemory(m_Device, vulkanBuffer.GetVkMemory());
 }
 
 CommandList* VulkanDevice::BeginCommandList()

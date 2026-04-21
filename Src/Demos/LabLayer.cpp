@@ -11,6 +11,7 @@
 #include "DemoBase.h"
 #include "DemoRegistry.h"
 #include "Demos/01_HelloWindow/HelloWindow.h"
+#include "Demos/02_HelloTriangle/HelloTriangle.h"
 
 LabLayer::LabLayer() : Layer("LabLayer") {}
 
@@ -94,6 +95,12 @@ void LabLayer::RegisterBuiltInDemos()
                            {
                                const auto& window = Application::Get().GetWindow();
                                return CreateScope<HelloWindow>(window.GetWidth(), window.GetHeight());
+                           });
+    DemoRegistry::Register("02 - Hello Triangle",
+                           []()
+                           {
+                               const auto& window = Application::Get().GetWindow();
+                               return CreateScope<HelloTriangle>(window.GetWidth(), window.GetHeight());
                            });
 
     m_DemosRegistered = true;
