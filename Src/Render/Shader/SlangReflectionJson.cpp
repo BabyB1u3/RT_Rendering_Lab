@@ -3,7 +3,7 @@
 #include <memory>
 #include <utility>
 
-#include <nlohmann/json.hpp>
+#include <json.hpp>
 
 namespace
 {
