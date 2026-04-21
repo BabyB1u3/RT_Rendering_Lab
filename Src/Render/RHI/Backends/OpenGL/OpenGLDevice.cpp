@@ -123,12 +123,27 @@ bool HasDebugName(const char* debugName)
     return debugName != nullptr && debugName[0] != '\0';
 }
 
+// TRANSITIONAL(M3): OpenGL capability checks are still queried ad hoc at the
+// call site. The longer-term shape is a backend-local OpenGLCapabilities /
+// OpenGLExtensions cache built during device initialization, covering debug
+// labels, texture views, DSA, anisotropy, and similar feature gates in one
+// place. Until that exists, keep this helper as the single compatibility check
+// for object labels across different GLAD generation configurations.
+bool HasOpenGLObjectLabelSupport()
+{
+#if defined(GLAD_GL_KHR_debug)
+    return GLAD_GL_VERSION_4_3 || GLAD_GL_KHR_debug;
+#else
+    return GLAD_GL_VERSION_4_3;
+#endif
+}
+
 void SetOpenGLObjectLabel(GLenum identifier, GLuint object, const char* debugName)
 {
     if (object == 0 || !HasDebugName(debugName))
         return;
 
-    if (GLAD_GL_VERSION_4_3 || GLAD_GL_KHR_debug)
+    if (HasOpenGLObjectLabelSupport())
         glObjectLabel(identifier, object, -1, debugName);
 }
 
