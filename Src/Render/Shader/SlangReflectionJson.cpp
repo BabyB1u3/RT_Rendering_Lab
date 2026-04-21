@@ -9,7 +9,7 @@ namespace
 {
 using Json = nlohmann::json;
 
-void AssignError(std::string* errorMessage, std::string message)
+void AssignSlangReflectionJsonError(std::string* errorMessage, std::string message)
 {
     if (errorMessage != nullptr)
         *errorMessage = std::move(message);
@@ -38,7 +38,7 @@ std::optional<SlangReflectionBinding> ParseBinding(const Json& json, std::string
 
     if (!json.is_object())
     {
-        AssignError(errorMessage, "Slang reflection binding payload must be a JSON object.");
+        AssignSlangReflectionJsonError(errorMessage, "Slang reflection binding payload must be a JSON object.");
         return std::nullopt;
     }
 
@@ -57,7 +57,7 @@ bool ParseField(const Json& json, SlangReflectionField& outField, std::string* e
 {
     if (!json.is_object())
     {
-        AssignError(errorMessage, "Slang reflection field payload must be a JSON object.");
+        AssignSlangReflectionJsonError(errorMessage, "Slang reflection field payload must be a JSON object.");
         return false;
     }
 
@@ -83,7 +83,7 @@ bool ParseType(const Json& json, SlangReflectionType& outType, std::string* erro
 {
     if (!json.is_object())
     {
-        AssignError(errorMessage, "Slang reflection type payload must be a JSON object.");
+        AssignSlangReflectionJsonError(errorMessage, "Slang reflection type payload must be a JSON object.");
         return false;
     }
 
@@ -98,7 +98,7 @@ bool ParseType(const Json& json, SlangReflectionType& outType, std::string* erro
     {
         if (!json["fields"].is_array())
         {
-            AssignError(errorMessage, "Slang reflection type.fields must be an array.");
+            AssignSlangReflectionJsonError(errorMessage, "Slang reflection type.fields must be an array.");
             return false;
         }
 
@@ -116,7 +116,7 @@ bool ParseType(const Json& json, SlangReflectionType& outType, std::string* erro
     {
         if (!json["genericArgs"].is_array())
         {
-            AssignError(errorMessage, "Slang reflection type.genericArgs must be an array.");
+            AssignSlangReflectionJsonError(errorMessage, "Slang reflection type.genericArgs must be an array.");
             return false;
         }
 
@@ -137,7 +137,7 @@ bool ParseParameter(const Json& json, SlangReflectionParameter& outParameter, st
 {
     if (!json.is_object())
     {
-        AssignError(errorMessage, "Slang reflection parameter payload must be a JSON object.");
+        AssignSlangReflectionJsonError(errorMessage, "Slang reflection parameter payload must be a JSON object.");
         return false;
     }
 
@@ -162,7 +162,8 @@ bool ParseEntryPointBinding(const Json& json, SlangReflectionEntryPointBinding& 
 {
     if (!json.is_object())
     {
-        AssignError(errorMessage, "Slang reflection entry-point binding payload must be a JSON object.");
+        AssignSlangReflectionJsonError(errorMessage,
+                                       "Slang reflection entry-point binding payload must be a JSON object.");
         return false;
     }
 
@@ -171,7 +172,8 @@ bool ParseEntryPointBinding(const Json& json, SlangReflectionEntryPointBinding& 
     std::optional<SlangReflectionBinding> binding = ParseBinding(bindingJson, errorMessage);
     if (!binding.has_value())
     {
-        AssignError(errorMessage, "Slang reflection entry-point bindings require a binding payload.");
+        AssignSlangReflectionJsonError(errorMessage,
+                                       "Slang reflection entry-point bindings require a binding payload.");
         return false;
     }
 
@@ -183,7 +185,7 @@ bool ParseEntryPoint(const Json& json, SlangReflectionEntryPoint& outEntryPoint,
 {
     if (!json.is_object())
     {
-        AssignError(errorMessage, "Slang reflection entry-point payload must be a JSON object.");
+        AssignSlangReflectionJsonError(errorMessage, "Slang reflection entry-point payload must be a JSON object.");
         return false;
     }
 
@@ -194,7 +196,7 @@ bool ParseEntryPoint(const Json& json, SlangReflectionEntryPoint& outEntryPoint,
     {
         if (!json["bindings"].is_array())
         {
-            AssignError(errorMessage, "Slang reflection entryPoint.bindings must be an array.");
+            AssignSlangReflectionJsonError(errorMessage, "Slang reflection entryPoint.bindings must be an array.");
             return false;
         }
 
@@ -217,7 +219,7 @@ bool ValidateDocument(const SlangReflectionDocument& document, std::string* erro
     {
         if (parameter.m_Name.empty())
         {
-            AssignError(errorMessage, "Slang reflection parameters require a non-empty name.");
+            AssignSlangReflectionJsonError(errorMessage, "Slang reflection parameters require a non-empty name.");
             return false;
         }
     }
@@ -226,7 +228,7 @@ bool ValidateDocument(const SlangReflectionDocument& document, std::string* erro
     {
         if (entryPoint.m_Stage.empty())
         {
-            AssignError(errorMessage, "Slang reflection entry points require a non-empty stage.");
+            AssignSlangReflectionJsonError(errorMessage, "Slang reflection entry points require a non-empty stage.");
             return false;
         }
     }

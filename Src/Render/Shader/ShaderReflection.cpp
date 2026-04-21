@@ -9,7 +9,7 @@
 
 namespace
 {
-void AssignError(std::string* errorMessage, std::string message)
+void AssignShaderReflectionError(std::string* errorMessage, std::string message)
 {
     if (errorMessage != nullptr)
         *errorMessage = std::move(message);
@@ -100,25 +100,27 @@ bool ValidateReflectedField(const ReflectedField& field,
 {
     if (field.m_Name.empty())
     {
-        AssignError(errorMessage, "Reflected fields require a non-empty name.");
+        AssignShaderReflectionError(errorMessage, "Reflected fields require a non-empty name.");
         return false;
     }
 
     if (IsStructLikeReflectedType(field.m_TypeKind) && field.m_LayoutConvention != LayoutConvention::Std430)
     {
-        AssignError(errorMessage, "v1 shader reflection requires Std430 layout for all struct/constant data fields.");
+        AssignShaderReflectionError(errorMessage,
+                                    "v1 shader reflection requires Std430 layout for all struct/constant data fields.");
         return false;
     }
 
     if (IsPipelineBindableReflectedType(field.m_TypeKind) && field.m_ArrayCount == 0)
     {
-        AssignError(errorMessage, "Reflected resource bindings require an array count of at least 1.");
+        AssignShaderReflectionError(errorMessage, "Reflected resource bindings require an array count of at least 1.");
         return false;
     }
 
     if (insideParameterBlock && field.m_TypeKind == ReflectedTypeKind::ParameterBlock)
     {
-        AssignError(errorMessage, "v1 shader reflection does not support nested ParameterBlock fields.");
+        AssignShaderReflectionError(errorMessage,
+                                    "v1 shader reflection does not support nested ParameterBlock fields.");
         return false;
     }
 
@@ -128,7 +130,8 @@ bool ValidateReflectedField(const ReflectedField& field,
     {
         if (!childNames.insert(child.m_Name).second)
         {
-            AssignError(errorMessage, "Reflected sibling fields must have unique names for path-based lookup.");
+            AssignShaderReflectionError(errorMessage,
+                                        "Reflected sibling fields must have unique names for path-based lookup.");
             return false;
         }
 
@@ -170,7 +173,7 @@ bool ValidateShaderReflectionData(const ShaderReflectionData& reflection, std::s
     {
         if (!globalNames.insert(field.m_Name).second)
         {
-            AssignError(errorMessage, "Shader reflection globals must have unique names.");
+            AssignShaderReflectionError(errorMessage, "Shader reflection globals must have unique names.");
             return false;
         }
 
@@ -182,13 +185,13 @@ bool ValidateShaderReflectionData(const ShaderReflectionData& reflection, std::s
     {
         if (pushConstant.m_Size == 0)
         {
-            AssignError(errorMessage, "Push constant ranges must have a non-zero size.");
+            AssignShaderReflectionError(errorMessage, "Push constant ranges must have a non-zero size.");
             return false;
         }
 
         if (pushConstant.m_StageMask == ShaderStage::None)
         {
-            AssignError(errorMessage, "Push constant ranges must target at least one shader stage.");
+            AssignShaderReflectionError(errorMessage, "Push constant ranges must target at least one shader stage.");
             return false;
         }
     }

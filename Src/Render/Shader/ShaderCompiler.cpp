@@ -21,7 +21,7 @@ bool IsSingleShaderStage(const ShaderStage stage)
     }
 }
 
-void AssignError(std::string* errorMessage, std::string message)
+void AssignShaderCompilerError(std::string* errorMessage, std::string message)
 {
     if (errorMessage != nullptr)
         *errorMessage = std::move(message);
@@ -44,13 +44,13 @@ bool ValidateShaderCompileRequest(const ShaderCompileRequest& request, std::stri
 {
     if (request.m_Source.m_Entries.empty())
     {
-        AssignError(errorMessage, "ShaderCompileRequest requires at least one shader entry point.");
+        AssignShaderCompilerError(errorMessage, "ShaderCompileRequest requires at least one shader entry point.");
         return false;
     }
 
     if (request.m_Targets.empty())
     {
-        AssignError(errorMessage, "ShaderCompileRequest requires at least one backend target.");
+        AssignShaderCompilerError(errorMessage, "ShaderCompileRequest requires at least one backend target.");
         return false;
     }
 
@@ -59,19 +59,19 @@ bool ValidateShaderCompileRequest(const ShaderCompileRequest& request, std::stri
         const ShaderEntryPointDesc& entry = request.m_Source.m_Entries[entryIndex];
         if (entry.m_ModuleName.empty())
         {
-            AssignError(errorMessage, "Shader entry points require a non-empty module name.");
+            AssignShaderCompilerError(errorMessage, "Shader entry points require a non-empty module name.");
             return false;
         }
 
         if (entry.m_EntryName.empty())
         {
-            AssignError(errorMessage, "Shader entry points require a non-empty entry-point name.");
+            AssignShaderCompilerError(errorMessage, "Shader entry points require a non-empty entry-point name.");
             return false;
         }
 
         if (!IsSingleShaderStage(entry.m_Stage))
         {
-            AssignError(errorMessage, "Shader entry points must target a single concrete shader stage.");
+            AssignShaderCompilerError(errorMessage, "Shader entry points must target a single concrete shader stage.");
             return false;
         }
 
@@ -81,7 +81,8 @@ bool ValidateShaderCompileRequest(const ShaderCompileRequest& request, std::stri
                          [&entry](const ShaderEntryPointDesc& other) { return other.m_Stage == entry.m_Stage; });
         if (duplicate != request.m_Source.m_Entries.begin() + static_cast<std::ptrdiff_t>(entryIndex))
         {
-            AssignError(errorMessage, "ShaderCompileRequest does not allow duplicate entry points for the same stage.");
+            AssignShaderCompilerError(errorMessage,
+                                      "ShaderCompileRequest does not allow duplicate entry points for the same stage.");
             return false;
         }
     }
@@ -95,7 +96,7 @@ bool ValidateShaderCompileRequest(const ShaderCompileRequest& request, std::stri
                                             { return other.m_Backend == target.m_Backend; });
         if (duplicate != request.m_Targets.begin() + static_cast<std::ptrdiff_t>(targetIndex))
         {
-            AssignError(errorMessage, "ShaderCompileRequest does not allow duplicate backend targets.");
+            AssignShaderCompilerError(errorMessage, "ShaderCompileRequest does not allow duplicate backend targets.");
             return false;
         }
     }
@@ -107,7 +108,7 @@ bool ValidateCompiledShaderProgramDesc(const CompiledShaderProgramDesc& program,
 {
     if (program.m_Blobs.empty())
     {
-        AssignError(errorMessage, "CompiledShaderProgramDesc requires at least one backend blob.");
+        AssignShaderCompilerError(errorMessage, "CompiledShaderProgramDesc requires at least one backend blob.");
         return false;
     }
 
@@ -116,19 +117,19 @@ bool ValidateCompiledShaderProgramDesc(const CompiledShaderProgramDesc& program,
         const CompiledShaderBlob& blob = program.m_Blobs[blobIndex];
         if (!IsSingleShaderStage(blob.m_Stage))
         {
-            AssignError(errorMessage, "Compiled shader blobs must carry a single concrete shader stage.");
+            AssignShaderCompilerError(errorMessage, "Compiled shader blobs must carry a single concrete shader stage.");
             return false;
         }
 
         if (blob.m_EntryPoint.empty())
         {
-            AssignError(errorMessage, "Compiled shader blobs must carry a non-empty entry-point name.");
+            AssignShaderCompilerError(errorMessage, "Compiled shader blobs must carry a non-empty entry-point name.");
             return false;
         }
 
         if (blob.m_Code.empty())
         {
-            AssignError(errorMessage, "Compiled shader blobs must carry backend code bytes.");
+            AssignShaderCompilerError(errorMessage, "Compiled shader blobs must carry backend code bytes.");
             return false;
         }
 
@@ -143,7 +144,7 @@ bool ValidateCompiledShaderProgramDesc(const CompiledShaderProgramDesc& program,
             message << "CompiledShaderProgramDesc contains duplicate blobs for backend "
                     << static_cast<uint32_t>(blob.m_Backend) << " and stage " << static_cast<uint32_t>(blob.m_Stage)
                     << '.';
-            AssignError(errorMessage, message.str());
+            AssignShaderCompilerError(errorMessage, message.str());
             return false;
         }
     }
