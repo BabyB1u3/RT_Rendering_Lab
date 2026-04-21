@@ -943,9 +943,15 @@ std::vector<const char*> GetSupportedInstanceExtensions()
             enabledExtensions.push_back(candidate);
     }
 
-    const bool hasSurfaceExtension =
-        std::find(enabledExtensions.begin(), enabledExtensions.end(), VK_KHR_SURFACE_EXTENSION_NAME) !=
-        enabledExtensions.end();
+    const auto hasEnabledExtension = [&enabledExtensions](const char* extensionName)
+    {
+        return std::find_if(enabledExtensions.begin(),
+                            enabledExtensions.end(),
+                            [extensionName](const char* enabledExtension)
+                            { return std::strcmp(enabledExtension, extensionName) == 0; }) != enabledExtensions.end();
+    };
+
+    const bool hasSurfaceExtension = hasEnabledExtension(VK_KHR_SURFACE_EXTENSION_NAME);
     RTRLAB_ASSERT_MSG(hasSurfaceExtension, "Vulkan instance creation requires VK_KHR_surface support.");
     return enabledExtensions;
 }
