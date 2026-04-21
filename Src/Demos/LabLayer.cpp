@@ -11,6 +11,7 @@
 #include "DemoBase.h"
 #include "DemoRegistry.h"
 #include "Demos/01_HelloWindow/HelloWindow.h"
+#include "Demos/02_HelloTriangle/HelloTriangle.h"
 
 LabLayer::LabLayer() : Layer("LabLayer") {}
 
@@ -23,10 +24,10 @@ void LabLayer::OnAttach()
     if (!m_ActiveDemo)
     {
         // Default demo
-        LOG_INFO_CAT(LogCategory::k_Demo, "Loading default demo: 01 - Hello Window");
-        auto defaultDemo = DemoRegistry::Create("01 - Hello Window");
-        RTRLAB_ASSERT_MSG(defaultDemo, "Failed to create default demo: 01 - Hello Window");
-        SetActiveDemo(std::move(defaultDemo), "01 - Hello Window");
+        LOG_INFO_CAT(LogCategory::k_Demo, "Loading default demo: 02 - Hello Triangle");
+        auto defaultDemo = DemoRegistry::Create("02 - Hello Triangle");
+        RTRLAB_ASSERT_MSG(defaultDemo, "Failed to create default demo: 02 - Hello Triangle");
+        SetActiveDemo(std::move(defaultDemo), "02 - Hello Triangle");
     }
 
     if (m_ActiveDemo)
@@ -94,6 +95,12 @@ void LabLayer::RegisterBuiltInDemos()
                            {
                                const auto& window = Application::Get().GetWindow();
                                return CreateScope<HelloWindow>(window.GetWidth(), window.GetHeight());
+                           });
+    DemoRegistry::Register("02 - Hello Triangle",
+                           []()
+                           {
+                               const auto& window = Application::Get().GetWindow();
+                               return CreateScope<HelloTriangle>(window.GetWidth(), window.GetHeight());
                            });
 
     m_DemosRegistered = true;

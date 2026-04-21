@@ -15,12 +15,18 @@ class Device
 {
 public:
     virtual ~Device() = default;
+    // Lifetime contract: a Device must outlive the RHI objects it creates.
+    // Individual backend destructors may null-guard native handles as a defensive
+    // fallback, but callers should still destroy Buffer/Texture/Sampler/Pipeline/
+    // Swapchain objects before destroying the Device that owns them.
 
     virtual Scope<Swapchain> CreateSwapchain(const SwapchainDesc& desc,
                                              const NativeWindowHandle& nativeWindowHandle) = 0;
 
     virtual Scope<Buffer> CreateBuffer(const BufferDesc& desc) = 0;
     virtual Scope<Texture> CreateTexture(const TextureDesc& desc) = 0;
+    // Swapchain images expose their canonical views via Swapchain::GetImageView().
+    // Device::CreateTextureView is reserved for device-created textures.
     virtual Scope<TextureView> CreateTextureView(Texture* texture, const TextureViewDesc& desc) = 0;
     virtual Scope<Sampler> CreateSampler(const SamplerDesc& desc) = 0;
 
@@ -32,6 +38,11 @@ public:
 
     virtual Scope<GraphicsPipeline> CreateGraphicsPipeline(const GraphicsPipelineDesc& desc) = 0;
     virtual Scope<ComputePipeline> CreateComputePipeline(const ComputePipelineDesc& desc) = 0;
+    // TRANSITIONAL(M3): Minimal host upload hook used by the hello-triangle
+    // bring-up demos. This is intentionally a temporary demo-only path and
+    // will move behind renderer-owned upload/staging systems once resource
+    // initialization stops reaching into Device directly.
+    virtual void WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size) = 0;
 
     virtual CommandList* BeginCommandList() = 0;
     virtual void Submit(CommandList* commandList) = 0;
