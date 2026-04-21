@@ -59,6 +59,106 @@ private:
     TextureViewDesc m_Desc;
 };
 
+class VulkanBuffer final : public Buffer
+{
+public:
+    VulkanBuffer(VkDevice device, VkBuffer buffer, VkDeviceMemory memory, const BufferDesc& desc)
+        : m_Device(device), m_Buffer(buffer), m_Memory(memory), m_Desc(desc)
+    {
+    }
+
+    ~VulkanBuffer() override
+    {
+        if (m_Device != VK_NULL_HANDLE && m_Buffer != VK_NULL_HANDLE)
+            vkDestroyBuffer(m_Device, m_Buffer, nullptr);
+        if (m_Device != VK_NULL_HANDLE && m_Memory != VK_NULL_HANDLE)
+            vkFreeMemory(m_Device, m_Memory, nullptr);
+    }
+
+    const BufferDesc& GetDesc() const override { return m_Desc; }
+    VkBuffer GetVkBuffer() const { return m_Buffer; }
+
+private:
+    VkDevice m_Device = VK_NULL_HANDLE;
+    VkBuffer m_Buffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_Memory = VK_NULL_HANDLE;
+    BufferDesc m_Desc;
+};
+
+class VulkanTexture final : public Texture
+{
+public:
+    VulkanTexture(VkDevice device, VkImage image, VkDeviceMemory memory, const TextureDesc& desc)
+        : m_Device(device), m_Image(image), m_Memory(memory), m_Desc(desc)
+    {
+    }
+
+    ~VulkanTexture() override
+    {
+        if (m_Device != VK_NULL_HANDLE && m_Image != VK_NULL_HANDLE)
+            vkDestroyImage(m_Device, m_Image, nullptr);
+        if (m_Device != VK_NULL_HANDLE && m_Memory != VK_NULL_HANDLE)
+            vkFreeMemory(m_Device, m_Memory, nullptr);
+    }
+
+    const TextureDesc& GetDesc() const override { return m_Desc; }
+    VkImage GetVkImage() const { return m_Image; }
+
+private:
+    VkDevice m_Device = VK_NULL_HANDLE;
+    VkImage m_Image = VK_NULL_HANDLE;
+    VkDeviceMemory m_Memory = VK_NULL_HANDLE;
+    TextureDesc m_Desc;
+};
+
+class VulkanTextureView final : public TextureView
+{
+public:
+    VulkanTextureView(VkDevice device, Texture* texture, VkImageView imageView, const TextureViewDesc& desc)
+        : m_Device(device), m_Texture(texture), m_ImageView(imageView), m_Desc(desc)
+    {
+    }
+
+    ~VulkanTextureView() override
+    {
+        if (m_Device != VK_NULL_HANDLE && m_ImageView != VK_NULL_HANDLE)
+            vkDestroyImageView(m_Device, m_ImageView, nullptr);
+    }
+
+    Texture* GetTexture() const override { return m_Texture; }
+    const TextureViewDesc& GetDesc() const override { return m_Desc; }
+    VkImageView GetVkImageView() const { return m_ImageView; }
+
+private:
+    VkDevice m_Device = VK_NULL_HANDLE;
+    Texture* m_Texture = nullptr;
+    VkImageView m_ImageView = VK_NULL_HANDLE;
+    TextureViewDesc m_Desc;
+};
+
+class VulkanSampler final : public Sampler
+{
+public:
+    VulkanSampler(VkDevice device, VkSampler sampler, const SamplerDesc& desc)
+        : m_Device(device), m_Sampler(sampler), m_Desc(desc)
+    {
+    }
+
+    ~VulkanSampler() override
+    {
+        if (m_Device != VK_NULL_HANDLE && m_Sampler != VK_NULL_HANDLE)
+            vkDestroySampler(m_Device, m_Sampler, nullptr);
+    }
+
+    const SamplerDesc& GetDesc() const override { return m_Desc; }
+    VkSampler GetVkSampler() const { return m_Sampler; }
+
+private:
+    VkDevice m_Device = VK_NULL_HANDLE;
+    VkSampler m_Sampler = VK_NULL_HANDLE;
+    SamplerDesc m_Desc;
+};
+
 namespace
 {
 
@@ -71,6 +171,24 @@ VkFormat ToVkFormat(Format format)
 {
     switch (format)
     {
+        case Format::R8_UNORM:
+            return VK_FORMAT_R8_UNORM;
+        case Format::RG8_UNORM:
+            return VK_FORMAT_R8G8_UNORM;
+        case Format::R16F:
+            return VK_FORMAT_R16_SFLOAT;
+        case Format::RG16F:
+            return VK_FORMAT_R16G16_SFLOAT;
+        case Format::RGBA16F:
+            return VK_FORMAT_R16G16B16A16_SFLOAT;
+        case Format::R32F:
+            return VK_FORMAT_R32_SFLOAT;
+        case Format::RG32F:
+            return VK_FORMAT_R32G32_SFLOAT;
+        case Format::RGBA32F:
+            return VK_FORMAT_R32G32B32A32_SFLOAT;
+        case Format::R32_UINT:
+            return VK_FORMAT_R32_UINT;
         case Format::BGRA8_UNORM:
             return VK_FORMAT_B8G8R8A8_UNORM;
         case Format::BGRA8_SRGB:
@@ -79,8 +197,17 @@ VkFormat ToVkFormat(Format format)
             return VK_FORMAT_R8G8B8A8_UNORM;
         case Format::RGBA8_SRGB:
             return VK_FORMAT_R8G8B8A8_SRGB;
+        case Format::D16_UNORM:
+            return VK_FORMAT_D16_UNORM;
+        case Format::D32_SFLOAT:
+            return VK_FORMAT_D32_SFLOAT;
+        case Format::D24_UNORM_S8_UINT:
+            return VK_FORMAT_D24_UNORM_S8_UINT;
+        case Format::D32_SFLOAT_S8_UINT:
+            return VK_FORMAT_D32_SFLOAT_S8_UINT;
         default:
-            return VK_FORMAT_B8G8R8A8_UNORM;
+            RTRLAB_ASSERTF(false, "Unsupported Vulkan RHI format {}", static_cast<uint32_t>(format));
+            return VK_FORMAT_UNDEFINED;
     }
 }
 
@@ -88,6 +215,10 @@ Format ToRhiFormat(VkFormat format)
 {
     switch (format)
     {
+        case VK_FORMAT_R8_UNORM:
+            return Format::R8_UNORM;
+        case VK_FORMAT_R8G8_UNORM:
+            return Format::RG8_UNORM;
         case VK_FORMAT_B8G8R8A8_UNORM:
             return Format::BGRA8_UNORM;
         case VK_FORMAT_B8G8R8A8_SRGB:
@@ -96,9 +227,252 @@ Format ToRhiFormat(VkFormat format)
             return Format::RGBA8_UNORM;
         case VK_FORMAT_R8G8B8A8_SRGB:
             return Format::RGBA8_SRGB;
+        case VK_FORMAT_R16_SFLOAT:
+            return Format::R16F;
+        case VK_FORMAT_R16G16_SFLOAT:
+            return Format::RG16F;
+        case VK_FORMAT_R16G16B16A16_SFLOAT:
+            return Format::RGBA16F;
+        case VK_FORMAT_R32_SFLOAT:
+            return Format::R32F;
+        case VK_FORMAT_R32G32_SFLOAT:
+            return Format::RG32F;
+        case VK_FORMAT_R32G32B32A32_SFLOAT:
+            return Format::RGBA32F;
+        case VK_FORMAT_R32_UINT:
+            return Format::R32_UINT;
+        case VK_FORMAT_D16_UNORM:
+            return Format::D16_UNORM;
+        case VK_FORMAT_D32_SFLOAT:
+            return Format::D32_SFLOAT;
+        case VK_FORMAT_D24_UNORM_S8_UINT:
+            return Format::D24_UNORM_S8_UINT;
+        case VK_FORMAT_D32_SFLOAT_S8_UINT:
+            return Format::D32_SFLOAT_S8_UINT;
         default:
             return Format::Unknown;
     }
+}
+
+bool IsDepthFormat(Format format)
+{
+    switch (format)
+    {
+        case Format::D16_UNORM:
+        case Format::D32_SFLOAT:
+        case Format::D24_UNORM_S8_UINT:
+        case Format::D32_SFLOAT_S8_UINT:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool HasStencilComponent(Format format)
+{
+    return format == Format::D24_UNORM_S8_UINT || format == Format::D32_SFLOAT_S8_UINT;
+}
+
+VkBufferUsageFlags ToVkBufferUsage(BufferUsage usageMask)
+{
+    VkBufferUsageFlags usage = 0;
+
+    if ((usageMask & BufferUsage::Vertex) != BufferUsage::None)
+        usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    if ((usageMask & BufferUsage::Index) != BufferUsage::None)
+        usage |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    if ((usageMask & BufferUsage::Uniform) != BufferUsage::None)
+        usage |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    if ((usageMask & BufferUsage::Storage) != BufferUsage::None)
+        usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    if ((usageMask & BufferUsage::CopySrc) != BufferUsage::None)
+        usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    if ((usageMask & BufferUsage::CopyDst) != BufferUsage::None)
+        usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    if ((usageMask & BufferUsage::Indirect) != BufferUsage::None)
+        usage |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+
+    return usage;
+}
+
+VkImageUsageFlags ToVkImageUsage(TextureUsage usageMask)
+{
+    VkImageUsageFlags usage = 0;
+
+    if ((usageMask & TextureUsage::Sampled) != TextureUsage::None)
+        usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+    if ((usageMask & TextureUsage::Storage) != TextureUsage::None)
+        usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+    if ((usageMask & TextureUsage::RenderTarget) != TextureUsage::None)
+        usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    if ((usageMask & TextureUsage::DepthStencil) != TextureUsage::None)
+        usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    if ((usageMask & TextureUsage::CopySrc) != TextureUsage::None)
+        usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    if ((usageMask & TextureUsage::CopyDst) != TextureUsage::None)
+        usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+    return usage;
+}
+
+VkImageType ToVkImageType(TextureType type)
+{
+    switch (type)
+    {
+        case TextureType::Tex2D:
+        case TextureType::Tex2DArray:
+        case TextureType::Cube:
+            return VK_IMAGE_TYPE_2D;
+        case TextureType::Tex3D:
+            return VK_IMAGE_TYPE_3D;
+    }
+
+    return VK_IMAGE_TYPE_2D;
+}
+
+VkImageViewType ToVkImageViewType(TextureType type)
+{
+    switch (type)
+    {
+        case TextureType::Tex2D:
+            return VK_IMAGE_VIEW_TYPE_2D;
+        case TextureType::Tex2DArray:
+            return VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+        case TextureType::Tex3D:
+            return VK_IMAGE_VIEW_TYPE_3D;
+        case TextureType::Cube:
+            return VK_IMAGE_VIEW_TYPE_CUBE;
+    }
+
+    return VK_IMAGE_VIEW_TYPE_2D;
+}
+
+VkFilter ToVkFilter(FilterMode mode)
+{
+    return mode == FilterMode::Nearest ? VK_FILTER_NEAREST : VK_FILTER_LINEAR;
+}
+
+VkSamplerMipmapMode ToVkMipmapMode(MipFilterMode mode)
+{
+    switch (mode)
+    {
+        case MipFilterMode::None:
+        case MipFilterMode::Nearest:
+            return VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        case MipFilterMode::Linear:
+            return VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    }
+
+    return VK_SAMPLER_MIPMAP_MODE_LINEAR;
+}
+
+VkSamplerAddressMode ToVkAddressMode(AddressMode mode)
+{
+    switch (mode)
+    {
+        case AddressMode::Repeat:
+            return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        case AddressMode::MirroredRepeat:
+            return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+        case AddressMode::ClampToEdge:
+            return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        case AddressMode::ClampToBorder:
+            return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    }
+
+    return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+}
+
+VkImageAspectFlags ToVkImageAspect(TextureAspect aspect, Format format)
+{
+    if (aspect == TextureAspect::None)
+    {
+        if (IsDepthFormat(format))
+            aspect =
+                HasStencilComponent(format) ? (TextureAspect::Depth | TextureAspect::Stencil) : TextureAspect::Depth;
+        else
+            aspect = TextureAspect::Color;
+    }
+
+    VkImageAspectFlags result = 0;
+    if ((aspect & TextureAspect::Color) != TextureAspect::None)
+        result |= VK_IMAGE_ASPECT_COLOR_BIT;
+    if ((aspect & TextureAspect::Depth) != TextureAspect::None)
+        result |= VK_IMAGE_ASPECT_DEPTH_BIT;
+    if ((aspect & TextureAspect::Stencil) != TextureAspect::None)
+        result |= VK_IMAGE_ASPECT_STENCIL_BIT;
+    return result;
+}
+
+VkMemoryPropertyFlags GetRequiredMemoryProperties(MemoryUsage memoryUsage)
+{
+    switch (memoryUsage)
+    {
+        case MemoryUsage::GpuOnly:
+            return VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        case MemoryUsage::CpuToGpu:
+            return VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+        case MemoryUsage::GpuToCpu:
+            return VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+    }
+
+    return VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+}
+
+VkMemoryPropertyFlags GetFallbackMemoryProperties(MemoryUsage memoryUsage)
+{
+    switch (memoryUsage)
+    {
+        case MemoryUsage::GpuOnly:
+            return VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        case MemoryUsage::CpuToGpu:
+            return VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+        case MemoryUsage::GpuToCpu:
+            return VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    }
+
+    return VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+}
+
+uint32_t FindMemoryType(VkPhysicalDevice physicalDevice,
+                        uint32_t memoryTypeBits,
+                        VkMemoryPropertyFlags requiredProperties,
+                        VkMemoryPropertyFlags fallbackProperties)
+{
+    VkPhysicalDeviceMemoryProperties memoryProperties{};
+    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
+
+    const auto matches = [memoryTypeBits, &memoryProperties](uint32_t index, VkMemoryPropertyFlags properties)
+    {
+        return ((memoryTypeBits & (1u << index)) != 0) &&
+               ((memoryProperties.memoryTypes[index].propertyFlags & properties) == properties);
+    };
+
+    for (uint32_t index = 0; index < memoryProperties.memoryTypeCount; ++index)
+    {
+        if (matches(index, requiredProperties))
+            return index;
+    }
+
+    for (uint32_t index = 0; index < memoryProperties.memoryTypeCount; ++index)
+    {
+        if (matches(index, fallbackProperties))
+            return index;
+    }
+
+    RTRLAB_ASSERT_MSG(false, "Failed to find a compatible Vulkan memory type.");
+    return 0;
+}
+
+VkImage GetVkImageFromTexture(Texture* texture)
+{
+    if (auto* ownedTexture = dynamic_cast<VulkanTexture*>(texture))
+        return ownedTexture->GetVkImage();
+    if (auto* swapchainTexture = dynamic_cast<VulkanSwapchainTexture*>(texture))
+        return swapchainTexture->GetVkImage();
+
+    RTRLAB_ASSERT_MSG(false, "Texture is not owned by the Vulkan backend.");
+    return VK_NULL_HANDLE;
 }
 
 std::vector<const char*> GetRequiredInstanceExtensions(NativeWindowSystem system)
@@ -741,6 +1115,147 @@ Scope<Swapchain> VulkanDevice::CreateSwapchain(const SwapchainDesc& desc, const 
 {
     InitializePresentationObjects(nativeWindowHandle);
     return CreateScope<VulkanSwapchain>(*this, desc, nativeWindowHandle);
+}
+
+Scope<Buffer> VulkanDevice::CreateBuffer(const BufferDesc& desc)
+{
+    // TRANSITIONAL(M3): Vulkan buffer allocation still uses raw vkAllocateMemory within
+    // this milestone. Replace this path with the backend-private VMA allocator described
+    // in RHI_Backend_Vulkan.md once the Vulkan memory layer is landed.
+    RTRLAB_ASSERT_MSG(m_Device != VK_NULL_HANDLE,
+                      "Vulkan CreateBuffer currently requires a swapchain-initialized device.");
+
+    VkBufferCreateInfo createInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+    createInfo.size = desc.m_Size;
+    createInfo.usage = ToVkBufferUsage(desc.m_UsageMask);
+    createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VkBuffer buffer = VK_NULL_HANDLE;
+    CheckVk(vkCreateBuffer(m_Device, &createInfo, nullptr, &buffer), "vkCreateBuffer");
+
+    VkMemoryRequirements memoryRequirements{};
+    vkGetBufferMemoryRequirements(m_Device, buffer, &memoryRequirements);
+
+    const VkMemoryPropertyFlags requiredProperties = GetRequiredMemoryProperties(desc.m_MemoryUsage);
+    const VkMemoryPropertyFlags fallbackProperties = GetFallbackMemoryProperties(desc.m_MemoryUsage);
+
+    VkMemoryAllocateInfo allocateInfo{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+    allocateInfo.allocationSize = memoryRequirements.size;
+    allocateInfo.memoryTypeIndex =
+        FindMemoryType(m_PhysicalDevice, memoryRequirements.memoryTypeBits, requiredProperties, fallbackProperties);
+
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    CheckVk(vkAllocateMemory(m_Device, &allocateInfo, nullptr, &memory), "vkAllocateMemory(buffer)");
+    CheckVk(vkBindBufferMemory(m_Device, buffer, memory, 0), "vkBindBufferMemory");
+
+    return CreateScope<VulkanBuffer>(m_Device, buffer, memory, desc);
+}
+
+Scope<Texture> VulkanDevice::CreateTexture(const TextureDesc& desc)
+{
+    // TRANSITIONAL(M3): Vulkan texture allocation shares the same raw-memory path as
+    // CreateBuffer within this milestone. VMA will replace the manual allocation/bind
+    // sequence once the dedicated Vulkan memory layer is introduced.
+    RTRLAB_ASSERT_MSG(m_Device != VK_NULL_HANDLE,
+                      "Vulkan CreateTexture currently requires a swapchain-initialized device.");
+
+    VkImageCreateInfo createInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+    createInfo.imageType = ToVkImageType(desc.m_Type);
+    createInfo.format = ToVkFormat(desc.m_Format);
+    createInfo.extent = VkExtent3D{
+        std::max(desc.m_Extent.m_Width, 1u), std::max(desc.m_Extent.m_Height, 1u), std::max(desc.m_Extent.m_Depth, 1u)};
+    createInfo.mipLevels = std::max(desc.m_MipLevels, 1u);
+    createInfo.arrayLayers = std::max(desc.m_ArrayLayers, 1u);
+    createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    createInfo.usage = ToVkImageUsage(desc.m_UsageMask);
+    createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    createInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    if (desc.m_Type == TextureType::Cube)
+    {
+        createInfo.flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+        RTRLAB_ASSERT_MSG((createInfo.arrayLayers % 6u) == 0,
+                          "Cube textures require arrayLayers to be a multiple of 6.");
+    }
+
+    VkImage image = VK_NULL_HANDLE;
+    CheckVk(vkCreateImage(m_Device, &createInfo, nullptr, &image), "vkCreateImage");
+
+    VkMemoryRequirements memoryRequirements{};
+    vkGetImageMemoryRequirements(m_Device, image, &memoryRequirements);
+
+    VkMemoryAllocateInfo allocateInfo{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+    allocateInfo.allocationSize = memoryRequirements.size;
+    allocateInfo.memoryTypeIndex = FindMemoryType(m_PhysicalDevice,
+                                                  memoryRequirements.memoryTypeBits,
+                                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    CheckVk(vkAllocateMemory(m_Device, &allocateInfo, nullptr, &memory), "vkAllocateMemory(texture)");
+    CheckVk(vkBindImageMemory(m_Device, image, memory, 0), "vkBindImageMemory");
+
+    return CreateScope<VulkanTexture>(m_Device, image, memory, desc);
+}
+
+Scope<TextureView> VulkanDevice::CreateTextureView(Texture* texture, const TextureViewDesc& desc)
+{
+    RTRLAB_ASSERT_MSG(m_Device != VK_NULL_HANDLE,
+                      "Vulkan CreateTextureView currently requires a swapchain-initialized device.");
+    RTRLAB_ASSERT_MSG(texture != nullptr, "Vulkan CreateTextureView requires a valid texture.");
+
+    const TextureDesc& textureDesc = texture->GetDesc();
+    const Format viewFormat = desc.m_Format == Format::Unknown ? textureDesc.m_Format : desc.m_Format;
+    const uint32_t mipLevelCount =
+        desc.m_MipLevelCount == 0 ? std::max(textureDesc.m_MipLevels - desc.m_BaseMipLevel, 1u) : desc.m_MipLevelCount;
+    const uint32_t arrayLayerCount = desc.m_ArrayLayerCount == 0
+                                         ? std::max(textureDesc.m_ArrayLayers - desc.m_BaseArrayLayer, 1u)
+                                         : desc.m_ArrayLayerCount;
+
+    VkImageViewCreateInfo createInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+    createInfo.image = GetVkImageFromTexture(texture);
+    createInfo.viewType = ToVkImageViewType(desc.m_Type);
+    createInfo.format = ToVkFormat(viewFormat);
+    createInfo.subresourceRange.aspectMask = ToVkImageAspect(desc.m_Aspect, viewFormat);
+    createInfo.subresourceRange.baseMipLevel = desc.m_BaseMipLevel;
+    createInfo.subresourceRange.levelCount = mipLevelCount;
+    createInfo.subresourceRange.baseArrayLayer = desc.m_BaseArrayLayer;
+    createInfo.subresourceRange.layerCount = arrayLayerCount;
+
+    VkImageView imageView = VK_NULL_HANDLE;
+    CheckVk(vkCreateImageView(m_Device, &createInfo, nullptr, &imageView), "vkCreateImageView(texture)");
+
+    TextureViewDesc resolvedDesc = desc;
+    resolvedDesc.m_Format = viewFormat;
+    resolvedDesc.m_MipLevelCount = mipLevelCount;
+    resolvedDesc.m_ArrayLayerCount = arrayLayerCount;
+    return CreateScope<VulkanTextureView>(m_Device, texture, imageView, resolvedDesc);
+}
+
+Scope<Sampler> VulkanDevice::CreateSampler(const SamplerDesc& desc)
+{
+    RTRLAB_ASSERT_MSG(m_Device != VK_NULL_HANDLE,
+                      "Vulkan CreateSampler currently requires a swapchain-initialized device.");
+
+    VkSamplerCreateInfo createInfo{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+    createInfo.magFilter = ToVkFilter(desc.m_MagFilter);
+    createInfo.minFilter = ToVkFilter(desc.m_MinFilter);
+    createInfo.mipmapMode = ToVkMipmapMode(desc.m_MipFilter);
+    createInfo.addressModeU = ToVkAddressMode(desc.m_AddressU);
+    createInfo.addressModeV = ToVkAddressMode(desc.m_AddressV);
+    createInfo.addressModeW = ToVkAddressMode(desc.m_AddressW);
+    createInfo.mipLodBias = desc.m_MipLodBias;
+    createInfo.anisotropyEnable = desc.m_AnisotropyEnable ? VK_TRUE : VK_FALSE;
+    createInfo.maxAnisotropy = std::max(desc.m_MaxAnisotropy, 1.0f);
+    createInfo.compareEnable = VK_FALSE;
+    createInfo.minLod = desc.m_MinLod;
+    createInfo.maxLod = desc.m_MaxLod;
+    createInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
+    createInfo.unnormalizedCoordinates = VK_FALSE;
+
+    VkSampler sampler = VK_NULL_HANDLE;
+    CheckVk(vkCreateSampler(m_Device, &createInfo, nullptr, &sampler), "vkCreateSampler");
+    return CreateScope<VulkanSampler>(m_Device, sampler, desc);
 }
 
 CommandList* VulkanDevice::BeginCommandList()

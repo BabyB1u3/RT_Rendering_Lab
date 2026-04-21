@@ -29,6 +29,10 @@ class OpenGLDevice final : public RHIInternal::ShellDeviceBase
 {
 public:
     Scope<Swapchain> CreateSwapchain(const SwapchainDesc& desc, const NativeWindowHandle& nativeWindowHandle) override;
+    Scope<Buffer> CreateBuffer(const BufferDesc& desc) override;
+    Scope<Texture> CreateTexture(const TextureDesc& desc) override;
+    Scope<TextureView> CreateTextureView(Texture* texture, const TextureViewDesc& desc) override;
+    Scope<Sampler> CreateSampler(const SamplerDesc& desc) override;
 
     CommandList* BeginCommandList() override;
     void Submit(CommandList* commandList) override;
