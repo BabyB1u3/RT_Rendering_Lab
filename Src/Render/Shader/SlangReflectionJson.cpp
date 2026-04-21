@@ -51,6 +51,46 @@ std::optional<SlangReflectionBinding> ParseBinding(const Json& json, std::string
     return binding;
 }
 
+std::optional<SlangReflectionBinding> SelectPreferredBinding(const Json& json, std::string* errorMessage)
+{
+    if (json.contains("binding"))
+    {
+        std::optional<SlangReflectionBinding> binding = ParseBinding(json["binding"], errorMessage);
+        if (!binding.has_value() && !json["binding"].is_null())
+            return std::nullopt;
+        if (binding.has_value())
+            return binding;
+    }
+
+    if (!json.contains("bindings"))
+        return std::nullopt;
+
+    if (!json["bindings"].is_array())
+    {
+        AssignSlangReflectionJsonError(errorMessage, "Slang reflection bindings payload must be an array.");
+        return std::nullopt;
+    }
+
+    std::optional<SlangReflectionBinding> fallbackBinding;
+    for (const Json& bindingJson : json["bindings"])
+    {
+        std::optional<SlangReflectionBinding> binding = ParseBinding(bindingJson, errorMessage);
+        if (!binding.has_value())
+            return std::nullopt;
+
+        if (binding->m_Kind == "descriptorTableSlot" || binding->m_Kind == "constantBuffer" ||
+            binding->m_Kind == "uniform")
+        {
+            return binding;
+        }
+
+        if (!fallbackBinding.has_value())
+            fallbackBinding = std::move(binding);
+    }
+
+    return fallbackBinding;
+}
+
 bool ParseType(const Json& json, SlangReflectionType& outType, std::string* errorMessage);
 
 bool ParseField(const Json& json, SlangReflectionField& outField, std::string* errorMessage)
@@ -155,10 +195,10 @@ bool ParseParameter(const Json& json, SlangReflectionParameter& outParameter, st
             return false;
     }
 
-    if (json.contains("binding"))
+    outParameter.m_Binding = SelectPreferredBinding(json, errorMessage);
+    if (json.contains("binding") || json.contains("bindings"))
     {
-        outParameter.m_Binding = ParseBinding(json["binding"], errorMessage);
-        if (!outParameter.m_Binding.has_value() && !json["binding"].is_null())
+        if (!outParameter.m_Binding.has_value() && errorMessage != nullptr && !errorMessage->empty())
             return false;
     }
 
@@ -175,8 +215,14 @@ bool ParseEntryPointBinding(const Json& json, SlangReflectionEntryPointBinding& 
     }
 
     outBinding.m_Name = ReadString(json, "name").value_or(std::string{});
-    const Json bindingJson = json.value("binding", Json{});
-    std::optional<SlangReflectionBinding> binding = ParseBinding(bindingJson, errorMessage);
+
+    std::optional<SlangReflectionBinding> binding = SelectPreferredBinding(json, errorMessage);
+    if ((json.contains("binding") || json.contains("bindings")) && !binding.has_value() && errorMessage != nullptr &&
+        !errorMessage->empty())
+    {
+        return false;
+    }
+
     if (!binding.has_value())
     {
         AssignSlangReflectionJsonError(errorMessage,

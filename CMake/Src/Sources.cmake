@@ -266,7 +266,6 @@ set(GLAB_DEMO_HEADERS
     Demos/LabLayer.h
     Demos/01_HelloWindow/HelloWindow.h
     Demos/02_HelloTriangle/HelloTriangle.h
-    Demos/02_HelloTriangle/HelloTriangleShaders.h
 )
 
 set(GLAB_GUI_SOURCES

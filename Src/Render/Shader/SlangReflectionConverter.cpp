@@ -139,20 +139,20 @@ bool ConvertStructuredField(const SlangReflectionField& field,
             *ResolveStructuredElementType(*field.m_Type), stageMask, outField.m_Children, errorMessage);
     }
 
+    if (IsLeafConstantType(*field.m_Type))
+    {
+        outField.m_TypeKind = ReflectedTypeKind::ConstantData;
+        outField.m_Offset = binding.m_Offset;
+        outField.m_Size = binding.m_Size;
+        return true;
+    }
+
     if (field.m_Binding.has_value() && !IsStructLikeKind(field.m_Type->m_Kind))
     {
         outField.m_TypeKind = MapResourceTypeKind(*field.m_Type, binding);
         outField.m_SetIndex = binding.m_Space;
         outField.m_Binding = binding.m_Index;
         outField.m_ArrayCount = 1;
-        return true;
-    }
-
-    if (IsLeafConstantType(*field.m_Type))
-    {
-        outField.m_TypeKind = ReflectedTypeKind::ConstantData;
-        outField.m_Offset = binding.m_Offset;
-        outField.m_Size = binding.m_Size;
         return true;
     }
 

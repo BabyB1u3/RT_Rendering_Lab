@@ -43,8 +43,8 @@ void AddOrMergeBindingInfo(std::vector<BindingInfo>& bindings, const BindingInfo
         return;
     }
 
-    RTRLAB_ASSERT_MSG(it->m_Name == candidate.m_Name,
-                      "Reflected bindings that share set/binding/kind must also share the same name.");
+    if (it->m_Name.empty())
+        it->m_Name = candidate.m_Name;
     RTRLAB_ASSERT_MSG(it->m_ArrayCount == candidate.m_ArrayCount,
                       "Reflected bindings that share set/binding/kind must also share the same array count.");
     it->m_StageMask |= candidate.m_StageMask;
