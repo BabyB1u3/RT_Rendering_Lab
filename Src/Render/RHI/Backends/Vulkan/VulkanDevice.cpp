@@ -318,22 +318,25 @@ public:
 
     void SetBuffer(uint32_t binding, const BufferBinding& bufferBinding) override
     {
-        (void)RequireBindingInfo(binding, ResourceKind::StorageBuffer);
+        const BindingInfo& bindingInfo = RequireBindingInfo(binding, ResourceKind::StorageBuffer);
         m_BufferBindings[binding] = bufferBinding;
+        WriteBufferDescriptor(bindingInfo, bufferBinding);
         ++m_Version;
     }
 
     void SetTexture(uint32_t binding, const TextureBinding& textureBinding) override
     {
-        (void)RequireBindingInfo(binding, ResourceKind::SampledTexture);
+        const BindingInfo& bindingInfo = RequireBindingInfo(binding, ResourceKind::SampledTexture);
         m_TextureBindings[binding] = textureBinding;
+        WriteTextureDescriptor(bindingInfo, textureBinding);
         ++m_Version;
     }
 
     void SetSampler(uint32_t binding, const SamplerBinding& samplerBinding) override
     {
-        (void)RequireBindingInfo(binding, ResourceKind::Sampler);
+        const BindingInfo& bindingInfo = RequireBindingInfo(binding, ResourceKind::Sampler);
         m_SamplerBindings[binding] = samplerBinding;
+        WriteSamplerDescriptor(bindingInfo, samplerBinding);
         ++m_Version;
     }
 
@@ -342,6 +345,25 @@ public:
     VkDescriptorSet GetVkDescriptorSet() const { return m_DescriptorSet; }
 
 private:
+    static VkDescriptorType ToDescriptorType(ResourceKind resourceKind)
+    {
+        switch (resourceKind)
+        {
+            case ResourceKind::UniformBuffer:
+                return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            case ResourceKind::StorageBuffer:
+                return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            case ResourceKind::SampledTexture:
+                return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+            case ResourceKind::StorageTexture:
+                return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+            case ResourceKind::Sampler:
+                return VK_DESCRIPTOR_TYPE_SAMPLER;
+        }
+
+        return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    }
+
     const BindingInfo& RequireBindingInfo(uint32_t binding, ResourceKind kind) const
     {
         RTRLAB_ASSERT_MSG(m_Layout != nullptr,
@@ -364,6 +386,78 @@ private:
         RTRLAB_ASSERTF(bindingInfo != nullptr,
                        "Vulkan ResourceSet set {} has no UniformBuffer binding in its PipelineLayout.",
                        m_SetIndex);
+    }
+
+    void WriteBufferDescriptor(const BindingInfo& bindingInfo, const BufferBinding& bufferBinding)
+    {
+        RTRLAB_ASSERT_MSG(bindingInfo.m_ArrayCount <= 1,
+                          "Vulkan ResourceSet descriptor writes currently only support non-array buffer bindings.");
+        RTRLAB_ASSERT_MSG(bufferBinding.m_Buffer != nullptr,
+                          "Vulkan ResourceSet buffer descriptor writes require a valid Buffer.");
+        auto* vulkanBuffer = dynamic_cast<VulkanBuffer*>(bufferBinding.m_Buffer);
+        RTRLAB_ASSERT_MSG(vulkanBuffer != nullptr, "Buffer is not owned by the Vulkan backend.");
+
+        VkDescriptorBufferInfo bufferInfo{};
+        bufferInfo.buffer = vulkanBuffer->GetVkBuffer();
+        bufferInfo.offset = bufferBinding.m_Offset;
+        bufferInfo.range = bufferBinding.m_Size == 0 ? VK_WHOLE_SIZE : bufferBinding.m_Size;
+
+        VkWriteDescriptorSet write{};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = m_DescriptorSet;
+        write.dstBinding = bindingInfo.m_Binding;
+        write.descriptorCount = 1;
+        write.descriptorType = ToDescriptorType(bindingInfo.m_Kind);
+        write.pBufferInfo = &bufferInfo;
+
+        vkUpdateDescriptorSets(m_Device, 1, &write, 0, nullptr);
+    }
+
+    void WriteTextureDescriptor(const BindingInfo& bindingInfo, const TextureBinding& textureBinding)
+    {
+        RTRLAB_ASSERT_MSG(bindingInfo.m_ArrayCount <= 1,
+                          "Vulkan ResourceSet descriptor writes currently only support non-array texture bindings.");
+        RTRLAB_ASSERT_MSG(textureBinding.m_View != nullptr,
+                          "Vulkan ResourceSet texture descriptor writes require a valid TextureView.");
+        auto* vulkanTextureView = dynamic_cast<VulkanTextureView*>(textureBinding.m_View);
+        RTRLAB_ASSERT_MSG(vulkanTextureView != nullptr, "TextureView is not owned by the Vulkan backend.");
+
+        VkDescriptorImageInfo imageInfo{};
+        imageInfo.imageView = vulkanTextureView->GetVkImageView();
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+        VkWriteDescriptorSet write{};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = m_DescriptorSet;
+        write.dstBinding = bindingInfo.m_Binding;
+        write.descriptorCount = 1;
+        write.descriptorType = ToDescriptorType(bindingInfo.m_Kind);
+        write.pImageInfo = &imageInfo;
+
+        vkUpdateDescriptorSets(m_Device, 1, &write, 0, nullptr);
+    }
+
+    void WriteSamplerDescriptor(const BindingInfo& bindingInfo, const SamplerBinding& samplerBinding)
+    {
+        RTRLAB_ASSERT_MSG(bindingInfo.m_ArrayCount <= 1,
+                          "Vulkan ResourceSet descriptor writes currently only support non-array sampler bindings.");
+        RTRLAB_ASSERT_MSG(samplerBinding.m_Sampler != nullptr,
+                          "Vulkan ResourceSet sampler descriptor writes require a valid Sampler.");
+        auto* vulkanSampler = dynamic_cast<VulkanSampler*>(samplerBinding.m_Sampler);
+        RTRLAB_ASSERT_MSG(vulkanSampler != nullptr, "Sampler is not owned by the Vulkan backend.");
+
+        VkDescriptorImageInfo imageInfo{};
+        imageInfo.sampler = vulkanSampler->GetVkSampler();
+
+        VkWriteDescriptorSet write{};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = m_DescriptorSet;
+        write.dstBinding = bindingInfo.m_Binding;
+        write.descriptorCount = 1;
+        write.descriptorType = ToDescriptorType(bindingInfo.m_Kind);
+        write.pImageInfo = &imageInfo;
+
+        vkUpdateDescriptorSets(m_Device, 1, &write, 0, nullptr);
     }
 
 private:
