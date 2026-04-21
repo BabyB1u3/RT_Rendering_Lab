@@ -131,12 +131,43 @@ std::string MakeJobStem(const SlangCompileJob& job, const size_t jobIndex)
     return stem.str();
 }
 
+std::filesystem::path BuildCompilerSessionDirectory()
+{
+    const auto sessionStamp = std::chrono::steady_clock::now().time_since_epoch().count();
+    return FileSystem::GetCacheDir() / "ShaderCompilerSessions" / std::to_string(sessionStamp);
+}
+
+void AppendSessionDirectoryToError(std::string* errorMessage, const std::filesystem::path& sessionDir)
+{
+    if (errorMessage == nullptr || errorMessage->empty())
+        return;
+
+    *errorMessage += " Session artifacts were preserved at: " + sessionDir.generic_string();
+}
+
 std::filesystem::path GetPlatformSlangExecutableName()
 {
 #if defined(_WIN32)
     return "slangc.exe";
 #else
     return "slangc";
+#endif
+}
+
+std::string GetPlatformSlangToolchainFolderName()
+{
+#if defined(_WIN32)
+    return "windows-x86_64";
+#elif defined(__APPLE__) && defined(__aarch64__)
+    return "macos-aarch64";
+#elif defined(__APPLE__)
+    return "macos-x86_64";
+#elif defined(__linux__) && defined(__aarch64__)
+    return "linux-aarch64";
+#elif defined(__linux__)
+    return "linux-x86_64";
+#else
+    return "unknown";
 #endif
 }
 
@@ -161,10 +192,14 @@ std::vector<std::filesystem::path> BuildDefaultFallbackExecutablePaths()
 {
     const std::filesystem::path rootPath = FileSystem::GetRootPath();
     const std::filesystem::path executableName = GetPlatformSlangExecutableName();
+    const std::string platformFolder = GetPlatformSlangToolchainFolderName();
 
     return {
+        rootPath / "Tools" / "Slang" / platformFolder / "bin" / executableName,
         rootPath / "Tools" / "Slang" / "bin" / executableName,
+        rootPath / "Binaries" / "ThirdParty" / "Slang" / platformFolder / "bin" / executableName,
         rootPath / "Binaries" / "ThirdParty" / "Slang" / "bin" / executableName,
+        rootPath / "Vendor" / "Slang" / platformFolder / "bin" / executableName,
         rootPath / "Vendor" / "Slang" / "bin" / executableName,
     };
 }
@@ -549,10 +584,7 @@ ShaderCompileResult SlangCompiler::CompileProgramImpl(const ShaderCompileRequest
                  effectiveConfig.m_ExecutablePath.generic_string());
 
     std::error_code ec;
-    const auto sessionStamp = std::chrono::steady_clock::now().time_since_epoch().count();
-    const std::filesystem::path tempRoot = std::filesystem::temp_directory_path(ec);
-    const std::filesystem::path sessionDir =
-        (ec ? std::filesystem::current_path() : tempRoot) / "RTRLabSlangCompiler" / std::to_string(sessionStamp);
+    const std::filesystem::path sessionDir = BuildCompilerSessionDirectory();
     std::filesystem::create_directories(sessionDir, ec);
     if (ec)
     {
@@ -561,12 +593,21 @@ ShaderCompileResult SlangCompiler::CompileProgramImpl(const ShaderCompileRequest
         return result;
     }
 
+    auto failWithSession = [&](std::string errorMessage) -> ShaderCompileResult
+    {
+        result.m_Succeeded = false;
+        result.m_Program = {};
+        result.m_ErrorMessage = std::move(errorMessage);
+        AppendSessionDirectoryToError(&result.m_ErrorMessage, sessionDir);
+        LOG_ERROR_CAT(LogCategory::k_Shader,
+                      "Slang compilation failed. Preserved session artifacts at {}",
+                      sessionDir.generic_string());
+        return result;
+    };
+
     const SlangCompilerProbeResult probe = ProbeSlangCompiler(resolvedExecutable, sessionDir);
     if (!probe.m_Succeeded)
-    {
-        result.m_ErrorMessage = probe.m_ErrorMessage;
-        return result;
-    }
+        return failWithSession(probe.m_ErrorMessage);
 
     SlangReflectionDocument mergedReflectionDocument;
     bool sawReflection = false;
@@ -585,8 +626,7 @@ ShaderCompileResult SlangCompiler::CompileProgramImpl(const ShaderCompileRequest
         {
             AssignSlangCompilerPlanningError(&result.m_ErrorMessage,
                                              "SlangCompiler execution does not support Metallib output yet.");
-            result.m_Program = {};
-            return result;
+            return failWithSession(result.m_ErrorMessage);
         }
 
         const std::string stem = MakeJobStem(job, jobIndex);
@@ -597,18 +637,14 @@ ShaderCompileResult SlangCompiler::CompileProgramImpl(const ShaderCompileRequest
 
         if (!ExecuteCompileCommand(
                 commandLine, logPath, std::filesystem::current_path(), resolvedExecutable, &result.m_ErrorMessage))
-        {
-            result.m_Program = {};
-            return result;
-        }
+            return failWithSession(result.m_ErrorMessage);
 
         std::optional<std::vector<uint8_t>> codeBytes = Resource::ReadBinaryFile(outputPath);
         if (!codeBytes.has_value())
         {
             AssignSlangCompilerPlanningError(&result.m_ErrorMessage,
                                              "SlangCompiler failed to read a generated backend code artifact.");
-            result.m_Program = {};
-            return result;
+            return failWithSession(result.m_ErrorMessage);
         }
 
         CompiledShaderBlob blob;
@@ -626,24 +662,16 @@ ShaderCompileResult SlangCompiler::CompileProgramImpl(const ShaderCompileRequest
             {
                 AssignSlangCompilerPlanningError(&result.m_ErrorMessage,
                                                  "SlangCompiler failed to read a generated reflection sidecar.");
-                result.m_Program = {};
-                return result;
+                return failWithSession(result.m_ErrorMessage);
             }
 
             ParseSlangReflectionResult parsedReflection = ParseSlangReflectionJson(*reflectionText);
             if (!parsedReflection.m_Succeeded)
-            {
-                AssignSlangCompilerPlanningError(&result.m_ErrorMessage, std::move(parsedReflection.m_ErrorMessage));
-                result.m_Program = {};
-                return result;
-            }
+                return failWithSession(parsedReflection.m_ErrorMessage);
 
             if (!MergeReflectionDocument(
                     &mergedReflectionDocument, std::move(parsedReflection.m_Document), &result.m_ErrorMessage))
-            {
-                result.m_Program = {};
-                return result;
-            }
+                return failWithSession(result.m_ErrorMessage);
 
             sawReflection = true;
         }
@@ -653,17 +681,16 @@ ShaderCompileResult SlangCompiler::CompileProgramImpl(const ShaderCompileRequest
     {
         AssignSlangCompilerPlanningError(&result.m_ErrorMessage,
                                          "SlangCompiler execution requires reflection JSON output for M4.");
-        result.m_Program = {};
-        return result;
+        return failWithSession(result.m_ErrorMessage);
     }
 
     if (!BuildMergedReflectionData(mergedReflectionDocument, &result.m_Program.m_Reflection, &result.m_ErrorMessage))
-    {
-        result.m_Program = {};
-        return result;
-    }
+        return failWithSession(result.m_ErrorMessage);
 
     result.m_Succeeded = true;
+    LOG_INFO_CAT(LogCategory::k_Shader,
+                 "Slang compilation succeeded. Session artifacts are available at {}",
+                 sessionDir.generic_string());
     return result;
 }
 
