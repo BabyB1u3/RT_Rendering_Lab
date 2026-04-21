@@ -202,14 +202,14 @@ private:
 class OpenGLTextureView final : public TextureView
 {
 public:
-    OpenGLTextureView(Texture* texture, GLuint textureView, GLenum target, bool ownsView, const TextureViewDesc& desc)
-        : m_Texture(texture), m_TextureView(textureView), m_Target(target), m_OwnsView(ownsView), m_Desc(desc)
+    OpenGLTextureView(Texture* texture, GLuint textureView, GLenum target, const TextureViewDesc& desc)
+        : m_Texture(texture), m_TextureView(textureView), m_Target(target), m_Desc(desc)
     {
     }
 
     ~OpenGLTextureView() override
     {
-        if (m_OwnsView && m_TextureView != 0)
+        if (m_TextureView != 0)
             glDeleteTextures(1, &m_TextureView);
     }
 
@@ -222,7 +222,6 @@ private:
     Texture* m_Texture = nullptr;
     GLuint m_TextureView = 0;
     GLenum m_Target = GL_TEXTURE_2D;
-    bool m_OwnsView = false;
     TextureViewDesc m_Desc;
 };
 
@@ -411,7 +410,7 @@ Scope<TextureView> OpenGLDevice::CreateTextureView(Texture* texture, const Textu
     resolvedDesc.m_Format = viewFormat;
     resolvedDesc.m_MipLevelCount = mipLevelCount;
     resolvedDesc.m_ArrayLayerCount = arrayLayerCount;
-    return CreateScope<OpenGLTextureView>(texture, textureView, target, true, resolvedDesc);
+    return CreateScope<OpenGLTextureView>(texture, textureView, target, resolvedDesc);
 }
 
 Scope<Sampler> OpenGLDevice::CreateSampler(const SamplerDesc& desc)
@@ -424,6 +423,10 @@ Scope<Sampler> OpenGLDevice::CreateSampler(const SamplerDesc& desc)
     glSamplerParameteri(sampler, GL_TEXTURE_WRAP_S, static_cast<GLint>(ToGLAddressMode(desc.m_AddressU)));
     glSamplerParameteri(sampler, GL_TEXTURE_WRAP_T, static_cast<GLint>(ToGLAddressMode(desc.m_AddressV)));
     glSamplerParameteri(sampler, GL_TEXTURE_WRAP_R, static_cast<GLint>(ToGLAddressMode(desc.m_AddressW)));
+    // TRANSITIONAL(M4): SamplerDesc does not yet carry border-color or compare-op
+    // fields. Shadow-compare samplers and non-default border colors will move
+    // through the future shader/reflection-driven sampler contract instead of
+    // being hard-coded in this early OpenGL bring-up path.
     glSamplerParameterf(sampler, GL_TEXTURE_MIN_LOD, desc.m_MinLod);
     glSamplerParameterf(sampler, GL_TEXTURE_MAX_LOD, desc.m_MaxLod);
     glSamplerParameterf(sampler, GL_TEXTURE_LOD_BIAS, desc.m_MipLodBias);

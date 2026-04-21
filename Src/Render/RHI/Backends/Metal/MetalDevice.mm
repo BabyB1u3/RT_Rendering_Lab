@@ -688,9 +688,12 @@ Scope<Sampler> MetalDevice::CreateSampler(const SamplerDesc& desc)
     samplerDesc.sAddressMode = ToMetalAddressMode(desc.m_AddressU);
     samplerDesc.tAddressMode = ToMetalAddressMode(desc.m_AddressV);
     samplerDesc.rAddressMode = ToMetalAddressMode(desc.m_AddressW);
+    // TRANSITIONAL(M4): SamplerDesc does not yet expose compare-op or border-color
+    // controls, so Metal shadow samplers and explicit border colors are deferred
+    // until the shader-system milestone grows the full sampler contract.
     samplerDesc.lodMinClamp = desc.m_MinLod;
     samplerDesc.lodMaxClamp = desc.m_MaxLod;
-    samplerDesc.supportArgumentBuffers = YES;
+    samplerDesc.supportArgumentBuffers = NO;
     samplerDesc.maxAnisotropy =
         desc.m_AnisotropyEnable ? static_cast<NSUInteger>(std::max(desc.m_MaxAnisotropy, 1.0f)) : 1;
 

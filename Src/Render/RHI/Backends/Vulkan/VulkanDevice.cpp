@@ -1360,6 +1360,10 @@ Scope<Sampler> VulkanDevice::CreateSampler(const SamplerDesc& desc)
     createInfo.mipLodBias = desc.m_MipLodBias;
     createInfo.anisotropyEnable = desc.m_AnisotropyEnable ? VK_TRUE : VK_FALSE;
     createInfo.maxAnisotropy = std::max(desc.m_MaxAnisotropy, 1.0f);
+    // TRANSITIONAL(M4): SamplerDesc does not yet expose compare-op or border-color
+    // controls. Vulkan shadow samplers and explicit border colors will be wired
+    // through the future shader-system sampler contract instead of this fixed
+    // M3 bring-up state.
     createInfo.compareEnable = VK_FALSE;
     createInfo.minLod = desc.m_MinLod;
     createInfo.maxLod = desc.m_MaxLod;
