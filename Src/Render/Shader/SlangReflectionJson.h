@@ -38,6 +38,7 @@ struct SlangReflectionType
     uint32_t m_RowCount = 0;
     uint32_t m_ColumnCount = 0;
 
+    std::unique_ptr<SlangReflectionType> m_ElementType;
     std::vector<SlangReflectionField> m_Fields;
     std::vector<SlangReflectionType> m_GenericArguments;
 };

@@ -94,6 +94,13 @@ bool ParseType(const Json& json, SlangReflectionType& outType, std::string* erro
     outType.m_RowCount = ReadUint32(json, "rowCount").value_or(0);
     outType.m_ColumnCount = ReadUint32(json, "columnCount").value_or(0);
 
+    if (json.contains("elementType"))
+    {
+        outType.m_ElementType = std::make_unique<SlangReflectionType>();
+        if (!ParseType(json["elementType"], *outType.m_ElementType, errorMessage))
+            return false;
+    }
+
     if (json.contains("fields"))
     {
         if (!json["fields"].is_array())
