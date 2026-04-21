@@ -90,6 +90,39 @@ void CollectPipelineBindings(const ReflectedField& field,
 
 namespace RHIInternal
 {
+std::vector<const BindingInfo*> CollectBindingInfosForSet(const PipelineLayoutDesc& desc, uint32_t setIndex)
+{
+    std::vector<const BindingInfo*> bindings;
+
+    for (const BindingInfo& binding : desc.m_Bindings)
+    {
+        if (binding.m_SetIndex == setIndex)
+            bindings.push_back(&binding);
+    }
+
+    return bindings;
+}
+
+const BindingInfo*
+FindBindingInfo(const PipelineLayoutDesc& desc, uint32_t setIndex, uint32_t binding, ResourceKind kind)
+{
+    const auto it = std::find_if(
+        desc.m_Bindings.begin(),
+        desc.m_Bindings.end(),
+        [setIndex, binding, kind](const BindingInfo& candidate)
+        { return candidate.m_SetIndex == setIndex && candidate.m_Binding == binding && candidate.m_Kind == kind; });
+    return it != desc.m_Bindings.end() ? &(*it) : nullptr;
+}
+
+const BindingInfo* FindFirstBindingInfoForSet(const PipelineLayoutDesc& desc, uint32_t setIndex, ResourceKind kind)
+{
+    const auto it = std::find_if(desc.m_Bindings.begin(),
+                                 desc.m_Bindings.end(),
+                                 [setIndex, kind](const BindingInfo& candidate)
+                                 { return candidate.m_SetIndex == setIndex && candidate.m_Kind == kind; });
+    return it != desc.m_Bindings.end() ? &(*it) : nullptr;
+}
+
 bool IsNativeWindowHandleValid(const NativeWindowHandle& nativeWindowHandle)
 {
     switch (nativeWindowHandle.m_System)
@@ -174,6 +207,11 @@ PipelineLayoutDesc ShellShaderProgram::DerivePipelineLayoutDesc() const
 
 ShellResourceSet::ShellResourceSet(PipelineLayout* layout, uint32_t setIndex) : m_Layout(layout), m_SetIndex(setIndex)
 {
+    RTRLAB_ASSERT_MSG(m_Layout != nullptr, "ResourceSet creation requires a valid PipelineLayout.");
+
+    const std::vector<const BindingInfo*> setBindings = CollectBindingInfosForSet(m_Layout->GetDesc(), m_SetIndex);
+    RTRLAB_ASSERTF(
+        !setBindings.empty(), "ResourceSet set {} does not exist in the provided PipelineLayout.", m_SetIndex);
 }
 
 void ShellResourceSet::SetConstantDataRaw(uint32_t offset, const void* data, size_t size)
@@ -181,26 +219,51 @@ void ShellResourceSet::SetConstantDataRaw(uint32_t offset, const void* data, siz
     if (size == 0)
         return;
 
+    ValidateConstantBindingExists();
     m_Constants.SetRaw(offset, data, size);
     ++m_Version;
 }
 
 void ShellResourceSet::SetBuffer(uint32_t binding, const BufferBinding& bufferBinding)
 {
+    (void)RequireBindingInfo(binding, ResourceKind::StorageBuffer);
     m_BufferBindings[binding] = bufferBinding;
     ++m_Version;
 }
 
 void ShellResourceSet::SetTexture(uint32_t binding, const TextureBinding& textureBinding)
 {
+    (void)RequireBindingInfo(binding, ResourceKind::SampledTexture);
     m_TextureBindings[binding] = textureBinding;
     ++m_Version;
 }
 
 void ShellResourceSet::SetSampler(uint32_t binding, const SamplerBinding& samplerBinding)
 {
+    (void)RequireBindingInfo(binding, ResourceKind::Sampler);
     m_SamplerBindings[binding] = samplerBinding;
     ++m_Version;
+}
+
+const BindingInfo& ShellResourceSet::RequireBindingInfo(uint32_t binding, ResourceKind kind) const
+{
+    RTRLAB_ASSERT_MSG(m_Layout != nullptr, "ResourceSet binding validation requires a valid PipelineLayout.");
+    const BindingInfo* bindingInfo = FindBindingInfo(m_Layout->GetDesc(), m_SetIndex, binding, kind);
+    RTRLAB_ASSERTF(bindingInfo != nullptr,
+                   "ResourceSet set {} has no binding {} of expected kind {} in its PipelineLayout.",
+                   m_SetIndex,
+                   binding,
+                   static_cast<uint32_t>(kind));
+    return *bindingInfo;
+}
+
+void ShellResourceSet::ValidateConstantBindingExists() const
+{
+    RTRLAB_ASSERT_MSG(m_Layout != nullptr, "ResourceSet constant validation requires a valid PipelineLayout.");
+    const BindingInfo* bindingInfo =
+        FindFirstBindingInfoForSet(m_Layout->GetDesc(), m_SetIndex, ResourceKind::UniformBuffer);
+    RTRLAB_ASSERTF(
+        bindingInfo != nullptr, "ResourceSet set {} has no UniformBuffer binding in its PipelineLayout.", m_SetIndex);
 }
 
 void ShellCommandListBase::BeginRendering(const RenderingInfo& renderingInfo)
