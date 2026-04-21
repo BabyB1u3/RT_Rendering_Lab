@@ -180,8 +180,10 @@ private:
     NativeWindowHandle m_NativeWindowHandle{};
     bool m_HasDeviceObjects = false;
     bool m_HasPresentationObjects = false;
-    // Frames in flight for CPU/GPU pacing; intentionally independent from swapchain imageCount.
-    std::array<FrameSync, 2> m_FrameSyncObjects{};
+    // Bring-up path currently records into a single VulkanCommandList/command buffer,
+    // so only one frame may be in flight safely. Expanding this back to multiple
+    // frames requires per-frame command buffers (or an equivalent ownership model).
+    std::array<FrameSync, 1> m_FrameSyncObjects{};
     uint32_t m_CurrentFrameSlot = 0;
     bool m_FrameInProgress = false;
     bool m_FrameSubmitted = false;
