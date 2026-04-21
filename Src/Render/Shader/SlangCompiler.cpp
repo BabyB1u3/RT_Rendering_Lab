@@ -1,4 +1,7 @@
 #include "Render/Shader/SlangCompiler.h"
+#include "Core/Diagnostics/Logging/LogCategories.h"
+#include "Core/Diagnostics/Logging/LogMacros.h"
+#include "Core/Resource/FileSystem.h"
 #include "Core/Resource/IO/PhysicalIO.h"
 #include "Render/Shader/SlangReflectionConverter.h"
 #include "Render/Shader/SlangReflectionJson.h"
@@ -6,6 +9,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
+#include <optional>
 #include <system_error>
 #include <sstream>
 #include <unordered_set>
@@ -13,6 +17,19 @@
 
 namespace
 {
+struct ResolvedSlangExecutable
+{
+    std::filesystem::path m_Path;
+    std::string m_Source;
+};
+
+struct SlangCompilerProbeResult
+{
+    bool m_Succeeded = false;
+    std::string m_VersionText;
+    std::string m_ErrorMessage;
+};
+
 void AssignSlangCompilerPlanningError(std::string* errorMessage, std::string message)
 {
     if (errorMessage != nullptr)
@@ -114,6 +131,94 @@ std::string MakeJobStem(const SlangCompileJob& job, const size_t jobIndex)
     return stem.str();
 }
 
+std::filesystem::path GetPlatformSlangExecutableName()
+{
+#if defined(_WIN32)
+    return "slangc.exe";
+#else
+    return "slangc";
+#endif
+}
+
+bool PathLooksExplicit(const std::filesystem::path& path)
+{
+    return path.is_absolute() || path.has_parent_path();
+}
+
+std::optional<std::string> GetEnvironmentVariable(std::string_view name)
+{
+    if (name.empty())
+        return std::nullopt;
+
+    const std::string variableName(name);
+    if (const char* value = std::getenv(variableName.c_str()))
+        return std::string(value);
+
+    return std::nullopt;
+}
+
+std::vector<std::filesystem::path> BuildDefaultFallbackExecutablePaths()
+{
+    const std::filesystem::path rootPath = FileSystem::GetRootPath();
+    const std::filesystem::path executableName = GetPlatformSlangExecutableName();
+
+    return {
+        rootPath / "Tools" / "Slang" / "bin" / executableName,
+        rootPath / "Binaries" / "ThirdParty" / "Slang" / "bin" / executableName,
+        rootPath / "Vendor" / "Slang" / "bin" / executableName,
+    };
+}
+
+bool ResolveSlangExecutable(const SlangCompilerConfig& config,
+                            ResolvedSlangExecutable* outExecutable,
+                            std::string* errorMessage)
+{
+    if (outExecutable == nullptr)
+    {
+        AssignSlangCompilerPlanningError(errorMessage, "ResolveSlangExecutable requires a valid output destination.");
+        return false;
+    }
+
+    if (const std::optional<std::string> environmentOverride =
+            GetEnvironmentVariable(config.m_ExecutableEnvironmentVariable);
+        environmentOverride.has_value() && !environmentOverride->empty())
+    {
+        outExecutable->m_Path = *environmentOverride;
+        outExecutable->m_Source = "environment variable " + config.m_ExecutableEnvironmentVariable;
+        return true;
+    }
+
+    if (!config.m_ExecutablePath.empty() && PathLooksExplicit(config.m_ExecutablePath))
+    {
+        if (std::filesystem::exists(config.m_ExecutablePath))
+        {
+            outExecutable->m_Path = config.m_ExecutablePath;
+            outExecutable->m_Source = "explicit SlangCompilerConfig path";
+            return true;
+        }
+
+        std::ostringstream message;
+        message << "Configured slangc executable path does not exist: " << config.m_ExecutablePath.generic_string()
+                << '.';
+        AssignSlangCompilerPlanningError(errorMessage, message.str());
+        return false;
+    }
+
+    for (const std::filesystem::path& fallbackPath : config.m_FallbackExecutablePaths)
+    {
+        if (fallbackPath.empty() || !std::filesystem::exists(fallbackPath))
+            continue;
+
+        outExecutable->m_Path = fallbackPath;
+        outExecutable->m_Source = "project-local fallback";
+        return true;
+    }
+
+    outExecutable->m_Path = config.m_ExecutablePath;
+    outExecutable->m_Source = "PATH lookup";
+    return true;
+}
+
 #if defined(_WIN32)
 std::string QuoteShellArgument(std::string_view argument)
 {
@@ -148,7 +253,8 @@ std::string QuoteShellArgument(std::string_view argument)
 std::string BuildCommandLine(const SlangCompilerConfig& config,
                              const SlangCompileJob& job,
                              const std::filesystem::path& outputPath,
-                             const std::filesystem::path& reflectionPath)
+                             const std::filesystem::path& reflectionPath,
+                             const std::filesystem::path& logPath)
 {
     std::ostringstream command;
     command << QuoteShellArgument(config.m_ExecutablePath.generic_string());
@@ -163,19 +269,69 @@ std::string BuildCommandLine(const SlangCompilerConfig& config,
     }
 
     command << ' ' << QuoteShellArgument("-o") << ' ' << QuoteShellArgument(outputPath.generic_string());
+    command << " > " << QuoteShellArgument(logPath.generic_string()) << " 2>&1";
     return command.str();
 }
 
-bool ExecuteCompileCommand(const std::string& commandLine, std::string* errorMessage)
+std::string BuildVersionProbeCommandLine(const std::filesystem::path& executablePath,
+                                         const std::filesystem::path& logPath)
+{
+    std::ostringstream command;
+    command << QuoteShellArgument(executablePath.generic_string()) << ' ' << QuoteShellArgument("-version");
+    command << " > " << QuoteShellArgument(logPath.generic_string()) << " 2>&1";
+    return command.str();
+}
+
+bool ExecuteCompileCommand(const std::string& commandLine,
+                           const std::filesystem::path& logPath,
+                           const std::filesystem::path& workingDirectory,
+                           const ResolvedSlangExecutable& executable,
+                           std::string* errorMessage)
 {
     const int exitCode = std::system(commandLine.c_str());
     if (exitCode == 0)
         return true;
 
+    const std::optional<std::string> compilerOutput = Resource::ReadTextFile(logPath);
     std::ostringstream message;
-    message << "slangc invocation failed with exit code " << exitCode << '.';
+    message << "slangc invocation failed with exit code " << exitCode
+            << ". Executable: " << executable.m_Path.generic_string() << " (" << executable.m_Source
+            << "). Working directory: " << workingDirectory.generic_string() << ". Command: " << commandLine;
+
+    if (compilerOutput.has_value() && !compilerOutput->empty())
+        message << " Compiler output: " << *compilerOutput;
+
     AssignSlangCompilerPlanningError(errorMessage, message.str());
     return false;
+}
+
+SlangCompilerProbeResult ProbeSlangCompiler(const ResolvedSlangExecutable& executable,
+                                            const std::filesystem::path& sessionDir)
+{
+    SlangCompilerProbeResult result;
+
+    const std::filesystem::path logPath = sessionDir / "slangc_probe.log";
+    const std::string commandLine = BuildVersionProbeCommandLine(executable.m_Path, logPath);
+    const int exitCode = std::system(commandLine.c_str());
+    const std::optional<std::string> compilerOutput = Resource::ReadTextFile(logPath);
+
+    if (exitCode != 0)
+    {
+        std::ostringstream message;
+        message << "Failed to execute slangc probe. Executable: " << executable.m_Path.generic_string() << " ("
+                << executable.m_Source << "). Command: " << commandLine;
+
+        if (compilerOutput.has_value() && !compilerOutput->empty())
+            message << " Compiler output: " << *compilerOutput;
+
+        result.m_ErrorMessage = message.str();
+        return result;
+    }
+
+    result.m_Succeeded = true;
+    if (compilerOutput.has_value())
+        result.m_VersionText = std::move(*compilerOutput);
+    return result;
 }
 
 bool MergeReflectionDocument(SlangReflectionDocument* destination,
@@ -306,6 +462,7 @@ SlangCompilerConfig CreateDefaultSlangCompilerConfig()
 {
     SlangCompilerConfig config;
     config.m_ExecutablePath = "slangc";
+    config.m_FallbackExecutablePaths = BuildDefaultFallbackExecutablePaths();
     return config;
 }
 
@@ -380,6 +537,17 @@ ShaderCompileResult SlangCompiler::CompileProgramImpl(const ShaderCompileRequest
     if (!BuildCompilePlan(request, &plan, &result.m_ErrorMessage))
         return result;
 
+    ResolvedSlangExecutable resolvedExecutable;
+    if (!ResolveSlangExecutable(m_Config, &resolvedExecutable, &result.m_ErrorMessage))
+        return result;
+
+    SlangCompilerConfig effectiveConfig = m_Config;
+    effectiveConfig.m_ExecutablePath = resolvedExecutable.m_Path;
+    LOG_INFO_CAT(LogCategory::k_Shader,
+                 "Using slangc executable from {}: {}",
+                 resolvedExecutable.m_Source,
+                 effectiveConfig.m_ExecutablePath.generic_string());
+
     std::error_code ec;
     const auto sessionStamp = std::chrono::steady_clock::now().time_since_epoch().count();
     const std::filesystem::path tempRoot = std::filesystem::temp_directory_path(ec);
@@ -393,8 +561,22 @@ ShaderCompileResult SlangCompiler::CompileProgramImpl(const ShaderCompileRequest
         return result;
     }
 
+    const SlangCompilerProbeResult probe = ProbeSlangCompiler(resolvedExecutable, sessionDir);
+    if (!probe.m_Succeeded)
+    {
+        result.m_ErrorMessage = probe.m_ErrorMessage;
+        return result;
+    }
+
     SlangReflectionDocument mergedReflectionDocument;
     bool sawReflection = false;
+
+    LOG_INFO_CAT(LogCategory::k_Shader,
+                 "Verified slangc executable from {}: {}",
+                 resolvedExecutable.m_Source,
+                 effectiveConfig.m_ExecutablePath.generic_string());
+    if (!probe.m_VersionText.empty())
+        LOG_INFO_CAT(LogCategory::k_Shader, "slangc version: {}", probe.m_VersionText);
 
     for (size_t jobIndex = 0; jobIndex < plan.m_Jobs.size(); ++jobIndex)
     {
@@ -410,9 +592,11 @@ ShaderCompileResult SlangCompiler::CompileProgramImpl(const ShaderCompileRequest
         const std::string stem = MakeJobStem(job, jobIndex);
         const std::filesystem::path outputPath = sessionDir / (stem + GetOutputExtension(job));
         const std::filesystem::path reflectionPath = sessionDir / (stem + ".reflect.json");
-        const std::string commandLine = BuildCommandLine(m_Config, job, outputPath, reflectionPath);
+        const std::filesystem::path logPath = sessionDir / (stem + ".slangc.log");
+        const std::string commandLine = BuildCommandLine(effectiveConfig, job, outputPath, reflectionPath, logPath);
 
-        if (!ExecuteCompileCommand(commandLine, &result.m_ErrorMessage))
+        if (!ExecuteCompileCommand(
+                commandLine, logPath, std::filesystem::current_path(), resolvedExecutable, &result.m_ErrorMessage))
         {
             result.m_Program = {};
             return result;

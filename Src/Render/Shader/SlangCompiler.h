@@ -12,6 +12,8 @@
 struct SlangCompilerConfig
 {
     std::filesystem::path m_ExecutablePath;
+    std::vector<std::filesystem::path> m_FallbackExecutablePaths;
+    std::string m_ExecutableEnvironmentVariable = "RTRLAB_SLANGC";
     std::vector<std::filesystem::path> m_IncludeSearchPaths;
     bool m_EmitReflectionJson = true;
     bool m_UseColumnMajorMatrices = true;
