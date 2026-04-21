@@ -21,6 +21,8 @@ public:
 
     virtual Scope<Buffer> CreateBuffer(const BufferDesc& desc) = 0;
     virtual Scope<Texture> CreateTexture(const TextureDesc& desc) = 0;
+    // Swapchain images expose their canonical views via Swapchain::GetImageView().
+    // Device::CreateTextureView is reserved for device-created textures.
     virtual Scope<TextureView> CreateTextureView(Texture* texture, const TextureViewDesc& desc) = 0;
     virtual Scope<Sampler> CreateSampler(const SamplerDesc& desc) = 0;
 

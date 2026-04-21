@@ -366,7 +366,9 @@ Scope<TextureView> OpenGLDevice::CreateTextureView(Texture* texture, const Textu
     RTRLAB_ASSERT_MSG(texture != nullptr, "OpenGL CreateTextureView requires a valid texture.");
 
     auto* sourceTexture = dynamic_cast<OpenGLTexture*>(texture);
-    RTRLAB_ASSERT_MSG(sourceTexture != nullptr, "Texture is not owned by the OpenGL backend.");
+    RTRLAB_ASSERT_MSG(sourceTexture != nullptr,
+                      "OpenGL CreateTextureView only accepts device-created textures. "
+                      "Swapchain images expose views via Swapchain::GetImageView().");
 
     const TextureDesc& sourceDesc = texture->GetDesc();
     const Format viewFormat = desc.m_Format == Format::Unknown ? sourceDesc.m_Format : desc.m_Format;

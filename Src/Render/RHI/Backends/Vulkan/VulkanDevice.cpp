@@ -495,14 +495,14 @@ uint32_t FindMemoryType(VkPhysicalDevice physicalDevice,
     return 0;
 }
 
-VkImage GetVkImageFromTexture(Texture* texture)
+VkImage GetVkImageFromOwnedTexture(Texture* texture)
 {
     if (auto* ownedTexture = dynamic_cast<VulkanTexture*>(texture))
         return ownedTexture->GetVkImage();
-    if (auto* swapchainTexture = dynamic_cast<VulkanSwapchainTexture*>(texture))
-        return swapchainTexture->GetVkImage();
 
-    RTRLAB_ASSERT_MSG(false, "Texture is not owned by the Vulkan backend.");
+    RTRLAB_ASSERT_MSG(false,
+                      "Vulkan CreateTextureView only accepts device-created textures. "
+                      "Swapchain images expose views via Swapchain::GetImageView().");
     return VK_NULL_HANDLE;
 }
 
@@ -1325,7 +1325,7 @@ Scope<TextureView> VulkanDevice::CreateTextureView(Texture* texture, const Textu
                                          : desc.m_ArrayLayerCount;
 
     VkImageViewCreateInfo createInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-    createInfo.image = GetVkImageFromTexture(texture);
+    createInfo.image = GetVkImageFromOwnedTexture(texture);
     createInfo.viewType = ToVkImageViewType(desc.m_Type);
     createInfo.format = ToVkFormat(viewFormat);
     createInfo.subresourceRange.aspectMask = ToVkImageAspect(desc.m_Aspect, viewFormat);

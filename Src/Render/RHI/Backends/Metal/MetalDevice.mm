@@ -633,7 +633,9 @@ Scope<TextureView> MetalDevice::CreateTextureView(Texture* texture, const Textur
     RTRLAB_ASSERT_MSG(texture != nullptr, "Metal CreateTextureView requires a valid texture.");
 
     auto* sourceTexture = dynamic_cast<MetalTexture*>(texture);
-    RTRLAB_ASSERT_MSG(sourceTexture != nullptr, "Texture is not owned by the Metal backend.");
+    RTRLAB_ASSERT_MSG(sourceTexture != nullptr,
+                      "Metal CreateTextureView only accepts device-created textures. "
+                      "Swapchain images expose views via Swapchain::GetImageView().");
 
     const TextureDesc& sourceDesc = texture->GetDesc();
     const Format viewFormat = desc.m_Format == Format::Unknown ? sourceDesc.m_Format : desc.m_Format;
