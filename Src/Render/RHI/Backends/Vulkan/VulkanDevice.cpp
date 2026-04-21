@@ -2,11 +2,16 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstring>
 #include <string>
 #include <vector>
 
 #include "Core/Diagnostics/Assert/Assert.h"
+
+#define VMA_STATIC_VULKAN_FUNCTIONS 0
+#define VMA_DYNAMIC_VULKAN_FUNCTIONS 0
+#include <vma/vk_mem_alloc.h>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -69,53 +74,49 @@ private:
 class VulkanBuffer final : public Buffer
 {
 public:
-    VulkanBuffer(VkDevice device, VkBuffer buffer, VkDeviceMemory memory, const BufferDesc& desc)
-        : m_Device(device), m_Buffer(buffer), m_Memory(memory), m_Desc(desc)
+    VulkanBuffer(VmaAllocator allocator, VkBuffer buffer, VmaAllocation allocation, const BufferDesc& desc)
+        : m_Allocator(allocator), m_Buffer(buffer), m_Allocation(allocation), m_Desc(desc)
     {
     }
 
     ~VulkanBuffer() override
     {
-        if (m_Device != VK_NULL_HANDLE && m_Buffer != VK_NULL_HANDLE)
-            vkDestroyBuffer(m_Device, m_Buffer, nullptr);
-        if (m_Device != VK_NULL_HANDLE && m_Memory != VK_NULL_HANDLE)
-            vkFreeMemory(m_Device, m_Memory, nullptr);
+        if (m_Allocator != nullptr && m_Buffer != VK_NULL_HANDLE)
+            vmaDestroyBuffer(m_Allocator, m_Buffer, m_Allocation);
     }
 
     const BufferDesc& GetDesc() const override { return m_Desc; }
     VkBuffer GetVkBuffer() const { return m_Buffer; }
-    VkDeviceMemory GetVkMemory() const { return m_Memory; }
+    VmaAllocation GetVmaAllocation() const { return m_Allocation; }
 
 private:
-    VkDevice m_Device = VK_NULL_HANDLE;
+    VmaAllocator m_Allocator = nullptr;
     VkBuffer m_Buffer = VK_NULL_HANDLE;
-    VkDeviceMemory m_Memory = VK_NULL_HANDLE;
+    VmaAllocation m_Allocation = nullptr;
     BufferDesc m_Desc;
 };
 
 class VulkanTexture final : public Texture
 {
 public:
-    VulkanTexture(VkDevice device, VkImage image, VkDeviceMemory memory, const TextureDesc& desc)
-        : m_Device(device), m_Image(image), m_Memory(memory), m_Desc(desc)
+    VulkanTexture(VmaAllocator allocator, VkImage image, VmaAllocation allocation, const TextureDesc& desc)
+        : m_Allocator(allocator), m_Image(image), m_Allocation(allocation), m_Desc(desc)
     {
     }
 
     ~VulkanTexture() override
     {
-        if (m_Device != VK_NULL_HANDLE && m_Image != VK_NULL_HANDLE)
-            vkDestroyImage(m_Device, m_Image, nullptr);
-        if (m_Device != VK_NULL_HANDLE && m_Memory != VK_NULL_HANDLE)
-            vkFreeMemory(m_Device, m_Memory, nullptr);
+        if (m_Allocator != nullptr && m_Image != VK_NULL_HANDLE)
+            vmaDestroyImage(m_Allocator, m_Image, m_Allocation);
     }
 
     const TextureDesc& GetDesc() const override { return m_Desc; }
     VkImage GetVkImage() const { return m_Image; }
 
 private:
-    VkDevice m_Device = VK_NULL_HANDLE;
+    VmaAllocator m_Allocator = nullptr;
     VkImage m_Image = VK_NULL_HANDLE;
-    VkDeviceMemory m_Memory = VK_NULL_HANDLE;
+    VmaAllocation m_Allocation = nullptr;
     TextureDesc m_Desc;
 };
 
@@ -732,63 +733,32 @@ VkImageAspectFlags ToVkImageAspect(TextureAspect aspect, Format format)
     return result;
 }
 
-VkMemoryPropertyFlags GetRequiredMemoryProperties(MemoryUsage memoryUsage)
+VmaMemoryUsage ToVmaMemoryUsage(MemoryUsage memoryUsage)
 {
     switch (memoryUsage)
     {
         case MemoryUsage::GpuOnly:
-            return VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+            return VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
         case MemoryUsage::CpuToGpu:
-            return VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
         case MemoryUsage::GpuToCpu:
-            return VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+            return VMA_MEMORY_USAGE_AUTO;
     }
 
-    return VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    return VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
 }
 
-VkMemoryPropertyFlags GetFallbackMemoryProperties(MemoryUsage memoryUsage)
+VmaAllocationCreateFlags ToVmaAllocationCreateFlags(MemoryUsage memoryUsage)
 {
     switch (memoryUsage)
     {
         case MemoryUsage::GpuOnly:
-            return VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+            return 0;
         case MemoryUsage::CpuToGpu:
-            return VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+            return VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
         case MemoryUsage::GpuToCpu:
-            return VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+            return VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
     }
 
-    return VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-}
-
-uint32_t FindMemoryType(VkPhysicalDevice physicalDevice,
-                        uint32_t memoryTypeBits,
-                        VkMemoryPropertyFlags requiredProperties,
-                        VkMemoryPropertyFlags fallbackProperties)
-{
-    VkPhysicalDeviceMemoryProperties memoryProperties{};
-    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
-
-    const auto matches = [memoryTypeBits, &memoryProperties](uint32_t index, VkMemoryPropertyFlags properties)
-    {
-        return ((memoryTypeBits & (1u << index)) != 0) &&
-               ((memoryProperties.memoryTypes[index].propertyFlags & properties) == properties);
-    };
-
-    for (uint32_t index = 0; index < memoryProperties.memoryTypeCount; ++index)
-    {
-        if (matches(index, requiredProperties))
-            return index;
-    }
-
-    for (uint32_t index = 0; index < memoryProperties.memoryTypeCount; ++index)
-    {
-        if (matches(index, fallbackProperties))
-            return index;
-    }
-
-    RTRLAB_ASSERT_MSG(false, "Failed to find a compatible Vulkan memory type.");
     return 0;
 }
 
@@ -1767,48 +1737,34 @@ Scope<Swapchain> VulkanDevice::CreateSwapchain(const SwapchainDesc& desc, const 
 
 Scope<Buffer> VulkanDevice::CreateBuffer(const BufferDesc& desc)
 {
-    // TRANSITIONAL(M3): Vulkan buffers still use raw vkCreateBuffer + vkAllocateMemory
-    // in the bring-up path. Once the backend-private VMA layer lands, this becomes
-    // vmaCreateBuffer(...); VulkanBuffer will hold a VmaAllocation instead of
-    // VkDeviceMemory, and teardown will move to vmaDestroyBuffer(...).
     InitializeDeviceObjects();
+    RTRLAB_ASSERT_MSG(m_Allocator != nullptr, "Vulkan buffer allocation requires an initialized VMA allocator.");
 
     VkBufferCreateInfo createInfo = MakeVkStruct<VkBufferCreateInfo, VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO>();
     createInfo.size = std::max<uint64_t>(desc.m_Size, 1);
     createInfo.usage = ToVkBufferUsage(desc.m_UsageMask);
     createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
+    VmaAllocationCreateInfo allocationCreateInfo{};
+    allocationCreateInfo.usage = ToVmaMemoryUsage(desc.m_MemoryUsage);
+    allocationCreateInfo.flags = ToVmaAllocationCreateFlags(desc.m_MemoryUsage);
+
     VkBuffer buffer = VK_NULL_HANDLE;
-    CheckVk(vkCreateBuffer(m_Device, &createInfo, nullptr, &buffer), "vkCreateBuffer");
-
-    VkMemoryRequirements memoryRequirements{};
-    vkGetBufferMemoryRequirements(m_Device, buffer, &memoryRequirements);
-
-    const VkMemoryPropertyFlags requiredProperties = GetRequiredMemoryProperties(desc.m_MemoryUsage);
-    const VkMemoryPropertyFlags fallbackProperties = GetFallbackMemoryProperties(desc.m_MemoryUsage);
-
-    VkMemoryAllocateInfo allocateInfo = MakeVkStruct<VkMemoryAllocateInfo, VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO>();
-    allocateInfo.allocationSize = memoryRequirements.size;
-    allocateInfo.memoryTypeIndex =
-        FindMemoryType(m_PhysicalDevice, memoryRequirements.memoryTypeBits, requiredProperties, fallbackProperties);
-
-    VkDeviceMemory memory = VK_NULL_HANDLE;
-    CheckVk(vkAllocateMemory(m_Device, &allocateInfo, nullptr, &memory), "vkAllocateMemory(buffer)");
-    CheckVk(vkBindBufferMemory(m_Device, buffer, memory, 0), "vkBindBufferMemory");
+    VmaAllocation allocation = nullptr;
+    CheckVk(vmaCreateBuffer(m_Allocator, &createInfo, &allocationCreateInfo, &buffer, &allocation, nullptr),
+            "vmaCreateBuffer");
     SetVulkanDebugName(m_Device, VK_OBJECT_TYPE_BUFFER, reinterpret_cast<uint64_t>(buffer), desc.m_DebugName);
 
-    return CreateScope<VulkanBuffer>(m_Device, buffer, memory, desc);
+    return CreateScope<VulkanBuffer>(m_Allocator, buffer, allocation, desc);
 }
 
 Scope<Texture> VulkanDevice::CreateTexture(const TextureDesc& desc)
 {
     // TRANSITIONAL(M3): TextureDesc does not expose residency policy yet, so the
-    // bring-up path always creates device-local optimal-tiled images. CPU uploads
-    // will go through staging-buffer + vkCmdCopyBufferToImage in the next batch.
-    // After the Vulkan memory layer lands, this becomes vmaCreateImage(...);
-    // VulkanTexture will hold a VmaAllocation instead of VkDeviceMemory, while
-    // still mapping TextureDesc to device-local image allocations by default.
+    // backend still creates optimal-tiled device-local images by default even
+    // though allocation is now routed through VMA.
     InitializeDeviceObjects();
+    RTRLAB_ASSERT_MSG(m_Allocator != nullptr, "Vulkan texture allocation requires an initialized VMA allocator.");
 
     VkImageCreateInfo createInfo = MakeVkStruct<VkImageCreateInfo, VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO>();
     createInfo.imageType = ToVkImageType(desc.m_Type);
@@ -1829,25 +1785,16 @@ Scope<Texture> VulkanDevice::CreateTexture(const TextureDesc& desc)
                           "Cube textures require arrayLayers to be a multiple of 6.");
     }
 
+    VmaAllocationCreateInfo allocationCreateInfo{};
+    allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+
     VkImage image = VK_NULL_HANDLE;
-    CheckVk(vkCreateImage(m_Device, &createInfo, nullptr, &image), "vkCreateImage");
-
-    VkMemoryRequirements memoryRequirements{};
-    vkGetImageMemoryRequirements(m_Device, image, &memoryRequirements);
-
-    VkMemoryAllocateInfo allocateInfo = MakeVkStruct<VkMemoryAllocateInfo, VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO>();
-    allocateInfo.allocationSize = memoryRequirements.size;
-    allocateInfo.memoryTypeIndex = FindMemoryType(m_PhysicalDevice,
-                                                  memoryRequirements.memoryTypeBits,
-                                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-    VkDeviceMemory memory = VK_NULL_HANDLE;
-    CheckVk(vkAllocateMemory(m_Device, &allocateInfo, nullptr, &memory), "vkAllocateMemory(texture)");
-    CheckVk(vkBindImageMemory(m_Device, image, memory, 0), "vkBindImageMemory");
+    VmaAllocation allocation = nullptr;
+    CheckVk(vmaCreateImage(m_Allocator, &createInfo, &allocationCreateInfo, &image, &allocation, nullptr),
+            "vmaCreateImage");
     SetVulkanDebugName(m_Device, VK_OBJECT_TYPE_IMAGE, reinterpret_cast<uint64_t>(image), desc.m_DebugName);
 
-    return CreateScope<VulkanTexture>(m_Device, image, memory, desc);
+    return CreateScope<VulkanTexture>(m_Allocator, image, allocation, desc);
 }
 
 Scope<TextureView> VulkanDevice::CreateTextureView(Texture* texture, const TextureViewDesc& desc)
@@ -2131,6 +2078,7 @@ void VulkanDevice::WriteBuffer(Buffer* buffer, uint64_t offset, const void* data
 {
     // TRANSITIONAL(M3): Demo-only direct host upload path for early bring-up.
     InitializeDeviceObjects();
+    RTRLAB_ASSERT_MSG(m_Allocator != nullptr, "Vulkan WriteBuffer requires an initialized VMA allocator.");
 
     if (size == 0)
         return;
@@ -2145,9 +2093,10 @@ void VulkanDevice::WriteBuffer(Buffer* buffer, uint64_t offset, const void* data
     RTRLAB_ASSERT_MSG(offset + size <= desc.m_Size, "Vulkan WriteBuffer range exceeds the buffer size.");
 
     void* mappedData = nullptr;
-    CheckVk(vkMapMemory(m_Device, vulkanBuffer.GetVkMemory(), offset, size, 0, &mappedData), "vkMapMemory");
-    std::memcpy(mappedData, data, static_cast<size_t>(size));
-    vkUnmapMemory(m_Device, vulkanBuffer.GetVkMemory());
+    CheckVk(vmaMapMemory(m_Allocator, vulkanBuffer.GetVmaAllocation(), &mappedData), "vmaMapMemory");
+    std::memcpy(static_cast<std::byte*>(mappedData) + offset, data, static_cast<size_t>(size));
+    CheckVk(vmaFlushAllocation(m_Allocator, vulkanBuffer.GetVmaAllocation(), offset, size), "vmaFlushAllocation");
+    vmaUnmapMemory(m_Allocator, vulkanBuffer.GetVmaAllocation());
 }
 
 CommandList* VulkanDevice::BeginCommandList()
@@ -2333,6 +2282,7 @@ void VulkanDevice::InitializeDeviceObjects()
 
     vkGetDeviceQueue(m_Device, m_GraphicsQueueFamily, 0, &m_GraphicsQueue);
     m_PresentQueue = m_GraphicsQueue;
+    InitializeAllocator();
 
     VkCommandPoolCreateInfo commandPoolCreateInfo =
         MakeVkStruct<VkCommandPoolCreateInfo, VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO>();
@@ -2404,6 +2354,7 @@ void VulkanDevice::InitializeDeviceObjectsForSurface(VkSurfaceKHR surface)
 
     vkGetDeviceQueue(m_Device, m_GraphicsQueueFamily, 0, &m_GraphicsQueue);
     vkGetDeviceQueue(m_Device, m_PresentQueueFamily, 0, &m_PresentQueue);
+    InitializeAllocator();
 
     VkCommandPoolCreateInfo commandPoolCreateInfo =
         MakeVkStruct<VkCommandPoolCreateInfo, VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO>();
@@ -2435,6 +2386,38 @@ void VulkanDevice::InitializeFrameSyncObjects()
         CheckVk(vkCreateFence(m_Device, &fenceCreateInfo, nullptr, &frameSync.m_InFlightFence),
                 "vkCreateFence(inFlight)");
     }
+}
+
+void VulkanDevice::InitializeAllocator()
+{
+    if (m_Allocator != nullptr)
+        return;
+
+    RTRLAB_ASSERT_MSG(m_Instance != VK_NULL_HANDLE, "Vulkan VMA allocator requires a valid instance.");
+    RTRLAB_ASSERT_MSG(m_PhysicalDevice != VK_NULL_HANDLE, "Vulkan VMA allocator requires a physical device.");
+    RTRLAB_ASSERT_MSG(m_Device != VK_NULL_HANDLE, "Vulkan VMA allocator requires a logical device.");
+
+    VmaAllocatorCreateInfo allocatorCreateInfo{};
+    allocatorCreateInfo.instance = m_Instance;
+    allocatorCreateInfo.physicalDevice = m_PhysicalDevice;
+    allocatorCreateInfo.device = m_Device;
+    allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_3;
+
+    VmaVulkanFunctions vulkanFunctions{};
+    CheckVk(vmaImportVulkanFunctionsFromVolk(&allocatorCreateInfo, &vulkanFunctions),
+            "vmaImportVulkanFunctionsFromVolk");
+    allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
+
+    CheckVk(vmaCreateAllocator(&allocatorCreateInfo, &m_Allocator), "vmaCreateAllocator");
+}
+
+void VulkanDevice::ShutdownAllocator()
+{
+    if (m_Allocator == nullptr)
+        return;
+
+    vmaDestroyAllocator(m_Allocator);
+    m_Allocator = nullptr;
 }
 
 void VulkanDevice::ShutdownFrameSyncObjects()
@@ -2515,6 +2498,8 @@ void VulkanDevice::ShutdownDeviceObjects()
         vkDeviceWaitIdle(m_Device);
 
     m_CommandList.Shutdown();
+
+    ShutdownAllocator();
 
     if (m_CommandPool != VK_NULL_HANDLE)
     {

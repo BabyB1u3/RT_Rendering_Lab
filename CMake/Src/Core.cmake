@@ -78,6 +78,7 @@ endif()
 if(GLAB_BACKEND_VULKAN)
     target_link_libraries(RTRLabCore PUBLIC
         volk
+        vma
     )
 
     target_compile_definitions(RTRLabCore PUBLIC
