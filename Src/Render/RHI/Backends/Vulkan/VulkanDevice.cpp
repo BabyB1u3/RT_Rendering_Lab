@@ -284,11 +284,13 @@ class VulkanResourceSet final : public ResourceSet
 {
 public:
     VulkanResourceSet(VkDevice device,
+                      VmaAllocator allocator,
                       PipelineLayout* layout,
                       uint32_t setIndex,
                       VkDescriptorPool descriptorPool,
                       VkDescriptorSet descriptorSet)
         : m_Device(device),
+          m_Allocator(allocator),
           m_Layout(layout),
           m_SetIndex(setIndex),
           m_DescriptorPool(descriptorPool),
@@ -298,6 +300,8 @@ public:
 
     ~VulkanResourceSet() override
     {
+        DestroyConstantBuffer();
+
         if (m_Device != VK_NULL_HANDLE && m_DescriptorPool != VK_NULL_HANDLE)
             vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
     }
@@ -311,8 +315,11 @@ public:
         if (size == 0)
             return;
 
-        ValidateConstantBindingExists();
+        const BindingInfo& bindingInfo = RequireConstantBindingInfo();
         m_Constants.SetRaw(offset, data, size);
+        EnsureConstantBufferCapacity(m_Constants.GetSize());
+        UploadConstantData(offset, data, size);
+        WriteConstantDescriptor(bindingInfo);
         ++m_Version;
     }
 
@@ -388,6 +395,18 @@ private:
                        m_SetIndex);
     }
 
+    const BindingInfo& RequireConstantBindingInfo() const
+    {
+        ValidateConstantBindingExists();
+        const BindingInfo* bindingInfo =
+            RHIInternal::FindFirstBindingInfoForSet(m_Layout->GetDesc(), m_SetIndex, ResourceKind::UniformBuffer);
+        RTRLAB_ASSERT_MSG(bindingInfo != nullptr, "Vulkan ResourceSet failed to resolve its UniformBuffer binding.");
+        RTRLAB_ASSERT_MSG(bindingInfo->m_ArrayCount <= 1,
+                          "Vulkan ResourceSet constant uploads currently only support non-array UniformBuffer "
+                          "bindings.");
+        return *bindingInfo;
+    }
+
     void WriteBufferDescriptor(const BindingInfo& bindingInfo, const BufferBinding& bufferBinding)
     {
         RTRLAB_ASSERT_MSG(bindingInfo.m_ArrayCount <= 1,
@@ -460,12 +479,94 @@ private:
         vkUpdateDescriptorSets(m_Device, 1, &write, 0, nullptr);
     }
 
+    void EnsureConstantBufferCapacity(size_t requiredSize)
+    {
+        const VkDeviceSize minimumSize = static_cast<VkDeviceSize>(std::max<size_t>(requiredSize, 1));
+        if (m_ConstantBuffer != VK_NULL_HANDLE && m_ConstantBufferSize >= minimumSize)
+            return;
+
+        DestroyConstantBuffer();
+
+        VkBufferCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        createInfo.size = minimumSize;
+        createInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+        createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+        VmaAllocationCreateInfo allocationCreateInfo{};
+        allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+        allocationCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+
+        const VkResult result = vmaCreateBuffer(
+            m_Allocator, &createInfo, &allocationCreateInfo, &m_ConstantBuffer, &m_ConstantAllocation, nullptr);
+        RTRLAB_ASSERTF(result == VK_SUCCESS,
+                       "vmaCreateBuffer(ResourceSet constants) failed with VkResult={}",
+                       static_cast<int>(result));
+        m_ConstantBufferSize = minimumSize;
+    }
+
+    void UploadConstantData(uint32_t offset, const void* data, size_t size)
+    {
+        RTRLAB_ASSERT_MSG(m_Allocator != nullptr, "Vulkan ResourceSet constant uploads require a valid VMA allocator.");
+        RTRLAB_ASSERT_MSG(m_ConstantBuffer != VK_NULL_HANDLE,
+                          "Vulkan ResourceSet constant uploads require an allocated uniform buffer.");
+        RTRLAB_ASSERT_MSG(static_cast<VkDeviceSize>(offset + size) <= m_ConstantBufferSize,
+                          "Vulkan ResourceSet constant upload range exceeds the uniform buffer size.");
+
+        void* mappedData = nullptr;
+        VkResult result = vmaMapMemory(m_Allocator, m_ConstantAllocation, &mappedData);
+        RTRLAB_ASSERTF(result == VK_SUCCESS,
+                       "vmaMapMemory(ResourceSet constants) failed with VkResult={}",
+                       static_cast<int>(result));
+        std::memcpy(static_cast<std::byte*>(mappedData) + offset, data, size);
+        result = vmaFlushAllocation(m_Allocator, m_ConstantAllocation, offset, size);
+        RTRLAB_ASSERTF(result == VK_SUCCESS,
+                       "vmaFlushAllocation(ResourceSet constants) failed with VkResult={}",
+                       static_cast<int>(result));
+        vmaUnmapMemory(m_Allocator, m_ConstantAllocation);
+    }
+
+    void WriteConstantDescriptor(const BindingInfo& bindingInfo)
+    {
+        RTRLAB_ASSERT_MSG(m_ConstantBuffer != VK_NULL_HANDLE,
+                          "Vulkan ResourceSet constant descriptor writes require an allocated uniform buffer.");
+
+        VkDescriptorBufferInfo bufferInfo{};
+        bufferInfo.buffer = m_ConstantBuffer;
+        bufferInfo.offset = 0;
+        bufferInfo.range = static_cast<VkDeviceSize>(std::max<size_t>(m_Constants.GetSize(), 1));
+
+        VkWriteDescriptorSet write{};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = m_DescriptorSet;
+        write.dstBinding = bindingInfo.m_Binding;
+        write.descriptorCount = 1;
+        write.descriptorType = ToDescriptorType(bindingInfo.m_Kind);
+        write.pBufferInfo = &bufferInfo;
+
+        vkUpdateDescriptorSets(m_Device, 1, &write, 0, nullptr);
+    }
+
+    void DestroyConstantBuffer()
+    {
+        if (m_Allocator != nullptr && m_ConstantBuffer != VK_NULL_HANDLE)
+            vmaDestroyBuffer(m_Allocator, m_ConstantBuffer, m_ConstantAllocation);
+
+        m_ConstantBuffer = VK_NULL_HANDLE;
+        m_ConstantAllocation = nullptr;
+        m_ConstantBufferSize = 0;
+    }
+
 private:
     VkDevice m_Device = VK_NULL_HANDLE;
+    VmaAllocator m_Allocator = nullptr;
     PipelineLayout* m_Layout = nullptr;
     uint32_t m_SetIndex = 0;
     VkDescriptorPool m_DescriptorPool = VK_NULL_HANDLE;
     VkDescriptorSet m_DescriptorSet = VK_NULL_HANDLE;
+    VkBuffer m_ConstantBuffer = VK_NULL_HANDLE;
+    VmaAllocation m_ConstantAllocation = nullptr;
+    VkDeviceSize m_ConstantBufferSize = 0;
     ParameterBlockData m_Constants;
     std::unordered_map<uint32_t, BufferBinding> m_BufferBindings;
     std::unordered_map<uint32_t, TextureBinding> m_TextureBindings;
@@ -2245,7 +2346,7 @@ Scope<ResourceSet> VulkanDevice::CreateResourceSet(PipelineLayout* layout, uint3
 
     VkDescriptorPool descriptorPool = CreateVkDescriptorPoolForSet(m_Device, pipelineLayout.GetDesc(), setIndex);
     VkDescriptorSet descriptorSet = AllocateVkDescriptorSet(m_Device, descriptorPool, pipelineLayout, setIndex);
-    return CreateScope<VulkanResourceSet>(m_Device, layout, setIndex, descriptorPool, descriptorSet);
+    return CreateScope<VulkanResourceSet>(m_Device, m_Allocator, layout, setIndex, descriptorPool, descriptorSet);
 }
 
 Scope<VertexInputLayout> VulkanDevice::CreateVertexInputLayout(const VertexInputLayoutDesc& desc)
