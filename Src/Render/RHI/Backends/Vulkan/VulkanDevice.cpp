@@ -1153,11 +1153,17 @@ Scope<Buffer> VulkanDevice::CreateBuffer(const BufferDesc& desc)
 
 Scope<Texture> VulkanDevice::CreateTexture(const TextureDesc& desc)
 {
-    // TRANSITIONAL(M3): Vulkan texture allocation shares the same raw-memory path as
-    // CreateBuffer within this milestone. VMA will replace the manual allocation/bind
-    // sequence once the dedicated Vulkan memory layer is introduced.
+    // TRANSITIONAL(M3): textures are GpuOnly-only for this milestone. Real
+    // CPU->GPU uploads land in the next shader/upload batch as staging-buffer +
+    // vkCmdCopyBufferToImage; HOST_VISIBLE textures would require
+    // VK_IMAGE_TILING_LINEAR, which carries format/mip/type restrictions we do
+    // not want to expose in the public API. After VMA lands, this path still
+    // maps to device-local texture allocations, just through vmaCreateImage(...).
     RTRLAB_ASSERT_MSG(m_Device != VK_NULL_HANDLE,
                       "Vulkan CreateTexture currently requires a swapchain-initialized device.");
+    RTRLAB_ASSERT_MSG(desc.m_MemoryUsage == MemoryUsage::GpuOnly,
+                      "Vulkan textures currently require MemoryUsage::GpuOnly; use a staging buffer for CPU->GPU "
+                      "texture uploads.");
 
     VkImageCreateInfo createInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
     createInfo.imageType = ToVkImageType(desc.m_Type);

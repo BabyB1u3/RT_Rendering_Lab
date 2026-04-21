@@ -562,6 +562,14 @@ Scope<Texture> MetalDevice::CreateTexture(const TextureDesc& desc)
 {
     RTRLAB_ASSERT_MSG(m_Data != nullptr && m_Data->m_Device != nil,
                       "Metal device must be initialized before CreateTexture.");
+    // TRANSITIONAL(M3): mirrors Vulkan - textures are GpuOnly-only in this
+    // milestone. CPU->GPU uploads will go through staging/upload paths in the
+    // next batch, while render-target textures remain Private storage. When the
+    // upload path lands, desc.m_MemoryUsage will map to the appropriate Metal
+    // storage mode instead of asserting here.
+    RTRLAB_ASSERT_MSG(desc.m_MemoryUsage == MemoryUsage::GpuOnly,
+                      "Metal textures currently require MemoryUsage::GpuOnly; use a staging buffer for CPU->GPU "
+                      "texture uploads.");
 
     MTLTextureDescriptor* textureDesc = [[MTLTextureDescriptor alloc] init];
     textureDesc.textureType = ToMetalTextureType(desc.m_Type);
@@ -571,7 +579,7 @@ Scope<Texture> MetalDevice::CreateTexture(const TextureDesc& desc)
     textureDesc.depth = desc.m_Type == TextureType::Tex3D ? std::max(desc.m_Extent.m_Depth, 1u) : 1u;
     textureDesc.mipmapLevelCount = std::max(desc.m_MipLevels, 1u);
     textureDesc.arrayLength = desc.m_Type == TextureType::Tex2DArray ? std::max(desc.m_ArrayLayers, 1u) : 1u;
-    textureDesc.storageMode = ToMetalStorageMode(MemoryUsage::GpuOnly);
+    textureDesc.storageMode = ToMetalStorageMode(desc.m_MemoryUsage);
     textureDesc.usage = MTLTextureUsageUnknown;
     if ((desc.m_UsageMask & TextureUsage::Sampled) != TextureUsage::None)
         textureDesc.usage |= MTLTextureUsageShaderRead;
@@ -600,33 +608,33 @@ Scope<TextureView> MetalDevice::CreateTextureView(Texture* texture, const Textur
     const Format viewFormat = desc.m_Format == Format::Unknown ? sourceDesc.m_Format : desc.m_Format;
     const NSUInteger mipLevelCount =
         desc.m_MipLevelCount == 0 ? std::max(sourceDesc.m_MipLevels - desc.m_BaseMipLevel, 1u) : desc.m_MipLevelCount;
-    const NSUInteger arrayLayerCount = desc.m_ArrayLayerCount == 0
-                                           ? std::max(sourceDesc.m_ArrayLayers - desc.m_BaseArrayLayer, 1u)
-                                           : desc.m_ArrayLayerCount;
-
-    id<MTLTexture> textureView = nil;
+    NSUInteger baseArrayLayer = 0;
+    NSUInteger arrayLayerCount = 0;
     if (desc.m_Type == TextureType::Tex3D)
     {
-        textureView = [sourceTexture->GetMetalTexture()
-            newTextureViewWithPixelFormat:ToMetalPixelFormat(viewFormat)
-                              textureType:ToMetalTextureType(desc.m_Type)
-                                   levels:NSMakeRange(desc.m_BaseMipLevel, mipLevelCount)
-                                   slices:NSMakeRange(0, 1)];
+        RTRLAB_ASSERT_MSG(desc.m_BaseArrayLayer == 0 && (desc.m_ArrayLayerCount == 0 || desc.m_ArrayLayerCount == 1),
+                          "Metal Tex3D views must have BaseArrayLayer=0 and ArrayLayerCount in {0,1}.");
+        baseArrayLayer = 0;
+        arrayLayerCount = 1;
     }
     else
     {
-        textureView = [sourceTexture->GetMetalTexture()
-            newTextureViewWithPixelFormat:ToMetalPixelFormat(viewFormat)
-                              textureType:ToMetalTextureType(desc.m_Type)
-                                   levels:NSMakeRange(desc.m_BaseMipLevel, mipLevelCount)
-                                   slices:NSMakeRange(desc.m_BaseArrayLayer, arrayLayerCount)];
+        baseArrayLayer = desc.m_BaseArrayLayer;
+        arrayLayerCount = desc.m_ArrayLayerCount == 0 ? std::max(sourceDesc.m_ArrayLayers - desc.m_BaseArrayLayer, 1u)
+                                                      : desc.m_ArrayLayerCount;
     }
 
+    id<MTLTexture> textureView =
+        [sourceTexture->GetMetalTexture() newTextureViewWithPixelFormat:ToMetalPixelFormat(viewFormat)
+                                                            textureType:ToMetalTextureType(desc.m_Type)
+                                                                 levels:NSMakeRange(desc.m_BaseMipLevel, mipLevelCount)
+                                                                 slices:NSMakeRange(baseArrayLayer, arrayLayerCount)];
     RTRLAB_ASSERT_MSG(textureView != nil, "Failed to create the Metal texture view.");
 
     TextureViewDesc resolvedDesc = desc;
     resolvedDesc.m_Format = viewFormat;
     resolvedDesc.m_MipLevelCount = static_cast<uint32_t>(mipLevelCount);
+    resolvedDesc.m_BaseArrayLayer = static_cast<uint32_t>(baseArrayLayer);
     resolvedDesc.m_ArrayLayerCount = static_cast<uint32_t>(arrayLayerCount);
     auto result = CreateScope<MetalTextureView>(texture, textureView, resolvedDesc);
     [textureView release];
