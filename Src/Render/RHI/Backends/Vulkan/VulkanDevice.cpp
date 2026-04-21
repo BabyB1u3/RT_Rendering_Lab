@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <string>
 #include <vector>
 
 #include "Core/Diagnostics/Assert/Assert.h"
@@ -268,6 +269,33 @@ bool IsDepthFormat(Format format)
     }
 }
 
+bool HasDebugName(const char* debugName)
+{
+    return debugName != nullptr && debugName[0] != '\0';
+}
+
+void SetVulkanDebugName(VkDevice device, VkObjectType objectType, uint64_t objectHandle, const char* debugName)
+{
+    if (device == VK_NULL_HANDLE || objectHandle == 0 || !HasDebugName(debugName) ||
+        vkSetDebugUtilsObjectNameEXT == nullptr)
+        return;
+
+    VkDebugUtilsObjectNameInfoEXT nameInfo{VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
+    nameInfo.objectType = objectType;
+    nameInfo.objectHandle = objectHandle;
+    nameInfo.pObjectName = debugName;
+    CheckVk(vkSetDebugUtilsObjectNameEXT(device, &nameInfo), "vkSetDebugUtilsObjectNameEXT");
+}
+
+std::string MakeTextureViewDebugName(const Texture& texture)
+{
+    const char* debugName = texture.GetDesc().m_DebugName;
+    if (!HasDebugName(debugName))
+        return {};
+
+    return std::string(debugName) + ".View";
+}
+
 bool HasStencilComponent(Format format)
 {
     return format == Format::D24_UNORM_S8_UINT || format == Format::D32_SFLOAT_S8_UINT;
@@ -503,7 +531,7 @@ std::vector<const char*> GetRequiredInstanceExtensions(NativeWindowSystem system
 
 std::vector<const char*> GetPlatformInstanceExtensionCandidates()
 {
-    std::vector<const char*> extensions = {VK_KHR_SURFACE_EXTENSION_NAME};
+    std::vector<const char*> extensions = {VK_KHR_SURFACE_EXTENSION_NAME, VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
 
 #if defined(_WIN32)
     extensions.push_back("VK_KHR_win32_surface");
@@ -1146,6 +1174,7 @@ void VulkanSwapchain::RecreateSwapchain(VkSwapchainKHR oldSwapchain)
     for (VkImage image : swapchainImages)
     {
         auto swapchainTexture = CreateScope<VulkanSwapchainTexture>(image, imageDesc);
+        SetVulkanDebugName(device, VK_OBJECT_TYPE_IMAGE, reinterpret_cast<uint64_t>(image), imageDesc.m_DebugName);
 
         VkImageViewCreateInfo viewCreateInfo{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
         viewCreateInfo.image = image;
@@ -1163,6 +1192,8 @@ void VulkanSwapchain::RecreateSwapchain(VkSwapchainKHR oldSwapchain)
 
         VkImageView imageView = VK_NULL_HANDLE;
         CheckVk(vkCreateImageView(device, &viewCreateInfo, nullptr, &imageView), "vkCreateImageView");
+        SetVulkanDebugName(
+            device, VK_OBJECT_TYPE_IMAGE_VIEW, reinterpret_cast<uint64_t>(imageView), "VulkanSwapchainImage.View");
 
         TextureViewDesc viewDesc;
         viewDesc.m_Type = TextureType::Tex2D;
@@ -1220,9 +1251,10 @@ Scope<Swapchain> VulkanDevice::CreateSwapchain(const SwapchainDesc& desc, const 
 
 Scope<Buffer> VulkanDevice::CreateBuffer(const BufferDesc& desc)
 {
-    // TRANSITIONAL(M3): Vulkan buffer allocation still uses raw vkAllocateMemory within
-    // this milestone. Replace this path with the backend-private VMA allocator described
-    // in RHI_Backend_Vulkan.md once the Vulkan memory layer is landed.
+    // TRANSITIONAL(M3): Vulkan buffers still use raw vkCreateBuffer + vkAllocateMemory
+    // in the bring-up path. Once the backend-private VMA layer lands, this becomes
+    // vmaCreateBuffer(...); VulkanBuffer will hold a VmaAllocation instead of
+    // VkDeviceMemory, and teardown will move to vmaDestroyBuffer(...).
     InitializeDeviceObjects();
 
     VkBufferCreateInfo createInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
@@ -1247,18 +1279,19 @@ Scope<Buffer> VulkanDevice::CreateBuffer(const BufferDesc& desc)
     VkDeviceMemory memory = VK_NULL_HANDLE;
     CheckVk(vkAllocateMemory(m_Device, &allocateInfo, nullptr, &memory), "vkAllocateMemory(buffer)");
     CheckVk(vkBindBufferMemory(m_Device, buffer, memory, 0), "vkBindBufferMemory");
+    SetVulkanDebugName(m_Device, VK_OBJECT_TYPE_BUFFER, reinterpret_cast<uint64_t>(buffer), desc.m_DebugName);
 
     return CreateScope<VulkanBuffer>(m_Device, buffer, memory, desc);
 }
 
 Scope<Texture> VulkanDevice::CreateTexture(const TextureDesc& desc)
 {
-    // TRANSITIONAL(M3): TextureDesc does not expose a residency / memory-usage
-    // policy yet, so v1 Vulkan textures are always created as device-local
-    // optimal-tiled images. CPU->GPU uploads will land in the next
-    // shader/upload batch as staging-buffer + vkCmdCopyBufferToImage. After VMA
-    // lands, this path still maps to device-local texture allocations, just
-    // through vmaCreateImage(...).
+    // TRANSITIONAL(M3): TextureDesc does not expose residency policy yet, so the
+    // bring-up path always creates device-local optimal-tiled images. CPU uploads
+    // will go through staging-buffer + vkCmdCopyBufferToImage in the next batch.
+    // After the Vulkan memory layer lands, this becomes vmaCreateImage(...);
+    // VulkanTexture will hold a VmaAllocation instead of VkDeviceMemory, while
+    // still mapping TextureDesc to device-local image allocations by default.
     InitializeDeviceObjects();
 
     VkImageCreateInfo createInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
@@ -1296,6 +1329,7 @@ Scope<Texture> VulkanDevice::CreateTexture(const TextureDesc& desc)
     VkDeviceMemory memory = VK_NULL_HANDLE;
     CheckVk(vkAllocateMemory(m_Device, &allocateInfo, nullptr, &memory), "vkAllocateMemory(texture)");
     CheckVk(vkBindImageMemory(m_Device, image, memory, 0), "vkBindImageMemory");
+    SetVulkanDebugName(m_Device, VK_OBJECT_TYPE_IMAGE, reinterpret_cast<uint64_t>(image), desc.m_DebugName);
 
     return CreateScope<VulkanTexture>(m_Device, image, memory, desc);
 }
@@ -1325,6 +1359,8 @@ Scope<TextureView> VulkanDevice::CreateTextureView(Texture* texture, const Textu
 
     VkImageView imageView = VK_NULL_HANDLE;
     CheckVk(vkCreateImageView(m_Device, &createInfo, nullptr, &imageView), "vkCreateImageView(texture)");
+    const std::string debugName = MakeTextureViewDebugName(*texture);
+    SetVulkanDebugName(m_Device, VK_OBJECT_TYPE_IMAGE_VIEW, reinterpret_cast<uint64_t>(imageView), debugName.c_str());
 
     TextureViewDesc resolvedDesc = desc;
     resolvedDesc.m_Format = viewFormat;

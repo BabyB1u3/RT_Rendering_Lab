@@ -1,6 +1,7 @@
 #include "Render/RHI/Backends/Metal/MetalDevice.h"
 
 #include <algorithm>
+#include <string>
 
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
@@ -146,6 +147,35 @@ MTLStoreAction ToMetalStoreAction(StoreOp storeOp)
         default:
             return MTLStoreActionStore;
     }
+}
+
+bool HasDebugName(const char* debugName)
+{
+    return debugName != nullptr && debugName[0] != '\0';
+}
+
+NSString* MakeNSString(const char* debugName)
+{
+    if (!HasDebugName(debugName))
+        return nil;
+
+    return [NSString stringWithUTF8String:debugName];
+}
+
+void SetMetalDebugLabel(id<MTLResource> resource, const char* debugName)
+{
+    NSString* label = MakeNSString(debugName);
+    if (resource != nil && label != nil)
+        [resource setLabel:label];
+}
+
+std::string MakeTextureViewDebugName(const Texture& texture)
+{
+    const char* debugName = texture.GetDesc().m_DebugName;
+    if (!HasDebugName(debugName))
+        return {};
+
+    return std::string(debugName) + ".View";
 }
 } // namespace
 
@@ -434,6 +464,7 @@ uint32_t MetalSwapchain::AcquireNextImage()
     imageDesc.m_ArrayLayers = 1;
     imageDesc.m_UsageMask = TextureUsage::RenderTarget;
     imageDesc.m_DebugName = "MetalSwapchainImage";
+    SetMetalDebugLabel(drawable.texture, imageDesc.m_DebugName);
 
     auto image = CreateScope<MetalSwapchainTexture>(drawable.texture, imageDesc);
 
@@ -553,6 +584,7 @@ Scope<Buffer> MetalDevice::CreateBuffer(const BufferDesc& desc)
 
     id<MTLBuffer> buffer = [m_Data->m_Device newBufferWithLength:size options:options];
     RTRLAB_ASSERT_MSG(buffer != nil, "Failed to create the Metal buffer.");
+    SetMetalDebugLabel(buffer, desc.m_DebugName);
     auto result = CreateScope<MetalBuffer>(buffer, desc);
     [buffer release];
     return result;
@@ -590,6 +622,7 @@ Scope<Texture> MetalDevice::CreateTexture(const TextureDesc& desc)
     id<MTLTexture> texture = [m_Data->m_Device newTextureWithDescriptor:textureDesc];
     [textureDesc release];
     RTRLAB_ASSERT_MSG(texture != nil, "Failed to create the Metal texture.");
+    SetMetalDebugLabel(texture, desc.m_DebugName);
     auto result = CreateScope<MetalTexture>(texture, desc);
     [texture release];
     return result;
@@ -628,6 +661,8 @@ Scope<TextureView> MetalDevice::CreateTextureView(Texture* texture, const Textur
                                                                  levels:NSMakeRange(desc.m_BaseMipLevel, mipLevelCount)
                                                                  slices:NSMakeRange(baseArrayLayer, arrayLayerCount)];
     RTRLAB_ASSERT_MSG(textureView != nil, "Failed to create the Metal texture view.");
+    const std::string debugName = MakeTextureViewDebugName(*texture);
+    SetMetalDebugLabel(textureView, debugName.c_str());
 
     TextureViewDesc resolvedDesc = desc;
     resolvedDesc.m_Format = viewFormat;

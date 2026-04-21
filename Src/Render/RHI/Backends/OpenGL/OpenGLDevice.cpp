@@ -1,6 +1,7 @@
 #include "Render/RHI/Backends/OpenGL/OpenGLDevice.h"
 
 #include <algorithm>
+#include <string>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -115,6 +116,29 @@ GLenum ToGLAddressMode(AddressMode mode)
     }
 
     return GL_REPEAT;
+}
+
+bool HasDebugName(const char* debugName)
+{
+    return debugName != nullptr && debugName[0] != '\0';
+}
+
+void SetOpenGLObjectLabel(GLenum identifier, GLuint object, const char* debugName)
+{
+    if (object == 0 || !HasDebugName(debugName))
+        return;
+
+    if (GLAD_GL_VERSION_4_3 || GLAD_GL_KHR_debug)
+        glObjectLabel(identifier, object, -1, debugName);
+}
+
+std::string MakeTextureViewDebugName(const Texture& texture)
+{
+    const char* debugName = texture.GetDesc().m_DebugName;
+    if (!HasDebugName(debugName))
+        return {};
+
+    return std::string(debugName) + ".View";
 }
 
 class OpenGLBuffer final : public Buffer
@@ -292,6 +316,7 @@ Scope<Buffer> OpenGLDevice::CreateBuffer(const BufferDesc& desc)
                       static_cast<GLsizeiptr>(std::max<uint64_t>(desc.m_Size, 1)),
                       nullptr,
                       ToGLBufferUsage(desc.m_MemoryUsage));
+    SetOpenGLObjectLabel(GL_BUFFER, buffer, desc.m_DebugName);
     return CreateScope<OpenGLBuffer>(buffer, desc);
 }
 
@@ -331,6 +356,8 @@ Scope<Texture> OpenGLDevice::CreateTexture(const TextureDesc& desc)
             break;
     }
 
+    SetOpenGLObjectLabel(GL_TEXTURE, texture, desc.m_DebugName);
+
     return CreateScope<OpenGLTexture>(texture, target, desc);
 }
 
@@ -360,6 +387,8 @@ Scope<TextureView> OpenGLDevice::CreateTextureView(Texture* texture, const Textu
                   mipLevelCount,
                   desc.m_BaseArrayLayer,
                   arrayLayerCount);
+    const std::string debugName = MakeTextureViewDebugName(*texture);
+    SetOpenGLObjectLabel(GL_TEXTURE, textureView, debugName.c_str());
 
     TextureViewDesc resolvedDesc = desc;
     resolvedDesc.m_Format = viewFormat;
