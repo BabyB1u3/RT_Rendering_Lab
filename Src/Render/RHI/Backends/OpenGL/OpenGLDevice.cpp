@@ -400,12 +400,12 @@ OpenGLBuffer& GetOpenGLBuffer(Buffer* buffer)
     return *openGLBuffer;
 }
 
-GLuint CompileOpenGLShader(GLenum shaderStage, const char* source)
+GLuint CompileOpenGLShader(GLenum shaderStage, const char* source, GLsizei sourceLength)
 {
-    RTRLAB_ASSERT_MSG(source != nullptr && source[0] != '\0', "OpenGL shaders require source text.");
+    RTRLAB_ASSERT_MSG(source != nullptr && sourceLength > 0, "OpenGL shaders require source text.");
 
     GLuint shader = glCreateShader(shaderStage);
-    glShaderSource(shader, 1, &source, nullptr);
+    glShaderSource(shader, 1, &source, &sourceLength);
     glCompileShader(shader);
 
     GLint compileStatus = GL_FALSE;
@@ -722,7 +722,8 @@ Scope<ShaderProgram> OpenGLDevice::CreateShaderProgram(const CompiledShaderProgr
 
         RTRLAB_ASSERT_MSG(!blob.m_Code.empty(), "OpenGL shader blobs must contain GLSL source bytes.");
         const char* source = reinterpret_cast<const char*>(blob.m_Code.data());
-        shaders.push_back(CompileOpenGLShader(ToGLShaderStage(blob.m_Stage), source));
+        const GLsizei sourceLength = static_cast<GLsizei>(blob.m_Code.size());
+        shaders.push_back(CompileOpenGLShader(ToGLShaderStage(blob.m_Stage), source, sourceLength));
     }
 
     RTRLAB_ASSERT_MSG(!shaders.empty(), "OpenGL CreateShaderProgram requires at least one OpenGL shader blob.");
