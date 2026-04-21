@@ -249,7 +249,7 @@ void ShaderParameterWriter::SetConstantData(ResourceSet& resourceSet,
     ValidateResourceSetSetIndex(resourceSet, fieldInfo.m_SetIndex, "constant-data field");
     RTRLAB_ASSERT_MSG(size <= fieldInfo.m_Size, "SetConstantData payload exceeds the reflected field size.");
 
-    resourceSet.GetConstants().SetRaw(fieldInfo.m_Offset, data, size);
+    resourceSet.SetConstantDataRaw(fieldInfo.m_Offset, data, size);
 }
 
 void ShaderParameterWriter::ValidateResourceSetSetIndex(const ResourceSet& resourceSet,

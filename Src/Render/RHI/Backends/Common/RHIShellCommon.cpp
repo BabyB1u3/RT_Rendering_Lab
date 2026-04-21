@@ -119,6 +119,15 @@ ShellResourceSet::ShellResourceSet(PipelineLayout* layout, uint32_t setIndex) : 
 {
 }
 
+void ShellResourceSet::SetConstantDataRaw(uint32_t offset, const void* data, size_t size)
+{
+    if (size == 0)
+        return;
+
+    m_Constants.SetRaw(offset, data, size);
+    ++m_Version;
+}
+
 void ShellResourceSet::SetBuffer(uint32_t binding, const BufferBinding& bufferBinding)
 {
     m_BufferBindings[binding] = bufferBinding;

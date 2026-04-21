@@ -133,8 +133,8 @@ public:
     PipelineLayout* GetLayout() const override { return m_Layout; }
     uint32_t GetSetIndex() const override { return m_SetIndex; }
 
-    ParameterBlockData& GetConstants() override { return m_Constants; }
     const ParameterBlockData& GetConstants() const override { return m_Constants; }
+    void SetConstantDataRaw(uint32_t offset, const void* data, size_t size) override;
 
     void SetBuffer(uint32_t binding, const BufferBinding& bufferBinding) override;
     void SetTexture(uint32_t binding, const TextureBinding& textureBinding) override;
