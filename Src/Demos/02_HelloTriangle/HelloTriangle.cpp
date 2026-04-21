@@ -1,5 +1,6 @@
 #include "HelloTriangle.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstring>
@@ -20,6 +21,14 @@ struct TriangleVertex
     glm::vec4 m_Color;
 };
 
+struct DemoViewport
+{
+    float m_X = 0.0f;
+    float m_Y = 0.0f;
+    float m_Width = 0.0f;
+    float m_Height = 0.0f;
+};
+
 template <size_t N> std::vector<uint8_t> MakeShaderBytes(const uint32_t (&words)[N])
 {
     std::vector<uint8_t> bytes(sizeof(words));
@@ -36,8 +45,28 @@ std::vector<uint8_t> MakeShaderBytes(const char* sourceText)
     return bytes;
 }
 
+DemoViewport ComputeAspectPreservingViewport(uint32_t framebufferWidth, uint32_t framebufferHeight)
+{
+    RTRLAB_ASSERT_MSG(framebufferWidth > 0 && framebufferHeight > 0,
+                      "HelloTriangle requires a non-zero framebuffer size.");
+
+    // TRANSITIONAL(M3): The demo still draws directly in clip space without a
+    // transform buffer, so preserve a square logical presentation area via the
+    // viewport until renderer-owned projection data exists.
+    const float squareExtent = static_cast<float>(std::min(framebufferWidth, framebufferHeight));
+
+    DemoViewport viewport;
+    viewport.m_Width = squareExtent;
+    viewport.m_Height = squareExtent;
+    viewport.m_X = (static_cast<float>(framebufferWidth) - squareExtent) * 0.5f;
+    viewport.m_Y = (static_cast<float>(framebufferHeight) - squareExtent) * 0.5f;
+    return viewport;
+}
+
 CompiledShaderProgramDesc BuildHelloTriangleShaderProgramDesc()
 {
+    // TRANSITIONAL(M4): HelloTriangle still picks directly from embedded
+    // backend shader blobs until the shader asset pipeline exists.
     CompiledShaderProgramDesc desc;
 
 #if defined(GLAB_BACKEND_VULKAN)
@@ -118,8 +147,8 @@ void HelloTriangle::OnRender()
     meshBinding.m_IndexBuffer = m_IndexBuffer.get();
     meshBinding.m_IndexType = IndexType::UInt16;
 
-    commandList->SetViewport(
-        0.0f, 0.0f, static_cast<float>(m_ViewportWidth), static_cast<float>(m_ViewportHeight), 0.0f, 1.0f);
+    const DemoViewport viewport = ComputeAspectPreservingViewport(m_ViewportWidth, m_ViewportHeight);
+    commandList->SetViewport(viewport.m_X, viewport.m_Y, viewport.m_Width, viewport.m_Height, 0.0f, 1.0f);
     commandList->SetScissor(0, 0, m_ViewportWidth, m_ViewportHeight);
     commandList->BindGraphicsPipeline(m_GraphicsPipeline.get());
     commandList->BindMesh(meshBinding);
@@ -155,6 +184,8 @@ void HelloTriangle::CreateTriangleResources()
     vertexBufferDesc.m_MemoryUsage = MemoryUsage::CpuToGpu;
     vertexBufferDesc.m_DebugName = "HelloTriangle.VertexBuffer";
     m_VertexBuffer = device.CreateBuffer(vertexBufferDesc);
+    // TRANSITIONAL(M3): HelloTriangle still uploads directly through Device
+    // until renderer-owned staging/upload code exists.
     device.WriteBuffer(m_VertexBuffer.get(), 0, kVertices.data(), sizeof(kVertices));
 
     BufferDesc indexBufferDesc;
