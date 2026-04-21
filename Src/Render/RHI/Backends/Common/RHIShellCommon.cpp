@@ -25,6 +25,67 @@ ResourceKind MapReflectedResourceKind(ReflectedTypeKind typeKind)
 
     return ResourceKind::UniformBuffer;
 }
+
+bool IsPipelineBindableFieldType(ReflectedTypeKind typeKind)
+{
+    return typeKind == ReflectedTypeKind::Texture || typeKind == ReflectedTypeKind::Sampler ||
+           typeKind == ReflectedTypeKind::Buffer || typeKind == ReflectedTypeKind::ParameterBlock;
+}
+
+void AddOrMergeBindingInfo(std::vector<BindingInfo>& bindings, const BindingInfo& candidate)
+{
+    auto it = std::find_if(bindings.begin(),
+                           bindings.end(),
+                           [&candidate](const BindingInfo& existing)
+                           {
+                               return existing.m_SetIndex == candidate.m_SetIndex &&
+                                      existing.m_Binding == candidate.m_Binding && existing.m_Kind == candidate.m_Kind;
+                           });
+
+    if (it == bindings.end())
+    {
+        bindings.push_back(candidate);
+        return;
+    }
+
+    RTRLAB_ASSERT_MSG(it->m_Name == candidate.m_Name,
+                      "Reflected bindings that share set/binding/kind must also share the same name.");
+    RTRLAB_ASSERT_MSG(it->m_ArrayCount == candidate.m_ArrayCount,
+                      "Reflected bindings that share set/binding/kind must also share the same array count.");
+    it->m_StageMask |= candidate.m_StageMask;
+}
+
+void CollectPipelineBindings(const ReflectedField& field,
+                             uint32_t currentSetIndex,
+                             bool hasSetIndex,
+                             std::vector<BindingInfo>& bindings)
+{
+    uint32_t resolvedSetIndex = hasSetIndex ? currentSetIndex : field.m_SetIndex;
+    bool childHasSetIndex = hasSetIndex;
+    uint32_t childSetIndex = currentSetIndex;
+
+    if (field.m_TypeKind == ReflectedTypeKind::ParameterBlock)
+    {
+        resolvedSetIndex = field.m_SetIndex;
+        childHasSetIndex = true;
+        childSetIndex = field.m_SetIndex;
+    }
+
+    if (IsPipelineBindableFieldType(field.m_TypeKind))
+    {
+        BindingInfo bindingInfo;
+        bindingInfo.m_Name = field.m_Name;
+        bindingInfo.m_SetIndex = resolvedSetIndex;
+        bindingInfo.m_Binding = field.m_Binding;
+        bindingInfo.m_Kind = MapReflectedResourceKind(field.m_TypeKind);
+        bindingInfo.m_ArrayCount = field.m_ArrayCount;
+        bindingInfo.m_StageMask = field.m_StageMask;
+        AddOrMergeBindingInfo(bindings, bindingInfo);
+    }
+
+    for (const ReflectedField& child : field.m_Children)
+        CollectPipelineBindings(child, childSetIndex, childHasSetIndex, bindings);
+}
 } // namespace
 
 namespace RHIInternal
@@ -87,24 +148,20 @@ PipelineLayoutDesc BuildPipelineLayoutDescFromReflection(const ShaderReflectionD
     PipelineLayoutDesc layoutDesc;
 
     for (const ReflectedField& field : reflection.m_Globals)
-    {
-        const bool isBindableResource =
-            field.m_TypeKind == ReflectedTypeKind::Texture || field.m_TypeKind == ReflectedTypeKind::Sampler ||
-            field.m_TypeKind == ReflectedTypeKind::Buffer || field.m_TypeKind == ReflectedTypeKind::ParameterBlock ||
-            field.m_TypeKind == ReflectedTypeKind::ConstantData;
+        CollectPipelineBindings(field, 0, false, layoutDesc.m_Bindings);
 
-        if (!isBindableResource)
-            continue;
-
-        BindingInfo bindingInfo;
-        bindingInfo.m_Name = field.m_Name;
-        bindingInfo.m_SetIndex = field.m_SetIndex;
-        bindingInfo.m_Binding = field.m_Binding;
-        bindingInfo.m_Kind = MapReflectedResourceKind(field.m_TypeKind);
-        bindingInfo.m_ArrayCount = field.m_ArrayCount;
-        bindingInfo.m_StageMask = field.m_StageMask;
-        layoutDesc.m_Bindings.push_back(std::move(bindingInfo));
-    }
+    std::sort(layoutDesc.m_Bindings.begin(),
+              layoutDesc.m_Bindings.end(),
+              [](const BindingInfo& lhs, const BindingInfo& rhs)
+              {
+                  if (lhs.m_SetIndex != rhs.m_SetIndex)
+                      return lhs.m_SetIndex < rhs.m_SetIndex;
+                  if (lhs.m_Binding != rhs.m_Binding)
+                      return lhs.m_Binding < rhs.m_Binding;
+                  if (lhs.m_Kind != rhs.m_Kind)
+                      return static_cast<uint32_t>(lhs.m_Kind) < static_cast<uint32_t>(rhs.m_Kind);
+                  return lhs.m_Name < rhs.m_Name;
+              });
 
     layoutDesc.m_PushConstants = reflection.m_PushConstants;
     return layoutDesc;
