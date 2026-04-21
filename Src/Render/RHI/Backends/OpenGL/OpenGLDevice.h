@@ -42,10 +42,7 @@ public:
     Scope<ShaderProgram> CreateShaderProgram(const CompiledShaderProgramDesc& desc) override;
     Scope<VertexInputLayout> CreateVertexInputLayout(const VertexInputLayoutDesc& desc) override;
     Scope<GraphicsPipeline> CreateGraphicsPipeline(const GraphicsPipelineDesc& desc) override;
-    // TRANSITIONAL(M3): Minimal host upload path for the hello-triangle bring-up.
-    // This will be replaced once renderer-owned uploads stop reaching into the
-    // device directly.
-    void WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size);
+    void WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size) override;
 
     CommandList* BeginCommandList() override;
     void Submit(CommandList* commandList) override;

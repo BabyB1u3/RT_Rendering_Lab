@@ -255,6 +255,7 @@ public:
 
     Scope<GraphicsPipeline> CreateGraphicsPipeline(const GraphicsPipelineDesc& desc) override;
     Scope<ComputePipeline> CreateComputePipeline(const ComputePipelineDesc& desc) override;
+    void WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size) override;
 
     void Submit(CommandList* commandList) override;
     void EndFrame(FrameContext* frameContext) override;

@@ -350,6 +350,12 @@ Scope<ComputePipeline> ShellDeviceBase::CreateComputePipeline(const ComputePipel
     return CreateScope<ShellComputePipeline>(desc);
 }
 
+void ShellDeviceBase::WriteBuffer(Buffer*, uint64_t, const void*, uint64_t)
+{
+    RTRLAB_ASSERT_MSG(
+        false, "WriteBuffer is not implemented for this backend. Use a backend with an explicit M3 upload path.");
+}
+
 void ShellDeviceBase::Submit(CommandList*) {}
 
 void ShellDeviceBase::EndFrame(FrameContext*) {}

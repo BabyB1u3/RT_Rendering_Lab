@@ -11,13 +11,7 @@
 #include "Core/Diagnostics/Logging/LogMacros.h"
 #include "Demos/02_HelloTriangle/HelloTriangleShaders.h"
 
-#if defined(GLAB_BACKEND_VULKAN)
-#include "Render/RHI/Backends/Vulkan/VulkanDevice.h"
-#elif defined(GLAB_BACKEND_OPENGL)
-#include "Render/RHI/Backends/OpenGL/OpenGLDevice.h"
-#endif
-
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_OPENGL)
+#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_OPENGL) || defined(GLAB_BACKEND_METAL)
 namespace
 {
 struct TriangleVertex
@@ -30,6 +24,15 @@ template <size_t N> std::vector<uint8_t> MakeShaderBytes(const uint32_t (&words)
 {
     std::vector<uint8_t> bytes(sizeof(words));
     std::memcpy(bytes.data(), words, sizeof(words));
+    return bytes;
+}
+
+std::vector<uint8_t> MakeShaderBytes(const char* sourceText)
+{
+    RTRLAB_ASSERT_MSG(sourceText != nullptr, "Shader source text must be valid.");
+    const size_t sourceLength = std::strlen(sourceText);
+    std::vector<uint8_t> bytes(sourceLength);
+    std::memcpy(bytes.data(), sourceText, sourceLength);
     return bytes;
 }
 
@@ -53,15 +56,27 @@ CompiledShaderProgramDesc BuildHelloTriangleShaderProgramDesc()
     CompiledShaderBlob vertexShader;
     vertexShader.m_Backend = BackendType::OpenGL;
     vertexShader.m_Stage = ShaderStage::Vertex;
-    vertexShader.m_Code.resize(sizeof(kHelloTriangleVertexOpenGL));
-    std::memcpy(vertexShader.m_Code.data(), kHelloTriangleVertexOpenGL, sizeof(kHelloTriangleVertexOpenGL));
+    vertexShader.m_Code = MakeShaderBytes(kHelloTriangleVertexOpenGL);
     desc.m_Blobs.push_back(std::move(vertexShader));
 
     CompiledShaderBlob fragmentShader;
     fragmentShader.m_Backend = BackendType::OpenGL;
     fragmentShader.m_Stage = ShaderStage::Fragment;
-    fragmentShader.m_Code.resize(sizeof(kHelloTriangleFragmentOpenGL));
-    std::memcpy(fragmentShader.m_Code.data(), kHelloTriangleFragmentOpenGL, sizeof(kHelloTriangleFragmentOpenGL));
+    fragmentShader.m_Code = MakeShaderBytes(kHelloTriangleFragmentOpenGL);
+    desc.m_Blobs.push_back(std::move(fragmentShader));
+#elif defined(GLAB_BACKEND_METAL)
+    CompiledShaderBlob vertexShader;
+    vertexShader.m_Backend = BackendType::Metal;
+    vertexShader.m_Stage = ShaderStage::Vertex;
+    vertexShader.m_MetalCodeFormat = MetalCodeFormat::MslSource;
+    vertexShader.m_Code = MakeShaderBytes(kHelloTriangleMetalSource);
+    desc.m_Blobs.push_back(std::move(vertexShader));
+
+    CompiledShaderBlob fragmentShader;
+    fragmentShader.m_Backend = BackendType::Metal;
+    fragmentShader.m_Stage = ShaderStage::Fragment;
+    fragmentShader.m_MetalCodeFormat = MetalCodeFormat::MslSource;
+    fragmentShader.m_Code = MakeShaderBytes(kHelloTriangleMetalSource);
     desc.m_Blobs.push_back(std::move(fragmentShader));
 #endif
 
@@ -91,7 +106,7 @@ void HelloTriangle::OnDetach()
 
 void HelloTriangle::OnRender()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_OPENGL)
+#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_OPENGL) || defined(GLAB_BACKEND_METAL)
     if (!m_GraphicsPipeline || !m_VertexBuffer || !m_IndexBuffer)
         return;
 
@@ -123,7 +138,7 @@ void HelloTriangle::OnResize(uint32_t width, uint32_t height)
 
 void HelloTriangle::CreateTriangleResources()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_OPENGL)
+#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_OPENGL) || defined(GLAB_BACKEND_METAL)
     Application& app = Application::Get();
     Device& device = app.GetDevice();
 
@@ -140,15 +155,7 @@ void HelloTriangle::CreateTriangleResources()
     vertexBufferDesc.m_MemoryUsage = MemoryUsage::CpuToGpu;
     vertexBufferDesc.m_DebugName = "HelloTriangle.VertexBuffer";
     m_VertexBuffer = device.CreateBuffer(vertexBufferDesc);
-#if defined(GLAB_BACKEND_VULKAN)
-    auto* vulkanDevice = dynamic_cast<VulkanDevice*>(&device);
-    RTRLAB_ASSERT_MSG(vulkanDevice != nullptr, "HelloTriangle Vulkan bring-up requires a Vulkan device.");
-    vulkanDevice->WriteBuffer(m_VertexBuffer.get(), 0, kVertices.data(), sizeof(kVertices));
-#elif defined(GLAB_BACKEND_OPENGL)
-    auto* openGLDevice = dynamic_cast<OpenGLDevice*>(&device);
-    RTRLAB_ASSERT_MSG(openGLDevice != nullptr, "HelloTriangle OpenGL bring-up requires an OpenGL device.");
-    openGLDevice->WriteBuffer(m_VertexBuffer.get(), 0, kVertices.data(), sizeof(kVertices));
-#endif
+    device.WriteBuffer(m_VertexBuffer.get(), 0, kVertices.data(), sizeof(kVertices));
 
     BufferDesc indexBufferDesc;
     indexBufferDesc.m_Size = sizeof(kIndices);
@@ -156,11 +163,7 @@ void HelloTriangle::CreateTriangleResources()
     indexBufferDesc.m_MemoryUsage = MemoryUsage::CpuToGpu;
     indexBufferDesc.m_DebugName = "HelloTriangle.IndexBuffer";
     m_IndexBuffer = device.CreateBuffer(indexBufferDesc);
-#if defined(GLAB_BACKEND_VULKAN)
-    vulkanDevice->WriteBuffer(m_IndexBuffer.get(), 0, kIndices.data(), sizeof(kIndices));
-#elif defined(GLAB_BACKEND_OPENGL)
-    openGLDevice->WriteBuffer(m_IndexBuffer.get(), 0, kIndices.data(), sizeof(kIndices));
-#endif
+    device.WriteBuffer(m_IndexBuffer.get(), 0, kIndices.data(), sizeof(kIndices));
 
     m_ShaderProgram = device.CreateShaderProgram(BuildHelloTriangleShaderProgramDesc());
     m_PipelineLayout = device.CreatePipelineLayout(m_ShaderProgram->DerivePipelineLayoutDesc());

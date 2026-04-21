@@ -30,6 +30,35 @@ void main()
 }
 )";
 
+static constexpr const char kHelloTriangleMetalSource[] = R"(#include <metal_stdlib>
+using namespace metal;
+
+struct VertexIn
+{
+    float2 position [[attribute(0)]];
+    float4 color [[attribute(1)]];
+};
+
+struct VertexOut
+{
+    float4 position [[position]];
+    float4 color;
+};
+
+vertex VertexOut main_vertex(VertexIn inVertex [[stage_in]])
+{
+    VertexOut outVertex;
+    outVertex.position = float4(inVertex.position, 0.0, 1.0);
+    outVertex.color = inVertex.color;
+    return outVertex;
+}
+
+fragment float4 main_fragment(VertexOut inVertex [[stage_in]])
+{
+    return inVertex.color;
+}
+)";
+
 static const uint32_t kHelloTriangleVertexSpirv[] = {
     0x07230203u, 0x00010600u, 0x0008000bu, 0x0000001fu, 0x00000000u, 0x00020011u, 0x00000001u, 0x0006000bu, 0x00000001u,
     0x4c534c47u, 0x6474732eu, 0x3035342eu, 0x00000000u, 0x0003000eu, 0x00000000u, 0x00000001u, 0x0009000fu, 0x00000000u,
