@@ -1680,6 +1680,40 @@ void VulkanCommandList::BindGraphicsPipeline(GraphicsPipeline* pipeline)
     vkCmdBindPipeline(m_CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipeline.GetVkPipeline());
 }
 
+void VulkanCommandList::BindResourceSet(uint32_t setIndex, ResourceSet* resourceSet)
+{
+    ShellCommandListBase::BindResourceSet(setIndex, resourceSet);
+
+    if (resourceSet == nullptr)
+        return;
+
+    RTRLAB_ASSERTF(resourceSet->GetSetIndex() == setIndex,
+                   "Vulkan BindResourceSet expected resource set {} but received set {}.",
+                   setIndex,
+                   resourceSet->GetSetIndex());
+
+    VulkanResourceSet& vulkanResourceSet = GetVulkanResourceSet(resourceSet);
+    PipelineLayout* layout = resourceSet->GetLayout();
+    RTRLAB_ASSERT_MSG(layout != nullptr, "Vulkan BindResourceSet requires a valid PipelineLayout.");
+
+    VulkanPipelineLayout& vulkanPipelineLayout = GetVulkanPipelineLayout(layout);
+    const VkDescriptorSet descriptorSet = vulkanResourceSet.GetVkDescriptorSet();
+    RTRLAB_ASSERT_MSG(descriptorSet != VK_NULL_HANDLE, "Vulkan BindResourceSet requires a valid VkDescriptorSet.");
+
+    const VkPipelineLayout pipelineLayoutHandle = vulkanPipelineLayout.GetVkPipelineLayout();
+    RTRLAB_ASSERT_MSG(pipelineLayoutHandle != VK_NULL_HANDLE,
+                      "Vulkan BindResourceSet requires a valid VkPipelineLayout.");
+
+    vkCmdBindDescriptorSets(m_CommandBuffer,
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            pipelineLayoutHandle,
+                            setIndex,
+                            1,
+                            &descriptorSet,
+                            0,
+                            nullptr);
+}
+
 void VulkanCommandList::BindMesh(const MeshBinding& meshBinding, const uint64_t* vertexOffsets)
 {
     ShellCommandListBase::BindMesh(meshBinding, vertexOffsets);

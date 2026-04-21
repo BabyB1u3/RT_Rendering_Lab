@@ -50,6 +50,7 @@ public:
     void BeginRendering(const RenderingInfo& renderingInfo) override;
     void EndRendering() override;
     void BindGraphicsPipeline(GraphicsPipeline* pipeline) override;
+    void BindResourceSet(uint32_t setIndex, ResourceSet* resourceSet) override;
     void BindMesh(const MeshBinding& meshBinding, const uint64_t* vertexOffsets = nullptr) override;
     void
     BindVertexBuffers(uint32_t firstSlot, Buffer* const* buffers, uint32_t count, const uint64_t* offsets) override;
