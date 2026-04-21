@@ -175,6 +175,7 @@ set(GLAB_RENDER_SOURCES
     Render/RHI/Backends/Common/RHIShellCommon.cpp
     Render/Shader/ShaderCompiler.cpp
     Render/Shader/ShaderReflection.cpp
+    Render/Shader/SlangReflectionJson.cpp
     Render/Shader/ShaderParameterWriter.cpp
 )
 
@@ -189,6 +190,7 @@ set(GLAB_RENDER_HEADERS
     Render/RHI/Backends/Common/RHIShellCommon.h
     Render/Shader/ShaderCompiler.h
     Render/Shader/ShaderReflection.h
+    Render/Shader/SlangReflectionJson.h
     Render/Shader/ShaderParameterWriter.h
     Render/Shader/ShaderTypes.h
 )
