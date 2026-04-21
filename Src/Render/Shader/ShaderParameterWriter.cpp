@@ -1,4 +1,5 @@
 #include "Render/Shader/ShaderParameterWriter.h"
+#include "Render/Shader/ShaderReflection.h"
 
 #include <string>
 #include <utility>
@@ -9,12 +10,6 @@
 
 namespace
 {
-bool IsBindableResourceType(ReflectedTypeKind typeKind)
-{
-    return typeKind == ReflectedTypeKind::Texture || typeKind == ReflectedTypeKind::Sampler ||
-           typeKind == ReflectedTypeKind::Buffer;
-}
-
 bool IsConstantFieldType(ReflectedTypeKind typeKind)
 {
     return typeKind == ReflectedTypeKind::ConstantData;
@@ -36,6 +31,9 @@ std::string MakeChildPath(std::string_view prefix, std::string_view name)
 
 ShaderParameterWriter::ShaderParameterWriter(const ShaderReflectionData& reflection)
 {
+    std::string validationError;
+    RTRLAB_ASSERT_MSG(ValidateShaderReflectionData(reflection, &validationError), validationError.c_str());
+
     for (const ReflectedField& field : reflection.m_Globals)
         BuildReflectionLookupTables(field, "", 0, false, 0);
 }
@@ -202,7 +200,7 @@ void ShaderParameterWriter::BuildReflectionLookupTables(const ReflectedField& fi
         fieldInfo.m_Size = field.m_Size;
         AddFieldPath(path, fieldInfo);
     }
-    else if (IsBindableResourceType(field.m_TypeKind))
+    else if (IsBindableReflectedType(field.m_TypeKind))
     {
         BindingInfo bindingInfo;
         bindingInfo.m_SetIndex = resolvedSetIndex;

@@ -1,4 +1,5 @@
 #include "Render/Shader/ShaderCompiler.h"
+#include "Render/Shader/ShaderReflection.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -147,6 +148,9 @@ bool ValidateCompiledShaderProgramDesc(const CompiledShaderProgramDesc& program,
         }
     }
 
+    if (!ValidateShaderReflectionData(program.m_Reflection, errorMessage))
+        return false;
+
     return true;
 }
 
@@ -160,6 +164,18 @@ ShaderCompileResult ShaderCompiler::CompileProgram(const ShaderCompileRequest& r
     result = CompileProgramImpl(request);
     if (!result.m_Succeeded)
         return result;
+
+    NormalizeShaderReflectionResult normalizedReflection =
+        NormalizeShaderReflectionData(std::move(result.m_Program.m_Reflection));
+    if (!normalizedReflection.m_Succeeded)
+    {
+        result.m_Succeeded = false;
+        result.m_ErrorMessage = std::move(normalizedReflection.m_ErrorMessage);
+        result.m_Program = {};
+        return result;
+    }
+
+    result.m_Program.m_Reflection = std::move(normalizedReflection.m_Reflection);
 
     if (!ValidateCompiledShaderProgramDesc(result.m_Program, &result.m_ErrorMessage))
     {

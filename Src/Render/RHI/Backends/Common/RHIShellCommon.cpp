@@ -1,4 +1,5 @@
 #include "Render/RHI/Backends/Common/RHIShellCommon.h"
+#include "Render/Shader/ShaderReflection.h"
 
 #include <algorithm>
 #include <cstring>
@@ -24,12 +25,6 @@ ResourceKind MapReflectedResourceKind(ReflectedTypeKind typeKind)
     }
 
     return ResourceKind::UniformBuffer;
-}
-
-bool IsPipelineBindableFieldType(ReflectedTypeKind typeKind)
-{
-    return typeKind == ReflectedTypeKind::Texture || typeKind == ReflectedTypeKind::Sampler ||
-           typeKind == ReflectedTypeKind::Buffer || typeKind == ReflectedTypeKind::ParameterBlock;
 }
 
 void AddOrMergeBindingInfo(std::vector<BindingInfo>& bindings, const BindingInfo& candidate)
@@ -71,7 +66,7 @@ void CollectPipelineBindings(const ReflectedField& field,
         childSetIndex = field.m_SetIndex;
     }
 
-    if (IsPipelineBindableFieldType(field.m_TypeKind))
+    if (IsPipelineBindableReflectedType(field.m_TypeKind))
     {
         BindingInfo bindingInfo;
         bindingInfo.m_Name = field.m_Name;
@@ -178,6 +173,9 @@ TextureDesc SanitizeTextureDesc(const TextureDesc& desc)
 
 PipelineLayoutDesc BuildPipelineLayoutDescFromReflection(const ShaderReflectionData& reflection)
 {
+    std::string validationError;
+    RTRLAB_ASSERT_MSG(ValidateShaderReflectionData(reflection, &validationError), validationError.c_str());
+
     PipelineLayoutDesc layoutDesc;
 
     for (const ReflectedField& field : reflection.m_Globals)
