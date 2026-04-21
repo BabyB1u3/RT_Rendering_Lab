@@ -170,18 +170,6 @@ bool PathLooksExplicit(const std::filesystem::path& path)
     return path.is_absolute() || path.has_parent_path();
 }
 
-std::optional<std::string> GetEnvironmentVariable(std::string_view name)
-{
-    if (name.empty())
-        return std::nullopt;
-
-    const std::string variableName(name);
-    if (const char* value = std::getenv(variableName.c_str()))
-        return std::string(value);
-
-    return std::nullopt;
-}
-
 void AppendExistingIncludePath(std::vector<std::filesystem::path>* includeSearchPaths, std::filesystem::path path)
 {
     if (includeSearchPaths == nullptr || path.empty())
@@ -201,15 +189,6 @@ bool ResolveSlangExecutable(const SlangCompilerConfig& config,
         return false;
     }
 
-    if (const std::optional<std::string> environmentOverride =
-            GetEnvironmentVariable(config.m_ExecutableEnvironmentVariable);
-        environmentOverride.has_value() && !environmentOverride->empty())
-    {
-        outExecutable->m_Path = *environmentOverride;
-        outExecutable->m_Source = "environment variable " + config.m_ExecutableEnvironmentVariable;
-        return true;
-    }
-
     if (!config.m_ExecutablePath.empty() && PathLooksExplicit(config.m_ExecutablePath))
     {
         if (std::filesystem::exists(config.m_ExecutablePath))
@@ -227,8 +206,8 @@ bool ResolveSlangExecutable(const SlangCompilerConfig& config,
     }
 
     AssignSlangCompilerPlanningError(errorMessage,
-                                     "SlangCompiler requires an explicit slangc path. Configure it through the "
-                                     "RTRLAB_SLANGC environment variable or the CMake-injected RTRLAB_SLANGC_PATH.");
+                                     "SlangCompiler requires an explicit slangc path provided by the "
+                                     "CMake-injected RTRLAB_SLANGC_PATH.");
     return false;
 }
 
