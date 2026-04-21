@@ -790,6 +790,33 @@ const VulkanVertexInputLayout& GetVulkanVertexInputLayout(VertexInputLayout* ver
     return *vulkanVertexInputLayout;
 }
 
+const VulkanGraphicsPipeline& GetVulkanGraphicsPipeline(GraphicsPipeline* graphicsPipeline)
+{
+    auto* vulkanGraphicsPipeline = dynamic_cast<VulkanGraphicsPipeline*>(graphicsPipeline);
+    RTRLAB_ASSERT_MSG(vulkanGraphicsPipeline != nullptr, "Graphics pipeline is not owned by the Vulkan backend.");
+    return *vulkanGraphicsPipeline;
+}
+
+VkBuffer GetVkBufferFromBuffer(Buffer* buffer)
+{
+    auto* vulkanBuffer = dynamic_cast<VulkanBuffer*>(buffer);
+    RTRLAB_ASSERT_MSG(vulkanBuffer != nullptr, "Buffer is not owned by the Vulkan backend.");
+    return vulkanBuffer->GetVkBuffer();
+}
+
+VkIndexType ToVkIndexType(IndexType indexType)
+{
+    switch (indexType)
+    {
+        case IndexType::UInt16:
+            return VK_INDEX_TYPE_UINT16;
+        case IndexType::UInt32:
+            return VK_INDEX_TYPE_UINT32;
+    }
+
+    return VK_INDEX_TYPE_UINT32;
+}
+
 std::vector<VkDescriptorSetLayout> CreateVkDescriptorSetLayouts(VkDevice device, const PipelineLayoutDesc& desc)
 {
     uint32_t maxSetIndex = 0;
@@ -1303,6 +1330,16 @@ void VulkanCommandList::BeginRendering(const RenderingInfo& renderingInfo)
     vkRenderingInfo.pColorAttachments = &colorAttachmentInfo;
 
     vkCmdBeginRendering(m_CommandBuffer, &vkRenderingInfo);
+    SetViewport(static_cast<float>(renderingInfo.m_RenderArea.m_X),
+                static_cast<float>(renderingInfo.m_RenderArea.m_Y),
+                static_cast<float>(renderingInfo.m_RenderArea.m_Width),
+                static_cast<float>(renderingInfo.m_RenderArea.m_Height),
+                0.0f,
+                1.0f);
+    SetScissor(renderingInfo.m_RenderArea.m_X,
+               renderingInfo.m_RenderArea.m_Y,
+               renderingInfo.m_RenderArea.m_Width,
+               renderingInfo.m_RenderArea.m_Height);
 }
 
 void VulkanCommandList::EndRendering()
@@ -1329,6 +1366,109 @@ void VulkanCommandList::EndRendering()
     texture->SetCurrentLayout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
     ShellCommandListBase::EndRendering();
+}
+
+void VulkanCommandList::BindGraphicsPipeline(GraphicsPipeline* pipeline)
+{
+    ShellCommandListBase::BindGraphicsPipeline(pipeline);
+
+    if (pipeline == nullptr)
+        return;
+
+    const VulkanGraphicsPipeline& vulkanPipeline = GetVulkanGraphicsPipeline(pipeline);
+    vkCmdBindPipeline(m_CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipeline.GetVkPipeline());
+}
+
+void VulkanCommandList::BindMesh(const MeshBinding& meshBinding, const uint64_t* vertexOffsets)
+{
+    ShellCommandListBase::BindMesh(meshBinding, vertexOffsets);
+
+    if (!meshBinding.m_VertexBuffers.empty())
+    {
+        BindVertexBuffers(0,
+                          meshBinding.m_VertexBuffers.data(),
+                          static_cast<uint32_t>(meshBinding.m_VertexBuffers.size()),
+                          vertexOffsets);
+    }
+
+    m_IndexBuffer = meshBinding.m_IndexBuffer;
+    m_IndexOffset = 0;
+    m_IndexType = meshBinding.m_IndexType;
+    if (meshBinding.m_IndexBuffer != nullptr)
+        BindIndexBuffer(meshBinding.m_IndexBuffer, 0, meshBinding.m_IndexType);
+}
+
+void VulkanCommandList::BindVertexBuffers(uint32_t firstSlot,
+                                          Buffer* const* buffers,
+                                          uint32_t count,
+                                          const uint64_t* offsets)
+{
+    ShellCommandListBase::BindVertexBuffers(firstSlot, buffers, count, offsets);
+
+    if (count == 0)
+        return;
+
+    std::vector<VkBuffer> vkBuffers(count, VK_NULL_HANDLE);
+    std::vector<VkDeviceSize> vkOffsets(count, 0);
+    for (uint32_t index = 0; index < count; ++index)
+    {
+        RTRLAB_ASSERT_MSG(buffers[index] != nullptr, "Vulkan BindVertexBuffers requires non-null buffers.");
+        vkBuffers[index] = GetVkBufferFromBuffer(buffers[index]);
+        vkOffsets[index] = offsets != nullptr ? offsets[index] : 0;
+    }
+
+    vkCmdBindVertexBuffers(m_CommandBuffer, firstSlot, count, vkBuffers.data(), vkOffsets.data());
+}
+
+void VulkanCommandList::BindIndexBuffer(Buffer* buffer, uint64_t offset, IndexType indexType)
+{
+    ShellCommandListBase::BindIndexBuffer(buffer, offset, indexType);
+
+    if (buffer == nullptr)
+        return;
+
+    vkCmdBindIndexBuffer(m_CommandBuffer, GetVkBufferFromBuffer(buffer), offset, ToVkIndexType(indexType));
+}
+
+void VulkanCommandList::SetViewport(float x, float y, float w, float h, float zmin, float zmax)
+{
+    ShellCommandListBase::SetViewport(x, y, w, h, zmin, zmax);
+
+    VkViewport viewport{};
+    viewport.x = x;
+    viewport.y = y;
+    viewport.width = w;
+    viewport.height = h;
+    viewport.minDepth = zmin;
+    viewport.maxDepth = zmax;
+    vkCmdSetViewport(m_CommandBuffer, 0, 1, &viewport);
+}
+
+void VulkanCommandList::SetScissor(int32_t x, int32_t y, uint32_t w, uint32_t h)
+{
+    ShellCommandListBase::SetScissor(x, y, w, h);
+
+    VkRect2D scissor{};
+    scissor.offset = {x, y};
+    scissor.extent = {w, h};
+    vkCmdSetScissor(m_CommandBuffer, 0, 1, &scissor);
+}
+
+void VulkanCommandList::Draw(uint32_t vertexCount, uint32_t firstVertex)
+{
+    ShellCommandListBase::Draw(vertexCount, firstVertex);
+    RTRLAB_ASSERT_MSG(m_IsRendering, "Vulkan Draw requires an active rendering scope.");
+    RTRLAB_ASSERT_MSG(m_GraphicsPipeline != nullptr, "Vulkan Draw requires a bound graphics pipeline.");
+    vkCmdDraw(m_CommandBuffer, vertexCount, 1, firstVertex, 0);
+}
+
+void VulkanCommandList::DrawIndexed(uint32_t indexCount, uint32_t firstIndex, int32_t vertexOffset)
+{
+    ShellCommandListBase::DrawIndexed(indexCount, firstIndex, vertexOffset);
+    RTRLAB_ASSERT_MSG(m_IsRendering, "Vulkan DrawIndexed requires an active rendering scope.");
+    RTRLAB_ASSERT_MSG(m_GraphicsPipeline != nullptr, "Vulkan DrawIndexed requires a bound graphics pipeline.");
+    RTRLAB_ASSERT_MSG(m_IndexBuffer != nullptr, "Vulkan DrawIndexed requires a bound index buffer.");
+    vkCmdDrawIndexed(m_CommandBuffer, indexCount, 1, firstIndex, vertexOffset, 0);
 }
 
 VulkanSwapchain::VulkanSwapchain(VulkanDevice& device,
