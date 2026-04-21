@@ -8,3 +8,5 @@
 struct GLFWwindow;
 
 NativeWindowHandle CreateCocoaNativeWindowHandle(GLFWwindow* window);
+void InstallCocoaLiveResizeRefreshHook(GLFWwindow* window);
+void UninstallCocoaLiveResizeRefreshHook(GLFWwindow* window);

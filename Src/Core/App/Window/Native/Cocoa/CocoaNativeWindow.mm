@@ -1,4 +1,5 @@
 #include "Core/App/Window/Native/Cocoa/CocoaNativeWindow.h"
+#include "Core/App/Window/Window.h"
 
 #define GLFW_EXPOSE_NATIVE_COCOA
 #include <GLFW/glfw3.h>
@@ -6,6 +7,99 @@
 
 #import <AppKit/AppKit.h>
 #import <QuartzCore/CAMetalLayer.h>
+#import <objc/runtime.h>
+
+namespace
+{
+const void* kCocoaLiveResizeObserverKey = &kCocoaLiveResizeObserverKey;
+
+@interface RTRLabCocoaWindowObserver : NSObject
+{
+@private
+    GLFWwindow* _glfwWindow;
+}
+
+- (instancetype)initWithGLFWWindow:(GLFWwindow*)window;
+- (void)startObservingWindow:(NSWindow*)window;
+- (void)stopObservingWindow:(NSWindow*)window;
+
+@end
+
+@implementation RTRLabCocoaWindowObserver
+
+- (instancetype)initWithGLFWWindow:(GLFWwindow*)window
+{
+    self = [super init];
+    if (self != nil)
+        _glfwWindow = window;
+    return self;
+}
+
+- (void)requestRefresh
+{
+    auto* runtimeWindow = static_cast<Window*>(glfwGetWindowUserPointer(_glfwWindow));
+    if (runtimeWindow != nullptr)
+        runtimeWindow->InvokeRefreshCallback();
+}
+
+- (void)syncLayerMetrics
+{
+    NSWindow* nsWindow = glfwGetCocoaWindow(_glfwWindow);
+    NSView* nsView = glfwGetCocoaView(_glfwWindow);
+    if (nsWindow == nil || nsView == nil || ![nsView.layer isKindOfClass:[CAMetalLayer class]])
+        return;
+
+    CAMetalLayer* layer = static_cast<CAMetalLayer*>(nsView.layer);
+    const CGFloat scale = nsWindow.backingScaleFactor > 0.0 ? nsWindow.backingScaleFactor : 1.0;
+    layer.contentsScale = scale;
+
+    CGSize drawableSize = nsView.bounds.size;
+    drawableSize.width *= scale;
+    drawableSize.height *= scale;
+    layer.drawableSize = drawableSize;
+}
+
+- (void)handleWindowDidResize:(NSNotification*)notification
+{
+    if ([notification object] != glfwGetCocoaWindow(_glfwWindow))
+        return;
+
+    [self syncLayerMetrics];
+    [self requestRefresh];
+}
+
+- (void)handleWindowDidChangeBackingProperties:(NSNotification*)notification
+{
+    if ([notification object] != glfwGetCocoaWindow(_glfwWindow))
+        return;
+
+    [self syncLayerMetrics];
+    [self requestRefresh];
+}
+
+- (void)startObservingWindow:(NSWindow*)window
+{
+    NSNotificationCenter* center = [NSNotificationCenter defaultCenter];
+    [center addObserver:self
+               selector:@selector(handleWindowDidResize:)
+                   name:NSWindowDidResizeNotification
+                 object:window];
+    [center addObserver:self
+               selector:@selector(handleWindowDidChangeBackingProperties:)
+                   name:NSWindowDidChangeBackingPropertiesNotification
+                 object:window];
+}
+
+- (void)stopObservingWindow:(NSWindow*)window
+{
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:NSWindowDidResizeNotification object:window];
+    [[NSNotificationCenter defaultCenter] removeObserver:self
+                                                    name:NSWindowDidChangeBackingPropertiesNotification
+                                                  object:window];
+}
+
+@end
+} // namespace
 
 NativeWindowHandle CreateCocoaNativeWindowHandle(GLFWwindow* window)
 {
@@ -51,4 +145,42 @@ NativeWindowHandle CreateCocoaNativeWindowHandle(GLFWwindow* window)
 #endif
 
     return nativeWindowHandle;
+}
+
+void InstallCocoaLiveResizeRefreshHook(GLFWwindow* window)
+{
+    if (window == nullptr)
+        return;
+
+    NSWindow* nsWindow = glfwGetCocoaWindow(window);
+    if (nsWindow == nil)
+        return;
+
+    RTRLabCocoaWindowObserver* observer =
+        (RTRLabCocoaWindowObserver*)objc_getAssociatedObject(nsWindow, kCocoaLiveResizeObserverKey);
+    if (observer != nil)
+        return;
+
+    observer = [[RTRLabCocoaWindowObserver alloc] initWithGLFWWindow:window];
+    [observer startObservingWindow:nsWindow];
+    objc_setAssociatedObject(nsWindow, kCocoaLiveResizeObserverKey, observer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [observer release];
+}
+
+void UninstallCocoaLiveResizeRefreshHook(GLFWwindow* window)
+{
+    if (window == nullptr)
+        return;
+
+    NSWindow* nsWindow = glfwGetCocoaWindow(window);
+    if (nsWindow == nil)
+        return;
+
+    RTRLabCocoaWindowObserver* observer =
+        (RTRLabCocoaWindowObserver*)objc_getAssociatedObject(nsWindow, kCocoaLiveResizeObserverKey);
+    if (observer == nil)
+        return;
+
+    [observer stopObservingWindow:nsWindow];
+    objc_setAssociatedObject(nsWindow, kCocoaLiveResizeObserverKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }

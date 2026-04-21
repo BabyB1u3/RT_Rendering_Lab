@@ -159,6 +159,10 @@ void Window::Init(const WindowProps& props)
     // Store 'this' in the GLFW window so that static callbacks can reach the Window instance.
     glfwSetWindowUserPointer(m_Handle, this);
 
+#if defined(__APPLE__)
+    InstallCocoaLiveResizeRefreshHook(m_Handle);
+#endif
+
     // Scroll callback - GLFW only reports scroll via callback, so we accumulate
     // it into the Input system for per-frame consumption.
     glfwSetScrollCallback(m_Handle,
@@ -177,6 +181,9 @@ void Window::Shutdown()
 {
     if (m_Handle)
     {
+#if defined(__APPLE__)
+        UninstallCocoaLiveResizeRefreshHook(m_Handle);
+#endif
         glfwDestroyWindow(m_Handle);
         m_Handle = nullptr;
     }
@@ -214,9 +221,15 @@ void Window::SetRefreshCallback(RefreshCallback callback)
                                  [](GLFWwindow* w)
                                  {
                                      auto* self = static_cast<Window*>(glfwGetWindowUserPointer(w));
-                                     if (self && self->m_RefreshCallback)
-                                         self->m_RefreshCallback();
+                                     if (self)
+                                         self->InvokeRefreshCallback();
                                  });
+}
+
+void Window::InvokeRefreshCallback()
+{
+    if (m_RefreshCallback)
+        m_RefreshCallback();
 }
 
 void Window::SetEventBus(EventBus* bus)

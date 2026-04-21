@@ -55,6 +55,10 @@ public:
     /// Register a callback invoked when the window needs to be redrawn
     /// (e.g., during live resize on macOS).
     void SetRefreshCallback(RefreshCallback callback);
+    /// Invoke the registered refresh callback immediately.
+    /// Native window bridges use this to drive redraws during platform-managed
+    /// interactions such as macOS live resize.
+    void InvokeRefreshCallback();
 
     /// Give Window a reference to the EventBus so GLFW callbacks can
     /// publish events (WindowResize, KeyPressed, MouseScrolled, etc.).

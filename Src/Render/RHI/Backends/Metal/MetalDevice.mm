@@ -755,6 +755,12 @@ uint32_t MetalSwapchain::AcquireNextImage()
     RTRLAB_ASSERT_MSG(m_Data != nullptr && m_Data->m_Layer != nil,
                       "Metal swapchain layer must be valid before acquiring a drawable.");
 
+    // Core Animation may keep stretching the last presented drawable during
+    // live resize until the next frame is acquired. Refresh the drawable size
+    // from the current layer bounds on every acquire so interactive resize
+    // redraws use the latest backing-pixel dimensions.
+    SyncDrawableSizeToLayer();
+
     id<CAMetalDrawable> drawable = [m_Data->m_Layer nextDrawable];
     RTRLAB_ASSERT_MSG(drawable != nil,
                       "Failed to acquire a CAMetalDrawable from the Metal layer. Window minimized or drawable "
@@ -828,6 +834,27 @@ void MetalSwapchain::UpdateDrawableSize()
 
     m_Data->m_Layer.drawableSize =
         CGSizeMake(static_cast<CGFloat>(m_Desc.m_Width), static_cast<CGFloat>(m_Desc.m_Height));
+}
+
+void MetalSwapchain::SyncDrawableSizeToLayer()
+{
+    if (m_Data == nullptr || m_Data->m_Layer == nil)
+        return;
+
+    const CGFloat scale = m_Data->m_Layer.contentsScale > 0.0 ? m_Data->m_Layer.contentsScale : 1.0;
+    CGSize drawableSize = m_Data->m_Layer.bounds.size;
+    drawableSize.width *= scale;
+    drawableSize.height *= scale;
+
+    const uint32_t width = static_cast<uint32_t>(std::max<CGFloat>(drawableSize.width, 1.0));
+    const uint32_t height = static_cast<uint32_t>(std::max<CGFloat>(drawableSize.height, 1.0));
+
+    if (width == m_Desc.m_Width && height == m_Desc.m_Height)
+        return;
+
+    m_Desc.m_Width = width;
+    m_Desc.m_Height = height;
+    UpdateDrawableSize();
 }
 
 MetalDevice::MetalDevice() : m_Data(new MetalDeviceData())

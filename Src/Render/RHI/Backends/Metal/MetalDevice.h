@@ -63,6 +63,7 @@ public:
 
 private:
     void UpdateDrawableSize();
+    void SyncDrawableSizeToLayer();
 
 private:
     MetalDevice& m_Device;
