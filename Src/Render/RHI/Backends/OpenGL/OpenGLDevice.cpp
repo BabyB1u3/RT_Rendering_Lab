@@ -545,6 +545,20 @@ void OpenGLCommandList::BindIndexBuffer(Buffer* buffer, uint64_t offset, IndexTy
     glVertexArrayElementBuffer(openGLPipeline.GetVertexArray(), GetOpenGLBuffer(buffer).GetBuffer());
 }
 
+void OpenGLCommandList::SetViewport(float x, float y, float w, float h, float zmin, float zmax)
+{
+    ShellCommandListBase::SetViewport(x, y, w, h, zmin, zmax);
+    glViewport(static_cast<GLint>(x), static_cast<GLint>(y), static_cast<GLsizei>(w), static_cast<GLsizei>(h));
+    glDepthRange(static_cast<GLdouble>(zmin), static_cast<GLdouble>(zmax));
+}
+
+void OpenGLCommandList::SetScissor(int32_t x, int32_t y, uint32_t w, uint32_t h)
+{
+    ShellCommandListBase::SetScissor(x, y, w, h);
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(x, y, static_cast<GLsizei>(w), static_cast<GLsizei>(h));
+}
+
 void OpenGLCommandList::DrawIndexed(uint32_t indexCount, uint32_t firstIndex, int32_t vertexOffset)
 {
     ShellCommandListBase::DrawIndexed(indexCount, firstIndex, vertexOffset);

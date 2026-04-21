@@ -15,6 +15,8 @@ public:
     void
     BindVertexBuffers(uint32_t firstSlot, Buffer* const* buffers, uint32_t count, const uint64_t* offsets) override;
     void BindIndexBuffer(Buffer* buffer, uint64_t offset, IndexType indexType) override;
+    void SetViewport(float x, float y, float w, float h, float zmin, float zmax) override;
+    void SetScissor(int32_t x, int32_t y, uint32_t w, uint32_t h) override;
     void DrawIndexed(uint32_t indexCount, uint32_t firstIndex, int32_t vertexOffset) override;
 
     const RenderingInfo& GetRenderingInfo() const { return m_RenderingInfo; }
