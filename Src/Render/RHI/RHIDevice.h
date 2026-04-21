@@ -40,11 +40,16 @@ public:
     virtual Scope<ComputePipeline> CreateComputePipeline(const ComputePipelineDesc& desc) = 0;
     // TRANSITIONAL(M3): Minimal host upload hook used by the hello-triangle
     // bring-up demos. This is intentionally a temporary demo-only path and
-    // will move behind renderer-owned upload/staging systems once resource
+    // will move behind a renderer-owned upload/staging API (for example
+    // Renderer::UploadBuffer backed by a staging ring) once resource
     // initialization stops reaching into Device directly.
     virtual void WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size) = 0;
 
     virtual CommandList* BeginCommandList() = 0;
+    // Submit seals the current command list for the frame and makes its work
+    // eligible for backend submission/presentation flow. Backends may still
+    // defer the final present-coupled queue operation until Swapchain::Present(),
+    // but callers must treat the command list as no longer recordable after Submit.
     virtual void Submit(CommandList* commandList) = 0;
 
     virtual FrameContext* BeginFrame() = 0;

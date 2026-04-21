@@ -605,55 +605,59 @@ Scope<Swapchain> OpenGLDevice::CreateSwapchain(const SwapchainDesc& desc, const 
 
 Scope<Buffer> OpenGLDevice::CreateBuffer(const BufferDesc& desc)
 {
+    const BufferDesc sanitizedDesc = RHIInternal::SanitizeBufferDesc(desc);
     GLuint buffer = 0;
     glCreateBuffers(1, &buffer);
-    glNamedBufferData(buffer,
-                      static_cast<GLsizeiptr>(std::max<uint64_t>(desc.m_Size, 1)),
-                      nullptr,
-                      ToGLBufferUsage(desc.m_MemoryUsage));
-    SetOpenGLObjectLabel(GL_BUFFER, buffer, desc.m_DebugName);
-    return CreateScope<OpenGLBuffer>(buffer, desc);
+    // TRANSITIONAL(M4): OpenGL buffer creation still uses mutable storage via
+    // glNamedBufferData and maps only MemoryUsage to a coarse usage hint. The
+    // target shape is immutable glNamedBufferStorage(..., storageFlags) once the
+    // upload model and buffer-usage contract are explicit enough to derive flags.
+    glNamedBufferData(
+        buffer, static_cast<GLsizeiptr>(sanitizedDesc.m_Size), nullptr, ToGLBufferUsage(sanitizedDesc.m_MemoryUsage));
+    SetOpenGLObjectLabel(GL_BUFFER, buffer, sanitizedDesc.m_DebugName);
+    return CreateScope<OpenGLBuffer>(buffer, sanitizedDesc);
 }
 
 Scope<Texture> OpenGLDevice::CreateTexture(const TextureDesc& desc)
 {
+    const TextureDesc sanitizedDesc = RHIInternal::SanitizeTextureDesc(desc);
     GLuint texture = 0;
-    const GLenum target = ToGLTarget(desc.m_Type);
-    const GLenum internalFormat = ToGLInternalFormat(desc.m_Format);
+    const GLenum target = ToGLTarget(sanitizedDesc.m_Type);
+    const GLenum internalFormat = ToGLInternalFormat(sanitizedDesc.m_Format);
 
     glCreateTextures(target, 1, &texture);
 
-    switch (desc.m_Type)
+    switch (sanitizedDesc.m_Type)
     {
         case TextureType::Tex2D:
             glTextureStorage2D(texture,
-                               static_cast<GLsizei>(std::max(desc.m_MipLevels, 1u)),
+                               static_cast<GLsizei>(sanitizedDesc.m_MipLevels),
                                internalFormat,
-                               static_cast<GLsizei>(std::max(desc.m_Extent.m_Width, 1u)),
-                               static_cast<GLsizei>(std::max(desc.m_Extent.m_Height, 1u)));
+                               static_cast<GLsizei>(sanitizedDesc.m_Extent.m_Width),
+                               static_cast<GLsizei>(sanitizedDesc.m_Extent.m_Height));
             break;
         case TextureType::Tex2DArray:
         case TextureType::Cube:
             glTextureStorage3D(texture,
-                               static_cast<GLsizei>(std::max(desc.m_MipLevels, 1u)),
+                               static_cast<GLsizei>(sanitizedDesc.m_MipLevels),
                                internalFormat,
-                               static_cast<GLsizei>(std::max(desc.m_Extent.m_Width, 1u)),
-                               static_cast<GLsizei>(std::max(desc.m_Extent.m_Height, 1u)),
-                               static_cast<GLsizei>(std::max(desc.m_ArrayLayers, 1u)));
+                               static_cast<GLsizei>(sanitizedDesc.m_Extent.m_Width),
+                               static_cast<GLsizei>(sanitizedDesc.m_Extent.m_Height),
+                               static_cast<GLsizei>(sanitizedDesc.m_ArrayLayers));
             break;
         case TextureType::Tex3D:
             glTextureStorage3D(texture,
-                               static_cast<GLsizei>(std::max(desc.m_MipLevels, 1u)),
+                               static_cast<GLsizei>(sanitizedDesc.m_MipLevels),
                                internalFormat,
-                               static_cast<GLsizei>(std::max(desc.m_Extent.m_Width, 1u)),
-                               static_cast<GLsizei>(std::max(desc.m_Extent.m_Height, 1u)),
-                               static_cast<GLsizei>(std::max(desc.m_Extent.m_Depth, 1u)));
+                               static_cast<GLsizei>(sanitizedDesc.m_Extent.m_Width),
+                               static_cast<GLsizei>(sanitizedDesc.m_Extent.m_Height),
+                               static_cast<GLsizei>(sanitizedDesc.m_Extent.m_Depth));
             break;
     }
 
-    SetOpenGLObjectLabel(GL_TEXTURE, texture, desc.m_DebugName);
+    SetOpenGLObjectLabel(GL_TEXTURE, texture, sanitizedDesc.m_DebugName);
 
-    return CreateScope<OpenGLTexture>(texture, target, desc);
+    return CreateScope<OpenGLTexture>(texture, target, sanitizedDesc);
 }
 
 Scope<TextureView> OpenGLDevice::CreateTextureView(Texture* texture, const TextureViewDesc& desc)
@@ -835,6 +839,9 @@ void OpenGLDevice::Submit(CommandList* commandList)
                       "OpenGLDevice::Submit expects the backend-owned command list returned by BeginCommandList().");
     RTRLAB_ASSERT_MSG(!m_CommandList.IsRenderingActive(),
                       "OpenGLDevice::Submit requires EndRendering() before submission.");
+    // OpenGL work is recorded directly against the current context as calls are
+    // made, so Submit only needs to flush the driver-visible command stream.
+    glFlush();
 }
 
 FrameContext* OpenGLDevice::BeginFrame()

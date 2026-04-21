@@ -141,6 +141,10 @@ void HelloTriangle::OnRender()
 
     CommandList* commandList = Application::Get().GetCurrentCommandList();
     RTRLAB_ASSERT_MSG(commandList != nullptr, "HelloTriangle requires an active command list during OnRender.");
+    // NOTE: In the current demo contract, Application owns the outer
+    // BeginRendering/EndRendering scope and layers only record draw calls into
+    // that active pass. A future render-graph path will move pass ownership out
+    // of Application::RenderFrame and make it explicit at a higher level.
 
     MeshBinding meshBinding;
     meshBinding.m_VertexBuffers = {m_VertexBuffer.get()};

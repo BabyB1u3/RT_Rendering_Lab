@@ -46,6 +46,13 @@ bool IsNativeWindowHandleValid(const NativeWindowHandle& nativeWindowHandle)
     return false;
 }
 
+BufferDesc SanitizeBufferDesc(const BufferDesc& desc)
+{
+    BufferDesc sanitized = desc;
+    sanitized.m_Size = std::max<uint64_t>(desc.m_Size, 1);
+    return sanitized;
+}
+
 SwapchainDesc SanitizeSwapchainDesc(const SwapchainDesc& desc)
 {
     SwapchainDesc sanitized = desc;
@@ -54,6 +61,24 @@ SwapchainDesc SanitizeSwapchainDesc(const SwapchainDesc& desc)
     sanitized.m_ImageCount = std::max(desc.m_ImageCount, 1u);
     if (sanitized.m_Format == Format::Unknown)
         sanitized.m_Format = Format::BGRA8_UNORM;
+    return sanitized;
+}
+
+TextureDesc SanitizeTextureDesc(const TextureDesc& desc)
+{
+    TextureDesc sanitized = desc;
+    sanitized.m_Extent.m_Width = std::max(desc.m_Extent.m_Width, 1u);
+    sanitized.m_Extent.m_Height = std::max(desc.m_Extent.m_Height, 1u);
+    sanitized.m_Extent.m_Depth = std::max(desc.m_Extent.m_Depth, 1u);
+    sanitized.m_MipLevels = std::max(desc.m_MipLevels, 1u);
+    sanitized.m_ArrayLayers = std::max(desc.m_ArrayLayers, 1u);
+
+    if (sanitized.m_Type == TextureType::Cube)
+    {
+        RTRLAB_ASSERT_MSG((sanitized.m_ArrayLayers % 6u) == 0,
+                          "Cube textures require arrayLayers to be a multiple of 6.");
+    }
+
     return sanitized;
 }
 
@@ -114,6 +139,17 @@ void ShellResourceSet::SetSampler(uint32_t binding, const SamplerBinding& sample
 
 void ShellCommandListBase::BeginRendering(const RenderingInfo& renderingInfo)
 {
+    RTRLAB_ASSERT_MSG(!renderingInfo.m_ColorAttachments.empty() || renderingInfo.m_DepthAttachment.m_View != nullptr,
+                      "BeginRendering requires at least one color or depth attachment.");
+    RTRLAB_ASSERT_MSG(renderingInfo.m_RenderArea.m_Width > 0 && renderingInfo.m_RenderArea.m_Height > 0,
+                      "BeginRendering requires a non-zero render area.");
+
+    for (const ColorAttachmentInfo& colorAttachment : renderingInfo.m_ColorAttachments)
+    {
+        RTRLAB_ASSERT_MSG(colorAttachment.m_View != nullptr,
+                          "BeginRendering requires non-null color attachment views.");
+    }
+
     m_RenderingInfo = renderingInfo;
     m_IsRendering = true;
 }
@@ -302,12 +338,12 @@ void ShellSwapchainBase::RebuildImages()
 
 Scope<Buffer> ShellDeviceBase::CreateBuffer(const BufferDesc& desc)
 {
-    return CreateScope<ShellBuffer>(desc);
+    return CreateScope<ShellBuffer>(SanitizeBufferDesc(desc));
 }
 
 Scope<Texture> ShellDeviceBase::CreateTexture(const TextureDesc& desc)
 {
-    return CreateScope<ShellTexture>(desc);
+    return CreateScope<ShellTexture>(SanitizeTextureDesc(desc));
 }
 
 Scope<TextureView> ShellDeviceBase::CreateTextureView(Texture* texture, const TextureViewDesc& desc)

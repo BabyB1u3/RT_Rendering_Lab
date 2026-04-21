@@ -233,19 +233,53 @@ private:
     std::vector<VkVertexInputAttributeDescription> m_Attributes;
 };
 
+class VulkanPipelineLayout final : public PipelineLayout
+{
+public:
+    VulkanPipelineLayout(VkDevice device,
+                         const PipelineLayoutDesc& desc,
+                         VkPipelineLayout pipelineLayout,
+                         std::vector<VkDescriptorSetLayout>&& descriptorSetLayouts)
+        : m_Device(device),
+          m_Desc(desc),
+          m_PipelineLayout(pipelineLayout),
+          m_DescriptorSetLayouts(std::move(descriptorSetLayouts))
+    {
+    }
+
+    ~VulkanPipelineLayout() override
+    {
+        if (m_Device == VK_NULL_HANDLE)
+            return;
+
+        if (m_PipelineLayout != VK_NULL_HANDLE)
+            vkDestroyPipelineLayout(m_Device, m_PipelineLayout, nullptr);
+
+        for (VkDescriptorSetLayout descriptorSetLayout : m_DescriptorSetLayouts)
+        {
+            if (descriptorSetLayout != VK_NULL_HANDLE)
+                vkDestroyDescriptorSetLayout(m_Device, descriptorSetLayout, nullptr);
+        }
+    }
+
+    const PipelineLayoutDesc& GetDesc() const override { return m_Desc; }
+    VkPipelineLayout GetVkPipelineLayout() const { return m_PipelineLayout; }
+
+private:
+    VkDevice m_Device = VK_NULL_HANDLE;
+    PipelineLayoutDesc m_Desc;
+    VkPipelineLayout m_PipelineLayout = VK_NULL_HANDLE;
+    std::vector<VkDescriptorSetLayout> m_DescriptorSetLayouts;
+};
+
 class VulkanGraphicsPipeline final : public GraphicsPipeline
 {
 public:
     VulkanGraphicsPipeline(VkDevice device,
                            const GraphicsPipelineDesc& desc,
-                           VkPipelineLayout pipelineLayout,
-                           std::vector<VkDescriptorSetLayout>&& descriptorSetLayouts,
+                           VulkanPipelineLayout* pipelineLayout,
                            VkPipeline pipeline)
-        : m_Device(device),
-          m_Desc(desc),
-          m_PipelineLayout(pipelineLayout),
-          m_DescriptorSetLayouts(std::move(descriptorSetLayouts)),
-          m_Pipeline(pipeline)
+        : m_Device(device), m_Desc(desc), m_PipelineLayout(pipelineLayout), m_Pipeline(pipeline)
     {
     }
 
@@ -256,26 +290,19 @@ public:
 
         if (m_Pipeline != VK_NULL_HANDLE)
             vkDestroyPipeline(m_Device, m_Pipeline, nullptr);
-
-        for (VkDescriptorSetLayout descriptorSetLayout : m_DescriptorSetLayouts)
-        {
-            if (descriptorSetLayout != VK_NULL_HANDLE)
-                vkDestroyDescriptorSetLayout(m_Device, descriptorSetLayout, nullptr);
-        }
-
-        if (m_PipelineLayout != VK_NULL_HANDLE)
-            vkDestroyPipelineLayout(m_Device, m_PipelineLayout, nullptr);
     }
 
     const GraphicsPipelineDesc& GetDesc() const override { return m_Desc; }
     VkPipeline GetVkPipeline() const { return m_Pipeline; }
-    VkPipelineLayout GetVkPipelineLayout() const { return m_PipelineLayout; }
+    VkPipelineLayout GetVkPipelineLayout() const
+    {
+        return m_PipelineLayout != nullptr ? m_PipelineLayout->GetVkPipelineLayout() : VK_NULL_HANDLE;
+    }
 
 private:
     VkDevice m_Device = VK_NULL_HANDLE;
     GraphicsPipelineDesc m_Desc;
-    VkPipelineLayout m_PipelineLayout = VK_NULL_HANDLE;
-    std::vector<VkDescriptorSetLayout> m_DescriptorSetLayouts;
+    VulkanPipelineLayout* m_PipelineLayout = nullptr;
     VkPipeline m_Pipeline = VK_NULL_HANDLE;
 };
 
@@ -774,6 +801,13 @@ const VulkanVertexInputLayout& GetVulkanVertexInputLayout(VertexInputLayout* ver
     auto* vulkanVertexInputLayout = dynamic_cast<VulkanVertexInputLayout*>(vertexInputLayout);
     RTRLAB_ASSERT_MSG(vulkanVertexInputLayout != nullptr, "GraphicsPipeline requires a Vulkan vertex input layout.");
     return *vulkanVertexInputLayout;
+}
+
+VulkanPipelineLayout& GetVulkanPipelineLayout(PipelineLayout* pipelineLayout)
+{
+    auto* vulkanPipelineLayout = dynamic_cast<VulkanPipelineLayout*>(pipelineLayout);
+    RTRLAB_ASSERT_MSG(vulkanPipelineLayout != nullptr, "GraphicsPipeline requires a Vulkan pipeline layout.");
+    return *vulkanPipelineLayout;
 }
 
 const VulkanGraphicsPipeline& GetVulkanGraphicsPipeline(GraphicsPipeline* graphicsPipeline)
@@ -1442,7 +1476,8 @@ void VulkanCommandList::SetViewport(float x, float y, float w, float h, float zm
     viewport.x = x;
     // Normalize Vulkan's framebuffer-space Y direction to the public RHI
     // convention used by the demo layer by flipping the viewport in backend
-    // space instead of forcing per-demo/per-shader Y adjustments.
+    // space instead of forcing per-demo/per-shader Y adjustments. See
+    // ToVkFrontFace(): the winding must be inverted alongside this flip.
     viewport.y = y + h;
     viewport.width = w;
     viewport.height = -h;
@@ -1739,23 +1774,24 @@ Scope<Buffer> VulkanDevice::CreateBuffer(const BufferDesc& desc)
 {
     InitializeDeviceObjects();
     RTRLAB_ASSERT_MSG(m_Allocator != nullptr, "Vulkan buffer allocation requires an initialized VMA allocator.");
+    const BufferDesc sanitizedDesc = RHIInternal::SanitizeBufferDesc(desc);
 
     VkBufferCreateInfo createInfo = MakeVkStruct<VkBufferCreateInfo, VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO>();
-    createInfo.size = std::max<uint64_t>(desc.m_Size, 1);
-    createInfo.usage = ToVkBufferUsage(desc.m_UsageMask);
+    createInfo.size = sanitizedDesc.m_Size;
+    createInfo.usage = ToVkBufferUsage(sanitizedDesc.m_UsageMask);
     createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
     VmaAllocationCreateInfo allocationCreateInfo{};
-    allocationCreateInfo.usage = ToVmaMemoryUsage(desc.m_MemoryUsage);
-    allocationCreateInfo.flags = ToVmaAllocationCreateFlags(desc.m_MemoryUsage);
+    allocationCreateInfo.usage = ToVmaMemoryUsage(sanitizedDesc.m_MemoryUsage);
+    allocationCreateInfo.flags = ToVmaAllocationCreateFlags(sanitizedDesc.m_MemoryUsage);
 
     VkBuffer buffer = VK_NULL_HANDLE;
     VmaAllocation allocation = nullptr;
     CheckVk(vmaCreateBuffer(m_Allocator, &createInfo, &allocationCreateInfo, &buffer, &allocation, nullptr),
             "vmaCreateBuffer");
-    SetVulkanDebugName(m_Device, VK_OBJECT_TYPE_BUFFER, reinterpret_cast<uint64_t>(buffer), desc.m_DebugName);
+    SetVulkanDebugName(m_Device, VK_OBJECT_TYPE_BUFFER, reinterpret_cast<uint64_t>(buffer), sanitizedDesc.m_DebugName);
 
-    return CreateScope<VulkanBuffer>(m_Allocator, buffer, allocation, desc);
+    return CreateScope<VulkanBuffer>(m_Allocator, buffer, allocation, sanitizedDesc);
 }
 
 Scope<Texture> VulkanDevice::CreateTexture(const TextureDesc& desc)
@@ -1765,24 +1801,23 @@ Scope<Texture> VulkanDevice::CreateTexture(const TextureDesc& desc)
     // though allocation is now routed through VMA.
     InitializeDeviceObjects();
     RTRLAB_ASSERT_MSG(m_Allocator != nullptr, "Vulkan texture allocation requires an initialized VMA allocator.");
+    const TextureDesc sanitizedDesc = RHIInternal::SanitizeTextureDesc(desc);
 
     VkImageCreateInfo createInfo = MakeVkStruct<VkImageCreateInfo, VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO>();
-    createInfo.imageType = ToVkImageType(desc.m_Type);
-    createInfo.format = ToVkFormat(desc.m_Format);
-    createInfo.extent = VkExtent3D{
-        std::max(desc.m_Extent.m_Width, 1u), std::max(desc.m_Extent.m_Height, 1u), std::max(desc.m_Extent.m_Depth, 1u)};
-    createInfo.mipLevels = std::max(desc.m_MipLevels, 1u);
-    createInfo.arrayLayers = std::max(desc.m_ArrayLayers, 1u);
+    createInfo.imageType = ToVkImageType(sanitizedDesc.m_Type);
+    createInfo.format = ToVkFormat(sanitizedDesc.m_Format);
+    createInfo.extent =
+        VkExtent3D{sanitizedDesc.m_Extent.m_Width, sanitizedDesc.m_Extent.m_Height, sanitizedDesc.m_Extent.m_Depth};
+    createInfo.mipLevels = sanitizedDesc.m_MipLevels;
+    createInfo.arrayLayers = sanitizedDesc.m_ArrayLayers;
     createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    createInfo.usage = ToVkImageUsage(desc.m_UsageMask);
+    createInfo.usage = ToVkImageUsage(sanitizedDesc.m_UsageMask);
     createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     createInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    if (desc.m_Type == TextureType::Cube)
+    if (sanitizedDesc.m_Type == TextureType::Cube)
     {
         createInfo.flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
-        RTRLAB_ASSERT_MSG((createInfo.arrayLayers % 6u) == 0,
-                          "Cube textures require arrayLayers to be a multiple of 6.");
     }
 
     VmaAllocationCreateInfo allocationCreateInfo{};
@@ -1792,9 +1827,9 @@ Scope<Texture> VulkanDevice::CreateTexture(const TextureDesc& desc)
     VmaAllocation allocation = nullptr;
     CheckVk(vmaCreateImage(m_Allocator, &createInfo, &allocationCreateInfo, &image, &allocation, nullptr),
             "vmaCreateImage");
-    SetVulkanDebugName(m_Device, VK_OBJECT_TYPE_IMAGE, reinterpret_cast<uint64_t>(image), desc.m_DebugName);
+    SetVulkanDebugName(m_Device, VK_OBJECT_TYPE_IMAGE, reinterpret_cast<uint64_t>(image), sanitizedDesc.m_DebugName);
 
-    return CreateScope<VulkanTexture>(m_Allocator, image, allocation, desc);
+    return CreateScope<VulkanTexture>(m_Allocator, image, allocation, sanitizedDesc);
 }
 
 Scope<TextureView> VulkanDevice::CreateTextureView(Texture* texture, const TextureViewDesc& desc)
@@ -1895,6 +1930,15 @@ Scope<ShaderProgram> VulkanDevice::CreateShaderProgram(const CompiledShaderProgr
     return CreateScope<VulkanShaderProgram>(m_Device, desc, std::move(modules));
 }
 
+Scope<PipelineLayout> VulkanDevice::CreatePipelineLayout(const PipelineLayoutDesc& desc)
+{
+    InitializeDeviceObjects();
+
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = CreateVkDescriptorSetLayouts(m_Device, desc);
+    VkPipelineLayout pipelineLayout = CreateVkPipelineLayout(m_Device, desc, descriptorSetLayouts);
+    return CreateScope<VulkanPipelineLayout>(m_Device, desc, pipelineLayout, std::move(descriptorSetLayouts));
+}
+
 Scope<VertexInputLayout> VulkanDevice::CreateVertexInputLayout(const VertexInputLayoutDesc& desc)
 {
     std::vector<VkVertexInputBindingDescription> bindings;
@@ -1940,6 +1984,7 @@ Scope<GraphicsPipeline> VulkanDevice::CreateGraphicsPipeline(const GraphicsPipel
 
     const VulkanShaderProgram& shaderProgram = GetVulkanShaderProgram(desc.m_ShaderProgram);
     const VulkanVertexInputLayout& vertexInput = GetVulkanVertexInputLayout(desc.m_VertexInput);
+    VulkanPipelineLayout& pipelineLayout = GetVulkanPipelineLayout(desc.m_PipelineLayout);
 
     const VulkanShaderProgram::StageModule* vertexStage = shaderProgram.FindStage(ShaderStage::Vertex);
     const VulkanShaderProgram::StageModule* fragmentStage = shaderProgram.FindStage(ShaderStage::Fragment);
@@ -1955,11 +2000,6 @@ Scope<GraphicsPipeline> VulkanDevice::CreateGraphicsPipeline(const GraphicsPipel
     shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
     shaderStages[1].module = fragmentStage->m_Module;
     shaderStages[1].pName = kVulkanShaderEntryPoint;
-
-    const PipelineLayoutDesc& pipelineLayoutDesc = desc.m_PipelineLayout->GetDesc();
-    std::vector<VkDescriptorSetLayout> descriptorSetLayouts =
-        CreateVkDescriptorSetLayouts(m_Device, pipelineLayoutDesc);
-    VkPipelineLayout pipelineLayout = CreateVkPipelineLayout(m_Device, pipelineLayoutDesc, descriptorSetLayouts);
 
     VkPipelineVertexInputStateCreateInfo vertexInputState =
         MakeVkStruct<VkPipelineVertexInputStateCreateInfo, VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO>();
@@ -2055,23 +2095,13 @@ Scope<GraphicsPipeline> VulkanDevice::CreateGraphicsPipeline(const GraphicsPipel
     createInfo.pDepthStencilState = desc.m_DepthFormat == Format::Unknown ? nullptr : &depthStencilState;
     createInfo.pColorBlendState = &colorBlendState;
     createInfo.pDynamicState = &dynamicState;
-    createInfo.layout = pipelineLayout;
+    createInfo.layout = pipelineLayout.GetVkPipelineLayout();
 
     VkPipeline pipeline = VK_NULL_HANDLE;
     const VkResult result = vkCreateGraphicsPipelines(m_Device, VK_NULL_HANDLE, 1, &createInfo, nullptr, &pipeline);
     if (result != VK_SUCCESS)
-    {
-        vkDestroyPipelineLayout(m_Device, pipelineLayout, nullptr);
-        for (VkDescriptorSetLayout descriptorSetLayout : descriptorSetLayouts)
-        {
-            if (descriptorSetLayout != VK_NULL_HANDLE)
-                vkDestroyDescriptorSetLayout(m_Device, descriptorSetLayout, nullptr);
-        }
         CheckVk(result, "vkCreateGraphicsPipelines");
-    }
-
-    return CreateScope<VulkanGraphicsPipeline>(
-        m_Device, desc, pipelineLayout, std::move(descriptorSetLayouts), pipeline);
+    return CreateScope<VulkanGraphicsPipeline>(m_Device, desc, &pipelineLayout, pipeline);
 }
 
 void VulkanDevice::WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size)

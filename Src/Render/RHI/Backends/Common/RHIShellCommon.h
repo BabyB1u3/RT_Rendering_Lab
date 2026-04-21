@@ -11,7 +11,9 @@
 namespace RHIInternal
 {
 bool IsNativeWindowHandleValid(const NativeWindowHandle& nativeWindowHandle);
+BufferDesc SanitizeBufferDesc(const BufferDesc& desc);
 SwapchainDesc SanitizeSwapchainDesc(const SwapchainDesc& desc);
+TextureDesc SanitizeTextureDesc(const TextureDesc& desc);
 PipelineLayoutDesc BuildPipelineLayoutDescFromReflection(const ShaderReflectionData& reflection);
 
 class ShellFrameContext : public FrameContext

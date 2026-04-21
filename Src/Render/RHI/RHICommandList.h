@@ -118,8 +118,13 @@ public:
 
     virtual void Dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ) = 0;
 
+    // TRANSITIONAL(M4): Barrier stage masks are still conservative in the v1
+    // tracker path. Future pass-graph integration will feed precise producer /
+    // consumer stage masks instead of broad fallback masks.
     virtual void TextureBarrier(
         Texture* texture, TextureState oldState, TextureState newState, ShaderStage srcStage, ShaderStage dstStage) = 0;
+    // TRANSITIONAL(M4): See TextureBarrier above for the future precise stage-
+    // mask plan once pass-level resource usage is available.
     virtual void BufferBarrier(
         Buffer* buffer, BufferState oldState, BufferState newState, ShaderStage srcStage, ShaderStage dstStage) = 0;
 };
