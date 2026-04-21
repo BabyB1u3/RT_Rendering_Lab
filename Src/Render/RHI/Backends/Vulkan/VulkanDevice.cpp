@@ -13,6 +13,9 @@
 #elif defined(__linux__)
 #if defined(GLAB_GLFW_X11_NATIVE)
 #include <X11/Xlib.h>
+#ifdef None
+#undef None
+#endif
 #endif
 #if defined(GLAB_GLFW_WAYLAND_NATIVE)
 #include <wayland-client.h>
@@ -501,32 +504,6 @@ VkImage GetVkImageFromTexture(Texture* texture)
 
     RTRLAB_ASSERT_MSG(false, "Texture is not owned by the Vulkan backend.");
     return VK_NULL_HANDLE;
-}
-
-std::vector<const char*> GetRequiredInstanceExtensions(NativeWindowSystem system)
-{
-    std::vector<const char*> extensions = {VK_KHR_SURFACE_EXTENSION_NAME};
-
-    switch (system)
-    {
-        case NativeWindowSystem::Win32:
-            extensions.push_back("VK_KHR_win32_surface");
-            break;
-        case NativeWindowSystem::Cocoa:
-            extensions.push_back("VK_EXT_metal_surface");
-            break;
-        case NativeWindowSystem::Xlib:
-            extensions.push_back("VK_KHR_xlib_surface");
-            break;
-        case NativeWindowSystem::Xcb:
-            extensions.push_back("VK_KHR_xcb_surface");
-            break;
-        case NativeWindowSystem::Wayland:
-            extensions.push_back("VK_KHR_wayland_surface");
-            break;
-    }
-
-    return extensions;
 }
 
 std::vector<const char*> GetPlatformInstanceExtensionCandidates()
