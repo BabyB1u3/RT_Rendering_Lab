@@ -108,6 +108,9 @@ public:
     Scope<Texture> CreateTexture(const TextureDesc& desc) override;
     Scope<TextureView> CreateTextureView(Texture* texture, const TextureViewDesc& desc) override;
     Scope<Sampler> CreateSampler(const SamplerDesc& desc) override;
+    Scope<ShaderProgram> CreateShaderProgram(const CompiledShaderProgramDesc& desc) override;
+    Scope<VertexInputLayout> CreateVertexInputLayout(const VertexInputLayoutDesc& desc) override;
+    Scope<GraphicsPipeline> CreateGraphicsPipeline(const GraphicsPipelineDesc& desc) override;
 
     CommandList* BeginCommandList() override;
     void Submit(CommandList* commandList) override;
