@@ -562,14 +562,12 @@ Scope<Texture> MetalDevice::CreateTexture(const TextureDesc& desc)
 {
     RTRLAB_ASSERT_MSG(m_Data != nullptr && m_Data->m_Device != nil,
                       "Metal device must be initialized before CreateTexture.");
-    // TRANSITIONAL(M3): mirrors Vulkan - textures are GpuOnly-only in this
-    // milestone. CPU->GPU uploads will go through staging/upload paths in the
-    // next batch, while render-target textures remain Private storage. When the
-    // upload path lands, desc.m_MemoryUsage will map to the appropriate Metal
-    // storage mode instead of asserting here.
-    RTRLAB_ASSERT_MSG(desc.m_MemoryUsage == MemoryUsage::GpuOnly,
-                      "Metal textures currently require MemoryUsage::GpuOnly; use a staging buffer for CPU->GPU "
-                      "texture uploads.");
+    // TRANSITIONAL(M3): TextureDesc does not expose a residency / memory-usage
+    // policy yet, so v1 Metal textures are always created in Private storage.
+    // CPU->GPU uploads will go through staging/upload paths in the next batch,
+    // while render-target textures continue to require Private storage. If the
+    // public TextureDesc later grows residency controls, this mapping point is
+    // where they should feed into Metal storageMode selection.
 
     MTLTextureDescriptor* textureDesc = [[MTLTextureDescriptor alloc] init];
     textureDesc.textureType = ToMetalTextureType(desc.m_Type);
@@ -579,7 +577,7 @@ Scope<Texture> MetalDevice::CreateTexture(const TextureDesc& desc)
     textureDesc.depth = desc.m_Type == TextureType::Tex3D ? std::max(desc.m_Extent.m_Depth, 1u) : 1u;
     textureDesc.mipmapLevelCount = std::max(desc.m_MipLevels, 1u);
     textureDesc.arrayLength = desc.m_Type == TextureType::Tex2DArray ? std::max(desc.m_ArrayLayers, 1u) : 1u;
-    textureDesc.storageMode = ToMetalStorageMode(desc.m_MemoryUsage);
+    textureDesc.storageMode = MTLStorageModePrivate;
     textureDesc.usage = MTLTextureUsageUnknown;
     if ((desc.m_UsageMask & TextureUsage::Sampled) != TextureUsage::None)
         textureDesc.usage |= MTLTextureUsageShaderRead;

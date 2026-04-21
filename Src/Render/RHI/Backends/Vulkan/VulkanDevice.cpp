@@ -1253,16 +1253,13 @@ Scope<Buffer> VulkanDevice::CreateBuffer(const BufferDesc& desc)
 
 Scope<Texture> VulkanDevice::CreateTexture(const TextureDesc& desc)
 {
-    // TRANSITIONAL(M3): textures are GpuOnly-only for this milestone. Real
-    // CPU->GPU uploads land in the next shader/upload batch as staging-buffer +
-    // vkCmdCopyBufferToImage; HOST_VISIBLE textures would require
-    // VK_IMAGE_TILING_LINEAR, which carries format/mip/type restrictions we do
-    // not want to expose in the public API. After VMA lands, this path still
-    // maps to device-local texture allocations, just through vmaCreateImage(...).
+    // TRANSITIONAL(M3): TextureDesc does not expose a residency / memory-usage
+    // policy yet, so v1 Vulkan textures are always created as device-local
+    // optimal-tiled images. CPU->GPU uploads will land in the next
+    // shader/upload batch as staging-buffer + vkCmdCopyBufferToImage. After VMA
+    // lands, this path still maps to device-local texture allocations, just
+    // through vmaCreateImage(...).
     InitializeDeviceObjects();
-    RTRLAB_ASSERT_MSG(desc.m_MemoryUsage == MemoryUsage::GpuOnly,
-                      "Vulkan textures currently require MemoryUsage::GpuOnly; use a staging buffer for CPU->GPU "
-                      "texture uploads.");
 
     VkImageCreateInfo createInfo{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
     createInfo.imageType = ToVkImageType(desc.m_Type);
