@@ -121,6 +121,7 @@ public:
     Scope<Sampler> CreateSampler(const SamplerDesc& desc) override;
     Scope<ShaderProgram> CreateShaderProgram(const CompiledShaderProgramDesc& desc) override;
     Scope<PipelineLayout> CreatePipelineLayout(const PipelineLayoutDesc& desc) override;
+    Scope<ResourceSet> CreateResourceSet(PipelineLayout* layout, uint32_t setIndex) override;
     Scope<VertexInputLayout> CreateVertexInputLayout(const VertexInputLayoutDesc& desc) override;
     Scope<GraphicsPipeline> CreateGraphicsPipeline(const GraphicsPipelineDesc& desc) override;
     void WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size) override;

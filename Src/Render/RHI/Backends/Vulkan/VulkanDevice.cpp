@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstring>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "Core/Diagnostics/Assert/Assert.h"
@@ -264,12 +265,117 @@ public:
 
     const PipelineLayoutDesc& GetDesc() const override { return m_Desc; }
     VkPipelineLayout GetVkPipelineLayout() const { return m_PipelineLayout; }
+    VkDescriptorSetLayout GetVkDescriptorSetLayout(uint32_t setIndex) const
+    {
+        RTRLAB_ASSERT_MSG(setIndex < m_DescriptorSetLayouts.size(),
+                          "Vulkan descriptor-set layout index is out of range.");
+        return m_DescriptorSetLayouts[setIndex];
+    }
 
 private:
     VkDevice m_Device = VK_NULL_HANDLE;
     PipelineLayoutDesc m_Desc;
     VkPipelineLayout m_PipelineLayout = VK_NULL_HANDLE;
     std::vector<VkDescriptorSetLayout> m_DescriptorSetLayouts;
+};
+
+class VulkanResourceSet final : public ResourceSet
+{
+public:
+    VulkanResourceSet(VkDevice device,
+                      PipelineLayout* layout,
+                      uint32_t setIndex,
+                      VkDescriptorPool descriptorPool,
+                      VkDescriptorSet descriptorSet)
+        : m_Device(device),
+          m_Layout(layout),
+          m_SetIndex(setIndex),
+          m_DescriptorPool(descriptorPool),
+          m_DescriptorSet(descriptorSet)
+    {
+    }
+
+    ~VulkanResourceSet() override
+    {
+        if (m_Device != VK_NULL_HANDLE && m_DescriptorPool != VK_NULL_HANDLE)
+            vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
+    }
+
+    PipelineLayout* GetLayout() const override { return m_Layout; }
+    uint32_t GetSetIndex() const override { return m_SetIndex; }
+
+    const ParameterBlockData& GetConstants() const override { return m_Constants; }
+    void SetConstantDataRaw(uint32_t offset, const void* data, size_t size) override
+    {
+        if (size == 0)
+            return;
+
+        ValidateConstantBindingExists();
+        m_Constants.SetRaw(offset, data, size);
+        ++m_Version;
+    }
+
+    void SetBuffer(uint32_t binding, const BufferBinding& bufferBinding) override
+    {
+        (void)RequireBindingInfo(binding, ResourceKind::StorageBuffer);
+        m_BufferBindings[binding] = bufferBinding;
+        ++m_Version;
+    }
+
+    void SetTexture(uint32_t binding, const TextureBinding& textureBinding) override
+    {
+        (void)RequireBindingInfo(binding, ResourceKind::SampledTexture);
+        m_TextureBindings[binding] = textureBinding;
+        ++m_Version;
+    }
+
+    void SetSampler(uint32_t binding, const SamplerBinding& samplerBinding) override
+    {
+        (void)RequireBindingInfo(binding, ResourceKind::Sampler);
+        m_SamplerBindings[binding] = samplerBinding;
+        ++m_Version;
+    }
+
+    uint32_t GetVersion() const override { return m_Version; }
+
+    VkDescriptorSet GetVkDescriptorSet() const { return m_DescriptorSet; }
+
+private:
+    const BindingInfo& RequireBindingInfo(uint32_t binding, ResourceKind kind) const
+    {
+        RTRLAB_ASSERT_MSG(m_Layout != nullptr,
+                          "Vulkan ResourceSet binding validation requires a valid PipelineLayout.");
+        const BindingInfo* bindingInfo = RHIInternal::FindBindingInfo(m_Layout->GetDesc(), m_SetIndex, binding, kind);
+        RTRLAB_ASSERTF(bindingInfo != nullptr,
+                       "Vulkan ResourceSet set {} has no binding {} of expected kind {} in its PipelineLayout.",
+                       m_SetIndex,
+                       binding,
+                       static_cast<uint32_t>(kind));
+        return *bindingInfo;
+    }
+
+    void ValidateConstantBindingExists() const
+    {
+        RTRLAB_ASSERT_MSG(m_Layout != nullptr,
+                          "Vulkan ResourceSet constant validation requires a valid PipelineLayout.");
+        const BindingInfo* bindingInfo =
+            RHIInternal::FindFirstBindingInfoForSet(m_Layout->GetDesc(), m_SetIndex, ResourceKind::UniformBuffer);
+        RTRLAB_ASSERTF(bindingInfo != nullptr,
+                       "Vulkan ResourceSet set {} has no UniformBuffer binding in its PipelineLayout.",
+                       m_SetIndex);
+    }
+
+private:
+    VkDevice m_Device = VK_NULL_HANDLE;
+    PipelineLayout* m_Layout = nullptr;
+    uint32_t m_SetIndex = 0;
+    VkDescriptorPool m_DescriptorPool = VK_NULL_HANDLE;
+    VkDescriptorSet m_DescriptorSet = VK_NULL_HANDLE;
+    ParameterBlockData m_Constants;
+    std::unordered_map<uint32_t, BufferBinding> m_BufferBindings;
+    std::unordered_map<uint32_t, TextureBinding> m_TextureBindings;
+    std::unordered_map<uint32_t, SamplerBinding> m_SamplerBindings;
+    uint32_t m_Version = 0;
 };
 
 class VulkanGraphicsPipeline final : public GraphicsPipeline
@@ -810,6 +916,13 @@ VulkanPipelineLayout& GetVulkanPipelineLayout(PipelineLayout* pipelineLayout)
     return *vulkanPipelineLayout;
 }
 
+VulkanResourceSet& GetVulkanResourceSet(ResourceSet* resourceSet)
+{
+    auto* vulkanResourceSet = dynamic_cast<VulkanResourceSet*>(resourceSet);
+    RTRLAB_ASSERT_MSG(vulkanResourceSet != nullptr, "ResourceSet is not owned by the Vulkan backend.");
+    return *vulkanResourceSet;
+}
+
 const VulkanGraphicsPipeline& GetVulkanGraphicsPipeline(GraphicsPipeline* graphicsPipeline)
 {
     auto* vulkanGraphicsPipeline = dynamic_cast<VulkanGraphicsPipeline*>(graphicsPipeline);
@@ -878,6 +991,63 @@ std::vector<VkDescriptorSetLayout> CreateVkDescriptorSetLayouts(VkDevice device,
     }
 
     return descriptorSetLayouts;
+}
+
+VkDescriptorPool CreateVkDescriptorPoolForSet(VkDevice device, const PipelineLayoutDesc& desc, uint32_t setIndex)
+{
+    std::vector<VkDescriptorPoolSize> poolSizes;
+
+    for (const BindingInfo* bindingInfo : RHIInternal::CollectBindingInfosForSet(desc, setIndex))
+    {
+        const VkDescriptorType descriptorType = ToVkDescriptorType(bindingInfo->m_Kind);
+        const uint32_t descriptorCount = std::max(bindingInfo->m_ArrayCount, 1u);
+
+        auto it = std::find_if(poolSizes.begin(),
+                               poolSizes.end(),
+                               [descriptorType](const VkDescriptorPoolSize& poolSize)
+                               { return poolSize.type == descriptorType; });
+        if (it == poolSizes.end())
+        {
+            VkDescriptorPoolSize poolSize{};
+            poolSize.type = descriptorType;
+            poolSize.descriptorCount = descriptorCount;
+            poolSizes.push_back(poolSize);
+        }
+        else
+        {
+            it->descriptorCount += descriptorCount;
+        }
+    }
+
+    VkDescriptorPoolCreateInfo createInfo =
+        MakeVkStruct<VkDescriptorPoolCreateInfo, VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO>();
+    createInfo.maxSets = 1;
+    createInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    createInfo.pPoolSizes = poolSizes.empty() ? nullptr : poolSizes.data();
+
+    VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
+    CheckVk(vkCreateDescriptorPool(device, &createInfo, nullptr, &descriptorPool), "vkCreateDescriptorPool");
+    return descriptorPool;
+}
+
+VkDescriptorSet AllocateVkDescriptorSet(VkDevice device,
+                                        VkDescriptorPool descriptorPool,
+                                        const VulkanPipelineLayout& pipelineLayout,
+                                        uint32_t setIndex)
+{
+    const VkDescriptorSetLayout descriptorSetLayout = pipelineLayout.GetVkDescriptorSetLayout(setIndex);
+    RTRLAB_ASSERT_MSG(descriptorSetLayout != VK_NULL_HANDLE,
+                      "Vulkan ResourceSet allocation requires a valid VkDescriptorSetLayout.");
+
+    VkDescriptorSetAllocateInfo allocateInfo =
+        MakeVkStruct<VkDescriptorSetAllocateInfo, VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO>();
+    allocateInfo.descriptorPool = descriptorPool;
+    allocateInfo.descriptorSetCount = 1;
+    allocateInfo.pSetLayouts = &descriptorSetLayout;
+
+    VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+    CheckVk(vkAllocateDescriptorSets(device, &allocateInfo, &descriptorSet), "vkAllocateDescriptorSets");
+    return descriptorSet;
 }
 
 VkPipelineLayout CreateVkPipelineLayout(VkDevice device,
@@ -1937,6 +2107,21 @@ Scope<PipelineLayout> VulkanDevice::CreatePipelineLayout(const PipelineLayoutDes
     std::vector<VkDescriptorSetLayout> descriptorSetLayouts = CreateVkDescriptorSetLayouts(m_Device, desc);
     VkPipelineLayout pipelineLayout = CreateVkPipelineLayout(m_Device, desc, descriptorSetLayouts);
     return CreateScope<VulkanPipelineLayout>(m_Device, desc, pipelineLayout, std::move(descriptorSetLayouts));
+}
+
+Scope<ResourceSet> VulkanDevice::CreateResourceSet(PipelineLayout* layout, uint32_t setIndex)
+{
+    InitializeDeviceObjects();
+
+    VulkanPipelineLayout& pipelineLayout = GetVulkanPipelineLayout(layout);
+    const std::vector<const BindingInfo*> setBindings =
+        RHIInternal::CollectBindingInfosForSet(pipelineLayout.GetDesc(), setIndex);
+    RTRLAB_ASSERTF(
+        !setBindings.empty(), "Vulkan CreateResourceSet requires a valid set {} in the PipelineLayout.", setIndex);
+
+    VkDescriptorPool descriptorPool = CreateVkDescriptorPoolForSet(m_Device, pipelineLayout.GetDesc(), setIndex);
+    VkDescriptorSet descriptorSet = AllocateVkDescriptorSet(m_Device, descriptorPool, pipelineLayout, setIndex);
+    return CreateScope<VulkanResourceSet>(m_Device, layout, setIndex, descriptorPool, descriptorSet);
 }
 
 Scope<VertexInputLayout> VulkanDevice::CreateVertexInputLayout(const VertexInputLayoutDesc& desc)
