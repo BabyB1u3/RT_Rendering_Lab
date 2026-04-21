@@ -632,6 +632,10 @@ void MetalCommandList::BindVertexBuffers(uint32_t firstSlot,
 
     RTRLAB_ASSERT_MSG(m_Data != nullptr && m_Data->m_RenderEncoder != nil,
                       "Metal vertex buffers require an active render encoder.");
+    // TRANSITIONAL(M4): Metal vertex buffers currently consume the raw slot
+    // index directly. Once PipelineLayout-backed resource binding exists,
+    // vertex streams will need a backend-owned buffer index offset so they do
+    // not collide with uniform/texture argument slots.
 
     for (uint32_t index = 0; index < count; ++index)
     {
@@ -930,6 +934,7 @@ Scope<Texture> MetalDevice::CreateTexture(const TextureDesc& desc)
 {
     RTRLAB_ASSERT_MSG(m_Data != nullptr && m_Data->m_Device != nil,
                       "Metal device must be initialized before CreateTexture.");
+    const TextureDesc sanitizedDesc = RHIInternal::SanitizeTextureDesc(desc);
     // TRANSITIONAL(M3): TextureDesc does not expose a residency / memory-usage
     // policy yet, so v1 Metal textures are always created in Private storage.
     // CPU->GPU uploads will go through staging/upload paths in the next batch,
@@ -938,29 +943,32 @@ Scope<Texture> MetalDevice::CreateTexture(const TextureDesc& desc)
     // where they should feed into Metal storageMode selection.
 
     MTLTextureDescriptor* textureDesc = [[MTLTextureDescriptor alloc] init];
-    textureDesc.textureType = ToMetalTextureType(desc.m_Type);
-    textureDesc.pixelFormat = ToMetalPixelFormat(desc.m_Format);
-    textureDesc.width = std::max(desc.m_Extent.m_Width, 1u);
-    textureDesc.height = std::max(desc.m_Extent.m_Height, 1u);
-    textureDesc.depth = desc.m_Type == TextureType::Tex3D ? std::max(desc.m_Extent.m_Depth, 1u) : 1u;
-    textureDesc.mipmapLevelCount = std::max(desc.m_MipLevels, 1u);
-    textureDesc.arrayLength = desc.m_Type == TextureType::Tex2DArray ? std::max(desc.m_ArrayLayers, 1u) : 1u;
+    textureDesc.textureType = ToMetalTextureType(sanitizedDesc.m_Type);
+    textureDesc.pixelFormat = ToMetalPixelFormat(sanitizedDesc.m_Format);
+    textureDesc.width = sanitizedDesc.m_Extent.m_Width;
+    textureDesc.height = sanitizedDesc.m_Extent.m_Height;
+    textureDesc.depth = sanitizedDesc.m_Type == TextureType::Tex3D ? sanitizedDesc.m_Extent.m_Depth : 1u;
+    textureDesc.mipmapLevelCount = sanitizedDesc.m_MipLevels;
+    textureDesc.arrayLength =
+        sanitizedDesc.m_Type == TextureType::Tex2DArray || sanitizedDesc.m_Type == TextureType::Cube
+            ? sanitizedDesc.m_ArrayLayers
+            : 1u;
     textureDesc.storageMode = MTLStorageModePrivate;
     MTLTextureUsage usage = 0;
-    if ((desc.m_UsageMask & TextureUsage::Sampled) != TextureUsage::None)
+    if ((sanitizedDesc.m_UsageMask & TextureUsage::Sampled) != TextureUsage::None)
         usage |= MTLTextureUsageShaderRead;
-    if ((desc.m_UsageMask & TextureUsage::Storage) != TextureUsage::None)
+    if ((sanitizedDesc.m_UsageMask & TextureUsage::Storage) != TextureUsage::None)
         usage |= MTLTextureUsageShaderWrite;
-    if ((desc.m_UsageMask & TextureUsage::RenderTarget) != TextureUsage::None ||
-        (desc.m_UsageMask & TextureUsage::DepthStencil) != TextureUsage::None)
+    if ((sanitizedDesc.m_UsageMask & TextureUsage::RenderTarget) != TextureUsage::None ||
+        (sanitizedDesc.m_UsageMask & TextureUsage::DepthStencil) != TextureUsage::None)
         usage |= MTLTextureUsageRenderTarget;
     textureDesc.usage = usage != 0 ? usage : MTLTextureUsageUnknown;
 
     id<MTLTexture> texture = [m_Data->m_Device newTextureWithDescriptor:textureDesc];
     [textureDesc release];
     RTRLAB_ASSERT_MSG(texture != nil, "Failed to create the Metal texture.");
-    SetMetalDebugLabel(texture, desc.m_DebugName);
-    auto result = CreateScope<MetalTexture>(texture, desc);
+    SetMetalDebugLabel(texture, sanitizedDesc.m_DebugName);
+    auto result = CreateScope<MetalTexture>(texture, sanitizedDesc);
     [texture release];
     return result;
 }

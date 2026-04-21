@@ -3,7 +3,9 @@
 namespace
 {
 // ResourceStateTracker is intentionally conservative at v1: without pass-level
-// usage metadata yet, barriers are emitted with an all-stages mask.
+// usage metadata yet, barriers are emitted with an all-stages mask. TRANSITIONAL(M4):
+// once pass/resource usage tracking exists, srcStage will come from the last known
+// producer stage and dstStage from the next consumer stage instead of this fallback.
 constexpr ShaderStage k_BarrierStageMask = ShaderStage::All;
 } // namespace
 

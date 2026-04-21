@@ -1442,7 +1442,8 @@ void VulkanCommandList::SetViewport(float x, float y, float w, float h, float zm
     viewport.x = x;
     // Normalize Vulkan's framebuffer-space Y direction to the public RHI
     // convention used by the demo layer by flipping the viewport in backend
-    // space instead of forcing per-demo/per-shader Y adjustments.
+    // space instead of forcing per-demo/per-shader Y adjustments. See
+    // ToVkFrontFace(): the winding must be inverted alongside this flip.
     viewport.y = y + h;
     viewport.width = w;
     viewport.height = -h;
@@ -1739,23 +1740,24 @@ Scope<Buffer> VulkanDevice::CreateBuffer(const BufferDesc& desc)
 {
     InitializeDeviceObjects();
     RTRLAB_ASSERT_MSG(m_Allocator != nullptr, "Vulkan buffer allocation requires an initialized VMA allocator.");
+    const BufferDesc sanitizedDesc = RHIInternal::SanitizeBufferDesc(desc);
 
     VkBufferCreateInfo createInfo = MakeVkStruct<VkBufferCreateInfo, VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO>();
-    createInfo.size = std::max<uint64_t>(desc.m_Size, 1);
-    createInfo.usage = ToVkBufferUsage(desc.m_UsageMask);
+    createInfo.size = sanitizedDesc.m_Size;
+    createInfo.usage = ToVkBufferUsage(sanitizedDesc.m_UsageMask);
     createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
     VmaAllocationCreateInfo allocationCreateInfo{};
-    allocationCreateInfo.usage = ToVmaMemoryUsage(desc.m_MemoryUsage);
-    allocationCreateInfo.flags = ToVmaAllocationCreateFlags(desc.m_MemoryUsage);
+    allocationCreateInfo.usage = ToVmaMemoryUsage(sanitizedDesc.m_MemoryUsage);
+    allocationCreateInfo.flags = ToVmaAllocationCreateFlags(sanitizedDesc.m_MemoryUsage);
 
     VkBuffer buffer = VK_NULL_HANDLE;
     VmaAllocation allocation = nullptr;
     CheckVk(vmaCreateBuffer(m_Allocator, &createInfo, &allocationCreateInfo, &buffer, &allocation, nullptr),
             "vmaCreateBuffer");
-    SetVulkanDebugName(m_Device, VK_OBJECT_TYPE_BUFFER, reinterpret_cast<uint64_t>(buffer), desc.m_DebugName);
+    SetVulkanDebugName(m_Device, VK_OBJECT_TYPE_BUFFER, reinterpret_cast<uint64_t>(buffer), sanitizedDesc.m_DebugName);
 
-    return CreateScope<VulkanBuffer>(m_Allocator, buffer, allocation, desc);
+    return CreateScope<VulkanBuffer>(m_Allocator, buffer, allocation, sanitizedDesc);
 }
 
 Scope<Texture> VulkanDevice::CreateTexture(const TextureDesc& desc)
@@ -1765,24 +1767,23 @@ Scope<Texture> VulkanDevice::CreateTexture(const TextureDesc& desc)
     // though allocation is now routed through VMA.
     InitializeDeviceObjects();
     RTRLAB_ASSERT_MSG(m_Allocator != nullptr, "Vulkan texture allocation requires an initialized VMA allocator.");
+    const TextureDesc sanitizedDesc = RHIInternal::SanitizeTextureDesc(desc);
 
     VkImageCreateInfo createInfo = MakeVkStruct<VkImageCreateInfo, VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO>();
-    createInfo.imageType = ToVkImageType(desc.m_Type);
-    createInfo.format = ToVkFormat(desc.m_Format);
-    createInfo.extent = VkExtent3D{
-        std::max(desc.m_Extent.m_Width, 1u), std::max(desc.m_Extent.m_Height, 1u), std::max(desc.m_Extent.m_Depth, 1u)};
-    createInfo.mipLevels = std::max(desc.m_MipLevels, 1u);
-    createInfo.arrayLayers = std::max(desc.m_ArrayLayers, 1u);
+    createInfo.imageType = ToVkImageType(sanitizedDesc.m_Type);
+    createInfo.format = ToVkFormat(sanitizedDesc.m_Format);
+    createInfo.extent =
+        VkExtent3D{sanitizedDesc.m_Extent.m_Width, sanitizedDesc.m_Extent.m_Height, sanitizedDesc.m_Extent.m_Depth};
+    createInfo.mipLevels = sanitizedDesc.m_MipLevels;
+    createInfo.arrayLayers = sanitizedDesc.m_ArrayLayers;
     createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    createInfo.usage = ToVkImageUsage(desc.m_UsageMask);
+    createInfo.usage = ToVkImageUsage(sanitizedDesc.m_UsageMask);
     createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     createInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    if (desc.m_Type == TextureType::Cube)
+    if (sanitizedDesc.m_Type == TextureType::Cube)
     {
         createInfo.flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
-        RTRLAB_ASSERT_MSG((createInfo.arrayLayers % 6u) == 0,
-                          "Cube textures require arrayLayers to be a multiple of 6.");
     }
 
     VmaAllocationCreateInfo allocationCreateInfo{};
@@ -1792,9 +1793,9 @@ Scope<Texture> VulkanDevice::CreateTexture(const TextureDesc& desc)
     VmaAllocation allocation = nullptr;
     CheckVk(vmaCreateImage(m_Allocator, &createInfo, &allocationCreateInfo, &image, &allocation, nullptr),
             "vmaCreateImage");
-    SetVulkanDebugName(m_Device, VK_OBJECT_TYPE_IMAGE, reinterpret_cast<uint64_t>(image), desc.m_DebugName);
+    SetVulkanDebugName(m_Device, VK_OBJECT_TYPE_IMAGE, reinterpret_cast<uint64_t>(image), sanitizedDesc.m_DebugName);
 
-    return CreateScope<VulkanTexture>(m_Allocator, image, allocation, desc);
+    return CreateScope<VulkanTexture>(m_Allocator, image, allocation, sanitizedDesc);
 }
 
 Scope<TextureView> VulkanDevice::CreateTextureView(Texture* texture, const TextureViewDesc& desc)
