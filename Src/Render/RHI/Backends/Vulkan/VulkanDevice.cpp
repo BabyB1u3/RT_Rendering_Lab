@@ -577,7 +577,11 @@ VkCullModeFlags ToVkCullMode(CullMode cullMode)
 
 VkFrontFace ToVkFrontFace(FrontFace frontFace)
 {
-    return frontFace == FrontFace::CW ? VK_FRONT_FACE_CLOCKWISE : VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    // The Vulkan backend applies a negative-height viewport to align the public
+    // RHI Y-up clip-space convention with OpenGL/Metal-facing demo data. That
+    // viewport flip also inverts raster winding, so front-face selection must
+    // be inverted here to preserve the public RasterState contract.
+    return frontFace == FrontFace::CW ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;
 }
 
 VkPolygonMode ToVkPolygonMode(FillMode fillMode)
@@ -1451,9 +1455,12 @@ void VulkanCommandList::SetViewport(float x, float y, float w, float h, float zm
 
     VkViewport viewport{};
     viewport.x = x;
-    viewport.y = y;
+    // Normalize Vulkan's framebuffer-space Y direction to the public RHI
+    // convention used by the demo layer by flipping the viewport in backend
+    // space instead of forcing per-demo/per-shader Y adjustments.
+    viewport.y = y + h;
     viewport.width = w;
-    viewport.height = h;
+    viewport.height = -h;
     viewport.minDepth = zmin;
     viewport.maxDepth = zmax;
     vkCmdSetViewport(m_CommandBuffer, 0, 1, &viewport);

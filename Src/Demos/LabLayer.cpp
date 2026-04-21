@@ -24,10 +24,10 @@ void LabLayer::OnAttach()
     if (!m_ActiveDemo)
     {
         // Default demo
-        LOG_INFO_CAT(LogCategory::k_Demo, "Loading default demo: 01 - Hello Window");
-        auto defaultDemo = DemoRegistry::Create("01 - Hello Window");
-        RTRLAB_ASSERT_MSG(defaultDemo, "Failed to create default demo: 01 - Hello Window");
-        SetActiveDemo(std::move(defaultDemo), "01 - Hello Window");
+        LOG_INFO_CAT(LogCategory::k_Demo, "Loading default demo: 02 - Hello Triangle");
+        auto defaultDemo = DemoRegistry::Create("02 - Hello Triangle");
+        RTRLAB_ASSERT_MSG(defaultDemo, "Failed to create default demo: 02 - Hello Triangle");
+        SetActiveDemo(std::move(defaultDemo), "02 - Hello Triangle");
     }
 
     if (m_ActiveDemo)
