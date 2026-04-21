@@ -916,16 +916,17 @@ Scope<Buffer> MetalDevice::CreateBuffer(const BufferDesc& desc)
 {
     RTRLAB_ASSERT_MSG(m_Data != nullptr && m_Data->m_Device != nil,
                       "Metal device must be initialized before CreateBuffer.");
+    const BufferDesc sanitizedDesc = RHIInternal::SanitizeBufferDesc(desc);
 
-    const NSUInteger size = static_cast<NSUInteger>(std::max<uint64_t>(desc.m_Size, 1));
-    const MTLResourceOptions options = ToMetalBufferResourceOptions(desc.m_MemoryUsage);
+    const NSUInteger size = static_cast<NSUInteger>(sanitizedDesc.m_Size);
+    const MTLResourceOptions options = ToMetalBufferResourceOptions(sanitizedDesc.m_MemoryUsage);
 
     id<MTLBuffer> buffer = [m_Data->m_Device newBufferWithLength:size options:options];
     RTRLAB_ASSERT_MSG(buffer != nil, "Failed to create the Metal buffer.");
-    SetMetalDebugLabel(buffer, desc.m_DebugName);
+    SetMetalDebugLabel(buffer, sanitizedDesc.m_DebugName);
     // Metal returns a +1 object here; the wrapper retains for long-lived ownership,
     // and this release balances the factory-created reference.
-    auto result = CreateScope<MetalBuffer>(buffer, desc);
+    auto result = CreateScope<MetalBuffer>(buffer, sanitizedDesc);
     [buffer release];
     return result;
 }
