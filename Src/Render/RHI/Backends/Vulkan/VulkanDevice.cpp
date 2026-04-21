@@ -1235,7 +1235,7 @@ Scope<Buffer> VulkanDevice::CreateBuffer(const BufferDesc& desc)
     InitializeDeviceObjects();
 
     VkBufferCreateInfo createInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-    createInfo.size = desc.m_Size;
+    createInfo.size = std::max<uint64_t>(desc.m_Size, 1);
     createInfo.usage = ToVkBufferUsage(desc.m_UsageMask);
     createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 

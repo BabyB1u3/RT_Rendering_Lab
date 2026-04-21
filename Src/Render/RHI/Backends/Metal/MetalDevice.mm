@@ -25,6 +25,12 @@ MTLStorageMode ToMetalStorageMode(MemoryUsage memoryUsage)
     return MTLStorageModePrivate;
 }
 
+MTLResourceOptions ToMetalBufferResourceOptions(MemoryUsage memoryUsage)
+{
+    return MTLResourceCPUCacheModeDefaultCache |
+           static_cast<MTLResourceOptions>(ToMetalStorageMode(memoryUsage) << MTLResourceStorageModeShift);
+}
+
 MTLPixelFormat ToMetalPixelFormat(Format format)
 {
     switch (format)
@@ -579,12 +585,13 @@ Scope<Buffer> MetalDevice::CreateBuffer(const BufferDesc& desc)
                       "Metal device must be initialized before CreateBuffer.");
 
     const NSUInteger size = static_cast<NSUInteger>(std::max<uint64_t>(desc.m_Size, 1));
-    MTLResourceOptions options = MTLResourceCPUCacheModeDefaultCache;
-    options |= static_cast<MTLResourceOptions>(ToMetalStorageMode(desc.m_MemoryUsage) << MTLResourceStorageModeShift);
+    const MTLResourceOptions options = ToMetalBufferResourceOptions(desc.m_MemoryUsage);
 
     id<MTLBuffer> buffer = [m_Data->m_Device newBufferWithLength:size options:options];
     RTRLAB_ASSERT_MSG(buffer != nil, "Failed to create the Metal buffer.");
     SetMetalDebugLabel(buffer, desc.m_DebugName);
+    // Metal returns a +1 object here; the wrapper retains for long-lived ownership,
+    // and this release balances the factory-created reference.
     auto result = CreateScope<MetalBuffer>(buffer, desc);
     [buffer release];
     return result;
@@ -610,14 +617,15 @@ Scope<Texture> MetalDevice::CreateTexture(const TextureDesc& desc)
     textureDesc.mipmapLevelCount = std::max(desc.m_MipLevels, 1u);
     textureDesc.arrayLength = desc.m_Type == TextureType::Tex2DArray ? std::max(desc.m_ArrayLayers, 1u) : 1u;
     textureDesc.storageMode = MTLStorageModePrivate;
-    textureDesc.usage = MTLTextureUsageUnknown;
+    MTLTextureUsage usage = 0;
     if ((desc.m_UsageMask & TextureUsage::Sampled) != TextureUsage::None)
-        textureDesc.usage |= MTLTextureUsageShaderRead;
+        usage |= MTLTextureUsageShaderRead;
     if ((desc.m_UsageMask & TextureUsage::Storage) != TextureUsage::None)
-        textureDesc.usage |= MTLTextureUsageShaderWrite;
+        usage |= MTLTextureUsageShaderWrite;
     if ((desc.m_UsageMask & TextureUsage::RenderTarget) != TextureUsage::None ||
         (desc.m_UsageMask & TextureUsage::DepthStencil) != TextureUsage::None)
-        textureDesc.usage |= MTLTextureUsageRenderTarget;
+        usage |= MTLTextureUsageRenderTarget;
+    textureDesc.usage = usage != 0 ? usage : MTLTextureUsageUnknown;
 
     id<MTLTexture> texture = [m_Data->m_Device newTextureWithDescriptor:textureDesc];
     [textureDesc release];

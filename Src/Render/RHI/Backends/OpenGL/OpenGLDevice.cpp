@@ -348,25 +348,25 @@ Scope<Texture> OpenGLDevice::CreateTexture(const TextureDesc& desc)
             glTextureStorage2D(texture,
                                static_cast<GLsizei>(std::max(desc.m_MipLevels, 1u)),
                                internalFormat,
-                               static_cast<GLsizei>(desc.m_Extent.m_Width),
-                               static_cast<GLsizei>(desc.m_Extent.m_Height));
+                               static_cast<GLsizei>(std::max(desc.m_Extent.m_Width, 1u)),
+                               static_cast<GLsizei>(std::max(desc.m_Extent.m_Height, 1u)));
             break;
         case TextureType::Tex2DArray:
         case TextureType::Cube:
             glTextureStorage3D(texture,
                                static_cast<GLsizei>(std::max(desc.m_MipLevels, 1u)),
                                internalFormat,
-                               static_cast<GLsizei>(desc.m_Extent.m_Width),
-                               static_cast<GLsizei>(desc.m_Extent.m_Height),
+                               static_cast<GLsizei>(std::max(desc.m_Extent.m_Width, 1u)),
+                               static_cast<GLsizei>(std::max(desc.m_Extent.m_Height, 1u)),
                                static_cast<GLsizei>(std::max(desc.m_ArrayLayers, 1u)));
             break;
         case TextureType::Tex3D:
             glTextureStorage3D(texture,
                                static_cast<GLsizei>(std::max(desc.m_MipLevels, 1u)),
                                internalFormat,
-                               static_cast<GLsizei>(desc.m_Extent.m_Width),
-                               static_cast<GLsizei>(desc.m_Extent.m_Height),
-                               static_cast<GLsizei>(desc.m_Extent.m_Depth));
+                               static_cast<GLsizei>(std::max(desc.m_Extent.m_Width, 1u)),
+                               static_cast<GLsizei>(std::max(desc.m_Extent.m_Height, 1u)),
+                               static_cast<GLsizei>(std::max(desc.m_Extent.m_Depth, 1u)));
             break;
     }
 
