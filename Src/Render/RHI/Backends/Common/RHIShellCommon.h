@@ -239,6 +239,9 @@ protected:
 class ShellDeviceBase : public Device
 {
 public:
+    // ShellDeviceBase remains the default shell/null/testing implementation for
+    // backends that do not override a given RHI object path yet. Real graphics
+    // backends may replace some or all of these factories with native objects.
     Scope<Buffer> CreateBuffer(const BufferDesc& desc) override;
     Scope<Texture> CreateTexture(const TextureDesc& desc) override;
     Scope<TextureView> CreateTextureView(Texture* texture, const TextureViewDesc& desc) override;

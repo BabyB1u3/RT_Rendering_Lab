@@ -15,6 +15,10 @@ class Device
 {
 public:
     virtual ~Device() = default;
+    // Lifetime contract: a Device must outlive the RHI objects it creates.
+    // Individual backend destructors may null-guard native handles as a defensive
+    // fallback, but callers should still destroy Buffer/Texture/Sampler/Pipeline/
+    // Swapchain objects before destroying the Device that owns them.
 
     virtual Scope<Swapchain> CreateSwapchain(const SwapchainDesc& desc,
                                              const NativeWindowHandle& nativeWindowHandle) = 0;
