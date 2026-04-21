@@ -16,6 +16,9 @@
 #ifdef None
 #undef None
 #endif
+#ifdef Always
+#undef Always
+#endif
 #endif
 #if defined(GLAB_GLFW_WAYLAND_NATIVE)
 #include <wayland-client.h>
