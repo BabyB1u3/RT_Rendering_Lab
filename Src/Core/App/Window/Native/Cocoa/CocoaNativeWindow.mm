@@ -9,9 +9,7 @@
 #import <QuartzCore/CAMetalLayer.h>
 #import <objc/runtime.h>
 
-namespace
-{
-const void* kCocoaLiveResizeObserverKey = &kCocoaLiveResizeObserverKey;
+static char kCocoaLiveResizeObserverKey;
 
 @interface RTRLabCocoaWindowObserver : NSObject
 {
@@ -20,6 +18,10 @@ const void* kCocoaLiveResizeObserverKey = &kCocoaLiveResizeObserverKey;
 }
 
 - (instancetype)initWithGLFWWindow:(GLFWwindow*)window;
+- (void)requestRefresh;
+- (void)syncLayerMetrics;
+- (void)handleWindowDidResize:(NSNotification*)notification;
+- (void)handleWindowDidChangeBackingProperties:(NSNotification*)notification;
 - (void)startObservingWindow:(NSWindow*)window;
 - (void)stopObservingWindow:(NSWindow*)window;
 
@@ -99,7 +101,6 @@ const void* kCocoaLiveResizeObserverKey = &kCocoaLiveResizeObserverKey;
 }
 
 @end
-} // namespace
 
 NativeWindowHandle CreateCocoaNativeWindowHandle(GLFWwindow* window)
 {
@@ -157,13 +158,13 @@ void InstallCocoaLiveResizeRefreshHook(GLFWwindow* window)
         return;
 
     RTRLabCocoaWindowObserver* observer =
-        (RTRLabCocoaWindowObserver*)objc_getAssociatedObject(nsWindow, kCocoaLiveResizeObserverKey);
+        (RTRLabCocoaWindowObserver*)objc_getAssociatedObject(nsWindow, &kCocoaLiveResizeObserverKey);
     if (observer != nil)
         return;
 
     observer = [[RTRLabCocoaWindowObserver alloc] initWithGLFWWindow:window];
     [observer startObservingWindow:nsWindow];
-    objc_setAssociatedObject(nsWindow, kCocoaLiveResizeObserverKey, observer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(nsWindow, &kCocoaLiveResizeObserverKey, observer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     [observer release];
 }
 
@@ -177,10 +178,10 @@ void UninstallCocoaLiveResizeRefreshHook(GLFWwindow* window)
         return;
 
     RTRLabCocoaWindowObserver* observer =
-        (RTRLabCocoaWindowObserver*)objc_getAssociatedObject(nsWindow, kCocoaLiveResizeObserverKey);
+        (RTRLabCocoaWindowObserver*)objc_getAssociatedObject(nsWindow, &kCocoaLiveResizeObserverKey);
     if (observer == nil)
         return;
 
     [observer stopObservingWindow:nsWindow];
-    objc_setAssociatedObject(nsWindow, kCocoaLiveResizeObserverKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(nsWindow, &kCocoaLiveResizeObserverKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
