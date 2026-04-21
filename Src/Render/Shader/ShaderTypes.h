@@ -115,6 +115,7 @@ struct CompiledShaderBlob
 {
     BackendType m_Backend = BackendType::Vulkan;
     ShaderStage m_Stage = ShaderStage::None;
+    std::string m_EntryPoint;
     std::vector<uint8_t> m_Code;
     MetalCodeFormat m_MetalCodeFormat = MetalCodeFormat::MslSource;
 };

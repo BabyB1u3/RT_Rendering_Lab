@@ -73,30 +73,35 @@ CompiledShaderProgramDesc BuildHelloTriangleShaderProgramDesc()
     CompiledShaderBlob vertexShader;
     vertexShader.m_Backend = BackendType::Vulkan;
     vertexShader.m_Stage = ShaderStage::Vertex;
+    vertexShader.m_EntryPoint = "main";
     vertexShader.m_Code = MakeShaderBytes(kHelloTriangleVertexSpirv);
     desc.m_Blobs.push_back(std::move(vertexShader));
 
     CompiledShaderBlob fragmentShader;
     fragmentShader.m_Backend = BackendType::Vulkan;
     fragmentShader.m_Stage = ShaderStage::Fragment;
+    fragmentShader.m_EntryPoint = "main";
     fragmentShader.m_Code = MakeShaderBytes(kHelloTriangleFragmentSpirv);
     desc.m_Blobs.push_back(std::move(fragmentShader));
 #elif defined(GLAB_BACKEND_OPENGL)
     CompiledShaderBlob vertexShader;
     vertexShader.m_Backend = BackendType::OpenGL;
     vertexShader.m_Stage = ShaderStage::Vertex;
+    vertexShader.m_EntryPoint = "main";
     vertexShader.m_Code = MakeShaderBytes(kHelloTriangleVertexOpenGL);
     desc.m_Blobs.push_back(std::move(vertexShader));
 
     CompiledShaderBlob fragmentShader;
     fragmentShader.m_Backend = BackendType::OpenGL;
     fragmentShader.m_Stage = ShaderStage::Fragment;
+    fragmentShader.m_EntryPoint = "main";
     fragmentShader.m_Code = MakeShaderBytes(kHelloTriangleFragmentOpenGL);
     desc.m_Blobs.push_back(std::move(fragmentShader));
 #elif defined(GLAB_BACKEND_METAL)
     CompiledShaderBlob vertexShader;
     vertexShader.m_Backend = BackendType::Metal;
     vertexShader.m_Stage = ShaderStage::Vertex;
+    vertexShader.m_EntryPoint = "main_vertex";
     vertexShader.m_MetalCodeFormat = MetalCodeFormat::MslSource;
     vertexShader.m_Code = MakeShaderBytes(kHelloTriangleMetalSource);
     desc.m_Blobs.push_back(std::move(vertexShader));
@@ -104,6 +109,7 @@ CompiledShaderProgramDesc BuildHelloTriangleShaderProgramDesc()
     CompiledShaderBlob fragmentShader;
     fragmentShader.m_Backend = BackendType::Metal;
     fragmentShader.m_Stage = ShaderStage::Fragment;
+    fragmentShader.m_EntryPoint = "main_fragment";
     fragmentShader.m_MetalCodeFormat = MetalCodeFormat::MslSource;
     fragmentShader.m_Code = MakeShaderBytes(kHelloTriangleMetalSource);
     desc.m_Blobs.push_back(std::move(fragmentShader));

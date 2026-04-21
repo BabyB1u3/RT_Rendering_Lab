@@ -1059,9 +1059,6 @@ Scope<ShaderProgram> MetalDevice::CreateShaderProgram(const CompiledShaderProgra
     std::vector<MetalShaderProgram::StageFunction> functions;
     functions.reserve(desc.m_Blobs.size());
 
-    // TRANSITIONAL(M4): CompiledShaderBlob does not yet carry per-stage entry-point
-    // names, so the Metal bring-up path assumes "main_vertex" for vertex stages
-    // and "main_fragment" for fragment stages until real shader metadata arrives.
     for (const CompiledShaderBlob& blob : desc.m_Blobs)
     {
         if (blob.m_Backend != BackendType::Metal)
@@ -1078,19 +1075,22 @@ Scope<ShaderProgram> MetalDevice::CreateShaderProgram(const CompiledShaderProgra
                           error != nil ? [[error localizedDescription] UTF8String]
                                        : "Failed to create the Metal shader library.");
 
-        NSString* entryPoint = nil;
-        switch (blob.m_Stage)
+        NSString* entryPoint = MakeNSString(blob.m_EntryPoint.c_str());
+        if (entryPoint == nil)
         {
-            case ShaderStage::Vertex:
-                entryPoint = @"main_vertex";
-                break;
-            case ShaderStage::Fragment:
-                entryPoint = @"main_fragment";
-                break;
-            default:
-                [library release];
-                RTRLAB_ASSERTF(false, "Unsupported Metal shader stage {}", static_cast<uint32_t>(blob.m_Stage));
-                break;
+            switch (blob.m_Stage)
+            {
+                case ShaderStage::Vertex:
+                    entryPoint = @"main_vertex";
+                    break;
+                case ShaderStage::Fragment:
+                    entryPoint = @"main_fragment";
+                    break;
+                default:
+                    [library release];
+                    RTRLAB_ASSERTF(false, "Unsupported Metal shader stage {}", static_cast<uint32_t>(blob.m_Stage));
+                    break;
+            }
         }
 
         id<MTLFunction> function = [library newFunctionWithName:entryPoint];

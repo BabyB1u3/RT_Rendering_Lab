@@ -175,6 +175,7 @@ public:
     struct StageModule
     {
         ShaderStage m_Stage = ShaderStage::None;
+        std::string m_EntryPoint;
         VkShaderModule m_Module = VK_NULL_HANDLE;
     };
 
@@ -1076,8 +1077,6 @@ VkPipelineLayout CreateVkPipelineLayout(VkDevice device,
     CheckVk(vkCreatePipelineLayout(device, &createInfo, nullptr, &pipelineLayout), "vkCreatePipelineLayout");
     return pipelineLayout;
 }
-
-constexpr const char* kVulkanShaderEntryPoint = "main";
 
 VkImage GetVkImageFromOwnedTexture(Texture* texture)
 {
@@ -2073,16 +2072,13 @@ Scope<ShaderProgram> VulkanDevice::CreateShaderProgram(const CompiledShaderProgr
     std::vector<VulkanShaderProgram::StageModule> modules;
     modules.reserve(desc.m_Blobs.size());
 
-    // TRANSITIONAL(M4): CompiledShaderBlob does not yet carry per-stage entry-point
-    // names, so the Vulkan bring-up path assumes "main" for every stage. Once the
-    // shader system forwards real entry-point metadata, pipeline stage creation should
-    // consume it instead of this fixed convention.
     for (const CompiledShaderBlob& blob : desc.m_Blobs)
     {
         if (blob.m_Backend != BackendType::Vulkan)
             continue;
 
         RTRLAB_ASSERT_MSG(!blob.m_Code.empty(), "Vulkan shader blobs must contain SPIR-V bytes.");
+        RTRLAB_ASSERT_MSG(!blob.m_EntryPoint.empty(), "Vulkan shader blobs must carry an entry-point name.");
         RTRLAB_ASSERT_MSG((blob.m_Code.size() % sizeof(uint32_t)) == 0,
                           "Vulkan shader blobs must contain aligned SPIR-V words.");
 
@@ -2093,7 +2089,7 @@ Scope<ShaderProgram> VulkanDevice::CreateShaderProgram(const CompiledShaderProgr
 
         VkShaderModule shaderModule = VK_NULL_HANDLE;
         CheckVk(vkCreateShaderModule(m_Device, &createInfo, nullptr, &shaderModule), "vkCreateShaderModule");
-        modules.push_back({blob.m_Stage, shaderModule});
+        modules.push_back({blob.m_Stage, blob.m_EntryPoint, shaderModule});
     }
 
     RTRLAB_ASSERT_MSG(!modules.empty(), "Vulkan CreateShaderProgram requires at least one Vulkan shader blob.");
@@ -2180,11 +2176,11 @@ Scope<GraphicsPipeline> VulkanDevice::CreateGraphicsPipeline(const GraphicsPipel
     shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
     shaderStages[0].module = vertexStage->m_Module;
-    shaderStages[0].pName = kVulkanShaderEntryPoint;
+    shaderStages[0].pName = vertexStage->m_EntryPoint.c_str();
     shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
     shaderStages[1].module = fragmentStage->m_Module;
-    shaderStages[1].pName = kVulkanShaderEntryPoint;
+    shaderStages[1].pName = fragmentStage->m_EntryPoint.c_str();
 
     VkPipelineVertexInputStateCreateInfo vertexInputState =
         MakeVkStruct<VkPipelineVertexInputStateCreateInfo, VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO>();
