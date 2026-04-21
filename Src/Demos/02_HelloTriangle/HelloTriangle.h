@@ -29,6 +29,9 @@ private:
     Scope<Buffer> m_IndexBuffer;
     Scope<ShaderProgram> m_ShaderProgram;
     Scope<PipelineLayout> m_PipelineLayout;
+    Scope<ResourceSet> m_FrameSet;
+    Scope<ResourceSet> m_MaterialSet;
+    Scope<ResourceSet> m_ObjectSet;
     Scope<VertexInputLayout> m_VertexInputLayout;
     Scope<GraphicsPipeline> m_GraphicsPipeline;
 };

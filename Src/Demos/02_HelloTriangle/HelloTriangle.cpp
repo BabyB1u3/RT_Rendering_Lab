@@ -5,12 +5,16 @@
 #include <cstddef>
 #include <utility>
 
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 #include "Core/App/Application.h"
 #include "Core/Diagnostics/Assert/Assert.h"
 #include "Core/Diagnostics/Logging/LogCategories.h"
 #include "Core/Diagnostics/Logging/LogMacros.h"
 #include "Core/Resource/FileSystem.h"
 #include "Render/Shader/ShaderCompiler.h"
+#include "Render/Shader/ShaderParameterWriter.h"
 
 #if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_OPENGL) || defined(GLAB_BACKEND_METAL)
 namespace
@@ -34,9 +38,8 @@ DemoViewport ComputeAspectPreservingViewport(uint32_t framebufferWidth, uint32_t
     RTRLAB_ASSERT_MSG(framebufferWidth > 0 && framebufferHeight > 0,
                       "HelloTriangle requires a non-zero framebuffer size.");
 
-    // TRANSITIONAL(M3): The demo still draws directly in clip space without a
-    // transform buffer, so preserve a square logical presentation area via the
-    // viewport until renderer-owned projection data exists.
+    // Keep the demo presentation square so the simple parameterized transform
+    // still looks centered and consistent across window aspect ratios.
     const float squareExtent = static_cast<float>(std::min(framebufferWidth, framebufferHeight));
 
     DemoViewport viewport;
@@ -93,6 +96,9 @@ void HelloTriangle::OnDetach()
 {
     m_GraphicsPipeline.reset();
     m_VertexInputLayout.reset();
+    m_ObjectSet.reset();
+    m_MaterialSet.reset();
+    m_FrameSet.reset();
     m_PipelineLayout.reset();
     m_ShaderProgram.reset();
     m_IndexBuffer.reset();
@@ -122,6 +128,9 @@ void HelloTriangle::OnRender()
     commandList->SetViewport(viewport.m_X, viewport.m_Y, viewport.m_Width, viewport.m_Height, 0.0f, 1.0f);
     commandList->SetScissor(0, 0, m_ViewportWidth, m_ViewportHeight);
     commandList->BindGraphicsPipeline(m_GraphicsPipeline.get());
+    commandList->BindResourceSet(0, m_FrameSet.get());
+    commandList->BindResourceSet(1, m_MaterialSet.get());
+    commandList->BindResourceSet(2, m_ObjectSet.get());
     commandList->BindMesh(meshBinding);
     commandList->DrawIndexed(3, 0, 0);
 #endif
@@ -155,8 +164,6 @@ void HelloTriangle::CreateTriangleResources()
     vertexBufferDesc.m_MemoryUsage = MemoryUsage::CpuToGpu;
     vertexBufferDesc.m_DebugName = "HelloTriangle.VertexBuffer";
     m_VertexBuffer = device.CreateBuffer(vertexBufferDesc);
-    // TRANSITIONAL(M3): HelloTriangle still uploads directly through Device
-    // until renderer-owned staging/upload code exists.
     device.WriteBuffer(m_VertexBuffer.get(), 0, kVertices.data(), sizeof(kVertices));
 
     BufferDesc indexBufferDesc;
@@ -169,6 +176,23 @@ void HelloTriangle::CreateTriangleResources()
 
     m_ShaderProgram = device.CreateShaderProgram(BuildHelloTriangleShaderProgramDesc());
     m_PipelineLayout = device.CreatePipelineLayout(m_ShaderProgram->DerivePipelineLayoutDesc());
+    m_FrameSet = device.CreateResourceSet(m_PipelineLayout.get(), 0);
+    m_MaterialSet = device.CreateResourceSet(m_PipelineLayout.get(), 1);
+    m_ObjectSet = device.CreateResourceSet(m_PipelineLayout.get(), 2);
+
+    ShaderParameterWriter parameterWriter(m_ShaderProgram->GetReflection());
+
+    const glm::mat4 viewProj = glm::mat4(1.0f);
+    const glm::vec4 tint = glm::vec4(0.9f, 0.95f, 1.0f, 1.0f);
+    const glm::vec4 baseColor = glm::vec4(1.0f, 0.95f, 0.85f, 1.0f);
+    const glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.04f, 0.0f)) *
+                            glm::scale(glm::mat4(1.0f), glm::vec3(0.92f, 0.92f, 1.0f));
+
+    parameterWriter.SetMatrix4x4(*m_FrameSet, "gFrame.viewProj", viewProj);
+    parameterWriter.SetFloat4(*m_FrameSet, "gFrame.tint", tint);
+    parameterWriter.SetFloat(*m_FrameSet, "gFrame.time", 0.0f);
+    parameterWriter.SetFloat4(*m_MaterialSet, "gMaterial.baseColor", baseColor);
+    parameterWriter.SetMatrix4x4(*m_ObjectSet, "gObject.model", model);
 
     VertexInputLayoutDesc vertexInputLayoutDesc;
     vertexInputLayoutDesc.m_Buffers = {{static_cast<uint32_t>(sizeof(TriangleVertex)), false}};
