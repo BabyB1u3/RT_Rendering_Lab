@@ -162,6 +162,15 @@ std::optional<std::string> GetEnvironmentVariable(std::string_view name)
     return std::nullopt;
 }
 
+void AppendExistingIncludePath(std::vector<std::filesystem::path>* includeSearchPaths, std::filesystem::path path)
+{
+    if (includeSearchPaths == nullptr || path.empty())
+        return;
+
+    if (std::filesystem::exists(path))
+        includeSearchPaths->push_back(std::move(path));
+}
+
 bool ResolveSlangExecutable(const SlangCompilerConfig& config,
                             ResolvedSlangExecutable* outExecutable,
                             std::string* errorMessage)
@@ -449,13 +458,13 @@ SlangCompilerConfig CreateDefaultSlangCompilerConfig()
     config.m_ExecutablePath = RTRLAB_SLANGC_PATH;
 #endif
 #ifdef RTRLAB_SLANG_STD_MODULE_DIR
-    config.m_IncludeSearchPaths.emplace_back(RTRLAB_SLANG_STD_MODULE_DIR);
+    AppendExistingIncludePath(&config.m_IncludeSearchPaths, RTRLAB_SLANG_STD_MODULE_DIR);
 #endif
 #ifdef RTRLAB_PROJECT_SHADER_DIR
-    config.m_IncludeSearchPaths.emplace_back(RTRLAB_PROJECT_SHADER_DIR);
+    AppendExistingIncludePath(&config.m_IncludeSearchPaths, RTRLAB_PROJECT_SHADER_DIR);
 #endif
 #ifdef RTRLAB_PROJECT_SHADER_MODULE_DIR
-    config.m_IncludeSearchPaths.emplace_back(RTRLAB_PROJECT_SHADER_MODULE_DIR);
+    AppendExistingIncludePath(&config.m_IncludeSearchPaths, RTRLAB_PROJECT_SHADER_MODULE_DIR);
 #endif
     return config;
 }
