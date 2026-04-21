@@ -448,6 +448,15 @@ SlangCompilerConfig CreateDefaultSlangCompilerConfig()
 #ifdef RTRLAB_SLANGC_PATH
     config.m_ExecutablePath = RTRLAB_SLANGC_PATH;
 #endif
+#ifdef RTRLAB_SLANG_STD_MODULE_DIR
+    config.m_IncludeSearchPaths.emplace_back(RTRLAB_SLANG_STD_MODULE_DIR);
+#endif
+#ifdef RTRLAB_PROJECT_SHADER_DIR
+    config.m_IncludeSearchPaths.emplace_back(RTRLAB_PROJECT_SHADER_DIR);
+#endif
+#ifdef RTRLAB_PROJECT_SHADER_MODULE_DIR
+    config.m_IncludeSearchPaths.emplace_back(RTRLAB_PROJECT_SHADER_MODULE_DIR);
+#endif
     return config;
 }
 
@@ -457,6 +466,20 @@ bool ValidateSlangCompilerConfig(const SlangCompilerConfig& config, std::string*
     {
         AssignSlangCompilerPlanningError(errorMessage, "SlangCompiler requires a non-empty slangc executable path.");
         return false;
+    }
+
+    for (const std::filesystem::path& includePath : config.m_IncludeSearchPaths)
+    {
+        if (includePath.empty())
+            continue;
+
+        if (!std::filesystem::exists(includePath))
+        {
+            std::ostringstream message;
+            message << "SlangCompiler include search path does not exist: " << includePath.generic_string() << '.';
+            AssignSlangCompilerPlanningError(errorMessage, message.str());
+            return false;
+        }
     }
 
     return true;

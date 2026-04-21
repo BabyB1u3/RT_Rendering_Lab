@@ -6,6 +6,10 @@ option(RTRLAB_DOWNLOAD_SLANG_TOOLCHAIN "Download a fixed Slang toolchain for dev
 set(RTRLAB_SLANG_VERSION "2026.5" CACHE STRING "Slang release version used by RTRLab")
 
 set(RTRLAB_SLANGC "")
+set(RTRLAB_SLANG_TOOLCHAIN_ROOT "")
+set(RTRLAB_SLANG_STD_MODULE_DIR "")
+set(RTRLAB_PROJECT_SHADER_DIR "${CMAKE_SOURCE_DIR}/Project/Shaders")
+set(RTRLAB_PROJECT_SHADER_MODULE_DIR "${CMAKE_SOURCE_DIR}/Project/Shaders/Modules")
 
 if(RTRLAB_DOWNLOAD_SLANG_TOOLCHAIN)
     if(WIN32)
@@ -43,6 +47,7 @@ if(RTRLAB_DOWNLOAD_SLANG_TOOLCHAIN)
     set(_RTRLAB_SLANG_DOWNLOAD_DIR "${CMAKE_BINARY_DIR}/_deps/slang")
     set(_RTRLAB_SLANG_ARCHIVE_PATH "${_RTRLAB_SLANG_DOWNLOAD_DIR}/${_RTRLAB_SLANG_ARCHIVE_FILE}")
     set(_RTRLAB_SLANG_INSTALL_DIR "${_RTRLAB_SLANG_DOWNLOAD_DIR}")
+    set(RTRLAB_SLANG_TOOLCHAIN_ROOT "${_RTRLAB_SLANG_INSTALL_DIR}")
 
     if(WIN32)
         set(RTRLAB_SLANGC "${_RTRLAB_SLANG_INSTALL_DIR}/bin/slangc.exe")
@@ -91,7 +96,27 @@ if(RTRLAB_DOWNLOAD_SLANG_TOOLCHAIN)
         message(FATAL_ERROR "Slang: slangc not found after extraction at ${RTRLAB_SLANGC}")
     endif()
 
+    if(EXISTS "${_RTRLAB_SLANG_INSTALL_DIR}/bin/slang-standard-module-${RTRLAB_SLANG_VERSION}")
+        set(RTRLAB_SLANG_STD_MODULE_DIR
+            "${_RTRLAB_SLANG_INSTALL_DIR}/bin/slang-standard-module-${RTRLAB_SLANG_VERSION}")
+    elseif(EXISTS "${_RTRLAB_SLANG_INSTALL_DIR}/lib/slang-standard-module-${RTRLAB_SLANG_VERSION}")
+        set(RTRLAB_SLANG_STD_MODULE_DIR
+            "${_RTRLAB_SLANG_INSTALL_DIR}/lib/slang-standard-module-${RTRLAB_SLANG_VERSION}")
+    endif()
+
     message(STATUS "Slang: using development toolchain at ${RTRLAB_SLANGC}")
 endif()
 
 set(RTRLAB_SLANGC "${RTRLAB_SLANGC}" CACHE FILEPATH "Path to the Slang compiler used by development builds")
+set(RTRLAB_SLANG_TOOLCHAIN_ROOT
+    "${RTRLAB_SLANG_TOOLCHAIN_ROOT}"
+    CACHE PATH "Root directory of the Slang toolchain used by development builds")
+set(RTRLAB_SLANG_STD_MODULE_DIR
+    "${RTRLAB_SLANG_STD_MODULE_DIR}"
+    CACHE PATH "Standard module directory used by the Slang toolchain for development builds")
+set(RTRLAB_PROJECT_SHADER_DIR
+    "${RTRLAB_PROJECT_SHADER_DIR}"
+    CACHE PATH "Project shader root directory used by runtime Slang compilation")
+set(RTRLAB_PROJECT_SHADER_MODULE_DIR
+    "${RTRLAB_PROJECT_SHADER_MODULE_DIR}"
+    CACHE PATH "Project shader module directory used by runtime Slang compilation")
