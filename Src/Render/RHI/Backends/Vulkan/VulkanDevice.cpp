@@ -501,6 +501,54 @@ std::vector<const char*> GetRequiredInstanceExtensions(NativeWindowSystem system
     return extensions;
 }
 
+std::vector<const char*> GetPlatformInstanceExtensionCandidates()
+{
+    std::vector<const char*> extensions = {VK_KHR_SURFACE_EXTENSION_NAME};
+
+#if defined(_WIN32)
+    extensions.push_back("VK_KHR_win32_surface");
+#elif defined(__APPLE__)
+    extensions.push_back("VK_EXT_metal_surface");
+#elif defined(__linux__)
+#if defined(VK_USE_PLATFORM_XLIB_KHR)
+    extensions.push_back("VK_KHR_xlib_surface");
+#endif
+#if defined(VK_USE_PLATFORM_WAYLAND_KHR)
+    extensions.push_back("VK_KHR_wayland_surface");
+#endif
+#endif
+
+    return extensions;
+}
+
+std::vector<const char*> GetSupportedInstanceExtensions()
+{
+    uint32_t extensionCount = 0;
+    CheckVk(vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr),
+            "vkEnumerateInstanceExtensionProperties(count)");
+
+    std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+    CheckVk(vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, availableExtensions.data()),
+            "vkEnumerateInstanceExtensionProperties(list)");
+
+    std::vector<const char*> enabledExtensions;
+    for (const char* candidate : GetPlatformInstanceExtensionCandidates())
+    {
+        const auto it = std::find_if(availableExtensions.begin(),
+                                     availableExtensions.end(),
+                                     [candidate](const VkExtensionProperties& extension)
+                                     { return std::strcmp(extension.extensionName, candidate) == 0; });
+        if (it != availableExtensions.end())
+            enabledExtensions.push_back(candidate);
+    }
+
+    const bool hasSurfaceExtension =
+        std::find(enabledExtensions.begin(), enabledExtensions.end(), VK_KHR_SURFACE_EXTENSION_NAME) !=
+        enabledExtensions.end();
+    RTRLAB_ASSERT_MSG(hasSurfaceExtension, "Vulkan instance creation requires VK_KHR_surface support.");
+    return enabledExtensions;
+}
+
 VkSurfaceKHR CreateSurface(VkInstance instance, const NativeWindowHandle& nativeWindowHandle)
 {
     VkSurfaceKHR surface = VK_NULL_HANDLE;
@@ -595,6 +643,32 @@ QueueFamilySelection FindQueueFamilies(VkPhysicalDevice physicalDevice, VkSurfac
     return selection;
 }
 
+uint32_t FindGraphicsQueueFamily(VkPhysicalDevice physicalDevice)
+{
+    uint32_t familyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &familyCount, nullptr);
+
+    std::vector<VkQueueFamilyProperties> familyProperties(familyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &familyCount, familyProperties.data());
+
+    for (uint32_t familyIndex = 0; familyIndex < familyCount; ++familyIndex)
+    {
+        if ((familyProperties[familyIndex].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0)
+            return familyIndex;
+    }
+
+    RTRLAB_ASSERT_MSG(false, "Failed to find a Vulkan graphics queue family.");
+    return std::numeric_limits<uint32_t>::max();
+}
+
+bool SupportsPresentOnQueueFamily(VkPhysicalDevice physicalDevice, uint32_t queueFamily, VkSurfaceKHR surface)
+{
+    VkBool32 presentSupported = VK_FALSE;
+    CheckVk(vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, queueFamily, surface, &presentSupported),
+            "vkGetPhysicalDeviceSurfaceSupportKHR");
+    return presentSupported == VK_TRUE;
+}
+
 bool SupportsRequiredDeviceExtensions(VkPhysicalDevice physicalDevice)
 {
     uint32_t extensionCount = 0;
@@ -637,6 +711,31 @@ VkPhysicalDevice PickPhysicalDevice(VkInstance instance, VkSurfaceKHR surface, Q
     }
 
     RTRLAB_ASSERT_MSG(false, "Failed to find a Vulkan physical device with graphics, present, and swapchain support.");
+    return VK_NULL_HANDLE;
+}
+
+VkPhysicalDevice PickPhysicalDevice(VkInstance instance, uint32_t& graphicsQueueFamily)
+{
+    uint32_t deviceCount = 0;
+    CheckVk(vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr), "vkEnumeratePhysicalDevices(count)");
+    RTRLAB_ASSERT_MSG(deviceCount > 0, "No Vulkan physical devices are available.");
+
+    std::vector<VkPhysicalDevice> devices(deviceCount);
+    CheckVk(vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data()), "vkEnumeratePhysicalDevices(list)");
+
+    for (VkPhysicalDevice device : devices)
+    {
+        if (!SupportsRequiredDeviceExtensions(device))
+            continue;
+
+        graphicsQueueFamily = FindGraphicsQueueFamily(device);
+        if (graphicsQueueFamily == std::numeric_limits<uint32_t>::max())
+            continue;
+
+        return device;
+    }
+
+    RTRLAB_ASSERT_MSG(false, "Failed to find a Vulkan physical device with graphics and swapchain support.");
     return VK_NULL_HANDLE;
 }
 
@@ -1098,11 +1197,13 @@ void VulkanSwapchain::DestroySwapchain()
 VulkanDevice::VulkanDevice()
 {
     CheckVk(volkInitialize(), "volkInitialize");
+    InitializeInstance();
 }
 
 VulkanDevice::~VulkanDevice()
 {
     ShutdownPresentationObjects();
+    ShutdownDeviceObjects();
 
     if (m_Instance != VK_NULL_HANDLE)
     {
@@ -1122,8 +1223,7 @@ Scope<Buffer> VulkanDevice::CreateBuffer(const BufferDesc& desc)
     // TRANSITIONAL(M3): Vulkan buffer allocation still uses raw vkAllocateMemory within
     // this milestone. Replace this path with the backend-private VMA allocator described
     // in RHI_Backend_Vulkan.md once the Vulkan memory layer is landed.
-    RTRLAB_ASSERT_MSG(m_Device != VK_NULL_HANDLE,
-                      "Vulkan CreateBuffer currently requires a swapchain-initialized device.");
+    InitializeDeviceObjects();
 
     VkBufferCreateInfo createInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     createInfo.size = desc.m_Size;
@@ -1159,8 +1259,7 @@ Scope<Texture> VulkanDevice::CreateTexture(const TextureDesc& desc)
     // VK_IMAGE_TILING_LINEAR, which carries format/mip/type restrictions we do
     // not want to expose in the public API. After VMA lands, this path still
     // maps to device-local texture allocations, just through vmaCreateImage(...).
-    RTRLAB_ASSERT_MSG(m_Device != VK_NULL_HANDLE,
-                      "Vulkan CreateTexture currently requires a swapchain-initialized device.");
+    InitializeDeviceObjects();
     RTRLAB_ASSERT_MSG(desc.m_MemoryUsage == MemoryUsage::GpuOnly,
                       "Vulkan textures currently require MemoryUsage::GpuOnly; use a staging buffer for CPU->GPU "
                       "texture uploads.");
@@ -1206,8 +1305,7 @@ Scope<Texture> VulkanDevice::CreateTexture(const TextureDesc& desc)
 
 Scope<TextureView> VulkanDevice::CreateTextureView(Texture* texture, const TextureViewDesc& desc)
 {
-    RTRLAB_ASSERT_MSG(m_Device != VK_NULL_HANDLE,
-                      "Vulkan CreateTextureView currently requires a swapchain-initialized device.");
+    InitializeDeviceObjects();
     RTRLAB_ASSERT_MSG(texture != nullptr, "Vulkan CreateTextureView requires a valid texture.");
 
     const TextureDesc& textureDesc = texture->GetDesc();
@@ -1240,8 +1338,7 @@ Scope<TextureView> VulkanDevice::CreateTextureView(Texture* texture, const Textu
 
 Scope<Sampler> VulkanDevice::CreateSampler(const SamplerDesc& desc)
 {
-    RTRLAB_ASSERT_MSG(m_Device != VK_NULL_HANDLE,
-                      "Vulkan CreateSampler currently requires a swapchain-initialized device.");
+    InitializeDeviceObjects();
 
     VkSamplerCreateInfo createInfo{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
     createInfo.magFilter = ToVkFilter(desc.m_MagFilter);
@@ -1386,9 +1483,12 @@ void VulkanDevice::RecycleCurrentRenderFinishedSemaphore()
             "vkCreateSemaphore(renderFinished recycle)");
 }
 
-void VulkanDevice::InitializeInstance(NativeWindowSystem windowSystem)
+void VulkanDevice::InitializeInstance()
 {
-    const std::vector<const char*> instanceExtensions = GetRequiredInstanceExtensions(windowSystem);
+    if (m_Instance != VK_NULL_HANDLE)
+        return;
+
+    const std::vector<const char*> instanceExtensions = GetSupportedInstanceExtensions();
 
     VkApplicationInfo appInfo{VK_STRUCTURE_TYPE_APPLICATION_INFO};
     appInfo.pApplicationName = "RTRLab";
@@ -1404,6 +1504,120 @@ void VulkanDevice::InitializeInstance(NativeWindowSystem windowSystem)
 
     CheckVk(vkCreateInstance(&createInfo, nullptr, &m_Instance), "vkCreateInstance");
     volkLoadInstance(m_Instance);
+}
+
+void VulkanDevice::InitializeDeviceObjects()
+{
+    if (m_HasDeviceObjects)
+        return;
+
+    InitializeInstance();
+
+    uint32_t graphicsQueueFamily = std::numeric_limits<uint32_t>::max();
+    m_PhysicalDevice = PickPhysicalDevice(m_Instance, graphicsQueueFamily);
+    m_GraphicsQueueFamily = graphicsQueueFamily;
+    m_PresentQueueFamily = graphicsQueueFamily;
+
+    const float queuePriority = 1.0f;
+    VkDeviceQueueCreateInfo graphicsQueueCreateInfo{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
+    graphicsQueueCreateInfo.queueFamilyIndex = m_GraphicsQueueFamily;
+    graphicsQueueCreateInfo.queueCount = 1;
+    graphicsQueueCreateInfo.pQueuePriorities = &queuePriority;
+
+    const std::array<const char*, 1> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    VkPhysicalDeviceVulkan13Features vulkan13Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+    vulkan13Features.dynamicRendering = VK_TRUE;
+
+    VkDeviceCreateInfo deviceCreateInfo{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
+    deviceCreateInfo.pNext = &vulkan13Features;
+    deviceCreateInfo.queueCreateInfoCount = 1;
+    deviceCreateInfo.pQueueCreateInfos = &graphicsQueueCreateInfo;
+    deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
+    deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions.data();
+
+    CheckVk(vkCreateDevice(m_PhysicalDevice, &deviceCreateInfo, nullptr, &m_Device), "vkCreateDevice");
+    volkLoadDevice(m_Device);
+
+    vkGetDeviceQueue(m_Device, m_GraphicsQueueFamily, 0, &m_GraphicsQueue);
+    m_PresentQueue = m_GraphicsQueue;
+
+    VkCommandPoolCreateInfo commandPoolCreateInfo{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+    commandPoolCreateInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    commandPoolCreateInfo.queueFamilyIndex = m_GraphicsQueueFamily;
+    CheckVk(vkCreateCommandPool(m_Device, &commandPoolCreateInfo, nullptr, &m_CommandPool), "vkCreateCommandPool");
+
+    m_CommandList.Initialize(m_Device, m_CommandPool);
+    m_CurrentFrameSlot = 0;
+    m_FrameInProgress = false;
+    m_FrameSubmitted = false;
+    m_HasDeviceObjects = true;
+}
+
+void VulkanDevice::InitializeDeviceObjectsForSurface(VkSurfaceKHR surface)
+{
+    if (m_HasDeviceObjects)
+    {
+        RTRLAB_ASSERT_MSG(m_PhysicalDevice != VK_NULL_HANDLE, "Vulkan physical device must exist before presentation.");
+        RTRLAB_ASSERT_MSG(SupportsPresentOnQueueFamily(m_PhysicalDevice, m_GraphicsQueueFamily, surface),
+                          "This Vulkan device was initialized without a present-capable graphics queue for the "
+                          "requested surface. Recreate the device from a swapchain-first path.");
+        m_PresentQueueFamily = m_GraphicsQueueFamily;
+        m_PresentQueue = m_GraphicsQueue;
+        return;
+    }
+
+    InitializeInstance();
+
+    QueueFamilySelection selection{};
+    m_PhysicalDevice = PickPhysicalDevice(m_Instance, surface, selection);
+    m_GraphicsQueueFamily = selection.m_GraphicsFamily;
+    m_PresentQueueFamily = selection.m_PresentFamily;
+
+    const float queuePriority = 1.0f;
+    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+
+    VkDeviceQueueCreateInfo graphicsQueueCreateInfo{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
+    graphicsQueueCreateInfo.queueFamilyIndex = m_GraphicsQueueFamily;
+    graphicsQueueCreateInfo.queueCount = 1;
+    graphicsQueueCreateInfo.pQueuePriorities = &queuePriority;
+    queueCreateInfos.push_back(graphicsQueueCreateInfo);
+
+    if (m_PresentQueueFamily != m_GraphicsQueueFamily)
+    {
+        VkDeviceQueueCreateInfo presentQueueCreateInfo{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
+        presentQueueCreateInfo.queueFamilyIndex = m_PresentQueueFamily;
+        presentQueueCreateInfo.queueCount = 1;
+        presentQueueCreateInfo.pQueuePriorities = &queuePriority;
+        queueCreateInfos.push_back(presentQueueCreateInfo);
+    }
+
+    const std::array<const char*, 1> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    VkPhysicalDeviceVulkan13Features vulkan13Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+    vulkan13Features.dynamicRendering = VK_TRUE;
+
+    VkDeviceCreateInfo deviceCreateInfo{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
+    deviceCreateInfo.pNext = &vulkan13Features;
+    deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+    deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
+    deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
+    deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions.data();
+
+    CheckVk(vkCreateDevice(m_PhysicalDevice, &deviceCreateInfo, nullptr, &m_Device), "vkCreateDevice");
+    volkLoadDevice(m_Device);
+
+    vkGetDeviceQueue(m_Device, m_GraphicsQueueFamily, 0, &m_GraphicsQueue);
+    vkGetDeviceQueue(m_Device, m_PresentQueueFamily, 0, &m_PresentQueue);
+
+    VkCommandPoolCreateInfo commandPoolCreateInfo{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+    commandPoolCreateInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    commandPoolCreateInfo.queueFamilyIndex = m_GraphicsQueueFamily;
+    CheckVk(vkCreateCommandPool(m_Device, &commandPoolCreateInfo, nullptr, &m_CommandPool), "vkCreateCommandPool");
+
+    m_CommandList.Initialize(m_Device, m_CommandPool);
+    m_CurrentFrameSlot = 0;
+    m_FrameInProgress = false;
+    m_FrameSubmitted = false;
+    m_HasDeviceObjects = true;
 }
 
 void VulkanDevice::InitializeFrameSyncObjects()
@@ -1460,83 +1674,10 @@ void VulkanDevice::InitializePresentationObjects(const NativeWindowHandle& nativ
         return;
     }
 
-    const std::vector<const char*> requiredExtensions = GetRequiredInstanceExtensions(nativeWindowHandle.m_System);
-
-    if (m_Instance == VK_NULL_HANDLE)
-    {
-        uint32_t extensionCount = 0;
-        CheckVk(vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr),
-                "vkEnumerateInstanceExtensionProperties(count)");
-
-        std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-        CheckVk(vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, availableExtensions.data()),
-                "vkEnumerateInstanceExtensionProperties(list)");
-
-        for (const char* requiredExtension : requiredExtensions)
-        {
-            const auto it = std::find_if(availableExtensions.begin(),
-                                         availableExtensions.end(),
-                                         [requiredExtension](const VkExtensionProperties& extension)
-                                         { return std::strcmp(extension.extensionName, requiredExtension) == 0; });
-            RTRLAB_ASSERTF(it != availableExtensions.end(),
-                           "Required Vulkan instance extension '{}' is unavailable.",
-                           requiredExtension);
-        }
-
-        InitializeInstance(nativeWindowHandle.m_System);
-    }
-
+    InitializeInstance();
     m_Surface = CreateSurface(m_Instance, nativeWindowHandle);
-
-    QueueFamilySelection selection{};
-    m_PhysicalDevice = PickPhysicalDevice(m_Instance, m_Surface, selection);
-    m_GraphicsQueueFamily = selection.m_GraphicsFamily;
-    m_PresentQueueFamily = selection.m_PresentFamily;
-
-    const float queuePriority = 1.0f;
-    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-
-    VkDeviceQueueCreateInfo graphicsQueueCreateInfo{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
-    graphicsQueueCreateInfo.queueFamilyIndex = m_GraphicsQueueFamily;
-    graphicsQueueCreateInfo.queueCount = 1;
-    graphicsQueueCreateInfo.pQueuePriorities = &queuePriority;
-    queueCreateInfos.push_back(graphicsQueueCreateInfo);
-
-    if (m_PresentQueueFamily != m_GraphicsQueueFamily)
-    {
-        VkDeviceQueueCreateInfo presentQueueCreateInfo{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
-        presentQueueCreateInfo.queueFamilyIndex = m_PresentQueueFamily;
-        presentQueueCreateInfo.queueCount = 1;
-        presentQueueCreateInfo.pQueuePriorities = &queuePriority;
-        queueCreateInfos.push_back(presentQueueCreateInfo);
-    }
-
-    const std::array<const char*, 1> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-    VkPhysicalDeviceVulkan13Features vulkan13Features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
-    // Early bring-up assumes dynamic rendering is available and lets vkCreateDevice fail if it
-    // is not. Feature pre-checking should be added alongside validation/debug bring-up.
-    vulkan13Features.dynamicRendering = VK_TRUE;
-
-    VkDeviceCreateInfo deviceCreateInfo{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
-    deviceCreateInfo.pNext = &vulkan13Features;
-    deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-    deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
-    deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
-    deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions.data();
-
-    CheckVk(vkCreateDevice(m_PhysicalDevice, &deviceCreateInfo, nullptr, &m_Device), "vkCreateDevice");
-    volkLoadDevice(m_Device);
-
-    vkGetDeviceQueue(m_Device, m_GraphicsQueueFamily, 0, &m_GraphicsQueue);
-    vkGetDeviceQueue(m_Device, m_PresentQueueFamily, 0, &m_PresentQueue);
-
-    VkCommandPoolCreateInfo commandPoolCreateInfo{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
-    commandPoolCreateInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    commandPoolCreateInfo.queueFamilyIndex = m_GraphicsQueueFamily;
-    CheckVk(vkCreateCommandPool(m_Device, &commandPoolCreateInfo, nullptr, &m_CommandPool), "vkCreateCommandPool");
-
+    InitializeDeviceObjectsForSurface(m_Surface);
     InitializeFrameSyncObjects();
-    m_CommandList.Initialize(m_Device, m_CommandPool);
     m_NativeWindowHandle = nativeWindowHandle;
     m_CurrentFrameSlot = 0;
     m_FrameInProgress = false;
@@ -1546,12 +1687,35 @@ void VulkanDevice::InitializePresentationObjects(const NativeWindowHandle& nativ
 
 void VulkanDevice::ShutdownPresentationObjects()
 {
+    if (!m_HasPresentationObjects)
+        return;
+
+    if (m_Device != VK_NULL_HANDLE)
+        vkDeviceWaitIdle(m_Device);
+
+    ShutdownFrameSyncObjects();
+
+    if (m_Surface != VK_NULL_HANDLE)
+    {
+        vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
+        m_Surface = VK_NULL_HANDLE;
+    }
+
+    m_PresentQueue = m_GraphicsQueue;
+    m_PresentQueueFamily = m_GraphicsQueueFamily;
+    m_NativeWindowHandle = {};
+    m_HasPresentationObjects = false;
+}
+
+void VulkanDevice::ShutdownDeviceObjects()
+{
+    if (!m_HasDeviceObjects)
+        return;
+
     if (m_Device != VK_NULL_HANDLE)
         vkDeviceWaitIdle(m_Device);
 
     m_CommandList.Shutdown();
-
-    ShutdownFrameSyncObjects();
 
     if (m_CommandPool != VK_NULL_HANDLE)
     {
@@ -1565,17 +1729,13 @@ void VulkanDevice::ShutdownPresentationObjects()
         m_Device = VK_NULL_HANDLE;
     }
 
-    if (m_Surface != VK_NULL_HANDLE)
-    {
-        vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
-        m_Surface = VK_NULL_HANDLE;
-    }
-
     m_PhysicalDevice = VK_NULL_HANDLE;
     m_GraphicsQueue = VK_NULL_HANDLE;
     m_PresentQueue = VK_NULL_HANDLE;
     m_GraphicsQueueFamily = std::numeric_limits<uint32_t>::max();
     m_PresentQueueFamily = std::numeric_limits<uint32_t>::max();
-    m_NativeWindowHandle = {};
-    m_HasPresentationObjects = false;
+    m_CurrentFrameSlot = 0;
+    m_FrameInProgress = false;
+    m_FrameSubmitted = false;
+    m_HasDeviceObjects = false;
 }

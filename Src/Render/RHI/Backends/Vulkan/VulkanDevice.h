@@ -132,8 +132,11 @@ private:
 
     FrameSync& GetCurrentFrameSync();
     const FrameSync& GetCurrentFrameSync() const;
-    void InitializeInstance(NativeWindowSystem windowSystem);
+    void InitializeInstance();
+    void InitializeDeviceObjects();
+    void InitializeDeviceObjectsForSurface(VkSurfaceKHR surface);
     void InitializeFrameSyncObjects();
+    void ShutdownDeviceObjects();
     void ShutdownFrameSyncObjects();
     void InitializePresentationObjects(const NativeWindowHandle& nativeWindowHandle);
     void ShutdownPresentationObjects();
@@ -149,6 +152,7 @@ private:
     uint32_t m_GraphicsQueueFamily = std::numeric_limits<uint32_t>::max();
     uint32_t m_PresentQueueFamily = std::numeric_limits<uint32_t>::max();
     NativeWindowHandle m_NativeWindowHandle{};
+    bool m_HasDeviceObjects = false;
     bool m_HasPresentationObjects = false;
     // Frames in flight for CPU/GPU pacing; intentionally independent from swapchain imageCount.
     std::array<FrameSync, 2> m_FrameSyncObjects{};
