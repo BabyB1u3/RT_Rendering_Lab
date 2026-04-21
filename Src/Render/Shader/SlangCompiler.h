@@ -36,6 +36,7 @@ struct SlangCompilePlan
     std::vector<SlangCompileJob> m_Jobs;
 };
 
+SlangCompilerConfig CreateDefaultSlangCompilerConfig();
 bool ValidateSlangCompilerConfig(const SlangCompilerConfig& config, std::string* errorMessage = nullptr);
 bool BuildSlangCompilePlan(const ShaderCompileRequest& request,
                            const SlangCompilerConfig& config,

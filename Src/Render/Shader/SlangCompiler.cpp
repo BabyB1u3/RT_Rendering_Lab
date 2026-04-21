@@ -69,6 +69,7 @@ std::string GetSlangStageName(const ShaderStage stage)
 }
 
 bool AppendJobArguments(const ShaderCompileTargetDesc& target,
+                        const ShaderSourceDesc& source,
                         const ShaderEntryPointDesc& entry,
                         const SlangCompilerConfig& config,
                         SlangCompileJob* outJob,
@@ -124,6 +125,12 @@ bool AppendJobArguments(const ShaderCompileTargetDesc& target,
     outJob->m_Arguments.push_back("-entry");
     outJob->m_Arguments.push_back(entry.m_EntryName);
 
+    for (const std::string& define : source.m_Defines)
+    {
+        outJob->m_Arguments.push_back("-D");
+        outJob->m_Arguments.push_back(define);
+    }
+
     for (const std::filesystem::path& includePath : config.m_IncludeSearchPaths)
     {
         outJob->m_Arguments.push_back("-I");
@@ -136,6 +143,13 @@ bool AppendJobArguments(const ShaderCompileTargetDesc& target,
     return true;
 }
 } // namespace
+
+SlangCompilerConfig CreateDefaultSlangCompilerConfig()
+{
+    SlangCompilerConfig config;
+    config.m_ExecutablePath = "slangc";
+    return config;
+}
 
 bool ValidateSlangCompilerConfig(const SlangCompilerConfig& config, std::string* errorMessage)
 {
@@ -178,7 +192,7 @@ bool BuildSlangCompilePlan(const ShaderCompileRequest& request,
             }
 
             SlangCompileJob job;
-            if (!AppendJobArguments(target, entry, config, &job, errorMessage))
+            if (!AppendJobArguments(target, request.m_Source, entry, config, &job, errorMessage))
             {
                 outPlan->m_Jobs.clear();
                 return false;

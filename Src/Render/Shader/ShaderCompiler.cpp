@@ -1,4 +1,5 @@
 #include "Render/Shader/ShaderCompiler.h"
+#include "Render/Shader/SlangCompiler.h"
 #include "Render/Shader/SlangReflectionConverter.h"
 #include "Render/Shader/SlangReflectionJson.h"
 #include "Render/Shader/ShaderReflection.h"
@@ -29,17 +30,6 @@ void AssignShaderCompilerError(std::string* errorMessage, std::string message)
         *errorMessage = std::move(message);
 }
 
-class NullShaderCompiler final : public ShaderCompiler
-{
-protected:
-    ShaderCompileResult CompileProgramImpl(const ShaderCompileRequest&) const override
-    {
-        ShaderCompileResult result;
-        result.m_Succeeded = false;
-        result.m_ErrorMessage = "Slang compiler integration has not been implemented yet.";
-        return result;
-    }
-};
 } // namespace
 
 bool ValidateShaderCompileRequest(const ShaderCompileRequest& request, std::string* errorMessage)
@@ -237,5 +227,5 @@ ShaderCompileResult ShaderCompiler::CompileProgram(const ShaderCompileRequest& r
 
 Scope<ShaderCompiler> CreateShaderCompiler()
 {
-    return CreateScope<NullShaderCompiler>();
+    return CreateSlangCompiler(CreateDefaultSlangCompilerConfig());
 }
