@@ -28,6 +28,8 @@
 
 #include "Render/RHI/Backends/Common/RHIShellCommon.h"
 
+struct VmaAllocator_T;
+
 class VulkanDevice;
 class VulkanSwapchainTexture;
 class VulkanSwapchainImageView;
@@ -154,7 +156,9 @@ private:
     void InitializeInstance();
     void InitializeDeviceObjects();
     void InitializeDeviceObjectsForSurface(VkSurfaceKHR surface);
+    void InitializeAllocator();
     void InitializeFrameSyncObjects();
+    void ShutdownAllocator();
     void ShutdownDeviceObjects();
     void ShutdownFrameSyncObjects();
     void InitializePresentationObjects(const NativeWindowHandle& nativeWindowHandle);
@@ -168,6 +172,7 @@ private:
     VkQueue m_GraphicsQueue = VK_NULL_HANDLE;
     VkQueue m_PresentQueue = VK_NULL_HANDLE;
     VkCommandPool m_CommandPool = VK_NULL_HANDLE;
+    VmaAllocator_T* m_Allocator = nullptr;
     uint32_t m_GraphicsQueueFamily = std::numeric_limits<uint32_t>::max();
     uint32_t m_PresentQueueFamily = std::numeric_limits<uint32_t>::max();
     NativeWindowHandle m_NativeWindowHandle{};

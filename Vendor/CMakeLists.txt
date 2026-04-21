@@ -42,6 +42,8 @@ glab_enable_parallel_compilation(glad)
 if(GLAB_BACKEND_VULKAN)
     set(GLAB_VOLK_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/volk/volk.h")
     set(GLAB_VOLK_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/volk/volk.c")
+    set(GLAB_VMA_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/vma/vk_mem_alloc.h")
+    set(GLAB_VMA_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/vma/vma.cpp")
 
     if(NOT EXISTS "${GLAB_VOLK_HEADER}" OR NOT EXISTS "${GLAB_VOLK_SOURCE}")
         message(FATAL_ERROR
@@ -83,6 +85,14 @@ if(GLAB_BACKEND_VULKAN)
         )
     endif()
 
+    if(NOT EXISTS "${GLAB_VMA_HEADER}" OR NOT EXISTS "${GLAB_VMA_SOURCE}")
+        message(FATAL_ERROR
+            "Vendored VMA sources are missing. Expected files:\n"
+            "  ${GLAB_VMA_HEADER}\n"
+            "  ${GLAB_VMA_SOURCE}"
+        )
+    endif()
+
     target_include_directories(volk PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${GLAB_VULKAN_INCLUDE_ROOT}
@@ -107,6 +117,26 @@ if(GLAB_BACKEND_VULKAN)
     endif()
 
     glab_enable_parallel_compilation(volk)
+
+    add_library(vma STATIC
+        ${GLAB_VMA_SOURCE}
+    )
+
+    target_include_directories(vma PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${GLAB_VULKAN_INCLUDE_ROOT}
+    )
+
+    target_compile_definitions(vma PRIVATE
+        VMA_STATIC_VULKAN_FUNCTIONS=0
+        VMA_DYNAMIC_VULKAN_FUNCTIONS=0
+    )
+
+    target_link_libraries(vma PUBLIC
+        volk
+    )
+
+    glab_enable_parallel_compilation(vma)
 endif()
 
 # -----------------------------------------------------------------------------
