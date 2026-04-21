@@ -796,6 +796,7 @@ Scope<GraphicsPipeline> OpenGLDevice::CreateGraphicsPipeline(const GraphicsPipel
 
 void OpenGLDevice::WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size)
 {
+    // TRANSITIONAL(M3): Demo-only direct host upload path for early bring-up.
     if (size == 0)
         return;
 

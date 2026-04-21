@@ -1134,6 +1134,7 @@ Scope<GraphicsPipeline> MetalDevice::CreateGraphicsPipeline(const GraphicsPipeli
 
 void MetalDevice::WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size)
 {
+    // TRANSITIONAL(M3): Demo-only direct host upload path for early bring-up.
     if (size == 0)
         return;
 

@@ -39,8 +39,9 @@ public:
     virtual Scope<GraphicsPipeline> CreateGraphicsPipeline(const GraphicsPipelineDesc& desc) = 0;
     virtual Scope<ComputePipeline> CreateComputePipeline(const ComputePipelineDesc& desc) = 0;
     // TRANSITIONAL(M3): Minimal host upload hook used by the hello-triangle
-    // bring-up demos. This will move behind renderer-owned upload/staging paths
-    // once resource initialization stops reaching into Device directly.
+    // bring-up demos. This is intentionally a temporary demo-only path and
+    // will move behind renderer-owned upload/staging systems once resource
+    // initialization stops reaching into Device directly.
     virtual void WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size) = 0;
 
     virtual CommandList* BeginCommandList() = 0;

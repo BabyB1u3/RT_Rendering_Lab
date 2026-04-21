@@ -1,12 +1,13 @@
 #pragma once
 
 /// @file HelloTriangleShaders.h
-/// @brief Temporary embedded Vulkan shaders for the M3 hello-triangle bring-up.
+/// @brief Temporary embedded backend shaders for the M3 hello-triangle bring-up.
 ///
-/// TRANSITIONAL(M4): These SPIR-V blobs are deliberately checked in so the first
-/// Vulkan indexed-triangle path can validate pipeline creation and draw
-/// submission before the shader asset pipeline exists. Replace them with real
-/// shader assets once the shader system can compile and package backend blobs.
+/// TRANSITIONAL(M4): These backend shader blobs/source strings are deliberately
+/// checked in so the first cross-backend indexed-triangle path can validate
+/// pipeline creation and draw submission before the shader asset pipeline
+/// exists. Replace them with real shader assets once the shader system can
+/// compile and package backend blobs.
 
 #include <cstdint>
 
