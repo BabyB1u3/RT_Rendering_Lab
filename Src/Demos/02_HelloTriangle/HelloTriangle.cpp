@@ -3,14 +3,14 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <cstring>
 #include <utility>
 
 #include "Core/App/Application.h"
 #include "Core/Diagnostics/Assert/Assert.h"
 #include "Core/Diagnostics/Logging/LogCategories.h"
 #include "Core/Diagnostics/Logging/LogMacros.h"
-#include "Demos/02_HelloTriangle/HelloTriangleShaders.h"
+#include "Core/Resource/FileSystem.h"
+#include "Render/Shader/ShaderCompiler.h"
 
 #if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_OPENGL) || defined(GLAB_BACKEND_METAL)
 namespace
@@ -28,22 +28,6 @@ struct DemoViewport
     float m_Width = 0.0f;
     float m_Height = 0.0f;
 };
-
-template <size_t N> std::vector<uint8_t> MakeShaderBytes(const uint32_t (&words)[N])
-{
-    std::vector<uint8_t> bytes(sizeof(words));
-    std::memcpy(bytes.data(), words, sizeof(words));
-    return bytes;
-}
-
-std::vector<uint8_t> MakeShaderBytes(const char* sourceText)
-{
-    RTRLAB_ASSERT_MSG(sourceText != nullptr, "Shader source text must be valid.");
-    const size_t sourceLength = std::strlen(sourceText);
-    std::vector<uint8_t> bytes(sourceLength);
-    std::memcpy(bytes.data(), sourceText, sourceLength);
-    return bytes;
-}
 
 DemoViewport ComputeAspectPreservingViewport(uint32_t framebufferWidth, uint32_t framebufferHeight)
 {
@@ -63,59 +47,36 @@ DemoViewport ComputeAspectPreservingViewport(uint32_t framebufferWidth, uint32_t
     return viewport;
 }
 
-CompiledShaderProgramDesc BuildHelloTriangleShaderProgramDesc()
+ShaderCompileRequest BuildHelloTriangleShaderCompileRequest()
 {
-    // TRANSITIONAL(M4): HelloTriangle still picks directly from embedded
-    // backend shader blobs until the shader asset pipeline exists.
-    CompiledShaderProgramDesc desc;
+    ShaderCompileRequest request;
+
+    const std::filesystem::path shaderPath = FileSystem::GetRootPath() / "Project" / "Shaders" / "HelloTriangle.slang";
+    const std::string shaderModule = shaderPath.generic_string();
 
 #if defined(GLAB_BACKEND_VULKAN)
-    CompiledShaderBlob vertexShader;
-    vertexShader.m_Backend = BackendType::Vulkan;
-    vertexShader.m_Stage = ShaderStage::Vertex;
-    vertexShader.m_EntryPoint = "main";
-    vertexShader.m_Code = MakeShaderBytes(kHelloTriangleVertexSpirv);
-    desc.m_Blobs.push_back(std::move(vertexShader));
-
-    CompiledShaderBlob fragmentShader;
-    fragmentShader.m_Backend = BackendType::Vulkan;
-    fragmentShader.m_Stage = ShaderStage::Fragment;
-    fragmentShader.m_EntryPoint = "main";
-    fragmentShader.m_Code = MakeShaderBytes(kHelloTriangleFragmentSpirv);
-    desc.m_Blobs.push_back(std::move(fragmentShader));
+    request.m_Targets.push_back({BackendType::Vulkan, MetalCodeFormat::MslSource});
 #elif defined(GLAB_BACKEND_OPENGL)
-    CompiledShaderBlob vertexShader;
-    vertexShader.m_Backend = BackendType::OpenGL;
-    vertexShader.m_Stage = ShaderStage::Vertex;
-    vertexShader.m_EntryPoint = "main";
-    vertexShader.m_Code = MakeShaderBytes(kHelloTriangleVertexOpenGL);
-    desc.m_Blobs.push_back(std::move(vertexShader));
-
-    CompiledShaderBlob fragmentShader;
-    fragmentShader.m_Backend = BackendType::OpenGL;
-    fragmentShader.m_Stage = ShaderStage::Fragment;
-    fragmentShader.m_EntryPoint = "main";
-    fragmentShader.m_Code = MakeShaderBytes(kHelloTriangleFragmentOpenGL);
-    desc.m_Blobs.push_back(std::move(fragmentShader));
+    request.m_Targets.push_back({BackendType::OpenGL, MetalCodeFormat::MslSource});
 #elif defined(GLAB_BACKEND_METAL)
-    CompiledShaderBlob vertexShader;
-    vertexShader.m_Backend = BackendType::Metal;
-    vertexShader.m_Stage = ShaderStage::Vertex;
-    vertexShader.m_EntryPoint = "main_vertex";
-    vertexShader.m_MetalCodeFormat = MetalCodeFormat::MslSource;
-    vertexShader.m_Code = MakeShaderBytes(kHelloTriangleMetalSource);
-    desc.m_Blobs.push_back(std::move(vertexShader));
-
-    CompiledShaderBlob fragmentShader;
-    fragmentShader.m_Backend = BackendType::Metal;
-    fragmentShader.m_Stage = ShaderStage::Fragment;
-    fragmentShader.m_EntryPoint = "main_fragment";
-    fragmentShader.m_MetalCodeFormat = MetalCodeFormat::MslSource;
-    fragmentShader.m_Code = MakeShaderBytes(kHelloTriangleMetalSource);
-    desc.m_Blobs.push_back(std::move(fragmentShader));
+    request.m_Targets.push_back({BackendType::Metal, MetalCodeFormat::MslSource});
 #endif
 
-    return desc;
+    request.m_Source.m_Entries.push_back({shaderModule, "main_vertex", ShaderStage::Vertex});
+    request.m_Source.m_Entries.push_back({shaderModule, "main_fragment", ShaderStage::Fragment});
+    return request;
+}
+
+CompiledShaderProgramDesc BuildHelloTriangleShaderProgramDesc()
+{
+    Scope<ShaderCompiler> shaderCompiler = CreateShaderCompiler();
+    RTRLAB_ASSERT_MSG(shaderCompiler != nullptr, "HelloTriangle requires a valid ShaderCompiler instance.");
+
+    ShaderCompileResult compileResult = shaderCompiler->CompileProgram(BuildHelloTriangleShaderCompileRequest());
+    RTRLAB_ASSERTF(compileResult.m_Succeeded,
+                   "HelloTriangle failed to compile its Slang shader program: {}",
+                   compileResult.m_ErrorMessage);
+    return std::move(compileResult.m_Program);
 }
 } // namespace
 #endif
