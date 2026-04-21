@@ -1,4 +1,6 @@
 #include "Render/Shader/ShaderCompiler.h"
+#include "Render/Shader/SlangReflectionConverter.h"
+#include "Render/Shader/SlangReflectionJson.h"
 #include "Render/Shader/ShaderReflection.h"
 
 #include <algorithm>
@@ -152,6 +154,52 @@ bool ValidateCompiledShaderProgramDesc(const CompiledShaderProgramDesc& program,
     if (!ValidateShaderReflectionData(program.m_Reflection, errorMessage))
         return false;
 
+    return true;
+}
+
+BuildShaderReflectionResult BuildShaderReflectionFromSlangJson(std::string_view jsonText)
+{
+    BuildShaderReflectionResult result;
+
+    ParseSlangReflectionResult parsedReflection = ParseSlangReflectionJson(jsonText);
+    if (!parsedReflection.m_Succeeded)
+    {
+        result.m_ErrorMessage = std::move(parsedReflection.m_ErrorMessage);
+        return result;
+    }
+
+    ConvertSlangReflectionResult convertedReflection = ConvertSlangReflectionToNeutral(parsedReflection.m_Document);
+    if (!convertedReflection.m_Succeeded)
+    {
+        result.m_ErrorMessage = std::move(convertedReflection.m_ErrorMessage);
+        return result;
+    }
+
+    NormalizeShaderReflectionResult normalizedReflection =
+        NormalizeShaderReflectionData(std::move(convertedReflection.m_Reflection));
+    if (!normalizedReflection.m_Succeeded)
+    {
+        result.m_ErrorMessage = std::move(normalizedReflection.m_ErrorMessage);
+        return result;
+    }
+
+    result.m_Succeeded = true;
+    result.m_Reflection = std::move(normalizedReflection.m_Reflection);
+    return result;
+}
+
+bool PopulateProgramReflectionFromSlangJson(CompiledShaderProgramDesc& program,
+                                            std::string_view jsonText,
+                                            std::string* errorMessage)
+{
+    BuildShaderReflectionResult reflection = BuildShaderReflectionFromSlangJson(jsonText);
+    if (!reflection.m_Succeeded)
+    {
+        AssignShaderCompilerError(errorMessage, std::move(reflection.m_ErrorMessage));
+        return false;
+    }
+
+    program.m_Reflection = std::move(reflection.m_Reflection);
     return true;
 }
 

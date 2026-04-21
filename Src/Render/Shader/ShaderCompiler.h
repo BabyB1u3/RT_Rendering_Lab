@@ -4,6 +4,7 @@
 /// @brief ShaderSystem compilation boundary types and compiler interface.
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "Core/Util/Base.h"
@@ -28,8 +29,19 @@ struct ShaderCompileResult
     std::string m_ErrorMessage;
 };
 
+struct BuildShaderReflectionResult
+{
+    bool m_Succeeded = false;
+    ShaderReflectionData m_Reflection;
+    std::string m_ErrorMessage;
+};
+
 bool ValidateShaderCompileRequest(const ShaderCompileRequest& request, std::string* errorMessage = nullptr);
 bool ValidateCompiledShaderProgramDesc(const CompiledShaderProgramDesc& program, std::string* errorMessage = nullptr);
+BuildShaderReflectionResult BuildShaderReflectionFromSlangJson(std::string_view jsonText);
+bool PopulateProgramReflectionFromSlangJson(CompiledShaderProgramDesc& program,
+                                            std::string_view jsonText,
+                                            std::string* errorMessage = nullptr);
 
 class ShaderCompiler
 {
