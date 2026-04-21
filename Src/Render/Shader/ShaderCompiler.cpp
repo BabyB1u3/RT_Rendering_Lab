@@ -30,6 +30,19 @@ void AssignShaderCompilerError(std::string* errorMessage, std::string message)
         *errorMessage = std::move(message);
 }
 
+class DisabledShaderCompiler final : public ShaderCompiler
+{
+protected:
+    ShaderCompileResult CompileProgramImpl(const ShaderCompileRequest&) const override
+    {
+        ShaderCompileResult result;
+        result.m_Succeeded = false;
+        result.m_ErrorMessage = "Runtime shader compilation is only enabled for development builds. "
+                                "Shipping/release builds must use cooked shader assets.";
+        return result;
+    }
+};
+
 } // namespace
 
 bool ValidateShaderCompileRequest(const ShaderCompileRequest& request, std::string* errorMessage)
@@ -227,5 +240,9 @@ ShaderCompileResult ShaderCompiler::CompileProgram(const ShaderCompileRequest& r
 
 Scope<ShaderCompiler> CreateShaderCompiler()
 {
+#ifdef RTRLAB_SLANGC_PATH
     return CreateSlangCompiler(CreateDefaultSlangCompilerConfig());
+#else
+    return CreateScope<DisabledShaderCompiler>();
+#endif
 }
