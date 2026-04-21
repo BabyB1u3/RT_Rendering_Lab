@@ -1,7 +1,9 @@
 #include "Render/RHI/Backends/OpenGL/OpenGLDevice.h"
 
 #include <algorithm>
+#include <cstring>
 #include <string>
+#include <vector>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -243,6 +245,183 @@ private:
     GLuint m_Sampler = 0;
     SamplerDesc m_Desc;
 };
+
+class OpenGLShaderProgram final : public ShaderProgram
+{
+public:
+    OpenGLShaderProgram(GLuint program, const CompiledShaderProgramDesc& desc)
+        : m_Program(program), m_Reflection(desc.m_Reflection)
+    {
+    }
+
+    ~OpenGLShaderProgram() override
+    {
+        if (m_Program != 0)
+            glDeleteProgram(m_Program);
+    }
+
+    const ShaderReflectionData& GetReflection() const override { return m_Reflection; }
+    PipelineLayoutDesc DerivePipelineLayoutDesc() const override
+    {
+        return RHIInternal::BuildPipelineLayoutDescFromReflection(m_Reflection);
+    }
+    GLuint GetProgram() const { return m_Program; }
+
+private:
+    GLuint m_Program = 0;
+    ShaderReflectionData m_Reflection;
+};
+
+class OpenGLVertexInputLayout final : public VertexInputLayout
+{
+public:
+    explicit OpenGLVertexInputLayout(const VertexInputLayoutDesc& desc) : m_Desc(desc) {}
+
+    const VertexInputLayoutDesc& GetDesc() const override { return m_Desc; }
+
+private:
+    VertexInputLayoutDesc m_Desc;
+};
+
+class OpenGLGraphicsPipeline final : public GraphicsPipeline
+{
+public:
+    OpenGLGraphicsPipeline(GLuint program, GLuint vertexArray, const GraphicsPipelineDesc& desc)
+        : m_Program(program), m_VertexArray(vertexArray), m_Desc(desc)
+    {
+    }
+
+    ~OpenGLGraphicsPipeline() override
+    {
+        if (m_VertexArray != 0)
+            glDeleteVertexArrays(1, &m_VertexArray);
+    }
+
+    const GraphicsPipelineDesc& GetDesc() const override { return m_Desc; }
+    GLuint GetProgram() const { return m_Program; }
+    GLuint GetVertexArray() const { return m_VertexArray; }
+
+private:
+    GLuint m_Program = 0;
+    GLuint m_VertexArray = 0;
+    GraphicsPipelineDesc m_Desc;
+};
+
+GLenum ToGLShaderStage(ShaderStage stage)
+{
+    switch (stage)
+    {
+        case ShaderStage::Vertex:
+            return GL_VERTEX_SHADER;
+        case ShaderStage::Fragment:
+            return GL_FRAGMENT_SHADER;
+        case ShaderStage::Compute:
+            return GL_COMPUTE_SHADER;
+        case ShaderStage::None:
+        case ShaderStage::All:
+            break;
+    }
+
+    RTRLAB_ASSERTF(false, "Unsupported OpenGL shader stage {}", static_cast<uint32_t>(stage));
+    return GL_VERTEX_SHADER;
+}
+
+GLenum ToGLIndexType(IndexType indexType)
+{
+    switch (indexType)
+    {
+        case IndexType::UInt16:
+            return GL_UNSIGNED_SHORT;
+        case IndexType::UInt32:
+            return GL_UNSIGNED_INT;
+    }
+
+    return GL_UNSIGNED_INT;
+}
+
+GLenum ToGLPrimitiveTopology(PrimitiveTopology topology)
+{
+    switch (topology)
+    {
+        case PrimitiveTopology::TriangleList:
+            return GL_TRIANGLES;
+        case PrimitiveTopology::TriangleStrip:
+            return GL_TRIANGLE_STRIP;
+        case PrimitiveTopology::LineList:
+            return GL_LINES;
+        case PrimitiveTopology::LineStrip:
+            return GL_LINE_STRIP;
+        case PrimitiveTopology::PointList:
+            return GL_POINTS;
+    }
+
+    return GL_TRIANGLES;
+}
+
+GLint GetOpenGLAttributeComponentCount(Format format)
+{
+    switch (format)
+    {
+        case Format::RG32F:
+            return 2;
+        case Format::RGBA32F:
+            return 4;
+        default:
+            RTRLAB_ASSERTF(false, "Unsupported OpenGL vertex attribute format {}", static_cast<uint32_t>(format));
+            return 0;
+    }
+}
+
+const OpenGLShaderProgram& GetOpenGLShaderProgram(ShaderProgram* shaderProgram)
+{
+    auto* openGLShaderProgram = dynamic_cast<OpenGLShaderProgram*>(shaderProgram);
+    RTRLAB_ASSERT_MSG(openGLShaderProgram != nullptr, "GraphicsPipeline requires an OpenGL shader program.");
+    return *openGLShaderProgram;
+}
+
+const OpenGLVertexInputLayout& GetOpenGLVertexInputLayout(VertexInputLayout* vertexInputLayout)
+{
+    auto* openGLVertexInputLayout = dynamic_cast<OpenGLVertexInputLayout*>(vertexInputLayout);
+    RTRLAB_ASSERT_MSG(openGLVertexInputLayout != nullptr, "GraphicsPipeline requires an OpenGL vertex input layout.");
+    return *openGLVertexInputLayout;
+}
+
+const OpenGLGraphicsPipeline& GetOpenGLGraphicsPipeline(GraphicsPipeline* graphicsPipeline)
+{
+    auto* openGLGraphicsPipeline = dynamic_cast<OpenGLGraphicsPipeline*>(graphicsPipeline);
+    RTRLAB_ASSERT_MSG(openGLGraphicsPipeline != nullptr, "Graphics pipeline is not owned by the OpenGL backend.");
+    return *openGLGraphicsPipeline;
+}
+
+OpenGLBuffer& GetOpenGLBuffer(Buffer* buffer)
+{
+    auto* openGLBuffer = dynamic_cast<OpenGLBuffer*>(buffer);
+    RTRLAB_ASSERT_MSG(openGLBuffer != nullptr, "Buffer is not owned by the OpenGL backend.");
+    return *openGLBuffer;
+}
+
+GLuint CompileOpenGLShader(GLenum shaderStage, const char* source)
+{
+    RTRLAB_ASSERT_MSG(source != nullptr && source[0] != '\0', "OpenGL shaders require source text.");
+
+    GLuint shader = glCreateShader(shaderStage);
+    glShaderSource(shader, 1, &source, nullptr);
+    glCompileShader(shader);
+
+    GLint compileStatus = GL_FALSE;
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &compileStatus);
+    if (compileStatus != GL_TRUE)
+    {
+        GLint infoLogLength = 0;
+        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &infoLogLength);
+        std::string infoLog(static_cast<size_t>(std::max(infoLogLength, 1)), '\0');
+        glGetShaderInfoLog(shader, infoLogLength, nullptr, infoLog.data());
+        glDeleteShader(shader);
+        RTRLAB_ASSERTF(false, "OpenGL shader compilation failed: {}", infoLog);
+    }
+
+    return shader;
+}
 } // namespace
 
 void OpenGLCommandList::BeginRendering(const RenderingInfo& renderingInfo)
@@ -298,6 +477,94 @@ void OpenGLCommandList::EndRendering()
 {
     ShellCommandListBase::EndRendering();
     glDisable(GL_SCISSOR_TEST);
+}
+
+void OpenGLCommandList::BindGraphicsPipeline(GraphicsPipeline* pipeline)
+{
+    ShellCommandListBase::BindGraphicsPipeline(pipeline);
+
+    if (pipeline == nullptr)
+        return;
+
+    const OpenGLGraphicsPipeline& openGLPipeline = GetOpenGLGraphicsPipeline(pipeline);
+    glUseProgram(openGLPipeline.GetProgram());
+    glBindVertexArray(openGLPipeline.GetVertexArray());
+}
+
+void OpenGLCommandList::BindMesh(const MeshBinding& meshBinding, const uint64_t* vertexOffsets)
+{
+    ShellCommandListBase::BindMesh(meshBinding, vertexOffsets);
+
+    if (!meshBinding.m_VertexBuffers.empty())
+    {
+        BindVertexBuffers(0,
+                          meshBinding.m_VertexBuffers.data(),
+                          static_cast<uint32_t>(meshBinding.m_VertexBuffers.size()),
+                          vertexOffsets);
+    }
+
+    if (meshBinding.m_IndexBuffer != nullptr)
+        BindIndexBuffer(meshBinding.m_IndexBuffer, 0, meshBinding.m_IndexType);
+}
+
+void OpenGLCommandList::BindVertexBuffers(uint32_t firstSlot,
+                                          Buffer* const* buffers,
+                                          uint32_t count,
+                                          const uint64_t* offsets)
+{
+    ShellCommandListBase::BindVertexBuffers(firstSlot, buffers, count, offsets);
+
+    RTRLAB_ASSERT_MSG(m_GraphicsPipeline != nullptr, "OpenGL vertex buffers require a bound graphics pipeline.");
+    const OpenGLGraphicsPipeline& openGLPipeline = GetOpenGLGraphicsPipeline(m_GraphicsPipeline);
+    const VertexInputLayout* vertexInput = openGLPipeline.GetDesc().m_VertexInput;
+    RTRLAB_ASSERT_MSG(vertexInput != nullptr, "OpenGL vertex buffers require pipeline vertex input metadata.");
+
+    const auto& bufferLayouts = vertexInput->GetDesc().m_Buffers;
+    for (uint32_t index = 0; index < count; ++index)
+    {
+        const uint32_t bindingIndex = firstSlot + index;
+        RTRLAB_ASSERT_MSG(bindingIndex < bufferLayouts.size(), "OpenGL vertex buffer slot exceeds the vertex layout.");
+        RTRLAB_ASSERT_MSG(buffers[index] != nullptr, "OpenGL BindVertexBuffers requires non-null buffers.");
+
+        const GLuint buffer = GetOpenGLBuffer(buffers[index]).GetBuffer();
+        const GLintptr offset = static_cast<GLintptr>(offsets != nullptr ? offsets[index] : 0);
+        const GLsizei stride = static_cast<GLsizei>(bufferLayouts[bindingIndex].m_Stride);
+        glVertexArrayVertexBuffer(openGLPipeline.GetVertexArray(), bindingIndex, buffer, offset, stride);
+    }
+}
+
+void OpenGLCommandList::BindIndexBuffer(Buffer* buffer, uint64_t offset, IndexType indexType)
+{
+    ShellCommandListBase::BindIndexBuffer(buffer, offset, indexType);
+
+    if (buffer == nullptr)
+        return;
+
+    RTRLAB_ASSERT_MSG(m_GraphicsPipeline != nullptr, "OpenGL index buffers require a bound graphics pipeline.");
+    const OpenGLGraphicsPipeline& openGLPipeline = GetOpenGLGraphicsPipeline(m_GraphicsPipeline);
+    glVertexArrayElementBuffer(openGLPipeline.GetVertexArray(), GetOpenGLBuffer(buffer).GetBuffer());
+}
+
+void OpenGLCommandList::DrawIndexed(uint32_t indexCount, uint32_t firstIndex, int32_t vertexOffset)
+{
+    ShellCommandListBase::DrawIndexed(indexCount, firstIndex, vertexOffset);
+
+    RTRLAB_ASSERT_MSG(m_IsRendering, "OpenGL DrawIndexed requires an active rendering scope.");
+    RTRLAB_ASSERT_MSG(m_GraphicsPipeline != nullptr, "OpenGL DrawIndexed requires a bound graphics pipeline.");
+    RTRLAB_ASSERT_MSG(m_IndexBuffer != nullptr, "OpenGL DrawIndexed requires a bound index buffer.");
+
+    const OpenGLGraphicsPipeline& openGLPipeline = GetOpenGLGraphicsPipeline(m_GraphicsPipeline);
+    glUseProgram(openGLPipeline.GetProgram());
+    glBindVertexArray(openGLPipeline.GetVertexArray());
+
+    const GLenum indexType = ToGLIndexType(m_IndexType);
+    const GLsizei indexSize = m_IndexType == IndexType::UInt16 ? sizeof(uint16_t) : sizeof(uint32_t);
+    const size_t indexOffsetBytes = static_cast<size_t>(m_IndexOffset + static_cast<uint64_t>(firstIndex) * indexSize);
+    glDrawElementsBaseVertex(ToGLPrimitiveTopology(openGLPipeline.GetDesc().m_Topology),
+                             static_cast<GLsizei>(indexCount),
+                             indexType,
+                             reinterpret_cast<const void*>(indexOffsetBytes),
+                             vertexOffset);
 }
 
 OpenGLSwapchain::OpenGLSwapchain(const SwapchainDesc& desc, const NativeWindowHandle& nativeWindowHandle)
@@ -443,6 +710,104 @@ Scope<Sampler> OpenGLDevice::CreateSampler(const SamplerDesc& desc)
     return CreateScope<OpenGLSampler>(sampler, desc);
 }
 
+Scope<ShaderProgram> OpenGLDevice::CreateShaderProgram(const CompiledShaderProgramDesc& desc)
+{
+    std::vector<GLuint> shaders;
+    shaders.reserve(desc.m_Blobs.size());
+
+    for (const CompiledShaderBlob& blob : desc.m_Blobs)
+    {
+        if (blob.m_Backend != BackendType::OpenGL)
+            continue;
+
+        RTRLAB_ASSERT_MSG(!blob.m_Code.empty(), "OpenGL shader blobs must contain GLSL source bytes.");
+        const char* source = reinterpret_cast<const char*>(blob.m_Code.data());
+        shaders.push_back(CompileOpenGLShader(ToGLShaderStage(blob.m_Stage), source));
+    }
+
+    RTRLAB_ASSERT_MSG(!shaders.empty(), "OpenGL CreateShaderProgram requires at least one OpenGL shader blob.");
+
+    GLuint program = glCreateProgram();
+    for (GLuint shader : shaders)
+        glAttachShader(program, shader);
+    glLinkProgram(program);
+
+    GLint linkStatus = GL_FALSE;
+    glGetProgramiv(program, GL_LINK_STATUS, &linkStatus);
+    for (GLuint shader : shaders)
+    {
+        glDetachShader(program, shader);
+        glDeleteShader(shader);
+    }
+
+    if (linkStatus != GL_TRUE)
+    {
+        GLint infoLogLength = 0;
+        glGetProgramiv(program, GL_INFO_LOG_LENGTH, &infoLogLength);
+        std::string infoLog(static_cast<size_t>(std::max(infoLogLength, 1)), '\0');
+        glGetProgramInfoLog(program, infoLogLength, nullptr, infoLog.data());
+        glDeleteProgram(program);
+        RTRLAB_ASSERTF(false, "OpenGL program link failed: {}", infoLog);
+    }
+
+    return CreateScope<OpenGLShaderProgram>(program, desc);
+}
+
+Scope<VertexInputLayout> OpenGLDevice::CreateVertexInputLayout(const VertexInputLayoutDesc& desc)
+{
+    return CreateScope<OpenGLVertexInputLayout>(desc);
+}
+
+Scope<GraphicsPipeline> OpenGLDevice::CreateGraphicsPipeline(const GraphicsPipelineDesc& desc)
+{
+    RTRLAB_ASSERT_MSG(desc.m_ShaderProgram != nullptr, "OpenGL graphics pipelines require a ShaderProgram.");
+    RTRLAB_ASSERT_MSG(desc.m_VertexInput != nullptr, "OpenGL graphics pipelines require a VertexInputLayout.");
+
+    const OpenGLShaderProgram& shaderProgram = GetOpenGLShaderProgram(desc.m_ShaderProgram);
+    const OpenGLVertexInputLayout& vertexInput = GetOpenGLVertexInputLayout(desc.m_VertexInput);
+
+    GLuint vertexArray = 0;
+    glCreateVertexArrays(1, &vertexArray);
+
+    const auto& attributes = vertexInput.GetDesc().m_Attributes;
+    for (const VertexAttributeDesc& attribute : attributes)
+    {
+        RTRLAB_ASSERT_MSG(attribute.m_BufferSlot < vertexInput.GetDesc().m_Buffers.size(),
+                          "OpenGL graphics pipelines require valid vertex buffer slots.");
+
+        glEnableVertexArrayAttrib(vertexArray, attribute.m_Location);
+        glVertexArrayAttribFormat(vertexArray,
+                                  attribute.m_Location,
+                                  GetOpenGLAttributeComponentCount(attribute.m_Format),
+                                  GL_FLOAT,
+                                  GL_FALSE,
+                                  attribute.m_Offset);
+        glVertexArrayAttribBinding(vertexArray, attribute.m_Location, attribute.m_BufferSlot);
+    }
+
+    const auto& bufferLayouts = vertexInput.GetDesc().m_Buffers;
+    for (uint32_t bufferIndex = 0; bufferIndex < static_cast<uint32_t>(bufferLayouts.size()); ++bufferIndex)
+    {
+        glVertexArrayBindingDivisor(vertexArray, bufferIndex, bufferLayouts[bufferIndex].m_PerInstance ? 1u : 0u);
+    }
+
+    return CreateScope<OpenGLGraphicsPipeline>(shaderProgram.GetProgram(), vertexArray, desc);
+}
+
+void OpenGLDevice::WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size)
+{
+    if (size == 0)
+        return;
+
+    RTRLAB_ASSERT_MSG(buffer != nullptr, "OpenGL WriteBuffer requires a valid buffer.");
+    RTRLAB_ASSERT_MSG(data != nullptr, "OpenGL WriteBuffer requires non-null source data.");
+
+    OpenGLBuffer& openGLBuffer = GetOpenGLBuffer(buffer);
+    RTRLAB_ASSERT_MSG(offset + size <= openGLBuffer.GetDesc().m_Size,
+                      "OpenGL WriteBuffer range exceeds the buffer size.");
+    glNamedBufferSubData(openGLBuffer.GetBuffer(), static_cast<GLintptr>(offset), static_cast<GLsizeiptr>(size), data);
+}
+
 CommandList* OpenGLDevice::BeginCommandList()
 {
     return &m_CommandList;
@@ -454,11 +819,6 @@ void OpenGLDevice::Submit(CommandList* commandList)
                       "OpenGLDevice::Submit expects the backend-owned command list returned by BeginCommandList().");
     RTRLAB_ASSERT_MSG(!m_CommandList.IsRenderingActive(),
                       "OpenGLDevice::Submit requires EndRendering() before submission.");
-
-    // Early bring-up limitation: Submit currently validates sequencing only.
-    // Real Draw submission will need to honor recorded viewport/scissor state and replay
-    // Draw commands instead of relying on BeginRendering()-time clear only.
-    (void)m_CommandList.GetRenderingInfo();
 }
 
 FrameContext* OpenGLDevice::BeginFrame()

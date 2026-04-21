@@ -10,6 +10,26 @@
 
 #include <cstdint>
 
+static constexpr const char kHelloTriangleVertexOpenGL[] = R"(#version 450 core
+layout(location = 0) in vec2 inPosition;
+layout(location = 1) in vec4 inColor;
+layout(location = 0) out vec4 outColor;
+void main()
+{
+    gl_Position = vec4(inPosition, 0.0, 1.0);
+    outColor = inColor;
+}
+)";
+
+static constexpr const char kHelloTriangleFragmentOpenGL[] = R"(#version 450 core
+layout(location = 0) in vec4 inColor;
+layout(location = 0) out vec4 outFragColor;
+void main()
+{
+    outFragColor = inColor;
+}
+)";
+
 static const uint32_t kHelloTriangleVertexSpirv[] = {
     0x07230203u, 0x00010600u, 0x0008000bu, 0x0000001fu, 0x00000000u, 0x00020011u, 0x00000001u, 0x0006000bu, 0x00000001u,
     0x4c534c47u, 0x6474732eu, 0x3035342eu, 0x00000000u, 0x0003000eu, 0x00000000u, 0x00000001u, 0x0009000fu, 0x00000000u,
