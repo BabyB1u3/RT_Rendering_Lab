@@ -327,7 +327,7 @@ std::vector<MetalSetBindingPlan> BuildMetalSetBindingPlans(const PipelineLayoutD
     StageCounters computeCounters;
     std::vector<MetalSetBindingPlan> plans;
 
-    auto* findOrAddPlan = [&plans](uint32_t setIndex) -> MetalSetBindingPlan*
+    auto findOrAddPlan = [&plans](uint32_t setIndex) -> MetalSetBindingPlan*
     {
         const auto it =
             std::find_if(plans.begin(),
