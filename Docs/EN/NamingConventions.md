@@ -37,7 +37,6 @@ enum class BackendType
 {
     Vulkan,
     Metal,
-    OpenGL,
 };
 using ByteBuffer = std::vector<uint8_t>;
 ```
