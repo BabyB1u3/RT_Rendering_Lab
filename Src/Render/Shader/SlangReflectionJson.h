@@ -15,6 +15,7 @@ struct SlangReflectionBinding
     std::string m_Kind;
     uint32_t m_Index = 0;
     uint32_t m_Space = 0;
+    bool m_HasExplicitSpace = false;
     uint32_t m_Offset = 0;
     uint32_t m_Size = 0;
 };

@@ -46,6 +46,7 @@ std::optional<SlangReflectionBinding> ParseBinding(const Json& json, std::string
     binding.m_Kind = ReadString(json, "kind").value_or(std::string{});
     binding.m_Index = ReadUint32(json, "index").value_or(0);
     binding.m_Space = ReadUint32(json, "space").value_or(0);
+    binding.m_HasExplicitSpace = json.contains("space") && json["space"].is_number_unsigned();
     binding.m_Offset = ReadUint32(json, "offset").value_or(0);
     binding.m_Size = ReadUint32(json, "size").value_or(0);
     return binding;
@@ -72,20 +73,42 @@ std::optional<SlangReflectionBinding> SelectPreferredBinding(const Json& json, s
     }
 
     std::optional<SlangReflectionBinding> fallbackBinding;
+    std::optional<SlangReflectionBinding> preferredBinding;
+    std::optional<uint32_t> inferredRegisterSpace;
     for (const Json& bindingJson : json["bindings"])
     {
         std::optional<SlangReflectionBinding> binding = ParseBinding(bindingJson, errorMessage);
         if (!binding.has_value())
             return std::nullopt;
 
+        if (binding->m_Kind == "subElementRegisterSpace")
+        {
+            inferredRegisterSpace = binding->m_Index;
+            if (!fallbackBinding.has_value())
+                fallbackBinding = *binding;
+            continue;
+        }
+
         if (binding->m_Kind == "descriptorTableSlot" || binding->m_Kind == "constantBuffer" ||
             binding->m_Kind == "uniform")
         {
-            return binding;
+            if (!preferredBinding.has_value())
+                preferredBinding = *binding;
+            continue;
         }
 
         if (!fallbackBinding.has_value())
-            fallbackBinding = std::move(binding);
+            fallbackBinding = *binding;
+    }
+
+    if (preferredBinding.has_value())
+    {
+        if (preferredBinding->m_Kind == "descriptorTableSlot" && !preferredBinding->m_HasExplicitSpace &&
+            inferredRegisterSpace.has_value())
+        {
+            preferredBinding->m_Space = *inferredRegisterSpace;
+        }
+        return preferredBinding;
     }
 
     return fallbackBinding;

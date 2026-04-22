@@ -50,6 +50,17 @@ DemoViewport ComputeAspectPreservingViewport(uint32_t framebufferWidth, uint32_t
     return viewport;
 }
 
+uint32_t FindRequiredSetIndex(const PipelineLayoutDesc& layoutDesc, std::string_view bindingName)
+{
+    const auto it = std::find_if(layoutDesc.m_Bindings.begin(),
+                                 layoutDesc.m_Bindings.end(),
+                                 [bindingName](const BindingInfo& binding) { return binding.m_Name == bindingName; });
+    RTRLAB_ASSERTF(it != layoutDesc.m_Bindings.end(),
+                   "HelloTriangle failed to find reflected binding '{}' in the PipelineLayout.",
+                   bindingName);
+    return it->m_SetIndex;
+}
+
 ShaderCompileRequest BuildHelloTriangleShaderCompileRequest()
 {
     ShaderCompileRequest request;
@@ -128,9 +139,9 @@ void HelloTriangle::OnRender()
     commandList->SetViewport(viewport.m_X, viewport.m_Y, viewport.m_Width, viewport.m_Height, 0.0f, 1.0f);
     commandList->SetScissor(0, 0, m_ViewportWidth, m_ViewportHeight);
     commandList->BindGraphicsPipeline(m_GraphicsPipeline.get());
-    commandList->BindResourceSet(0, m_FrameSet.get());
-    commandList->BindResourceSet(1, m_MaterialSet.get());
-    commandList->BindResourceSet(2, m_ObjectSet.get());
+    commandList->BindResourceSet(m_FrameSetIndex, m_FrameSet.get());
+    commandList->BindResourceSet(m_MaterialSetIndex, m_MaterialSet.get());
+    commandList->BindResourceSet(m_ObjectSetIndex, m_ObjectSet.get());
     commandList->BindMesh(meshBinding);
     commandList->DrawIndexed(3, 0, 0);
 #endif
@@ -176,9 +187,14 @@ void HelloTriangle::CreateTriangleResources()
 
     m_ShaderProgram = device.CreateShaderProgram(BuildHelloTriangleShaderProgramDesc());
     m_PipelineLayout = device.CreatePipelineLayout(m_ShaderProgram->DerivePipelineLayoutDesc());
-    m_FrameSet = device.CreateResourceSet(m_PipelineLayout.get(), 0);
-    m_MaterialSet = device.CreateResourceSet(m_PipelineLayout.get(), 1);
-    m_ObjectSet = device.CreateResourceSet(m_PipelineLayout.get(), 2);
+    const PipelineLayoutDesc& pipelineLayoutDesc = m_PipelineLayout->GetDesc();
+    m_FrameSetIndex = FindRequiredSetIndex(pipelineLayoutDesc, "gFrame");
+    m_MaterialSetIndex = FindRequiredSetIndex(pipelineLayoutDesc, "gMaterial");
+    m_ObjectSetIndex = FindRequiredSetIndex(pipelineLayoutDesc, "gObject");
+
+    m_FrameSet = device.CreateResourceSet(m_PipelineLayout.get(), m_FrameSetIndex);
+    m_MaterialSet = device.CreateResourceSet(m_PipelineLayout.get(), m_MaterialSetIndex);
+    m_ObjectSet = device.CreateResourceSet(m_PipelineLayout.get(), m_ObjectSetIndex);
 
     ShaderParameterWriter parameterWriter(m_ShaderProgram->GetReflection());
 
