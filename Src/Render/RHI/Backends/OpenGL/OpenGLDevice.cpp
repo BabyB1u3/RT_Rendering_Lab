@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <cstring>
+#include <limits>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <glad/glad.h>
@@ -246,6 +248,16 @@ private:
     SamplerDesc m_Desc;
 };
 
+struct OpenGLBindingMapEntry
+{
+    ResourceKind m_Kind = ResourceKind::UniformBuffer;
+    uint32_t m_SetIndex = 0;
+    uint32_t m_LogicalBinding = 0;
+    std::string m_Name;
+    uint32_t m_GlBindingPoint = 0;
+    uint32_t m_GlTextureUnit = 0;
+};
+
 class OpenGLShaderProgram final : public ShaderProgram
 {
 public:
@@ -272,6 +284,162 @@ private:
     ShaderReflectionData m_Reflection;
 };
 
+class OpenGLResourceSet final : public ResourceSet
+{
+public:
+    OpenGLResourceSet(PipelineLayout* layout, uint32_t setIndex) : m_Layout(layout), m_SetIndex(setIndex)
+    {
+        RTRLAB_ASSERT_MSG(m_Layout != nullptr, "OpenGL ResourceSet creation requires a valid PipelineLayout.");
+
+        const std::vector<const BindingInfo*> setBindings =
+            RHIInternal::CollectBindingInfosForSet(m_Layout->GetDesc(), m_SetIndex);
+        RTRLAB_ASSERTF(!setBindings.empty(),
+                       "OpenGL ResourceSet set {} does not exist in the provided PipelineLayout.",
+                       m_SetIndex);
+    }
+
+    ~OpenGLResourceSet() override
+    {
+        if (m_ConstantBuffer != 0)
+            glDeleteBuffers(1, &m_ConstantBuffer);
+    }
+
+    PipelineLayout* GetLayout() const override { return m_Layout; }
+    uint32_t GetSetIndex() const override { return m_SetIndex; }
+
+    const ParameterBlockData& GetConstants() const override { return m_Constants; }
+    void SetConstantDataRaw(uint32_t offset, const void* data, size_t size) override
+    {
+        if (size == 0)
+            return;
+
+        ValidateConstantBindingExists();
+        m_Constants.SetRaw(offset, data, size);
+        UploadConstantData();
+        ++m_Version;
+    }
+
+    void SetBuffer(uint32_t binding, const BufferBinding& bufferBinding) override
+    {
+        (void)RequireBindingInfo(binding, ResourceKind::StorageBuffer);
+        m_BufferBindings[binding] = bufferBinding;
+        ++m_Version;
+    }
+
+    void SetTexture(uint32_t binding, const TextureBinding& textureBinding) override
+    {
+        const BindingInfo* bindingInfo =
+            RHIInternal::FindBindingInfo(m_Layout->GetDesc(), m_SetIndex, binding, ResourceKind::SampledTexture);
+        if (bindingInfo == nullptr)
+            bindingInfo =
+                RHIInternal::FindBindingInfo(m_Layout->GetDesc(), m_SetIndex, binding, ResourceKind::StorageTexture);
+
+        RTRLAB_ASSERTF(bindingInfo != nullptr,
+                       "OpenGL ResourceSet set {} has no texture binding {} in its PipelineLayout.",
+                       m_SetIndex,
+                       binding);
+        m_TextureBindings[binding] = textureBinding;
+        ++m_Version;
+    }
+
+    void SetSampler(uint32_t binding, const SamplerBinding& samplerBinding) override
+    {
+        (void)RequireBindingInfo(binding, ResourceKind::Sampler);
+        m_SamplerBindings[binding] = samplerBinding;
+        ++m_Version;
+    }
+
+    uint32_t GetVersion() const override { return m_Version; }
+
+    bool HasConstantBinding() const
+    {
+        return RHIInternal::FindFirstBindingInfoForSet(m_Layout->GetDesc(), m_SetIndex, ResourceKind::UniformBuffer) !=
+               nullptr;
+    }
+
+    GLuint GetConstantBuffer() const { return m_ConstantBuffer; }
+    const BufferBinding* FindBufferBinding(uint32_t binding) const
+    {
+        const auto it = m_BufferBindings.find(binding);
+        return it != m_BufferBindings.end() ? &it->second : nullptr;
+    }
+    const TextureBinding* FindTextureBinding(uint32_t binding) const
+    {
+        const auto it = m_TextureBindings.find(binding);
+        return it != m_TextureBindings.end() ? &it->second : nullptr;
+    }
+    const SamplerBinding* FindSamplerBinding(uint32_t binding) const
+    {
+        const auto it = m_SamplerBindings.find(binding);
+        return it != m_SamplerBindings.end() ? &it->second : nullptr;
+    }
+
+private:
+    const BindingInfo& RequireBindingInfo(uint32_t binding, ResourceKind kind) const
+    {
+        RTRLAB_ASSERT_MSG(m_Layout != nullptr,
+                          "OpenGL ResourceSet binding validation requires a valid PipelineLayout.");
+        const BindingInfo* bindingInfo = RHIInternal::FindBindingInfo(m_Layout->GetDesc(), m_SetIndex, binding, kind);
+        RTRLAB_ASSERTF(bindingInfo != nullptr,
+                       "OpenGL ResourceSet set {} has no binding {} of expected kind {} in its PipelineLayout.",
+                       m_SetIndex,
+                       binding,
+                       static_cast<uint32_t>(kind));
+        return *bindingInfo;
+    }
+
+    void ValidateConstantBindingExists() const
+    {
+        RTRLAB_ASSERT_MSG(m_Layout != nullptr,
+                          "OpenGL ResourceSet constant validation requires a valid PipelineLayout.");
+        const BindingInfo* bindingInfo =
+            RHIInternal::FindFirstBindingInfoForSet(m_Layout->GetDesc(), m_SetIndex, ResourceKind::UniformBuffer);
+        RTRLAB_ASSERTF(bindingInfo != nullptr,
+                       "OpenGL ResourceSet set {} has no UniformBuffer binding in its PipelineLayout.",
+                       m_SetIndex);
+    }
+
+    void EnsureConstantBufferCapacity(size_t requiredSize)
+    {
+        const GLsizeiptr requiredCapacity = static_cast<GLsizeiptr>(std::max<size_t>(requiredSize, 1));
+        if (m_ConstantBuffer == 0)
+            glCreateBuffers(1, &m_ConstantBuffer);
+
+        if (m_ConstantBufferCapacity >= requiredCapacity)
+            return;
+
+        glNamedBufferData(m_ConstantBuffer, requiredCapacity, nullptr, GL_DYNAMIC_DRAW);
+        m_ConstantBufferCapacity = requiredCapacity;
+    }
+
+    void UploadConstantData()
+    {
+        EnsureConstantBufferCapacity(m_Constants.GetSize());
+
+        const size_t byteCount = std::max<size_t>(m_Constants.GetSize(), 1);
+        if (m_Constants.GetData() != nullptr)
+        {
+            glNamedBufferSubData(
+                m_ConstantBuffer, 0, static_cast<GLsizeiptr>(m_Constants.GetSize()), m_Constants.GetData());
+        }
+        else
+        {
+            static constexpr uint8_t kZero = 0;
+            glNamedBufferSubData(m_ConstantBuffer, 0, static_cast<GLsizeiptr>(byteCount), &kZero);
+        }
+    }
+
+    PipelineLayout* m_Layout = nullptr;
+    uint32_t m_SetIndex = 0;
+    ParameterBlockData m_Constants;
+    std::unordered_map<uint32_t, BufferBinding> m_BufferBindings;
+    std::unordered_map<uint32_t, TextureBinding> m_TextureBindings;
+    std::unordered_map<uint32_t, SamplerBinding> m_SamplerBindings;
+    GLuint m_ConstantBuffer = 0;
+    GLsizeiptr m_ConstantBufferCapacity = 0;
+    uint32_t m_Version = 0;
+};
+
 class OpenGLVertexInputLayout final : public VertexInputLayout
 {
 public:
@@ -286,8 +454,11 @@ private:
 class OpenGLGraphicsPipeline final : public GraphicsPipeline
 {
 public:
-    OpenGLGraphicsPipeline(GLuint program, GLuint vertexArray, const GraphicsPipelineDesc& desc)
-        : m_Program(program), m_VertexArray(vertexArray), m_Desc(desc)
+    OpenGLGraphicsPipeline(GLuint program,
+                           GLuint vertexArray,
+                           const GraphicsPipelineDesc& desc,
+                           std::vector<OpenGLBindingMapEntry>&& bindingMap)
+        : m_Program(program), m_VertexArray(vertexArray), m_Desc(desc), m_BindingMap(std::move(bindingMap))
     {
     }
 
@@ -300,11 +471,13 @@ public:
     const GraphicsPipelineDesc& GetDesc() const override { return m_Desc; }
     GLuint GetProgram() const { return m_Program; }
     GLuint GetVertexArray() const { return m_VertexArray; }
+    const std::vector<OpenGLBindingMapEntry>& GetBindingMap() const { return m_BindingMap; }
 
 private:
     GLuint m_Program = 0;
     GLuint m_VertexArray = 0;
     GraphicsPipelineDesc m_Desc;
+    std::vector<OpenGLBindingMapEntry> m_BindingMap;
 };
 
 GLenum ToGLShaderStage(ShaderStage stage)
@@ -400,6 +573,253 @@ OpenGLBuffer& GetOpenGLBuffer(Buffer* buffer)
     return *openGLBuffer;
 }
 
+OpenGLResourceSet& GetOpenGLResourceSet(ResourceSet* resourceSet)
+{
+    auto* openGLResourceSet = dynamic_cast<OpenGLResourceSet*>(resourceSet);
+    RTRLAB_ASSERT_MSG(openGLResourceSet != nullptr, "ResourceSet is not owned by the OpenGL backend.");
+    return *openGLResourceSet;
+}
+
+const OpenGLTexture& GetOpenGLTexture(Texture* texture)
+{
+    auto* openGLTexture = dynamic_cast<OpenGLTexture*>(texture);
+    RTRLAB_ASSERT_MSG(openGLTexture != nullptr, "Texture is not owned by the OpenGL backend.");
+    return *openGLTexture;
+}
+
+const OpenGLTextureView* TryGetOpenGLTextureView(TextureView* textureView)
+{
+    return dynamic_cast<OpenGLTextureView*>(textureView);
+}
+
+const OpenGLSampler& GetOpenGLSampler(Sampler* sampler)
+{
+    auto* openGLSampler = dynamic_cast<OpenGLSampler*>(sampler);
+    RTRLAB_ASSERT_MSG(openGLSampler != nullptr, "Sampler is not owned by the OpenGL backend.");
+    return *openGLSampler;
+}
+
+std::vector<OpenGLBindingMapEntry> BuildOpenGLBindingMap(const PipelineLayoutDesc& desc)
+{
+    std::vector<OpenGLBindingMapEntry> bindingMap;
+    bindingMap.reserve(desc.m_Bindings.size());
+
+    uint32_t nextUniformBufferBindingPoint = 1;
+    uint32_t nextStorageBufferBindingPoint = 0;
+    uint32_t nextTextureUnit = 0;
+    uint32_t nextImageUnit = 0;
+    std::unordered_map<uint32_t, std::vector<uint32_t>> sampledTextureUnitsBySet;
+    std::unordered_map<uint32_t, uint32_t> nextSamplerOrdinalBySet;
+
+    for (const BindingInfo& binding : desc.m_Bindings)
+    {
+        OpenGLBindingMapEntry entry;
+        entry.m_Kind = binding.m_Kind;
+        entry.m_SetIndex = binding.m_SetIndex;
+        entry.m_LogicalBinding = binding.m_Binding;
+        entry.m_Name = binding.m_Name;
+
+        switch (binding.m_Kind)
+        {
+            case ResourceKind::UniformBuffer:
+                entry.m_GlBindingPoint = nextUniformBufferBindingPoint++;
+                break;
+            case ResourceKind::StorageBuffer:
+                entry.m_GlBindingPoint = nextStorageBufferBindingPoint++;
+                break;
+            case ResourceKind::SampledTexture:
+                entry.m_GlTextureUnit = nextTextureUnit++;
+                sampledTextureUnitsBySet[entry.m_SetIndex].push_back(entry.m_GlTextureUnit);
+                break;
+            case ResourceKind::StorageTexture:
+                entry.m_GlBindingPoint = nextImageUnit++;
+                break;
+            case ResourceKind::Sampler:
+            {
+                const uint32_t samplerOrdinal = nextSamplerOrdinalBySet[entry.m_SetIndex]++;
+                const auto sampledTextureUnitsIt = sampledTextureUnitsBySet.find(entry.m_SetIndex);
+                if (sampledTextureUnitsIt != sampledTextureUnitsBySet.end() &&
+                    samplerOrdinal < sampledTextureUnitsIt->second.size())
+                {
+                    entry.m_GlTextureUnit = sampledTextureUnitsIt->second[samplerOrdinal];
+                }
+                else
+                {
+                    entry.m_GlTextureUnit = nextTextureUnit++;
+                }
+                break;
+            }
+        }
+
+        bindingMap.push_back(std::move(entry));
+    }
+
+    return bindingMap;
+}
+
+void ConfigureOpenGLProgramBindings(GLuint program, const std::vector<OpenGLBindingMapEntry>& bindingMap)
+{
+    for (const OpenGLBindingMapEntry& entry : bindingMap)
+    {
+        switch (entry.m_Kind)
+        {
+            case ResourceKind::UniformBuffer:
+            {
+                const GLuint blockIndex = glGetUniformBlockIndex(program, entry.m_Name.c_str());
+                if (blockIndex != GL_INVALID_INDEX)
+                    glUniformBlockBinding(program, blockIndex, entry.m_GlBindingPoint);
+                break;
+            }
+            case ResourceKind::StorageBuffer:
+            {
+                const GLuint blockIndex =
+                    glGetProgramResourceIndex(program, GL_SHADER_STORAGE_BLOCK, entry.m_Name.c_str());
+                if (blockIndex != GL_INVALID_INDEX)
+                    glShaderStorageBlockBinding(program, blockIndex, entry.m_GlBindingPoint);
+                break;
+            }
+            case ResourceKind::SampledTexture:
+            case ResourceKind::Sampler:
+            {
+                const GLint location = glGetUniformLocation(program, entry.m_Name.c_str());
+                if (location >= 0)
+                    glProgramUniform1i(program, location, static_cast<GLint>(entry.m_GlTextureUnit));
+                break;
+            }
+            case ResourceKind::StorageTexture:
+            {
+                const GLint location = glGetUniformLocation(program, entry.m_Name.c_str());
+                if (location >= 0)
+                    glProgramUniform1i(program, location, static_cast<GLint>(entry.m_GlBindingPoint));
+                break;
+            }
+        }
+    }
+}
+
+const OpenGLBindingMapEntry* FindOpenGLBindingMapEntry(const OpenGLGraphicsPipeline& pipeline,
+                                                       uint32_t setIndex,
+                                                       uint32_t logicalBinding,
+                                                       ResourceKind kind)
+{
+    const auto& bindingMap = pipeline.GetBindingMap();
+    const auto it = std::find_if(
+        bindingMap.begin(),
+        bindingMap.end(),
+        [setIndex, logicalBinding, kind](const OpenGLBindingMapEntry& entry)
+        { return entry.m_SetIndex == setIndex && entry.m_LogicalBinding == logicalBinding && entry.m_Kind == kind; });
+    return it != bindingMap.end() ? &(*it) : nullptr;
+}
+
+GLuint GetOpenGLTextureHandle(const TextureBinding& textureBinding)
+{
+    if (textureBinding.m_View != nullptr)
+    {
+        const OpenGLTextureView* view = TryGetOpenGLTextureView(textureBinding.m_View);
+        RTRLAB_ASSERT_MSG(view != nullptr, "OpenGL resource binding requires an OpenGL TextureView.");
+        return view->GetTextureView();
+    }
+
+    if (textureBinding.m_Texture != nullptr)
+        return GetOpenGLTexture(textureBinding.m_Texture).GetTexture();
+
+    return 0;
+}
+
+void ApplyOpenGLResourceSetBinding(const OpenGLGraphicsPipeline& pipeline, ResourceSet* resourceSet)
+{
+    if (resourceSet == nullptr)
+        return;
+
+    OpenGLResourceSet& openGLResourceSet = GetOpenGLResourceSet(resourceSet);
+    const PipelineLayout* pipelineLayout = pipeline.GetDesc().m_PipelineLayout;
+    RTRLAB_ASSERT_MSG(pipelineLayout != nullptr, "OpenGL resource-set binding requires a graphics pipeline layout.");
+    RTRLAB_ASSERT_MSG(resourceSet->GetLayout() == pipelineLayout,
+                      "OpenGL resource-set binding requires the ResourceSet to match the bound pipeline layout.");
+
+    const std::vector<const BindingInfo*> setBindings =
+        RHIInternal::CollectBindingInfosForSet(pipelineLayout->GetDesc(), resourceSet->GetSetIndex());
+    for (const BindingInfo* bindingInfo : setBindings)
+    {
+        RTRLAB_ASSERT_MSG(bindingInfo != nullptr, "OpenGL binding-map application requires valid binding metadata.");
+        const OpenGLBindingMapEntry* bindingMapEntry = FindOpenGLBindingMapEntry(
+            pipeline, resourceSet->GetSetIndex(), bindingInfo->m_Binding, bindingInfo->m_Kind);
+        RTRLAB_ASSERT_MSG(bindingMapEntry != nullptr, "OpenGL graphics pipeline is missing a binding-map entry.");
+
+        switch (bindingInfo->m_Kind)
+        {
+            case ResourceKind::UniformBuffer:
+            {
+                const GLuint constantBuffer =
+                    openGLResourceSet.HasConstantBinding() ? openGLResourceSet.GetConstantBuffer() : 0;
+                glBindBufferBase(GL_UNIFORM_BUFFER, bindingMapEntry->m_GlBindingPoint, constantBuffer);
+                break;
+            }
+            case ResourceKind::StorageBuffer:
+            {
+                const BufferBinding* bufferBinding = openGLResourceSet.FindBufferBinding(bindingInfo->m_Binding);
+                if (bufferBinding == nullptr || bufferBinding->m_Buffer == nullptr)
+                {
+                    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindingMapEntry->m_GlBindingPoint, 0);
+                    break;
+                }
+
+                const OpenGLBuffer& openGLBuffer = GetOpenGLBuffer(bufferBinding->m_Buffer);
+                const uint64_t resolvedSize = bufferBinding->m_Size != 0
+                                                  ? bufferBinding->m_Size
+                                                  : (openGLBuffer.GetDesc().m_Size - bufferBinding->m_Offset);
+                glBindBufferRange(GL_SHADER_STORAGE_BUFFER,
+                                  bindingMapEntry->m_GlBindingPoint,
+                                  openGLBuffer.GetBuffer(),
+                                  static_cast<GLintptr>(bufferBinding->m_Offset),
+                                  static_cast<GLsizeiptr>(resolvedSize));
+                break;
+            }
+            case ResourceKind::SampledTexture:
+            {
+                const TextureBinding* textureBinding = openGLResourceSet.FindTextureBinding(bindingInfo->m_Binding);
+                glBindTextureUnit(bindingMapEntry->m_GlTextureUnit,
+                                  textureBinding != nullptr ? GetOpenGLTextureHandle(*textureBinding) : 0);
+                break;
+            }
+            case ResourceKind::StorageTexture:
+            {
+                const TextureBinding* textureBinding = openGLResourceSet.FindTextureBinding(bindingInfo->m_Binding);
+                if (textureBinding == nullptr)
+                {
+                    glBindImageTexture(bindingMapEntry->m_GlBindingPoint, 0, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA8);
+                    break;
+                }
+
+                GLuint textureHandle = GetOpenGLTextureHandle(*textureBinding);
+                Format textureFormat = textureBinding->m_View != nullptr
+                                           ? textureBinding->m_View->GetDesc().m_Format
+                                           : textureBinding->m_Texture->GetDesc().m_Format;
+                if (textureFormat == Format::Unknown && textureBinding->m_Texture != nullptr)
+                    textureFormat = textureBinding->m_Texture->GetDesc().m_Format;
+
+                glBindImageTexture(bindingMapEntry->m_GlBindingPoint,
+                                   textureHandle,
+                                   0,
+                                   GL_FALSE,
+                                   0,
+                                   GL_READ_WRITE,
+                                   ToGLInternalFormat(textureFormat));
+                break;
+            }
+            case ResourceKind::Sampler:
+            {
+                const SamplerBinding* samplerBinding = openGLResourceSet.FindSamplerBinding(bindingInfo->m_Binding);
+                const GLuint samplerHandle = samplerBinding != nullptr && samplerBinding->m_Sampler != nullptr
+                                                 ? GetOpenGLSampler(samplerBinding->m_Sampler).GetSampler()
+                                                 : 0;
+                glBindSampler(bindingMapEntry->m_GlTextureUnit, samplerHandle);
+                break;
+            }
+        }
+    }
+}
+
 GLuint CompileOpenGLShader(GLenum shaderStage, const char* source, GLsizei sourceLength)
 {
     RTRLAB_ASSERT_MSG(source != nullptr && sourceLength > 0, "OpenGL shaders require source text.");
@@ -489,6 +909,25 @@ void OpenGLCommandList::BindGraphicsPipeline(GraphicsPipeline* pipeline)
     const OpenGLGraphicsPipeline& openGLPipeline = GetOpenGLGraphicsPipeline(pipeline);
     glUseProgram(openGLPipeline.GetProgram());
     glBindVertexArray(openGLPipeline.GetVertexArray());
+
+    for (const auto& resourceSetEntry : m_ResourceSets)
+        ApplyOpenGLResourceSetBinding(openGLPipeline, resourceSetEntry.second);
+}
+
+void OpenGLCommandList::BindResourceSet(uint32_t setIndex, ResourceSet* resourceSet)
+{
+    ShellCommandListBase::BindResourceSet(setIndex, resourceSet);
+
+    if (resourceSet == nullptr || m_GraphicsPipeline == nullptr)
+        return;
+
+    RTRLAB_ASSERTF(resourceSet->GetSetIndex() == setIndex,
+                   "OpenGL BindResourceSet expected resource set {} but received set {}.",
+                   setIndex,
+                   resourceSet->GetSetIndex());
+
+    const OpenGLGraphicsPipeline& openGLPipeline = GetOpenGLGraphicsPipeline(m_GraphicsPipeline);
+    ApplyOpenGLResourceSetBinding(openGLPipeline, resourceSet);
 }
 
 void OpenGLCommandList::BindMesh(const MeshBinding& meshBinding, const uint64_t* vertexOffsets)
@@ -772,6 +1211,11 @@ Scope<ShaderProgram> OpenGLDevice::CreateShaderProgram(const CompiledShaderProgr
     return CreateScope<OpenGLShaderProgram>(program, desc);
 }
 
+Scope<ResourceSet> OpenGLDevice::CreateResourceSet(PipelineLayout* layout, uint32_t setIndex)
+{
+    return CreateScope<OpenGLResourceSet>(layout, setIndex);
+}
+
 Scope<VertexInputLayout> OpenGLDevice::CreateVertexInputLayout(const VertexInputLayoutDesc& desc)
 {
     return CreateScope<OpenGLVertexInputLayout>(desc);
@@ -779,11 +1223,14 @@ Scope<VertexInputLayout> OpenGLDevice::CreateVertexInputLayout(const VertexInput
 
 Scope<GraphicsPipeline> OpenGLDevice::CreateGraphicsPipeline(const GraphicsPipelineDesc& desc)
 {
+    RTRLAB_ASSERT_MSG(desc.m_PipelineLayout != nullptr, "OpenGL graphics pipelines require a PipelineLayout.");
     RTRLAB_ASSERT_MSG(desc.m_ShaderProgram != nullptr, "OpenGL graphics pipelines require a ShaderProgram.");
     RTRLAB_ASSERT_MSG(desc.m_VertexInput != nullptr, "OpenGL graphics pipelines require a VertexInputLayout.");
 
     const OpenGLShaderProgram& shaderProgram = GetOpenGLShaderProgram(desc.m_ShaderProgram);
     const OpenGLVertexInputLayout& vertexInput = GetOpenGLVertexInputLayout(desc.m_VertexInput);
+    std::vector<OpenGLBindingMapEntry> bindingMap = BuildOpenGLBindingMap(desc.m_PipelineLayout->GetDesc());
+    ConfigureOpenGLProgramBindings(shaderProgram.GetProgram(), bindingMap);
 
     GLuint vertexArray = 0;
     glCreateVertexArrays(1, &vertexArray);
@@ -810,7 +1257,7 @@ Scope<GraphicsPipeline> OpenGLDevice::CreateGraphicsPipeline(const GraphicsPipel
         glVertexArrayBindingDivisor(vertexArray, bufferIndex, bufferLayouts[bufferIndex].m_PerInstance ? 1u : 0u);
     }
 
-    return CreateScope<OpenGLGraphicsPipeline>(shaderProgram.GetProgram(), vertexArray, desc);
+    return CreateScope<OpenGLGraphicsPipeline>(shaderProgram.GetProgram(), vertexArray, desc, std::move(bindingMap));
 }
 
 void OpenGLDevice::WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size)

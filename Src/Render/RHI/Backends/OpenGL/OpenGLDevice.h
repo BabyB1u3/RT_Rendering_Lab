@@ -11,6 +11,7 @@ public:
     void BeginRendering(const RenderingInfo& renderingInfo) override;
     void EndRendering() override;
     void BindGraphicsPipeline(GraphicsPipeline* pipeline) override;
+    void BindResourceSet(uint32_t setIndex, ResourceSet* resourceSet) override;
     void BindMesh(const MeshBinding& meshBinding, const uint64_t* vertexOffsets = nullptr) override;
     void
     BindVertexBuffers(uint32_t firstSlot, Buffer* const* buffers, uint32_t count, const uint64_t* offsets) override;
@@ -42,6 +43,7 @@ public:
     Scope<TextureView> CreateTextureView(Texture* texture, const TextureViewDesc& desc) override;
     Scope<Sampler> CreateSampler(const SamplerDesc& desc) override;
     Scope<ShaderProgram> CreateShaderProgram(const CompiledShaderProgramDesc& desc) override;
+    Scope<ResourceSet> CreateResourceSet(PipelineLayout* layout, uint32_t setIndex) override;
     Scope<VertexInputLayout> CreateVertexInputLayout(const VertexInputLayoutDesc& desc) override;
     Scope<GraphicsPipeline> CreateGraphicsPipeline(const GraphicsPipelineDesc& desc) override;
     void WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size) override;
