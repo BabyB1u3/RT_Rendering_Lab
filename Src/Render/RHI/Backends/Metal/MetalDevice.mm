@@ -425,7 +425,8 @@ bool ParseMetalResourceParameter(std::string_view parameterText, ParsedMetalPara
     parameterText = TrimAsciiWhitespace(parameterText);
     const size_t attributeBegin = parameterText.rfind("[[");
     const size_t attributeEnd = parameterText.rfind("]]");
-    if (attributeBegin == std::string_view::npos || attributeEnd == std::string_view::npos || attributeEnd < attributeBegin)
+    if (attributeBegin == std::string_view::npos || attributeEnd == std::string_view::npos ||
+        attributeEnd < attributeBegin)
         return false;
 
     const std::string_view declarationText = TrimAsciiWhitespace(parameterText.substr(0, attributeBegin));
@@ -497,20 +498,20 @@ std::string GetMetalArgumentBufferParameterName(uint32_t setIndex)
 
 const MetalStageBindingPlan* FindStageBindingPlan(const MetalSetBindingPlan& setPlan, ShaderStage stage)
 {
-    const auto it = std::find_if(setPlan.m_StagePlans.begin(),
-                                 setPlan.m_StagePlans.end(),
-                                 [stage](const MetalStageBindingPlan& stagePlan) { return stagePlan.m_Stage == stage; });
+    const auto it =
+        std::find_if(setPlan.m_StagePlans.begin(),
+                     setPlan.m_StagePlans.end(),
+                     [stage](const MetalStageBindingPlan& stagePlan) { return stagePlan.m_Stage == stage; });
     return it != setPlan.m_StagePlans.end() ? &(*it) : nullptr;
 }
 
 const MetalBindingPlanEntry* FindBindingPlanEntryForVariable(const MetalStageBindingPlan& stagePlan,
                                                              std::string_view variableName)
 {
-    const auto it =
-        std::find_if(stagePlan.m_Entries.begin(),
-                     stagePlan.m_Entries.end(),
-                     [variableName](const MetalBindingPlanEntry& entry)
-                     { return MatchesReflectedBindingName(variableName, entry.m_Name); });
+    const auto it = std::find_if(stagePlan.m_Entries.begin(),
+                                 stagePlan.m_Entries.end(),
+                                 [variableName](const MetalBindingPlanEntry& entry)
+                                 { return MatchesReflectedBindingName(variableName, entry.m_Name); });
     return it != stagePlan.m_Entries.end() ? &(*it) : nullptr;
 }
 
@@ -559,21 +560,20 @@ std::string RewriteMetalShaderSourceForArgumentBuffers(const CompiledShaderProgr
     std::vector<StageSetRewrite> setRewrites;
     std::vector<std::string> rewrittenParameters;
 
-    auto findOrAddSetRewrite =
-        [&setRewrites](uint32_t setIndex, uint32_t slot) -> StageSetRewrite&
-        {
-            const auto it =
-                std::find_if(setRewrites.begin(),
-                             setRewrites.end(),
-                             [setIndex](const StageSetRewrite& rewrite) { return rewrite.m_SetIndex == setIndex; });
-            if (it != setRewrites.end())
-                return *it;
+    auto findOrAddSetRewrite = [&setRewrites](uint32_t setIndex, uint32_t slot) -> StageSetRewrite&
+    {
+        const auto it =
+            std::find_if(setRewrites.begin(),
+                         setRewrites.end(),
+                         [setIndex](const StageSetRewrite& rewrite) { return rewrite.m_SetIndex == setIndex; });
+        if (it != setRewrites.end())
+            return *it;
 
-            setRewrites.push_back({});
-            setRewrites.back().m_SetIndex = setIndex;
-            setRewrites.back().m_ArgumentBufferSlot = slot;
-            return setRewrites.back();
-        };
+        setRewrites.push_back({});
+        setRewrites.back().m_SetIndex = setIndex;
+        setRewrites.back().m_ArgumentBufferSlot = slot;
+        return setRewrites.back();
+    };
 
     for (std::string_view parameterText : originalParameters)
     {
@@ -591,17 +591,17 @@ std::string RewriteMetalShaderSourceForArgumentBuffers(const CompiledShaderProgr
             if (stagePlan == nullptr)
                 continue;
 
-            const MetalBindingPlanEntry* entry = FindBindingPlanEntryForVariable(*stagePlan, parsedParameter.m_VariableName);
+            const MetalBindingPlanEntry* entry =
+                FindBindingPlanEntryForVariable(*stagePlan, parsedParameter.m_VariableName);
             if (entry == nullptr)
                 continue;
 
             StageSetRewrite& setRewrite = findOrAddSetRewrite(setPlan.m_SetIndex, stagePlan->m_ArgumentBufferSlot);
             const std::string memberDeclaration =
                 parsedParameter.m_DeclarationText + " [[id(" + std::to_string(entry->m_Binding) + ")]];";
-            const bool alreadyAddedMember =
-                std::find(setRewrite.m_MemberDeclarations.begin(),
-                          setRewrite.m_MemberDeclarations.end(),
-                          memberDeclaration) != setRewrite.m_MemberDeclarations.end();
+            const bool alreadyAddedMember = std::find(setRewrite.m_MemberDeclarations.begin(),
+                                                      setRewrite.m_MemberDeclarations.end(),
+                                                      memberDeclaration) != setRewrite.m_MemberDeclarations.end();
             if (!alreadyAddedMember)
             {
                 if (setRewrite.m_MemberDeclarations.empty())
@@ -685,18 +685,18 @@ std::string RewriteMetalShaderSourceForArgumentBuffers(const CompiledShaderProgr
     return rewrittenSource;
 }
 
-void MergeUsedMetalSetBindingPlans(std::vector<MetalSetBindingPlan>* destination, std::vector<MetalSetBindingPlan> source)
+void MergeUsedMetalSetBindingPlans(std::vector<MetalSetBindingPlan>* destination,
+                                   std::vector<MetalSetBindingPlan> source)
 {
     if (destination == nullptr)
         return;
 
     for (MetalSetBindingPlan& candidate : source)
     {
-        const auto existingSetIt =
-            std::find_if(destination->begin(),
-                         destination->end(),
-                         [setIndex = candidate.m_SetIndex](const MetalSetBindingPlan& existing)
-                         { return existing.m_SetIndex == setIndex; });
+        const auto existingSetIt = std::find_if(destination->begin(),
+                                                destination->end(),
+                                                [setIndex = candidate.m_SetIndex](const MetalSetBindingPlan& existing)
+                                                { return existing.m_SetIndex == setIndex; });
         if (existingSetIt == destination->end())
         {
             destination->push_back(std::move(candidate));
@@ -705,11 +705,11 @@ void MergeUsedMetalSetBindingPlans(std::vector<MetalSetBindingPlan>* destination
 
         for (MetalStageBindingPlan& candidateStage : candidate.m_StagePlans)
         {
-            const auto existingStageIt = std::find_if(
-                existingSetIt->m_StagePlans.begin(),
-                existingSetIt->m_StagePlans.end(),
-                [stage = candidateStage.m_Stage](const MetalStageBindingPlan& existingStage)
-                { return existingStage.m_Stage == stage; });
+            const auto existingStageIt =
+                std::find_if(existingSetIt->m_StagePlans.begin(),
+                             existingSetIt->m_StagePlans.end(),
+                             [stage = candidateStage.m_Stage](const MetalStageBindingPlan& existingStage)
+                             { return existingStage.m_Stage == stage; });
             if (existingStageIt == existingSetIt->m_StagePlans.end())
             {
                 existingSetIt->m_StagePlans.push_back(std::move(candidateStage));
@@ -745,12 +745,13 @@ std::vector<MetalSetBindingPlan> BuildMetalSetBindingPlans(const PipelineLayoutD
         return &plans.back();
     };
 
-    auto findOrAddStagePlan = [](MetalSetBindingPlan& setPlan, ShaderStage stage, uint32_t slot) -> MetalStageBindingPlan&
+    auto findOrAddStagePlan =
+        [](MetalSetBindingPlan& setPlan, ShaderStage stage, uint32_t slot) -> MetalStageBindingPlan&
     {
-        const auto it = std::find_if(
-            setPlan.m_StagePlans.begin(),
-            setPlan.m_StagePlans.end(),
-            [stage](const MetalStageBindingPlan& stagePlan) { return stagePlan.m_Stage == stage; });
+        const auto it =
+            std::find_if(setPlan.m_StagePlans.begin(),
+                         setPlan.m_StagePlans.end(),
+                         [stage](const MetalStageBindingPlan& stagePlan) { return stagePlan.m_Stage == stage; });
         if (it != setPlan.m_StagePlans.end())
             return *it;
 
@@ -965,7 +966,9 @@ public:
     MetalShaderProgram(const CompiledShaderProgramDesc& desc,
                        std::vector<StageFunction>&& functions,
                        std::vector<MetalSetBindingPlan>&& setBindingPlans)
-        : m_Reflection(desc.m_Reflection), m_Functions(std::move(functions)), m_SetBindingPlans(std::move(setBindingPlans))
+        : m_Reflection(desc.m_Reflection),
+          m_Functions(std::move(functions)),
+          m_SetBindingPlans(std::move(setBindingPlans))
     {
     }
 
@@ -994,9 +997,10 @@ public:
 
     const MetalStageBindingPlan* FindStageBindingPlan(uint32_t setIndex, ShaderStage stage) const
     {
-        const auto setIt = std::find_if(m_SetBindingPlans.begin(),
-                                        m_SetBindingPlans.end(),
-                                        [setIndex](const MetalSetBindingPlan& plan) { return plan.m_SetIndex == setIndex; });
+        const auto setIt =
+            std::find_if(m_SetBindingPlans.begin(),
+                         m_SetBindingPlans.end(),
+                         [setIndex](const MetalSetBindingPlan& plan) { return plan.m_SetIndex == setIndex; });
         if (setIt == m_SetBindingPlans.end())
             return nullptr;
         return ::FindStageBindingPlan(*setIt, stage);
@@ -1144,7 +1148,8 @@ public:
 
     uint32_t GetVersion() const override { return m_Version; }
 
-    id<MTLBuffer> GetEncodedArgumentBuffer(const MetalStageBindingPlan& stagePlan, id<MTLArgumentEncoder> argumentEncoder)
+    id<MTLBuffer> GetEncodedArgumentBuffer(const MetalStageBindingPlan& stagePlan,
+                                           id<MTLArgumentEncoder> argumentEncoder)
     {
         RTRLAB_ASSERT_MSG(argumentEncoder != nil, "Metal argument-buffer encoding requires a valid encoder.");
         StageArgumentBufferCache& cache = GetStageCache(stagePlan.m_Stage);
@@ -1369,11 +1374,10 @@ public:
     uint32_t GetVertexBufferSlotBase() const { return m_VertexBufferSlotBase; }
     const MetalStageArgumentEncoderEntry* FindArgumentEncoderEntry(uint32_t setIndex, ShaderStage stage) const
     {
-        const auto it =
-            std::find_if(m_ArgumentEncoders.begin(),
-                         m_ArgumentEncoders.end(),
-                         [setIndex, stage](const MetalStageArgumentEncoderEntry& entry)
-                         { return entry.m_SetIndex == setIndex && entry.m_Stage == stage; });
+        const auto it = std::find_if(m_ArgumentEncoders.begin(),
+                                     m_ArgumentEncoders.end(),
+                                     [setIndex, stage](const MetalStageArgumentEncoderEntry& entry)
+                                     { return entry.m_SetIndex == setIndex && entry.m_Stage == stage; });
         return it != m_ArgumentEncoders.end() ? &(*it) : nullptr;
     }
 
@@ -1622,7 +1626,8 @@ void MetalCommandList::BindResourceSet(uint32_t setIndex, ResourceSet* resourceS
         [m_Data->m_RenderEncoder setVertexBuffer:argumentBuffer offset:0 atIndex:encoderEntry->m_Slot];
     }
 
-    const MetalStageBindingPlan* fragmentStagePlan = shaderProgram.FindStageBindingPlan(setIndex, ShaderStage::Fragment);
+    const MetalStageBindingPlan* fragmentStagePlan =
+        shaderProgram.FindStageBindingPlan(setIndex, ShaderStage::Fragment);
     if (fragmentStagePlan != nullptr)
     {
         const MetalStageArgumentEncoderEntry* encoderEntry =
