@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <utility>
 
@@ -13,6 +14,7 @@
 #include "Core/Diagnostics/Logging/LogCategories.h"
 #include "Core/Diagnostics/Logging/LogMacros.h"
 #include "Core/Resource/FileSystem.h"
+#include "Core/Util/Time.h"
 #include "Render/Shader/ShaderCompiler.h"
 #include "Render/Shader/ShaderParameterWriter.h"
 
@@ -130,6 +132,8 @@ void HelloTriangle::OnRender()
     // that active pass. A future render-graph path will move pass ownership out
     // of Application::RenderFrame and make it explicit at a higher level.
 
+    UpdateAnimatedParameters();
+
     MeshBinding meshBinding;
     meshBinding.m_VertexBuffers = {m_VertexBuffer.get()};
     meshBinding.m_IndexBuffer = m_IndexBuffer.get();
@@ -199,16 +203,11 @@ void HelloTriangle::CreateTriangleResources()
     ShaderParameterWriter parameterWriter(m_ShaderProgram->GetReflection());
 
     const glm::mat4 viewProj = glm::mat4(1.0f);
-    const glm::vec4 tint = glm::vec4(0.9f, 0.95f, 1.0f, 1.0f);
     const glm::vec4 baseColor = glm::vec4(1.0f, 0.95f, 0.85f, 1.0f);
-    const glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.04f, 0.0f)) *
-                            glm::scale(glm::mat4(1.0f), glm::vec3(0.92f, 0.92f, 1.0f));
 
     parameterWriter.SetMatrix4x4(*m_FrameSet, "gFrame.viewProj", viewProj);
-    parameterWriter.SetFloat4(*m_FrameSet, "gFrame.tint", tint);
-    parameterWriter.SetFloat(*m_FrameSet, "gFrame.time", 0.0f);
     parameterWriter.SetFloat4(*m_MaterialSet, "gMaterial.baseColor", baseColor);
-    parameterWriter.SetMatrix4x4(*m_ObjectSet, "gObject.model", model);
+    UpdateAnimatedParameters();
 
     VertexInputLayoutDesc vertexInputLayoutDesc;
     vertexInputLayoutDesc.m_Buffers = {{static_cast<uint32_t>(sizeof(TriangleVertex)), false}};
@@ -225,5 +224,30 @@ void HelloTriangle::CreateTriangleResources()
     pipelineDesc.m_RasterState.m_CullMode = CullMode::None;
     pipelineDesc.m_ColorFormats = {app.GetSwapchain().GetFormat()};
     m_GraphicsPipeline = device.CreateGraphicsPipeline(pipelineDesc);
+#endif
+}
+
+void HelloTriangle::UpdateAnimatedParameters()
+{
+#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_OPENGL) || defined(GLAB_BACKEND_METAL)
+    RTRLAB_ASSERT_MSG(m_ShaderProgram != nullptr, "HelloTriangle animated parameters require a valid shader program.");
+    RTRLAB_ASSERT_MSG(m_FrameSet != nullptr && m_MaterialSet != nullptr && m_ObjectSet != nullptr,
+                      "HelloTriangle animated parameters require frame, material, and object resource sets.");
+
+    const float timeSeconds = static_cast<float>(Time::GetTotalTime());
+    const float pulse = 0.5f + 0.5f * std::sin(timeSeconds * 1.5f);
+    const float verticalOffset = -0.04f + (pulse - 0.5f) * 0.10f;
+    const float uniformScale = 0.88f + pulse * 0.10f;
+
+    const glm::vec4 tint = glm::vec4(0.70f + 0.30f * pulse, 0.80f + 0.15f * pulse, 0.90f, 1.0f);
+    const glm::vec4 baseColor = glm::vec4(1.0f, 0.70f + 0.25f * pulse, 0.70f + 0.20f * pulse, 1.0f);
+    const glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, verticalOffset, 0.0f)) *
+                            glm::scale(glm::mat4(1.0f), glm::vec3(uniformScale, uniformScale, 1.0f));
+
+    ShaderParameterWriter parameterWriter(m_ShaderProgram->GetReflection());
+    parameterWriter.SetFloat4(*m_FrameSet, "gFrame.tint", tint);
+    parameterWriter.SetFloat(*m_FrameSet, "gFrame.time", timeSeconds);
+    parameterWriter.SetFloat4(*m_MaterialSet, "gMaterial.baseColor", baseColor);
+    parameterWriter.SetMatrix4x4(*m_ObjectSet, "gObject.model", model);
 #endif
 }

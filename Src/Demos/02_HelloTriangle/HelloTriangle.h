@@ -21,6 +21,7 @@ public:
 
 private:
     void CreateTriangleResources();
+    void UpdateAnimatedParameters();
 
     uint32_t m_ViewportWidth = 0;
     uint32_t m_ViewportHeight = 0;

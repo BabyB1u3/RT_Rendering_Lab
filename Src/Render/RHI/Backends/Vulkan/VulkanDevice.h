@@ -29,6 +29,7 @@
 #include "Render/RHI/Backends/Common/RHIShellCommon.h"
 
 struct VmaAllocator_T;
+struct VmaAllocation_T;
 
 class VulkanDevice;
 class VulkanSwapchainTexture;
@@ -45,7 +46,7 @@ public:
     VulkanCommandList(VulkanCommandList&&) = delete;
     VulkanCommandList& operator=(VulkanCommandList&&) = delete;
 
-    void Initialize(VkDevice device, VkCommandPool commandPool);
+    void Initialize(VulkanDevice* ownerDevice, VkDevice device, VkCommandPool commandPool);
     void Shutdown();
     void BeginRendering(const RenderingInfo& renderingInfo) override;
     void EndRendering() override;
@@ -64,6 +65,7 @@ public:
     bool IsRenderingActive() const { return m_IsRendering; }
 
 private:
+    VulkanDevice* m_OwnerDevice = nullptr;
     VkDevice m_Device = VK_NULL_HANDLE;
     VkCommandPool m_CommandPool = VK_NULL_HANDLE;
     VkCommandBuffer m_CommandBuffer = VK_NULL_HANDLE;
@@ -147,6 +149,19 @@ public:
     void AdvanceFrameSync();
 
 private:
+    struct FrameUploadArena
+    {
+        VkBuffer m_Buffer = VK_NULL_HANDLE;
+        VmaAllocation_T* m_Allocation = nullptr;
+        void* m_MappedData = nullptr;
+        bool m_RequiresUnmap = false;
+        uint64_t m_Capacity = 0;
+        uint64_t m_Head = 0;
+        uint64_t m_Serial = 0;
+    };
+
+    friend class VulkanCommandList;
+
     struct FrameSync
     {
         VkSemaphore m_ImageAvailable = VK_NULL_HANDLE;
@@ -156,6 +171,10 @@ private:
 
     FrameSync& GetCurrentFrameSync();
     const FrameSync& GetCurrentFrameSync() const;
+    void InitializeFrameUploadArenas();
+    void ShutdownFrameUploadArenas();
+    void ResetCurrentFrameUploadArena();
+    void PrepareResourceSetForBinding(ResourceSet* resourceSet);
     void InitializeInstance();
     void InitializeDeviceObjects();
     void InitializeDeviceObjectsForSurface(VkSurfaceKHR surface);
@@ -185,9 +204,11 @@ private:
     // so only one frame may be in flight safely. Expanding this back to multiple
     // frames requires per-frame command buffers (or an equivalent ownership model).
     std::array<FrameSync, 1> m_FrameSyncObjects{};
+    std::array<FrameUploadArena, 1> m_FrameUploadArenas{};
     uint32_t m_CurrentFrameSlot = 0;
     bool m_FrameInProgress = false;
     bool m_FrameSubmitted = false;
+    uint64_t m_MinUniformBufferOffsetAlignment = 1;
 
     VulkanCommandList m_CommandList;
     RHIInternal::ShellFrameContext m_FrameContext;

@@ -284,24 +284,22 @@ class VulkanResourceSet final : public ResourceSet
 {
 public:
     VulkanResourceSet(VkDevice device,
-                      VmaAllocator allocator,
                       PipelineLayout* layout,
                       uint32_t setIndex,
                       VkDescriptorPool descriptorPool,
-                      VkDescriptorSet descriptorSet)
+                      VkDescriptorSet descriptorSet,
+                      uint32_t frameSlotCount)
         : m_Device(device),
-          m_Allocator(allocator),
           m_Layout(layout),
           m_SetIndex(setIndex),
           m_DescriptorPool(descriptorPool),
-          m_DescriptorSet(descriptorSet)
+          m_DescriptorSet(descriptorSet),
+          m_FrameConstantCaches(frameSlotCount)
     {
     }
 
     ~VulkanResourceSet() override
     {
-        DestroyConstantBuffer();
-
         if (m_Device != VK_NULL_HANDLE && m_DescriptorPool != VK_NULL_HANDLE)
             vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
     }
@@ -315,11 +313,8 @@ public:
         if (size == 0)
             return;
 
-        const BindingInfo& bindingInfo = RequireConstantBindingInfo();
+        ValidateConstantBindingExists();
         m_Constants.SetRaw(offset, data, size);
-        EnsureConstantBufferCapacity(m_Constants.GetSize());
-        UploadConstantData(offset, data, size);
-        WriteConstantDescriptor(bindingInfo);
         ++m_Version;
     }
 
@@ -350,8 +345,59 @@ public:
     uint32_t GetVersion() const override { return m_Version; }
 
     VkDescriptorSet GetVkDescriptorSet() const { return m_DescriptorSet; }
+    bool HasConstantBinding() const
+    {
+        return RHIInternal::FindFirstBindingInfoForSet(m_Layout->GetDesc(), m_SetIndex, ResourceKind::UniformBuffer) !=
+               nullptr;
+    }
+    bool NeedsConstantUploadForFrame(uint32_t frameSlot, uint64_t frameSerial) const
+    {
+        RTRLAB_ASSERT_MSG(frameSlot < m_FrameConstantCaches.size(),
+                          "Vulkan ResourceSet frame-slot index is out of range for constant uploads.");
+        const FrameConstantCache& cache = m_FrameConstantCaches[frameSlot];
+        return cache.m_Version != m_Version || cache.m_FrameSerial != frameSerial;
+    }
+    void WriteConstantDescriptorForFrame(
+        uint32_t frameSlot, VkBuffer uploadBuffer, VkDeviceSize offset, VkDeviceSize size, uint64_t frameSerial)
+    {
+        RTRLAB_ASSERT_MSG(frameSlot < m_FrameConstantCaches.size(),
+                          "Vulkan ResourceSet frame-slot index is out of range for constant descriptor writes.");
+        RTRLAB_ASSERT_MSG(uploadBuffer != VK_NULL_HANDLE,
+                          "Vulkan ResourceSet constant descriptor writes require a valid frame upload buffer.");
+
+        const BindingInfo& bindingInfo = RequireConstantBindingInfo();
+
+        VkDescriptorBufferInfo bufferInfo{};
+        bufferInfo.buffer = uploadBuffer;
+        bufferInfo.offset = offset;
+        bufferInfo.range = std::max<VkDeviceSize>(size, 1);
+
+        VkWriteDescriptorSet write{};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = m_DescriptorSet;
+        write.dstBinding = bindingInfo.m_Binding;
+        write.descriptorCount = 1;
+        write.descriptorType = ToDescriptorType(bindingInfo.m_Kind);
+        write.pBufferInfo = &bufferInfo;
+
+        vkUpdateDescriptorSets(m_Device, 1, &write, 0, nullptr);
+
+        FrameConstantCache& cache = m_FrameConstantCaches[frameSlot];
+        cache.m_Version = m_Version;
+        cache.m_FrameSerial = frameSerial;
+        cache.m_Offset = offset;
+        cache.m_Size = bufferInfo.range;
+    }
 
 private:
+    struct FrameConstantCache
+    {
+        uint32_t m_Version = std::numeric_limits<uint32_t>::max();
+        uint64_t m_FrameSerial = 0;
+        VkDeviceSize m_Offset = 0;
+        VkDeviceSize m_Size = 0;
+    };
+
     static VkDescriptorType ToDescriptorType(ResourceKind resourceKind)
     {
         switch (resourceKind)
@@ -479,95 +525,13 @@ private:
         vkUpdateDescriptorSets(m_Device, 1, &write, 0, nullptr);
     }
 
-    void EnsureConstantBufferCapacity(size_t requiredSize)
-    {
-        const VkDeviceSize minimumSize = static_cast<VkDeviceSize>(std::max<size_t>(requiredSize, 1));
-        if (m_ConstantBuffer != VK_NULL_HANDLE && m_ConstantBufferSize >= minimumSize)
-            return;
-
-        DestroyConstantBuffer();
-
-        VkBufferCreateInfo createInfo{};
-        createInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        createInfo.size = minimumSize;
-        createInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-        createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-        VmaAllocationCreateInfo allocationCreateInfo{};
-        allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-        allocationCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
-
-        const VkResult result = vmaCreateBuffer(
-            m_Allocator, &createInfo, &allocationCreateInfo, &m_ConstantBuffer, &m_ConstantAllocation, nullptr);
-        RTRLAB_ASSERTF(result == VK_SUCCESS,
-                       "vmaCreateBuffer(ResourceSet constants) failed with VkResult={}",
-                       static_cast<int>(result));
-        m_ConstantBufferSize = minimumSize;
-    }
-
-    void UploadConstantData(uint32_t offset, const void* data, size_t size)
-    {
-        RTRLAB_ASSERT_MSG(m_Allocator != nullptr, "Vulkan ResourceSet constant uploads require a valid VMA allocator.");
-        RTRLAB_ASSERT_MSG(m_ConstantBuffer != VK_NULL_HANDLE,
-                          "Vulkan ResourceSet constant uploads require an allocated uniform buffer.");
-        RTRLAB_ASSERT_MSG(static_cast<VkDeviceSize>(offset + size) <= m_ConstantBufferSize,
-                          "Vulkan ResourceSet constant upload range exceeds the uniform buffer size.");
-
-        void* mappedData = nullptr;
-        VkResult result = vmaMapMemory(m_Allocator, m_ConstantAllocation, &mappedData);
-        RTRLAB_ASSERTF(result == VK_SUCCESS,
-                       "vmaMapMemory(ResourceSet constants) failed with VkResult={}",
-                       static_cast<int>(result));
-        std::memcpy(static_cast<std::byte*>(mappedData) + offset, data, size);
-        result = vmaFlushAllocation(m_Allocator, m_ConstantAllocation, offset, size);
-        RTRLAB_ASSERTF(result == VK_SUCCESS,
-                       "vmaFlushAllocation(ResourceSet constants) failed with VkResult={}",
-                       static_cast<int>(result));
-        vmaUnmapMemory(m_Allocator, m_ConstantAllocation);
-    }
-
-    void WriteConstantDescriptor(const BindingInfo& bindingInfo)
-    {
-        RTRLAB_ASSERT_MSG(m_ConstantBuffer != VK_NULL_HANDLE,
-                          "Vulkan ResourceSet constant descriptor writes require an allocated uniform buffer.");
-
-        VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = m_ConstantBuffer;
-        bufferInfo.offset = 0;
-        bufferInfo.range = static_cast<VkDeviceSize>(std::max<size_t>(m_Constants.GetSize(), 1));
-
-        VkWriteDescriptorSet write{};
-        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        write.dstSet = m_DescriptorSet;
-        write.dstBinding = bindingInfo.m_Binding;
-        write.descriptorCount = 1;
-        write.descriptorType = ToDescriptorType(bindingInfo.m_Kind);
-        write.pBufferInfo = &bufferInfo;
-
-        vkUpdateDescriptorSets(m_Device, 1, &write, 0, nullptr);
-    }
-
-    void DestroyConstantBuffer()
-    {
-        if (m_Allocator != nullptr && m_ConstantBuffer != VK_NULL_HANDLE)
-            vmaDestroyBuffer(m_Allocator, m_ConstantBuffer, m_ConstantAllocation);
-
-        m_ConstantBuffer = VK_NULL_HANDLE;
-        m_ConstantAllocation = nullptr;
-        m_ConstantBufferSize = 0;
-    }
-
-private:
     VkDevice m_Device = VK_NULL_HANDLE;
-    VmaAllocator m_Allocator = nullptr;
     PipelineLayout* m_Layout = nullptr;
     uint32_t m_SetIndex = 0;
     VkDescriptorPool m_DescriptorPool = VK_NULL_HANDLE;
     VkDescriptorSet m_DescriptorSet = VK_NULL_HANDLE;
-    VkBuffer m_ConstantBuffer = VK_NULL_HANDLE;
-    VmaAllocation m_ConstantAllocation = nullptr;
-    VkDeviceSize m_ConstantBufferSize = 0;
     ParameterBlockData m_Constants;
+    std::vector<FrameConstantCache> m_FrameConstantCaches;
     std::unordered_map<uint32_t, BufferBinding> m_BufferBindings;
     std::unordered_map<uint32_t, TextureBinding> m_TextureBindings;
     std::unordered_map<uint32_t, SamplerBinding> m_SamplerBindings;
@@ -1090,6 +1054,16 @@ VmaAllocationCreateFlags ToVmaAllocationCreateFlags(MemoryUsage memoryUsage)
 
     return 0;
 }
+
+uint64_t AlignUp(const uint64_t value, const uint64_t alignment)
+{
+    if (alignment <= 1)
+        return value;
+
+    return (value + alignment - 1) & ~(alignment - 1);
+}
+
+constexpr VkDeviceSize kFrameUploadArenaInitialCapacity = 1u << 20;
 
 const VulkanShaderProgram& GetVulkanShaderProgram(ShaderProgram* shaderProgram)
 {
@@ -1652,10 +1626,11 @@ VulkanCommandList::~VulkanCommandList()
     Shutdown();
 }
 
-void VulkanCommandList::Initialize(VkDevice device, VkCommandPool commandPool)
+void VulkanCommandList::Initialize(VulkanDevice* ownerDevice, VkDevice device, VkCommandPool commandPool)
 {
     Shutdown();
 
+    m_OwnerDevice = ownerDevice;
     m_Device = device;
     m_CommandPool = commandPool;
 
@@ -1678,6 +1653,7 @@ void VulkanCommandList::Shutdown()
     m_CommandBuffer = VK_NULL_HANDLE;
     m_CommandPool = VK_NULL_HANDLE;
     m_Device = VK_NULL_HANDLE;
+    m_OwnerDevice = nullptr;
 }
 
 void VulkanCommandList::BeginRendering(const RenderingInfo& renderingInfo)
@@ -1804,6 +1780,9 @@ void VulkanCommandList::BindResourceSet(uint32_t setIndex, ResourceSet* resource
     const VkPipelineLayout pipelineLayoutHandle = vulkanPipelineLayout.GetVkPipelineLayout();
     RTRLAB_ASSERT_MSG(pipelineLayoutHandle != VK_NULL_HANDLE,
                       "Vulkan BindResourceSet requires a valid VkPipelineLayout.");
+
+    RTRLAB_ASSERT_MSG(m_OwnerDevice != nullptr, "Vulkan BindResourceSet requires an initialized owner device.");
+    m_OwnerDevice->PrepareResourceSetForBinding(resourceSet);
 
     vkCmdBindDescriptorSets(m_CommandBuffer,
                             VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -2346,7 +2325,8 @@ Scope<ResourceSet> VulkanDevice::CreateResourceSet(PipelineLayout* layout, uint3
 
     VkDescriptorPool descriptorPool = CreateVkDescriptorPoolForSet(m_Device, pipelineLayout.GetDesc(), setIndex);
     VkDescriptorSet descriptorSet = AllocateVkDescriptorSet(m_Device, descriptorPool, pipelineLayout, setIndex);
-    return CreateScope<VulkanResourceSet>(m_Device, m_Allocator, layout, setIndex, descriptorPool, descriptorSet);
+    return CreateScope<VulkanResourceSet>(
+        m_Device, layout, setIndex, descriptorPool, descriptorSet, static_cast<uint32_t>(m_FrameUploadArenas.size()));
 }
 
 Scope<VertexInputLayout> VulkanDevice::CreateVertexInputLayout(const VertexInputLayoutDesc& desc)
@@ -2596,6 +2576,7 @@ FrameContext* VulkanDevice::BeginFrame()
     CheckVk(vkWaitForFences(m_Device, 1, &frameSync.m_InFlightFence, VK_TRUE, std::numeric_limits<uint64_t>::max()),
             "vkWaitForFences");
     CheckVk(vkResetFences(m_Device, 1, &frameSync.m_InFlightFence), "vkResetFences");
+    ResetCurrentFrameUploadArena();
 
     m_FrameInProgress = true;
     m_FrameSubmitted = false;
@@ -2663,6 +2644,126 @@ void VulkanDevice::RecycleCurrentRenderFinishedSemaphore()
             "vkCreateSemaphore(renderFinished recycle)");
 }
 
+void VulkanDevice::InitializeFrameUploadArenas()
+{
+    RTRLAB_ASSERT_MSG(m_Allocator != nullptr, "Vulkan frame upload arenas require an initialized VMA allocator.");
+
+    for (FrameUploadArena& arena : m_FrameUploadArenas)
+    {
+        if (arena.m_Buffer != VK_NULL_HANDLE)
+            continue;
+
+        VkBufferCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        createInfo.size = kFrameUploadArenaInitialCapacity;
+        createInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+        createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+        VmaAllocationCreateInfo allocationCreateInfo{};
+        allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+        allocationCreateInfo.flags =
+            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+        VmaAllocationInfo allocationInfo{};
+        CheckVk(
+            vmaCreateBuffer(
+                m_Allocator, &createInfo, &allocationCreateInfo, &arena.m_Buffer, &arena.m_Allocation, &allocationInfo),
+            "vmaCreateBuffer(frame upload arena)");
+
+        arena.m_MappedData = allocationInfo.pMappedData;
+        arena.m_RequiresUnmap = false;
+        if (arena.m_MappedData == nullptr)
+        {
+            CheckVk(vmaMapMemory(m_Allocator, arena.m_Allocation, &arena.m_MappedData),
+                    "vmaMapMemory(frame upload arena)");
+            arena.m_RequiresUnmap = true;
+        }
+
+        arena.m_Capacity = createInfo.size;
+        arena.m_Head = 0;
+        arena.m_Serial = 0;
+    }
+}
+
+void VulkanDevice::ShutdownFrameUploadArenas()
+{
+    if (m_Allocator == nullptr)
+        return;
+
+    for (FrameUploadArena& arena : m_FrameUploadArenas)
+    {
+        if (arena.m_Buffer != VK_NULL_HANDLE)
+        {
+            if (arena.m_MappedData != nullptr && arena.m_RequiresUnmap)
+            {
+                vmaUnmapMemory(m_Allocator, arena.m_Allocation);
+                arena.m_MappedData = nullptr;
+            }
+
+            vmaDestroyBuffer(m_Allocator, arena.m_Buffer, arena.m_Allocation);
+        }
+
+        arena.m_Buffer = VK_NULL_HANDLE;
+        arena.m_Allocation = nullptr;
+        arena.m_MappedData = nullptr;
+        arena.m_RequiresUnmap = false;
+        arena.m_Capacity = 0;
+        arena.m_Head = 0;
+        arena.m_Serial = 0;
+    }
+}
+
+void VulkanDevice::ResetCurrentFrameUploadArena()
+{
+    FrameUploadArena& arena = m_FrameUploadArenas[m_CurrentFrameSlot];
+    RTRLAB_ASSERT_MSG(arena.m_Buffer != VK_NULL_HANDLE,
+                      "Vulkan frame upload arena must be initialized before beginning a frame.");
+    arena.m_Head = 0;
+    ++arena.m_Serial;
+}
+
+void VulkanDevice::PrepareResourceSetForBinding(ResourceSet* resourceSet)
+{
+    if (resourceSet == nullptr)
+        return;
+
+    VulkanResourceSet& vulkanResourceSet = GetVulkanResourceSet(resourceSet);
+    if (!vulkanResourceSet.HasConstantBinding())
+        return;
+
+    FrameUploadArena& arena = m_FrameUploadArenas[m_CurrentFrameSlot];
+    RTRLAB_ASSERT_MSG(arena.m_Buffer != VK_NULL_HANDLE,
+                      "Vulkan resource-set binding requires an initialized frame upload arena.");
+    RTRLAB_ASSERT_MSG(arena.m_MappedData != nullptr,
+                      "Vulkan resource-set binding requires the frame upload arena to be mapped.");
+
+    if (!vulkanResourceSet.NeedsConstantUploadForFrame(m_CurrentFrameSlot, arena.m_Serial))
+        return;
+
+    const size_t constantDataSize = vulkanResourceSet.GetConstants().GetSize();
+    const VkDeviceSize uploadSize = static_cast<VkDeviceSize>(std::max<size_t>(constantDataSize, 1));
+    const VkDeviceSize alignedOffset = AlignUp(arena.m_Head, m_MinUniformBufferOffsetAlignment);
+    RTRLAB_ASSERT_MSG(alignedOffset + uploadSize <= arena.m_Capacity,
+                      "Vulkan frame upload arena ran out of space while preparing a ResourceSet.");
+
+    std::byte* destination = static_cast<std::byte*>(arena.m_MappedData) + alignedOffset;
+    if (constantDataSize > 0)
+    {
+        std::memcpy(destination, vulkanResourceSet.GetConstants().GetData(), constantDataSize);
+    }
+    else
+    {
+        destination[0] = std::byte{0};
+    }
+
+    CheckVk(vmaFlushAllocation(m_Allocator, arena.m_Allocation, alignedOffset, uploadSize),
+            "vmaFlushAllocation(frame upload arena)");
+
+    arena.m_Head = alignedOffset + uploadSize;
+    vulkanResourceSet.WriteConstantDescriptorForFrame(
+        m_CurrentFrameSlot, arena.m_Buffer, alignedOffset, uploadSize, arena.m_Serial);
+}
+
 void VulkanDevice::InitializeInstance()
 {
     if (m_Instance != VK_NULL_HANDLE)
@@ -2720,9 +2821,15 @@ void VulkanDevice::InitializeDeviceObjects()
     CheckVk(vkCreateDevice(m_PhysicalDevice, &deviceCreateInfo, nullptr, &m_Device), "vkCreateDevice");
     volkLoadDevice(m_Device);
 
+    VkPhysicalDeviceProperties physicalDeviceProperties{};
+    vkGetPhysicalDeviceProperties(m_PhysicalDevice, &physicalDeviceProperties);
+    m_MinUniformBufferOffsetAlignment =
+        std::max<uint64_t>(physicalDeviceProperties.limits.minUniformBufferOffsetAlignment, 1);
+
     vkGetDeviceQueue(m_Device, m_GraphicsQueueFamily, 0, &m_GraphicsQueue);
     m_PresentQueue = m_GraphicsQueue;
     InitializeAllocator();
+    InitializeFrameUploadArenas();
 
     VkCommandPoolCreateInfo commandPoolCreateInfo =
         MakeVkStruct<VkCommandPoolCreateInfo, VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO>();
@@ -2730,7 +2837,7 @@ void VulkanDevice::InitializeDeviceObjects()
     commandPoolCreateInfo.queueFamilyIndex = m_GraphicsQueueFamily;
     CheckVk(vkCreateCommandPool(m_Device, &commandPoolCreateInfo, nullptr, &m_CommandPool), "vkCreateCommandPool");
 
-    m_CommandList.Initialize(m_Device, m_CommandPool);
+    m_CommandList.Initialize(this, m_Device, m_CommandPool);
     m_CurrentFrameSlot = 0;
     m_FrameInProgress = false;
     m_FrameSubmitted = false;
@@ -2792,9 +2899,15 @@ void VulkanDevice::InitializeDeviceObjectsForSurface(VkSurfaceKHR surface)
     CheckVk(vkCreateDevice(m_PhysicalDevice, &deviceCreateInfo, nullptr, &m_Device), "vkCreateDevice");
     volkLoadDevice(m_Device);
 
+    VkPhysicalDeviceProperties physicalDeviceProperties{};
+    vkGetPhysicalDeviceProperties(m_PhysicalDevice, &physicalDeviceProperties);
+    m_MinUniformBufferOffsetAlignment =
+        std::max<uint64_t>(physicalDeviceProperties.limits.minUniformBufferOffsetAlignment, 1);
+
     vkGetDeviceQueue(m_Device, m_GraphicsQueueFamily, 0, &m_GraphicsQueue);
     vkGetDeviceQueue(m_Device, m_PresentQueueFamily, 0, &m_PresentQueue);
     InitializeAllocator();
+    InitializeFrameUploadArenas();
 
     VkCommandPoolCreateInfo commandPoolCreateInfo =
         MakeVkStruct<VkCommandPoolCreateInfo, VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO>();
@@ -2802,7 +2915,7 @@ void VulkanDevice::InitializeDeviceObjectsForSurface(VkSurfaceKHR surface)
     commandPoolCreateInfo.queueFamilyIndex = m_GraphicsQueueFamily;
     CheckVk(vkCreateCommandPool(m_Device, &commandPoolCreateInfo, nullptr, &m_CommandPool), "vkCreateCommandPool");
 
-    m_CommandList.Initialize(m_Device, m_CommandPool);
+    m_CommandList.Initialize(this, m_Device, m_CommandPool);
     m_CurrentFrameSlot = 0;
     m_FrameInProgress = false;
     m_FrameSubmitted = false;
@@ -2938,6 +3051,7 @@ void VulkanDevice::ShutdownDeviceObjects()
         vkDeviceWaitIdle(m_Device);
 
     m_CommandList.Shutdown();
+    ShutdownFrameUploadArenas();
 
     ShutdownAllocator();
 
@@ -2961,5 +3075,6 @@ void VulkanDevice::ShutdownDeviceObjects()
     m_CurrentFrameSlot = 0;
     m_FrameInProgress = false;
     m_FrameSubmitted = false;
+    m_MinUniformBufferOffsetAlignment = 1;
     m_HasDeviceObjects = false;
 }
