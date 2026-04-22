@@ -264,6 +264,148 @@ NSString* MakeNSString(const std::vector<uint8_t>& utf8Bytes)
     return [[[NSString alloc] initWithBytes:utf8Bytes.data() length:utf8Bytes.size()
                                    encoding:NSUTF8StringEncoding] autorelease];
 }
+
+enum class MetalBindingClass
+{
+    Buffer,
+    Texture,
+    Sampler,
+};
+
+struct MetalStageSlotAssignment
+{
+    ShaderStage m_Stage = ShaderStage::None;
+    uint32_t m_Slot = 0;
+};
+
+struct MetalBindingPlanEntry
+{
+    uint32_t m_Binding = 0;
+    ResourceKind m_Kind = ResourceKind::UniformBuffer;
+    std::vector<MetalStageSlotAssignment> m_Slots;
+};
+
+struct MetalSetBindingPlan
+{
+    uint32_t m_SetIndex = 0;
+    std::vector<MetalBindingPlanEntry> m_Entries;
+};
+
+MetalBindingClass ToMetalBindingClass(ResourceKind kind)
+{
+    switch (kind)
+    {
+        case ResourceKind::UniformBuffer:
+        case ResourceKind::StorageBuffer:
+            return MetalBindingClass::Buffer;
+        case ResourceKind::SampledTexture:
+        case ResourceKind::StorageTexture:
+            return MetalBindingClass::Texture;
+        case ResourceKind::Sampler:
+            return MetalBindingClass::Sampler;
+    }
+
+    return MetalBindingClass::Buffer;
+}
+
+bool StageMaskContains(ShaderStage mask, ShaderStage stage)
+{
+    return static_cast<uint32_t>(mask & stage) != 0;
+}
+
+std::vector<MetalSetBindingPlan> BuildMetalSetBindingPlans(const PipelineLayoutDesc& desc)
+{
+    struct StageCounters
+    {
+        uint32_t m_Buffer = 0;
+        uint32_t m_Texture = 0;
+        uint32_t m_Sampler = 0;
+    };
+
+    StageCounters vertexCounters;
+    StageCounters fragmentCounters;
+    StageCounters computeCounters;
+    std::vector<MetalSetBindingPlan> plans;
+
+    auto* findOrAddPlan = [&plans](uint32_t setIndex) -> MetalSetBindingPlan*
+    {
+        const auto it =
+            std::find_if(plans.begin(),
+                         plans.end(),
+                         [setIndex](const MetalSetBindingPlan& plan) { return plan.m_SetIndex == setIndex; });
+        if (it != plans.end())
+            return &(*it);
+
+        plans.push_back(MetalSetBindingPlan{});
+        plans.back().m_SetIndex = setIndex;
+        return &plans.back();
+    };
+
+    auto assignSlot = [](StageCounters& counters, MetalBindingClass bindingClass) -> uint32_t
+    {
+        switch (bindingClass)
+        {
+            case MetalBindingClass::Buffer:
+                return counters.m_Buffer++;
+            case MetalBindingClass::Texture:
+                return counters.m_Texture++;
+            case MetalBindingClass::Sampler:
+                return counters.m_Sampler++;
+        }
+
+        return counters.m_Buffer++;
+    };
+
+    for (const BindingInfo& binding : desc.m_Bindings)
+    {
+        MetalBindingPlanEntry entry;
+        entry.m_Binding = binding.m_Binding;
+        entry.m_Kind = binding.m_Kind;
+
+        const MetalBindingClass bindingClass = ToMetalBindingClass(binding.m_Kind);
+        if (StageMaskContains(binding.m_StageMask, ShaderStage::Vertex))
+            entry.m_Slots.push_back({ShaderStage::Vertex, assignSlot(vertexCounters, bindingClass)});
+        if (StageMaskContains(binding.m_StageMask, ShaderStage::Fragment))
+            entry.m_Slots.push_back({ShaderStage::Fragment, assignSlot(fragmentCounters, bindingClass)});
+        if (StageMaskContains(binding.m_StageMask, ShaderStage::Compute))
+            entry.m_Slots.push_back({ShaderStage::Compute, assignSlot(computeCounters, bindingClass)});
+
+        MetalSetBindingPlan* plan = findOrAddPlan(binding.m_SetIndex);
+        plan->m_Entries.push_back(std::move(entry));
+    }
+
+    std::sort(plans.begin(),
+              plans.end(),
+              [](const MetalSetBindingPlan& lhs, const MetalSetBindingPlan& rhs)
+              { return lhs.m_SetIndex < rhs.m_SetIndex; });
+    return plans;
+}
+
+uint32_t ComputeVertexBufferSlotBase(const std::vector<MetalSetBindingPlan>& plans)
+{
+    uint32_t maxVertexResourceSlot = 0;
+    bool sawVertexResource = false;
+
+    for (const MetalSetBindingPlan& plan : plans)
+    {
+        for (const MetalBindingPlanEntry& entry : plan.m_Entries)
+        {
+            if (ToMetalBindingClass(entry.m_Kind) != MetalBindingClass::Buffer)
+                continue;
+
+            for (const MetalStageSlotAssignment& slot : entry.m_Slots)
+            {
+                if (slot.m_Stage != ShaderStage::Vertex)
+                    continue;
+
+                maxVertexResourceSlot = std::max(maxVertexResourceSlot, slot.m_Slot);
+                sawVertexResource = true;
+            }
+        }
+    }
+
+    return sawVertexResource ? maxVertexResourceSlot + 1u : 0u;
+}
 } // namespace
 
 class MetalSwapchainTexture final : public Texture
@@ -427,6 +569,191 @@ private:
     std::vector<StageFunction> m_Functions;
 };
 
+class MetalPipelineLayout final : public PipelineLayout
+{
+public:
+    explicit MetalPipelineLayout(const PipelineLayoutDesc& desc)
+        : m_Desc(desc),
+          m_SetBindingPlans(BuildMetalSetBindingPlans(desc)),
+          m_VertexBufferSlotBase(ComputeVertexBufferSlotBase(m_SetBindingPlans))
+    {
+    }
+
+    const PipelineLayoutDesc& GetDesc() const override { return m_Desc; }
+
+    const MetalSetBindingPlan& GetSetBindingPlan(uint32_t setIndex) const
+    {
+        const auto it =
+            std::find_if(m_SetBindingPlans.begin(),
+                         m_SetBindingPlans.end(),
+                         [setIndex](const MetalSetBindingPlan& plan) { return plan.m_SetIndex == setIndex; });
+        RTRLAB_ASSERTF(it != m_SetBindingPlans.end(),
+                       "Metal pipeline layout does not contain a binding plan for set {}.",
+                       setIndex);
+        return *it;
+    }
+
+    uint32_t GetVertexBufferSlotBase() const { return m_VertexBufferSlotBase; }
+
+private:
+    PipelineLayoutDesc m_Desc;
+    std::vector<MetalSetBindingPlan> m_SetBindingPlans;
+    uint32_t m_VertexBufferSlotBase = 0;
+};
+
+class MetalResourceSet final : public ResourceSet
+{
+public:
+    MetalResourceSet(id<MTLDevice> device, PipelineLayout* layout, uint32_t setIndex)
+        : m_Device([device retain]), m_Layout(layout), m_SetIndex(setIndex)
+    {
+        RTRLAB_ASSERT_MSG(m_Layout != nullptr, "Metal ResourceSet creation requires a valid PipelineLayout.");
+        const std::vector<const BindingInfo*> setBindings =
+            RHIInternal::CollectBindingInfosForSet(m_Layout->GetDesc(), m_SetIndex);
+        RTRLAB_ASSERTF(!setBindings.empty(),
+                       "Metal ResourceSet set {} does not exist in the provided PipelineLayout.",
+                       m_SetIndex);
+    }
+
+    ~MetalResourceSet() override
+    {
+        if (m_ConstantBuffer != nil)
+        {
+            [m_ConstantBuffer release];
+            m_ConstantBuffer = nil;
+        }
+
+        if (m_Device != nil)
+        {
+            [m_Device release];
+            m_Device = nil;
+        }
+    }
+
+    PipelineLayout* GetLayout() const override { return m_Layout; }
+    uint32_t GetSetIndex() const override { return m_SetIndex; }
+
+    const ParameterBlockData& GetConstants() const override { return m_Constants; }
+    void SetConstantDataRaw(uint32_t offset, const void* data, size_t size) override
+    {
+        if (size == 0)
+            return;
+
+        ValidateConstantBindingExists();
+        m_Constants.SetRaw(offset, data, size);
+        EnsureConstantBufferCapacity(m_Constants.GetSize());
+        if (m_ConstantBuffer != nil && m_Constants.GetData() != nullptr)
+            std::memcpy([m_ConstantBuffer contents], m_Constants.GetData(), m_Constants.GetSize());
+        ++m_Version;
+    }
+
+    void SetBuffer(uint32_t binding, const BufferBinding& bufferBinding) override
+    {
+        (void)RequireBindingInfo(binding, ResourceKind::StorageBuffer);
+        m_BufferBindings[binding] = bufferBinding;
+        ++m_Version;
+    }
+
+    void SetTexture(uint32_t binding, const TextureBinding& textureBinding) override
+    {
+        const BindingInfo* bindingInfo =
+            RHIInternal::FindBindingInfo(m_Layout->GetDesc(), m_SetIndex, binding, ResourceKind::SampledTexture);
+        if (bindingInfo == nullptr)
+            bindingInfo =
+                RHIInternal::FindBindingInfo(m_Layout->GetDesc(), m_SetIndex, binding, ResourceKind::StorageTexture);
+        RTRLAB_ASSERTF(bindingInfo != nullptr,
+                       "Metal ResourceSet set {} has no texture binding {} in its PipelineLayout.",
+                       m_SetIndex,
+                       binding);
+        m_TextureBindings[binding] = textureBinding;
+        ++m_Version;
+    }
+
+    void SetSampler(uint32_t binding, const SamplerBinding& samplerBinding) override
+    {
+        (void)RequireBindingInfo(binding, ResourceKind::Sampler);
+        m_SamplerBindings[binding] = samplerBinding;
+        ++m_Version;
+    }
+
+    uint32_t GetVersion() const override { return m_Version; }
+
+    bool HasConstantBuffer() const { return m_ConstantBuffer != nil; }
+    id<MTLBuffer> GetConstantBuffer() const { return m_ConstantBuffer; }
+
+    const BufferBinding* FindBufferBinding(uint32_t binding) const
+    {
+        const auto it = m_BufferBindings.find(binding);
+        return it != m_BufferBindings.end() ? &it->second : nullptr;
+    }
+
+    const TextureBinding* FindTextureBinding(uint32_t binding) const
+    {
+        const auto it = m_TextureBindings.find(binding);
+        return it != m_TextureBindings.end() ? &it->second : nullptr;
+    }
+
+    const SamplerBinding* FindSamplerBinding(uint32_t binding) const
+    {
+        const auto it = m_SamplerBindings.find(binding);
+        return it != m_SamplerBindings.end() ? &it->second : nullptr;
+    }
+
+private:
+    const BindingInfo& RequireBindingInfo(uint32_t binding, ResourceKind kind) const
+    {
+        RTRLAB_ASSERT_MSG(m_Layout != nullptr, "Metal ResourceSet binding validation requires a valid PipelineLayout.");
+        const BindingInfo* bindingInfo = RHIInternal::FindBindingInfo(m_Layout->GetDesc(), m_SetIndex, binding, kind);
+        RTRLAB_ASSERTF(bindingInfo != nullptr,
+                       "Metal ResourceSet set {} has no binding {} of expected kind {} in its PipelineLayout.",
+                       m_SetIndex,
+                       binding,
+                       static_cast<uint32_t>(kind));
+        return *bindingInfo;
+    }
+
+    void ValidateConstantBindingExists() const
+    {
+        RTRLAB_ASSERT_MSG(m_Layout != nullptr,
+                          "Metal ResourceSet constant validation requires a valid PipelineLayout.");
+        const BindingInfo* bindingInfo =
+            RHIInternal::FindFirstBindingInfoForSet(m_Layout->GetDesc(), m_SetIndex, ResourceKind::UniformBuffer);
+        RTRLAB_ASSERTF(bindingInfo != nullptr,
+                       "Metal ResourceSet set {} has no UniformBuffer binding in its PipelineLayout.",
+                       m_SetIndex);
+    }
+
+    void EnsureConstantBufferCapacity(size_t requiredSize)
+    {
+        if (requiredSize == 0)
+            return;
+
+        const NSUInteger requiredLength = static_cast<NSUInteger>(std::max<size_t>(requiredSize, 1));
+        if (m_ConstantBuffer != nil && [m_ConstantBuffer length] >= requiredLength)
+            return;
+
+        id<MTLBuffer> newBuffer = [m_Device newBufferWithLength:requiredLength
+                                                        options:ToMetalBufferResourceOptions(MemoryUsage::CpuToGpu)];
+        RTRLAB_ASSERT_MSG(newBuffer != nil, "Failed to allocate the Metal ResourceSet constant buffer.");
+        if (m_Constants.GetData() != nullptr)
+            std::memcpy([newBuffer contents], m_Constants.GetData(), m_Constants.GetSize());
+
+        if (m_ConstantBuffer != nil)
+            [m_ConstantBuffer release];
+        m_ConstantBuffer = newBuffer;
+    }
+
+    id<MTLDevice> m_Device = nil;
+    PipelineLayout* m_Layout = nullptr;
+    uint32_t m_SetIndex = 0;
+    ParameterBlockData m_Constants;
+    std::unordered_map<uint32_t, BufferBinding> m_BufferBindings;
+    std::unordered_map<uint32_t, TextureBinding> m_TextureBindings;
+    std::unordered_map<uint32_t, SamplerBinding> m_SamplerBindings;
+    id<MTLBuffer> m_ConstantBuffer = nil;
+    uint32_t m_Version = 0;
+};
+
 class MetalVertexInputLayout final : public VertexInputLayout
 {
 public:
@@ -441,8 +768,10 @@ private:
 class MetalGraphicsPipeline final : public GraphicsPipeline
 {
 public:
-    MetalGraphicsPipeline(id<MTLRenderPipelineState> pipelineState, const GraphicsPipelineDesc& desc)
-        : m_PipelineState([pipelineState retain]), m_Desc(desc)
+    MetalGraphicsPipeline(id<MTLRenderPipelineState> pipelineState,
+                          const GraphicsPipelineDesc& desc,
+                          uint32_t vertexBufferSlotBase)
+        : m_PipelineState([pipelineState retain]), m_Desc(desc), m_VertexBufferSlotBase(vertexBufferSlotBase)
     {
     }
 
@@ -457,10 +786,12 @@ public:
 
     const GraphicsPipelineDesc& GetDesc() const override { return m_Desc; }
     id<MTLRenderPipelineState> GetPipelineState() const { return m_PipelineState; }
+    uint32_t GetVertexBufferSlotBase() const { return m_VertexBufferSlotBase; }
 
 private:
     id<MTLRenderPipelineState> m_PipelineState = nil;
     GraphicsPipelineDesc m_Desc;
+    uint32_t m_VertexBufferSlotBase = 0;
 };
 
 const MetalShaderProgram& GetMetalShaderProgram(ShaderProgram* shaderProgram)
@@ -484,11 +815,57 @@ const MetalGraphicsPipeline& GetMetalGraphicsPipeline(GraphicsPipeline* graphics
     return *metalGraphicsPipeline;
 }
 
+MetalPipelineLayout& GetMetalPipelineLayout(PipelineLayout* pipelineLayout)
+{
+    auto* metalPipelineLayout = dynamic_cast<MetalPipelineLayout*>(pipelineLayout);
+    RTRLAB_ASSERT_MSG(metalPipelineLayout != nullptr, "PipelineLayout is not owned by the Metal backend.");
+    return *metalPipelineLayout;
+}
+
 MetalBuffer& GetMetalBuffer(Buffer* buffer)
 {
     auto* metalBuffer = dynamic_cast<MetalBuffer*>(buffer);
     RTRLAB_ASSERT_MSG(metalBuffer != nullptr, "Buffer is not owned by the Metal backend.");
     return *metalBuffer;
+}
+
+MetalResourceSet& GetMetalResourceSet(ResourceSet* resourceSet)
+{
+    auto* metalResourceSet = dynamic_cast<MetalResourceSet*>(resourceSet);
+    RTRLAB_ASSERT_MSG(metalResourceSet != nullptr, "ResourceSet is not owned by the Metal backend.");
+    return *metalResourceSet;
+}
+
+const MetalTexture& GetMetalTexture(Texture* texture)
+{
+    auto* metalTexture = dynamic_cast<MetalTexture*>(texture);
+    RTRLAB_ASSERT_MSG(metalTexture != nullptr, "Texture is not owned by the Metal backend.");
+    return *metalTexture;
+}
+
+const MetalTextureView* TryGetMetalTextureView(TextureView* textureView)
+{
+    return dynamic_cast<MetalTextureView*>(textureView);
+}
+
+id<MTLTexture> ResolveMetalTextureForBinding(const TextureBinding& textureBinding)
+{
+    if (textureBinding.m_View != nullptr)
+    {
+        const MetalTextureView* metalTextureView = TryGetMetalTextureView(textureBinding.m_View);
+        RTRLAB_ASSERT_MSG(metalTextureView != nullptr, "TextureView is not owned by the Metal backend.");
+        return metalTextureView->GetMetalTextureView();
+    }
+
+    RTRLAB_ASSERT_MSG(textureBinding.m_Texture != nullptr, "Metal texture bindings require a texture or view.");
+    return GetMetalTexture(textureBinding.m_Texture).GetMetalTexture();
+}
+
+const MetalSampler& GetMetalSampler(Sampler* sampler)
+{
+    auto* metalSampler = dynamic_cast<MetalSampler*>(sampler);
+    RTRLAB_ASSERT_MSG(metalSampler != nullptr, "Sampler is not owned by the Metal backend.");
+    return *metalSampler;
 }
 
 struct MetalDeviceData
@@ -605,6 +982,149 @@ void MetalCommandList::BindGraphicsPipeline(GraphicsPipeline* pipeline)
     [m_Data->m_RenderEncoder setFrontFacingWinding:ToMetalWinding(metalPipeline.GetDesc().m_RasterState.m_FrontFace)];
     [m_Data->m_RenderEncoder
         setTriangleFillMode:ToMetalTriangleFillMode(metalPipeline.GetDesc().m_RasterState.m_FillMode)];
+
+    for (const auto& [setIndex, resourceSet] : m_ResourceSets)
+    {
+        if (resourceSet != nullptr)
+            BindResourceSet(setIndex, resourceSet);
+    }
+
+    if (!m_MeshBinding.m_VertexBuffers.empty())
+    {
+        BindVertexBuffers(0,
+                          m_MeshBinding.m_VertexBuffers.data(),
+                          static_cast<uint32_t>(m_MeshBinding.m_VertexBuffers.size()),
+                          m_VertexOffsets.empty() ? nullptr : m_VertexOffsets.data());
+    }
+}
+
+void MetalCommandList::BindResourceSet(uint32_t setIndex, ResourceSet* resourceSet)
+{
+    ShellCommandListBase::BindResourceSet(setIndex, resourceSet);
+
+    if (resourceSet == nullptr || m_GraphicsPipeline == nullptr)
+        return;
+
+    RTRLAB_ASSERTF(resourceSet->GetSetIndex() == setIndex,
+                   "Metal BindResourceSet expected resource set {} but received set {}.",
+                   setIndex,
+                   resourceSet->GetSetIndex());
+    RTRLAB_ASSERT_MSG(m_Data != nullptr && m_Data->m_RenderEncoder != nil,
+                      "Metal resource sets require an active render encoder.");
+
+    const MetalGraphicsPipeline& metalPipeline = GetMetalGraphicsPipeline(m_GraphicsPipeline);
+    PipelineLayout* pipelineLayout = metalPipeline.GetDesc().m_PipelineLayout;
+    RTRLAB_ASSERT_MSG(pipelineLayout != nullptr, "Metal BindResourceSet requires a valid PipelineLayout.");
+    RTRLAB_ASSERT_MSG(resourceSet->GetLayout() == pipelineLayout,
+                      "Metal BindResourceSet currently requires resource sets created from the bound pipeline layout.");
+
+    MetalPipelineLayout& metalPipelineLayout = GetMetalPipelineLayout(pipelineLayout);
+    MetalResourceSet& metalResourceSet = GetMetalResourceSet(resourceSet);
+    const MetalSetBindingPlan& setPlan = metalPipelineLayout.GetSetBindingPlan(setIndex);
+
+    for (const MetalBindingPlanEntry& entry : setPlan.m_Entries)
+    {
+        switch (entry.m_Kind)
+        {
+            case ResourceKind::UniformBuffer:
+            {
+                if (!metalResourceSet.HasConstantBuffer())
+                    break;
+
+                for (const MetalStageSlotAssignment& slot : entry.m_Slots)
+                {
+                    switch (slot.m_Stage)
+                    {
+                        case ShaderStage::Vertex:
+                            [m_Data->m_RenderEncoder setVertexBuffer:metalResourceSet.GetConstantBuffer()
+                                                              offset:0
+                                                             atIndex:slot.m_Slot];
+                            break;
+                        case ShaderStage::Fragment:
+                            [m_Data->m_RenderEncoder setFragmentBuffer:metalResourceSet.GetConstantBuffer()
+                                                                offset:0
+                                                               atIndex:slot.m_Slot];
+                            break;
+                        default:
+                            break;
+                    }
+                }
+                break;
+            }
+            case ResourceKind::StorageBuffer:
+            {
+                const BufferBinding* bufferBinding = metalResourceSet.FindBufferBinding(entry.m_Binding);
+                if (bufferBinding == nullptr || bufferBinding->m_Buffer == nullptr)
+                    break;
+
+                id<MTLBuffer> metalBuffer = GetMetalBuffer(bufferBinding->m_Buffer).GetMetalBuffer();
+                const NSUInteger offset = static_cast<NSUInteger>(bufferBinding->m_Offset);
+                for (const MetalStageSlotAssignment& slot : entry.m_Slots)
+                {
+                    switch (slot.m_Stage)
+                    {
+                        case ShaderStage::Vertex:
+                            [m_Data->m_RenderEncoder setVertexBuffer:metalBuffer offset:offset atIndex:slot.m_Slot];
+                            break;
+                        case ShaderStage::Fragment:
+                            [m_Data->m_RenderEncoder setFragmentBuffer:metalBuffer offset:offset atIndex:slot.m_Slot];
+                            break;
+                        default:
+                            break;
+                    }
+                }
+                break;
+            }
+            case ResourceKind::SampledTexture:
+            case ResourceKind::StorageTexture:
+            {
+                const TextureBinding* textureBinding = metalResourceSet.FindTextureBinding(entry.m_Binding);
+                if (textureBinding == nullptr ||
+                    (textureBinding->m_Texture == nullptr && textureBinding->m_View == nullptr))
+                    break;
+
+                id<MTLTexture> metalTexture = ResolveMetalTextureForBinding(*textureBinding);
+                for (const MetalStageSlotAssignment& slot : entry.m_Slots)
+                {
+                    switch (slot.m_Stage)
+                    {
+                        case ShaderStage::Vertex:
+                            [m_Data->m_RenderEncoder setVertexTexture:metalTexture atIndex:slot.m_Slot];
+                            break;
+                        case ShaderStage::Fragment:
+                            [m_Data->m_RenderEncoder setFragmentTexture:metalTexture atIndex:slot.m_Slot];
+                            break;
+                        default:
+                            break;
+                    }
+                }
+                break;
+            }
+            case ResourceKind::Sampler:
+            {
+                const SamplerBinding* samplerBinding = metalResourceSet.FindSamplerBinding(entry.m_Binding);
+                if (samplerBinding == nullptr || samplerBinding->m_Sampler == nullptr)
+                    break;
+
+                id<MTLSamplerState> metalSampler = GetMetalSampler(samplerBinding->m_Sampler).GetMetalSampler();
+                for (const MetalStageSlotAssignment& slot : entry.m_Slots)
+                {
+                    switch (slot.m_Stage)
+                    {
+                        case ShaderStage::Vertex:
+                            [m_Data->m_RenderEncoder setVertexSamplerState:metalSampler atIndex:slot.m_Slot];
+                            break;
+                        case ShaderStage::Fragment:
+                            [m_Data->m_RenderEncoder setFragmentSamplerState:metalSampler atIndex:slot.m_Slot];
+                            break;
+                        default:
+                            break;
+                    }
+                }
+                break;
+            }
+        }
+    }
 }
 
 void MetalCommandList::BindMesh(const MeshBinding& meshBinding, const uint64_t* vertexOffsets)
@@ -632,10 +1152,9 @@ void MetalCommandList::BindVertexBuffers(uint32_t firstSlot,
 
     RTRLAB_ASSERT_MSG(m_Data != nullptr && m_Data->m_RenderEncoder != nil,
                       "Metal vertex buffers require an active render encoder.");
-    // TRANSITIONAL(M4): Metal vertex buffers currently consume the raw slot
-    // index directly. Once PipelineLayout-backed resource binding exists,
-    // vertex streams will need a backend-owned buffer index offset so they do
-    // not collide with uniform/texture argument slots.
+    RTRLAB_ASSERT_MSG(m_GraphicsPipeline != nullptr, "Metal vertex buffers require a bound graphics pipeline.");
+    const MetalGraphicsPipeline& metalPipeline = GetMetalGraphicsPipeline(m_GraphicsPipeline);
+    const uint32_t slotBase = metalPipeline.GetVertexBufferSlotBase();
 
     for (uint32_t index = 0; index < count; ++index)
     {
@@ -643,7 +1162,7 @@ void MetalCommandList::BindVertexBuffers(uint32_t firstSlot,
         const uint64_t offset = offsets != nullptr ? offsets[index] : 0;
         [m_Data->m_RenderEncoder setVertexBuffer:GetMetalBuffer(buffers[index]).GetMetalBuffer()
                                           offset:static_cast<NSUInteger>(offset)
-                                         atIndex:firstSlot + index];
+                                         atIndex:slotBase + firstSlot + index];
     }
 }
 
@@ -1103,6 +1622,18 @@ Scope<ShaderProgram> MetalDevice::CreateShaderProgram(const CompiledShaderProgra
     return CreateScope<MetalShaderProgram>(desc, std::move(functions));
 }
 
+Scope<PipelineLayout> MetalDevice::CreatePipelineLayout(const PipelineLayoutDesc& desc)
+{
+    return CreateScope<MetalPipelineLayout>(desc);
+}
+
+Scope<ResourceSet> MetalDevice::CreateResourceSet(PipelineLayout* layout, uint32_t setIndex)
+{
+    RTRLAB_ASSERT_MSG(m_Data != nullptr && m_Data->m_Device != nil,
+                      "Metal device must be initialized before CreateResourceSet.");
+    return CreateScope<MetalResourceSet>(m_Data->m_Device, layout, setIndex);
+}
+
 Scope<VertexInputLayout> MetalDevice::CreateVertexInputLayout(const VertexInputLayoutDesc& desc)
 {
     return CreateScope<MetalVertexInputLayout>(desc);
@@ -1113,12 +1644,14 @@ Scope<GraphicsPipeline> MetalDevice::CreateGraphicsPipeline(const GraphicsPipeli
     RTRLAB_ASSERT_MSG(m_Data != nullptr && m_Data->m_Device != nil,
                       "Metal device must be initialized before CreateGraphicsPipeline.");
     RTRLAB_ASSERT_MSG(desc.m_ShaderProgram != nullptr, "Metal graphics pipelines require a ShaderProgram.");
+    RTRLAB_ASSERT_MSG(desc.m_PipelineLayout != nullptr, "Metal graphics pipelines require a PipelineLayout.");
     RTRLAB_ASSERT_MSG(desc.m_VertexInput != nullptr, "Metal graphics pipelines require a VertexInputLayout.");
     RTRLAB_ASSERT_MSG(!desc.m_ColorFormats.empty() || desc.m_DepthFormat != Format::Unknown,
                       "Metal graphics pipelines require at least one render-target format.");
 
     const MetalShaderProgram& shaderProgram = GetMetalShaderProgram(desc.m_ShaderProgram);
     const MetalVertexInputLayout& vertexInput = GetMetalVertexInputLayout(desc.m_VertexInput);
+    const MetalPipelineLayout& pipelineLayout = GetMetalPipelineLayout(desc.m_PipelineLayout);
 
     MTLRenderPipelineDescriptor* pipelineDesc = [[MTLRenderPipelineDescriptor alloc] init];
     pipelineDesc.vertexFunction = shaderProgram.FindStage(ShaderStage::Vertex);
@@ -1131,11 +1664,12 @@ Scope<GraphicsPipeline> MetalDevice::CreateGraphicsPipeline(const GraphicsPipeli
     const auto& bufferLayouts = vertexInput.GetDesc().m_Buffers;
     for (uint32_t bufferIndex = 0; bufferIndex < static_cast<uint32_t>(bufferLayouts.size()); ++bufferIndex)
     {
-        vertexDescriptor.layouts[bufferIndex].stride = bufferLayouts[bufferIndex].m_Stride;
-        vertexDescriptor.layouts[bufferIndex].stepFunction = bufferLayouts[bufferIndex].m_PerInstance
-                                                                 ? MTLVertexStepFunctionPerInstance
-                                                                 : MTLVertexStepFunctionPerVertex;
-        vertexDescriptor.layouts[bufferIndex].stepRate = 1;
+        const uint32_t metalBufferIndex = pipelineLayout.GetVertexBufferSlotBase() + bufferIndex;
+        vertexDescriptor.layouts[metalBufferIndex].stride = bufferLayouts[bufferIndex].m_Stride;
+        vertexDescriptor.layouts[metalBufferIndex].stepFunction = bufferLayouts[bufferIndex].m_PerInstance
+                                                                      ? MTLVertexStepFunctionPerInstance
+                                                                      : MTLVertexStepFunctionPerVertex;
+        vertexDescriptor.layouts[metalBufferIndex].stepRate = 1;
     }
 
     for (const VertexAttributeDesc& attribute : vertexInput.GetDesc().m_Attributes)
@@ -1144,7 +1678,8 @@ Scope<GraphicsPipeline> MetalDevice::CreateGraphicsPipeline(const GraphicsPipeli
                           "Metal graphics pipelines require valid vertex buffer slots.");
         vertexDescriptor.attributes[attribute.m_Location].format = ToMetalVertexFormat(attribute.m_Format);
         vertexDescriptor.attributes[attribute.m_Location].offset = attribute.m_Offset;
-        vertexDescriptor.attributes[attribute.m_Location].bufferIndex = attribute.m_BufferSlot;
+        vertexDescriptor.attributes[attribute.m_Location].bufferIndex =
+            pipelineLayout.GetVertexBufferSlotBase() + attribute.m_BufferSlot;
     }
 
     pipelineDesc.vertexDescriptor = vertexDescriptor;
@@ -1163,7 +1698,7 @@ Scope<GraphicsPipeline> MetalDevice::CreateGraphicsPipeline(const GraphicsPipeli
                       error != nil ? [[error localizedDescription] UTF8String]
                                    : "Failed to create the Metal render pipeline state.");
 
-    auto result = CreateScope<MetalGraphicsPipeline>(pipelineState, desc);
+    auto result = CreateScope<MetalGraphicsPipeline>(pipelineState, desc, pipelineLayout.GetVertexBufferSlotBase());
     [pipelineState release];
     return result;
 }
