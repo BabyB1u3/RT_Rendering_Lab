@@ -880,7 +880,7 @@ VkCullModeFlags ToVkCullMode(CullMode cullMode)
 VkFrontFace ToVkFrontFace(FrontFace frontFace)
 {
     // The Vulkan backend applies a negative-height viewport to align the public
-    // RHI Y-up clip-space convention with OpenGL/Metal-facing demo data. That
+    // RHI Y-up clip-space convention with the current demo data. That
     // viewport flip also inverts raster winding, so front-face selection must
     // be inverted here to preserve the public RasterState contract.
     return frontFace == FrontFace::CW ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;

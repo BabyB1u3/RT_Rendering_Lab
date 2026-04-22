@@ -18,7 +18,7 @@
 #include "Render/Shader/ShaderCompiler.h"
 #include "Render/Shader/ShaderParameterWriter.h"
 
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_OPENGL) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
 namespace
 {
 struct TriangleVertex
@@ -72,8 +72,6 @@ ShaderCompileRequest BuildHelloTriangleShaderCompileRequest()
 
 #if defined(GLAB_BACKEND_VULKAN)
     request.m_Targets.push_back({BackendType::Vulkan, MetalCodeFormat::MslSource});
-#elif defined(GLAB_BACKEND_OPENGL)
-    request.m_Targets.push_back({BackendType::OpenGL, MetalCodeFormat::MslSource});
 #elif defined(GLAB_BACKEND_METAL)
     request.m_Targets.push_back({BackendType::Metal, MetalCodeFormat::MslSource});
 #endif
@@ -121,7 +119,7 @@ void HelloTriangle::OnDetach()
 
 void HelloTriangle::OnRender()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_OPENGL) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
     if (!m_GraphicsPipeline || !m_VertexBuffer || !m_IndexBuffer)
         return;
 
@@ -162,7 +160,7 @@ void HelloTriangle::OnResize(uint32_t width, uint32_t height)
 
 void HelloTriangle::CreateTriangleResources()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_OPENGL) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
     Application& app = Application::Get();
     Device& device = app.GetDevice();
 
@@ -229,7 +227,7 @@ void HelloTriangle::CreateTriangleResources()
 
 void HelloTriangle::UpdateAnimatedParameters()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_OPENGL) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
     RTRLAB_ASSERT_MSG(m_ShaderProgram != nullptr, "HelloTriangle animated parameters require a valid shader program.");
     RTRLAB_ASSERT_MSG(m_FrameSet != nullptr && m_MaterialSet != nullptr && m_ObjectSet != nullptr,
                       "HelloTriangle animated parameters require frame, material, and object resource sets.");

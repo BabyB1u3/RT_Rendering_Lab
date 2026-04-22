@@ -47,17 +47,6 @@ if(UNIX AND NOT APPLE)
     )
 endif()
 
-if(GLAB_BACKEND_OPENGL)
-    target_link_libraries(RTRLabCore PUBLIC
-        glad
-        OpenGL::GL
-    )
-
-    target_compile_definitions(RTRLabCore PUBLIC
-        GLAB_BACKEND_OPENGL
-    )
-endif()
-
 if(APPLE)
     target_link_libraries(RTRLabCore PUBLIC
         "-framework AppKit"
@@ -119,9 +108,6 @@ if(MSVC)
     target_compile_definitions(RTRLabCore PUBLIC
         _CRT_SECURE_NO_WARNINGS
         NOMINMAX
-    )
-    target_compile_options(RTRLabCore PUBLIC
-        /wd4005  # macro redefinition (APIENTRY: glad vs windows.h, both identical)
     )
 endif()
 

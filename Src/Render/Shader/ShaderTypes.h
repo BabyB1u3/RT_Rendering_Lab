@@ -14,7 +14,6 @@ enum class BackendType
 {
     Vulkan,
     Metal,
-    OpenGL,
 };
 
 enum class ShaderStage : uint32_t

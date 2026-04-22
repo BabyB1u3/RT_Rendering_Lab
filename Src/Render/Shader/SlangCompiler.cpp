@@ -61,8 +61,6 @@ std::string GetSlangTarget(const BackendType backend)
             return "spirv";
         case BackendType::Metal:
             return "metal";
-        case BackendType::OpenGL:
-            return "glsl";
     }
 
     return {};
@@ -72,8 +70,6 @@ std::string GetSlangProfile(const BackendType backend)
 {
     switch (backend)
     {
-        case BackendType::OpenGL:
-            return "glsl_460";
         case BackendType::Vulkan:
         case BackendType::Metal:
             return {};
@@ -105,8 +101,6 @@ std::string GetBackendNameForArtifacts(const BackendType backend)
             return "vulkan";
         case BackendType::Metal:
             return "metal";
-        case BackendType::OpenGL:
-            return "opengl";
     }
 
     return "unknown";
@@ -120,8 +114,6 @@ std::string GetOutputExtension(const SlangCompileJob& job)
             return ".spv";
         case BackendType::Metal:
             return job.m_MetalCodeFormat == MetalCodeFormat::Metallib ? ".metallib" : ".metal";
-        case BackendType::OpenGL:
-            return ".glsl";
     }
 
     return ".bin";
@@ -136,7 +128,6 @@ std::string GetBackendEntryPointName(const SlangCompileJob& job)
             // even when the source entry function has a different identifier.
             return "main";
         case BackendType::Metal:
-        case BackendType::OpenGL:
             return job.m_EntryPoint;
     }
 

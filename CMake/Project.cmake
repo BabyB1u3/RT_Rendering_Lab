@@ -63,7 +63,6 @@ option(GLAB_BUILD_IMGUI_DEMO "Build Dear ImGui demo translation unit" OFF)
 # Backend selection
 # -----------------------------------------------------------------------------
 set(GLAB_SUPPORTED_BACKENDS
-    OpenGL
     Metal
     Vulkan
 )
@@ -87,13 +86,10 @@ if(NOT GLAB_GRAPHICS_BACKEND IN_LIST GLAB_SUPPORTED_BACKENDS)
     )
 endif()
 
-set(GLAB_BACKEND_OPENGL OFF)
 set(GLAB_BACKEND_METAL OFF)
 set(GLAB_BACKEND_VULKAN OFF)
 
-if(GLAB_GRAPHICS_BACKEND STREQUAL "OpenGL")
-    set(GLAB_BACKEND_OPENGL ON)
-elseif(GLAB_GRAPHICS_BACKEND STREQUAL "Metal")
+if(GLAB_GRAPHICS_BACKEND STREQUAL "Metal")
     if(NOT APPLE)
         message(FATAL_ERROR "GLAB_GRAPHICS_BACKEND=Metal is only supported on Apple platforms")
     endif()

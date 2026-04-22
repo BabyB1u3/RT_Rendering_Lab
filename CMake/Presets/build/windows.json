@@ -9,10 +9,6 @@
       "configurePreset": "windows-debug"
     },
     {
-      "name": "build-windows-opengl-debug",
-      "configurePreset": "windows-opengl-debug"
-    },
-    {
       "name": "build-windows-relwithdebinfo",
       "configurePreset": "windows-relwithdebinfo"
     },
@@ -41,10 +37,6 @@
     {
       "name": "build-ci-windows-debug",
       "configurePreset": "ci-windows-debug"
-    },
-    {
-      "name": "build-ci-windows-opengl-debug",
-      "configurePreset": "ci-windows-opengl-debug"
     },
     {
       "name": "build-ci-windows-release",

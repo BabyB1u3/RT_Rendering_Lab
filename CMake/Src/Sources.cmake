@@ -215,14 +215,6 @@ set(GLAB_RENDER_BACKEND_METAL_HEADERS
     Render/RHI/Backends/Metal/MetalDevice.h
 )
 
-set(GLAB_RENDER_BACKEND_OPENGL_SOURCES
-    Render/RHI/Backends/OpenGL/OpenGLDevice.cpp
-)
-
-set(GLAB_RENDER_BACKEND_OPENGL_HEADERS
-    Render/RHI/Backends/OpenGL/OpenGLDevice.h
-)
-
 if(GLAB_BACKEND_VULKAN)
     list(APPEND GLAB_RENDER_SOURCES
         ${GLAB_RENDER_BACKEND_VULKAN_SOURCES}
@@ -240,16 +232,6 @@ if(GLAB_BACKEND_METAL)
 
     list(APPEND GLAB_RENDER_HEADERS
         ${GLAB_RENDER_BACKEND_METAL_HEADERS}
-    )
-endif()
-
-if(GLAB_BACKEND_OPENGL)
-    list(APPEND GLAB_RENDER_SOURCES
-        ${GLAB_RENDER_BACKEND_OPENGL_SOURCES}
-    )
-
-    list(APPEND GLAB_RENDER_HEADERS
-        ${GLAB_RENDER_BACKEND_OPENGL_HEADERS}
     )
 endif()
 
@@ -315,13 +297,6 @@ endif()
 if(UNIX AND NOT APPLE)
     list(APPEND GLAB_CORE_SKIP_UNITY_SOURCES
         Core/App/Window/Native/Linux/LinuxNativeWindow.cpp
-    )
-endif()
-
-if(GLAB_BACKEND_OPENGL)
-    list(APPEND GLAB_CORE_SKIP_UNITY_SOURCES
-        Core/App/Application.cpp
-        Core/Input/Input.cpp
     )
 endif()
 
