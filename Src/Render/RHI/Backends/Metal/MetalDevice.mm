@@ -1,7 +1,10 @@
 #include "Render/RHI/Backends/Metal/MetalDevice.h"
 
 #include <algorithm>
+#include <array>
+#include <cctype>
 #include <cstring>
+#include <limits>
 #include <string>
 
 #import <Foundation/Foundation.h>
@@ -265,66 +268,467 @@ NSString* MakeNSString(const std::vector<uint8_t>& utf8Bytes)
                                    encoding:NSUTF8StringEncoding] autorelease];
 }
 
-enum class MetalBindingClass
-{
-    Buffer,
-    Texture,
-    Sampler,
-};
-
-struct MetalStageSlotAssignment
-{
-    ShaderStage m_Stage = ShaderStage::None;
-    uint32_t m_Slot = 0;
-};
-
 struct MetalBindingPlanEntry
 {
+    std::string m_Name;
     uint32_t m_Binding = 0;
     ResourceKind m_Kind = ResourceKind::UniformBuffer;
-    std::vector<MetalStageSlotAssignment> m_Slots;
+};
+
+struct MetalStageBindingPlan
+{
+    ShaderStage m_Stage = ShaderStage::None;
+    uint32_t m_ArgumentBufferSlot = 0;
+    std::vector<MetalBindingPlanEntry> m_Entries;
 };
 
 struct MetalSetBindingPlan
 {
     uint32_t m_SetIndex = 0;
-    std::vector<MetalBindingPlanEntry> m_Entries;
+    std::vector<MetalStageBindingPlan> m_StagePlans;
 };
 
-MetalBindingClass ToMetalBindingClass(ResourceKind kind)
-{
-    switch (kind)
-    {
-        case ResourceKind::UniformBuffer:
-        case ResourceKind::StorageBuffer:
-            return MetalBindingClass::Buffer;
-        case ResourceKind::SampledTexture:
-        case ResourceKind::StorageTexture:
-            return MetalBindingClass::Texture;
-        case ResourceKind::Sampler:
-            return MetalBindingClass::Sampler;
-    }
-
-    return MetalBindingClass::Buffer;
-}
+std::vector<MetalSetBindingPlan> BuildMetalSetBindingPlans(const PipelineLayoutDesc& desc);
 
 bool StageMaskContains(ShaderStage mask, ShaderStage stage)
 {
     return static_cast<uint32_t>(mask & stage) != 0;
 }
 
-std::vector<MetalSetBindingPlan> BuildMetalSetBindingPlans(const PipelineLayoutDesc& desc)
+bool IsMetalIdentifierChar(const char ch)
 {
-    struct StageCounters
+    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_';
+}
+
+std::string_view TrimAsciiWhitespace(const std::string_view text)
+{
+    size_t begin = 0;
+    size_t end = text.size();
+    while (begin < end && std::isspace(static_cast<unsigned char>(text[begin])) != 0)
+        ++begin;
+    while (end > begin && std::isspace(static_cast<unsigned char>(text[end - 1])) != 0)
+        --end;
+    return text.substr(begin, end - begin);
+}
+
+size_t FindMatchingDelimiter(const std::string_view text, size_t openIndex, const char openChar, const char closeChar)
+{
+    RTRLAB_ASSERT_MSG(openIndex < text.size() && text[openIndex] == openChar,
+                      "FindMatchingDelimiter requires a valid opening delimiter.");
+    uint32_t depth = 0;
+    for (size_t index = openIndex; index < text.size(); ++index)
     {
-        uint32_t m_Buffer = 0;
-        uint32_t m_Texture = 0;
-        uint32_t m_Sampler = 0;
+        if (text[index] == openChar)
+        {
+            ++depth;
+        }
+        else if (text[index] == closeChar)
+        {
+            RTRLAB_ASSERT_MSG(depth > 0, "FindMatchingDelimiter encountered an unmatched closing delimiter.");
+            --depth;
+            if (depth == 0)
+                return index;
+        }
+    }
+
+    RTRLAB_ASSERT_MSG(false, "FindMatchingDelimiter failed to locate a matching closing delimiter.");
+    return std::string_view::npos;
+}
+
+std::vector<std::string_view> SplitTopLevelCommaSeparated(const std::string_view text)
+{
+    std::vector<std::string_view> parts;
+    size_t elementStart = 0;
+    int parenDepth = 0;
+    int angleDepth = 0;
+    int squareDepth = 0;
+    for (size_t index = 0; index < text.size(); ++index)
+    {
+        const char ch = text[index];
+        switch (ch)
+        {
+            case '(':
+                ++parenDepth;
+                break;
+            case ')':
+                --parenDepth;
+                break;
+            case '<':
+                ++angleDepth;
+                break;
+            case '>':
+                --angleDepth;
+                break;
+            case '[':
+                ++squareDepth;
+                break;
+            case ']':
+                --squareDepth;
+                break;
+            case ',':
+                if (parenDepth == 0 && angleDepth == 0 && squareDepth == 0)
+                {
+                    parts.push_back(TrimAsciiWhitespace(text.substr(elementStart, index - elementStart)));
+                    elementStart = index + 1;
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    const std::string_view tail = TrimAsciiWhitespace(text.substr(elementStart));
+    if (!tail.empty())
+        parts.push_back(tail);
+    return parts;
+}
+
+bool IsResourceAttributeName(std::string_view attributeName)
+{
+    return attributeName == "buffer" || attributeName == "texture" || attributeName == "sampler";
+}
+
+std::string ExtractTrailingIdentifier(const std::string_view declaration)
+{
+    size_t end = declaration.size();
+    while (end > 0 && std::isspace(static_cast<unsigned char>(declaration[end - 1])) != 0)
+        --end;
+
+    size_t begin = end;
+    while (begin > 0 && IsMetalIdentifierChar(declaration[begin - 1]))
+        --begin;
+
+    return begin < end ? std::string(declaration.substr(begin, end - begin)) : std::string{};
+}
+
+bool MatchesReflectedBindingName(std::string_view metalVariableName, std::string_view reflectedName)
+{
+    if (metalVariableName == reflectedName)
+        return true;
+    return metalVariableName.size() > reflectedName.size() &&
+           metalVariableName.substr(0, reflectedName.size()) == reflectedName &&
+           metalVariableName[reflectedName.size()] == '_';
+}
+
+struct ParsedMetalParameter
+{
+    std::string m_DeclarationText;
+    std::string m_VariableName;
+    std::string m_AttributeName;
+};
+
+bool ParseMetalResourceParameter(std::string_view parameterText, ParsedMetalParameter* outParameter)
+{
+    if (outParameter == nullptr)
+        return false;
+
+    parameterText = TrimAsciiWhitespace(parameterText);
+    const size_t attributeBegin = parameterText.rfind("[[");
+    const size_t attributeEnd = parameterText.rfind("]]");
+    if (attributeBegin == std::string_view::npos || attributeEnd == std::string_view::npos || attributeEnd < attributeBegin)
+        return false;
+
+    const std::string_view declarationText = TrimAsciiWhitespace(parameterText.substr(0, attributeBegin));
+    const std::string_view attributeText =
+        TrimAsciiWhitespace(parameterText.substr(attributeBegin + 2, attributeEnd - (attributeBegin + 2)));
+    const size_t parenBegin = attributeText.find('(');
+    if (parenBegin == std::string_view::npos)
+        return false;
+
+    const std::string_view attributeName = TrimAsciiWhitespace(attributeText.substr(0, parenBegin));
+    if (!IsResourceAttributeName(attributeName))
+        return false;
+
+    ParsedMetalParameter parameter;
+    parameter.m_DeclarationText = std::string(declarationText);
+    parameter.m_VariableName = ExtractTrailingIdentifier(declarationText);
+    parameter.m_AttributeName = std::string(attributeName);
+    if (parameter.m_DeclarationText.empty() || parameter.m_VariableName.empty())
+        return false;
+
+    *outParameter = std::move(parameter);
+    return true;
+}
+
+void ReplaceIdentifierInText(std::string& text, std::string_view identifier, std::string_view replacement)
+{
+    if (identifier.empty())
+        return;
+
+    size_t searchOffset = 0;
+    while ((searchOffset = text.find(identifier, searchOffset)) != std::string::npos)
+    {
+        const size_t nameBegin = searchOffset;
+        const size_t nameEnd = nameBegin + identifier.size();
+        const bool validLeadingBoundary = nameBegin == 0 || !IsMetalIdentifierChar(text[nameBegin - 1]);
+        const bool validTrailingBoundary = nameEnd >= text.size() || !IsMetalIdentifierChar(text[nameEnd]);
+        if (!validLeadingBoundary || !validTrailingBoundary)
+        {
+            searchOffset = nameEnd;
+            continue;
+        }
+
+        text.replace(nameBegin, identifier.size(), replacement);
+        searchOffset = nameBegin + replacement.size();
+    }
+}
+
+std::string GetMetalArgumentBufferStructName(uint32_t setIndex, ShaderStage stage)
+{
+    switch (stage)
+    {
+        case ShaderStage::Vertex:
+            return "__RTRMetalSet" + std::to_string(setIndex) + "_VertexArgs";
+        case ShaderStage::Fragment:
+            return "__RTRMetalSet" + std::to_string(setIndex) + "_FragmentArgs";
+        case ShaderStage::Compute:
+            return "__RTRMetalSet" + std::to_string(setIndex) + "_ComputeArgs";
+        default:
+            break;
+    }
+
+    return "__RTRMetalSet" + std::to_string(setIndex) + "_Args";
+}
+
+std::string GetMetalArgumentBufferParameterName(uint32_t setIndex)
+{
+    return "__rtr_set_" + std::to_string(setIndex);
+}
+
+const MetalStageBindingPlan* FindStageBindingPlan(const MetalSetBindingPlan& setPlan, ShaderStage stage)
+{
+    const auto it = std::find_if(setPlan.m_StagePlans.begin(),
+                                 setPlan.m_StagePlans.end(),
+                                 [stage](const MetalStageBindingPlan& stagePlan) { return stagePlan.m_Stage == stage; });
+    return it != setPlan.m_StagePlans.end() ? &(*it) : nullptr;
+}
+
+const MetalBindingPlanEntry* FindBindingPlanEntryForVariable(const MetalStageBindingPlan& stagePlan,
+                                                             std::string_view variableName)
+{
+    const auto it =
+        std::find_if(stagePlan.m_Entries.begin(),
+                     stagePlan.m_Entries.end(),
+                     [variableName](const MetalBindingPlanEntry& entry)
+                     { return MatchesReflectedBindingName(variableName, entry.m_Name); });
+    return it != stagePlan.m_Entries.end() ? &(*it) : nullptr;
+}
+
+std::string RewriteMetalShaderSourceForArgumentBuffers(const CompiledShaderProgramDesc& desc,
+                                                       const CompiledShaderBlob& blob,
+                                                       const std::string_view sourceText,
+                                                       std::vector<MetalSetBindingPlan>* outUsedSetPlans = nullptr)
+{
+    if (blob.m_Backend != BackendType::Metal || blob.m_Stage == ShaderStage::None || sourceText.empty() ||
+        blob.m_EntryPoint.empty())
+    {
+        return std::string(sourceText);
+    }
+
+    const PipelineLayoutDesc pipelineLayoutDesc = RHIInternal::BuildPipelineLayoutDescFromReflection(desc.m_Reflection);
+    const std::vector<MetalSetBindingPlan> bindingPlans = BuildMetalSetBindingPlans(pipelineLayoutDesc);
+
+    const std::string entryPointSignature = blob.m_EntryPoint + "(";
+    const size_t entryPointNamePos = sourceText.find(entryPointSignature);
+    RTRLAB_ASSERT_MSG(entryPointNamePos != std::string_view::npos,
+                      "Metal shader source rewrite failed to locate the entry-point name.");
+    const size_t functionStart = sourceText.rfind('\n', entryPointNamePos) == std::string_view::npos
+                                     ? 0
+                                     : sourceText.rfind('\n', entryPointNamePos) + 1;
+    const size_t openParen = sourceText.find('(', entryPointNamePos);
+    RTRLAB_ASSERT_MSG(openParen != std::string_view::npos,
+                      "Metal shader source rewrite failed to locate the entry-point parameter list.");
+    const size_t closeParen = FindMatchingDelimiter(sourceText, openParen, '(', ')');
+    const size_t openBrace = sourceText.find('{', closeParen);
+    RTRLAB_ASSERT_MSG(openBrace != std::string_view::npos,
+                      "Metal shader source rewrite failed to locate the entry-point body.");
+    const size_t closeBrace = FindMatchingDelimiter(sourceText, openBrace, '{', '}');
+
+    const std::string_view parameterListText = sourceText.substr(openParen + 1, closeParen - openParen - 1);
+    const std::vector<std::string_view> originalParameters = SplitTopLevelCommaSeparated(parameterListText);
+
+    struct StageSetRewrite
+    {
+        uint32_t m_SetIndex = 0;
+        uint32_t m_ArgumentBufferSlot = 0;
+        std::vector<std::string> m_MemberDeclarations;
+        std::vector<std::pair<std::string, std::string>> m_BodyReplacements;
+        std::vector<MetalBindingPlanEntry> m_Entries;
     };
 
-    StageCounters vertexCounters;
-    StageCounters fragmentCounters;
-    StageCounters computeCounters;
+    std::vector<StageSetRewrite> setRewrites;
+    std::vector<std::string> rewrittenParameters;
+
+    auto findOrAddSetRewrite =
+        [&setRewrites](uint32_t setIndex, uint32_t slot) -> StageSetRewrite&
+        {
+            const auto it =
+                std::find_if(setRewrites.begin(),
+                             setRewrites.end(),
+                             [setIndex](const StageSetRewrite& rewrite) { return rewrite.m_SetIndex == setIndex; });
+            if (it != setRewrites.end())
+                return *it;
+
+            setRewrites.push_back({});
+            setRewrites.back().m_SetIndex = setIndex;
+            setRewrites.back().m_ArgumentBufferSlot = slot;
+            return setRewrites.back();
+        };
+
+    for (std::string_view parameterText : originalParameters)
+    {
+        ParsedMetalParameter parsedParameter;
+        if (!ParseMetalResourceParameter(parameterText, &parsedParameter))
+        {
+            rewrittenParameters.push_back(std::string(TrimAsciiWhitespace(parameterText)));
+            continue;
+        }
+
+        bool matchedSet = false;
+        for (const MetalSetBindingPlan& setPlan : bindingPlans)
+        {
+            const MetalStageBindingPlan* stagePlan = FindStageBindingPlan(setPlan, blob.m_Stage);
+            if (stagePlan == nullptr)
+                continue;
+
+            const MetalBindingPlanEntry* entry = FindBindingPlanEntryForVariable(*stagePlan, parsedParameter.m_VariableName);
+            if (entry == nullptr)
+                continue;
+
+            StageSetRewrite& setRewrite = findOrAddSetRewrite(setPlan.m_SetIndex, stagePlan->m_ArgumentBufferSlot);
+            const std::string memberDeclaration =
+                parsedParameter.m_DeclarationText + " [[id(" + std::to_string(entry->m_Binding) + ")]];";
+            const bool alreadyAddedMember =
+                std::find(setRewrite.m_MemberDeclarations.begin(),
+                          setRewrite.m_MemberDeclarations.end(),
+                          memberDeclaration) != setRewrite.m_MemberDeclarations.end();
+            if (!alreadyAddedMember)
+            {
+                if (setRewrite.m_MemberDeclarations.empty())
+                {
+                    const std::string structName = GetMetalArgumentBufferStructName(setPlan.m_SetIndex, blob.m_Stage);
+                    const std::string parameterName = GetMetalArgumentBufferParameterName(setPlan.m_SetIndex);
+                    rewrittenParameters.push_back("constant " + structName + "& " + parameterName + " [[buffer(" +
+                                                  std::to_string(stagePlan->m_ArgumentBufferSlot) + ")]]");
+                }
+                setRewrite.m_MemberDeclarations.push_back(memberDeclaration);
+                setRewrite.m_Entries.push_back(*entry);
+            }
+
+            setRewrite.m_BodyReplacements.push_back(
+                {parsedParameter.m_VariableName,
+                 GetMetalArgumentBufferParameterName(setPlan.m_SetIndex) + "." + parsedParameter.m_VariableName});
+            matchedSet = true;
+            break;
+        }
+
+        RTRLAB_ASSERT_MSG(matchedSet, "Metal shader source rewrite failed to map a resource parameter to a set plan.");
+    }
+
+    if (setRewrites.empty())
+        return std::string(sourceText);
+
+    std::sort(setRewrites.begin(),
+              setRewrites.end(),
+              [](const StageSetRewrite& lhs, const StageSetRewrite& rhs) { return lhs.m_SetIndex < rhs.m_SetIndex; });
+
+    if (outUsedSetPlans != nullptr)
+    {
+        outUsedSetPlans->clear();
+        outUsedSetPlans->reserve(setRewrites.size());
+        for (const StageSetRewrite& setRewrite : setRewrites)
+        {
+            MetalSetBindingPlan usedPlan;
+            usedPlan.m_SetIndex = setRewrite.m_SetIndex;
+            MetalStageBindingPlan usedStagePlan;
+            usedStagePlan.m_Stage = blob.m_Stage;
+            usedStagePlan.m_ArgumentBufferSlot = setRewrite.m_ArgumentBufferSlot;
+            usedStagePlan.m_Entries = setRewrite.m_Entries;
+            usedPlan.m_StagePlans.push_back(std::move(usedStagePlan));
+            outUsedSetPlans->push_back(std::move(usedPlan));
+        }
+    }
+
+    std::string generatedStructs;
+    for (const StageSetRewrite& setRewrite : setRewrites)
+    {
+        generatedStructs += "struct " + GetMetalArgumentBufferStructName(setRewrite.m_SetIndex, blob.m_Stage) + "\n{\n";
+        for (const std::string& member : setRewrite.m_MemberDeclarations)
+            generatedStructs += "    " + member + "\n";
+        generatedStructs += "};\n\n";
+    }
+
+    std::string rewrittenBody(sourceText.substr(openBrace, closeBrace - openBrace + 1));
+    for (const StageSetRewrite& setRewrite : setRewrites)
+    {
+        for (const auto& replacement : setRewrite.m_BodyReplacements)
+            ReplaceIdentifierInText(rewrittenBody, replacement.first, replacement.second);
+    }
+
+    std::string rewrittenHeader(sourceText.substr(functionStart, openParen - functionStart));
+    rewrittenHeader.push_back('(');
+    for (size_t index = 0; index < rewrittenParameters.size(); ++index)
+    {
+        if (index > 0)
+            rewrittenHeader += ", ";
+        rewrittenHeader += rewrittenParameters[index];
+    }
+    rewrittenHeader.push_back(')');
+
+    std::string rewrittenSource;
+    rewrittenSource.reserve(sourceText.size() + generatedStructs.size() + 128);
+    rewrittenSource.append(sourceText.substr(0, functionStart));
+    rewrittenSource.append(generatedStructs);
+    rewrittenSource.append(rewrittenHeader);
+    rewrittenSource.append(rewrittenBody);
+    rewrittenSource.append(sourceText.substr(closeBrace + 1));
+    return rewrittenSource;
+}
+
+void MergeUsedMetalSetBindingPlans(std::vector<MetalSetBindingPlan>* destination, std::vector<MetalSetBindingPlan> source)
+{
+    if (destination == nullptr)
+        return;
+
+    for (MetalSetBindingPlan& candidate : source)
+    {
+        const auto existingSetIt =
+            std::find_if(destination->begin(),
+                         destination->end(),
+                         [setIndex = candidate.m_SetIndex](const MetalSetBindingPlan& existing)
+                         { return existing.m_SetIndex == setIndex; });
+        if (existingSetIt == destination->end())
+        {
+            destination->push_back(std::move(candidate));
+            continue;
+        }
+
+        for (MetalStageBindingPlan& candidateStage : candidate.m_StagePlans)
+        {
+            const auto existingStageIt = std::find_if(
+                existingSetIt->m_StagePlans.begin(),
+                existingSetIt->m_StagePlans.end(),
+                [stage = candidateStage.m_Stage](const MetalStageBindingPlan& existingStage)
+                { return existingStage.m_Stage == stage; });
+            if (existingStageIt == existingSetIt->m_StagePlans.end())
+            {
+                existingSetIt->m_StagePlans.push_back(std::move(candidateStage));
+                continue;
+            }
+
+            existingStageIt->m_ArgumentBufferSlot = candidateStage.m_ArgumentBufferSlot;
+            existingStageIt->m_Entries = std::move(candidateStage.m_Entries);
+        }
+    }
+
+    std::sort(destination->begin(),
+              destination->end(),
+              [](const MetalSetBindingPlan& lhs, const MetalSetBindingPlan& rhs)
+              { return lhs.m_SetIndex < rhs.m_SetIndex; });
+}
+
+std::vector<MetalSetBindingPlan> BuildMetalSetBindingPlans(const PipelineLayoutDesc& desc)
+{
     std::vector<MetalSetBindingPlan> plans;
 
     auto findOrAddPlan = [&plans](uint32_t setIndex) -> MetalSetBindingPlan*
@@ -341,43 +745,73 @@ std::vector<MetalSetBindingPlan> BuildMetalSetBindingPlans(const PipelineLayoutD
         return &plans.back();
     };
 
-    auto assignSlot = [](StageCounters& counters, MetalBindingClass bindingClass) -> uint32_t
+    auto findOrAddStagePlan = [](MetalSetBindingPlan& setPlan, ShaderStage stage, uint32_t slot) -> MetalStageBindingPlan&
     {
-        switch (bindingClass)
-        {
-            case MetalBindingClass::Buffer:
-                return counters.m_Buffer++;
-            case MetalBindingClass::Texture:
-                return counters.m_Texture++;
-            case MetalBindingClass::Sampler:
-                return counters.m_Sampler++;
-        }
+        const auto it = std::find_if(
+            setPlan.m_StagePlans.begin(),
+            setPlan.m_StagePlans.end(),
+            [stage](const MetalStageBindingPlan& stagePlan) { return stagePlan.m_Stage == stage; });
+        if (it != setPlan.m_StagePlans.end())
+            return *it;
 
-        return counters.m_Buffer++;
+        setPlan.m_StagePlans.push_back({});
+        setPlan.m_StagePlans.back().m_Stage = stage;
+        setPlan.m_StagePlans.back().m_ArgumentBufferSlot = slot;
+        return setPlan.m_StagePlans.back();
     };
 
+    uint32_t vertexSlotCounter = 0;
+    uint32_t fragmentSlotCounter = 0;
+    uint32_t computeSlotCounter = 0;
     for (const BindingInfo& binding : desc.m_Bindings)
     {
+        MetalSetBindingPlan* setPlan = findOrAddPlan(binding.m_SetIndex);
+
         MetalBindingPlanEntry entry;
+        entry.m_Name = binding.m_Name;
         entry.m_Binding = binding.m_Binding;
         entry.m_Kind = binding.m_Kind;
 
-        const MetalBindingClass bindingClass = ToMetalBindingClass(binding.m_Kind);
         if (StageMaskContains(binding.m_StageMask, ShaderStage::Vertex))
-            entry.m_Slots.push_back({ShaderStage::Vertex, assignSlot(vertexCounters, bindingClass)});
+            findOrAddStagePlan(*setPlan, ShaderStage::Vertex, vertexSlotCounter).m_Entries.push_back(entry);
         if (StageMaskContains(binding.m_StageMask, ShaderStage::Fragment))
-            entry.m_Slots.push_back({ShaderStage::Fragment, assignSlot(fragmentCounters, bindingClass)});
+            findOrAddStagePlan(*setPlan, ShaderStage::Fragment, fragmentSlotCounter).m_Entries.push_back(entry);
         if (StageMaskContains(binding.m_StageMask, ShaderStage::Compute))
-            entry.m_Slots.push_back({ShaderStage::Compute, assignSlot(computeCounters, bindingClass)});
-
-        MetalSetBindingPlan* plan = findOrAddPlan(binding.m_SetIndex);
-        plan->m_Entries.push_back(std::move(entry));
+            findOrAddStagePlan(*setPlan, ShaderStage::Compute, computeSlotCounter).m_Entries.push_back(entry);
     }
 
-    std::sort(plans.begin(),
-              plans.end(),
-              [](const MetalSetBindingPlan& lhs, const MetalSetBindingPlan& rhs)
-              { return lhs.m_SetIndex < rhs.m_SetIndex; });
+    for (MetalSetBindingPlan& setPlan : plans)
+    {
+        std::sort(setPlan.m_StagePlans.begin(),
+                  setPlan.m_StagePlans.end(),
+                  [](const MetalStageBindingPlan& lhs, const MetalStageBindingPlan& rhs)
+                  { return static_cast<uint32_t>(lhs.m_Stage) < static_cast<uint32_t>(rhs.m_Stage); });
+    }
+
+    uint32_t assignedVertexSets = 0;
+    uint32_t assignedFragmentSets = 0;
+    uint32_t assignedComputeSets = 0;
+    for (MetalSetBindingPlan& setPlan : plans)
+    {
+        for (MetalStageBindingPlan& stagePlan : setPlan.m_StagePlans)
+        {
+            switch (stagePlan.m_Stage)
+            {
+                case ShaderStage::Vertex:
+                    stagePlan.m_ArgumentBufferSlot = assignedVertexSets++;
+                    break;
+                case ShaderStage::Fragment:
+                    stagePlan.m_ArgumentBufferSlot = assignedFragmentSets++;
+                    break;
+                case ShaderStage::Compute:
+                    stagePlan.m_ArgumentBufferSlot = assignedComputeSets++;
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
     return plans;
 }
 
@@ -388,20 +822,12 @@ uint32_t ComputeVertexBufferSlotBase(const std::vector<MetalSetBindingPlan>& pla
 
     for (const MetalSetBindingPlan& plan : plans)
     {
-        for (const MetalBindingPlanEntry& entry : plan.m_Entries)
-        {
-            if (ToMetalBindingClass(entry.m_Kind) != MetalBindingClass::Buffer)
-                continue;
+        const MetalStageBindingPlan* stagePlan = FindStageBindingPlan(plan, ShaderStage::Vertex);
+        if (stagePlan == nullptr)
+            continue;
 
-            for (const MetalStageSlotAssignment& slot : entry.m_Slots)
-            {
-                if (slot.m_Stage != ShaderStage::Vertex)
-                    continue;
-
-                maxVertexResourceSlot = std::max(maxVertexResourceSlot, slot.m_Slot);
-                sawVertexResource = true;
-            }
-        }
+        maxVertexResourceSlot = std::max(maxVertexResourceSlot, stagePlan->m_ArgumentBufferSlot);
+        sawVertexResource = true;
     }
 
     return sawVertexResource ? maxVertexResourceSlot + 1u : 0u;
@@ -536,8 +962,10 @@ public:
         id<MTLFunction> m_Function = nil;
     };
 
-    MetalShaderProgram(const CompiledShaderProgramDesc& desc, std::vector<StageFunction>&& functions)
-        : m_Reflection(desc.m_Reflection), m_Functions(std::move(functions))
+    MetalShaderProgram(const CompiledShaderProgramDesc& desc,
+                       std::vector<StageFunction>&& functions,
+                       std::vector<MetalSetBindingPlan>&& setBindingPlans)
+        : m_Reflection(desc.m_Reflection), m_Functions(std::move(functions)), m_SetBindingPlans(std::move(setBindingPlans))
     {
     }
 
@@ -564,9 +992,22 @@ public:
         return it != m_Functions.end() ? it->m_Function : nil;
     }
 
+    const MetalStageBindingPlan* FindStageBindingPlan(uint32_t setIndex, ShaderStage stage) const
+    {
+        const auto setIt = std::find_if(m_SetBindingPlans.begin(),
+                                        m_SetBindingPlans.end(),
+                                        [setIndex](const MetalSetBindingPlan& plan) { return plan.m_SetIndex == setIndex; });
+        if (setIt == m_SetBindingPlans.end())
+            return nullptr;
+        return ::FindStageBindingPlan(*setIt, stage);
+    }
+
+    const std::vector<MetalSetBindingPlan>& GetSetBindingPlans() const { return m_SetBindingPlans; }
+
 private:
     ShaderReflectionData m_Reflection;
     std::vector<StageFunction> m_Functions;
+    std::vector<MetalSetBindingPlan> m_SetBindingPlans;
 };
 
 class MetalPipelineLayout final : public PipelineLayout
@@ -593,12 +1034,28 @@ public:
         return *it;
     }
 
+    const MetalStageBindingPlan* FindStageBindingPlan(uint32_t setIndex, ShaderStage stage) const
+    {
+        const MetalSetBindingPlan& setPlan = GetSetBindingPlan(setIndex);
+        return ::FindStageBindingPlan(setPlan, stage);
+    }
+
+    const std::vector<MetalSetBindingPlan>& GetSetBindingPlans() const { return m_SetBindingPlans; }
+
     uint32_t GetVertexBufferSlotBase() const { return m_VertexBufferSlotBase; }
 
 private:
     PipelineLayoutDesc m_Desc;
     std::vector<MetalSetBindingPlan> m_SetBindingPlans;
     uint32_t m_VertexBufferSlotBase = 0;
+};
+
+struct MetalStageArgumentEncoderEntry
+{
+    uint32_t m_SetIndex = 0;
+    ShaderStage m_Stage = ShaderStage::None;
+    uint32_t m_Slot = 0;
+    id<MTLArgumentEncoder> m_Encoder = nil;
 };
 
 class MetalResourceSet final : public ResourceSet
@@ -617,6 +1074,15 @@ public:
 
     ~MetalResourceSet() override
     {
+        for (StageArgumentBufferCache& cache : m_StageCaches)
+        {
+            if (cache.m_ArgumentBuffer != nil)
+            {
+                [cache.m_ArgumentBuffer release];
+                cache.m_ArgumentBuffer = nil;
+            }
+        }
+
         if (m_ConstantBuffer != nil)
         {
             [m_ConstantBuffer release];
@@ -678,28 +1144,32 @@ public:
 
     uint32_t GetVersion() const override { return m_Version; }
 
-    bool HasConstantBuffer() const { return m_ConstantBuffer != nil; }
-    id<MTLBuffer> GetConstantBuffer() const { return m_ConstantBuffer; }
-
-    const BufferBinding* FindBufferBinding(uint32_t binding) const
+    id<MTLBuffer> GetEncodedArgumentBuffer(const MetalStageBindingPlan& stagePlan, id<MTLArgumentEncoder> argumentEncoder)
     {
-        const auto it = m_BufferBindings.find(binding);
-        return it != m_BufferBindings.end() ? &it->second : nullptr;
-    }
+        RTRLAB_ASSERT_MSG(argumentEncoder != nil, "Metal argument-buffer encoding requires a valid encoder.");
+        StageArgumentBufferCache& cache = GetStageCache(stagePlan.m_Stage);
+        const NSUInteger requiredLength = std::max<NSUInteger>([argumentEncoder encodedLength], 1u);
+        EnsureArgumentBufferCapacity(cache, requiredLength);
+        if (cache.m_ArgumentBuffer == nil)
+            return nil;
 
-    const TextureBinding* FindTextureBinding(uint32_t binding) const
-    {
-        const auto it = m_TextureBindings.find(binding);
-        return it != m_TextureBindings.end() ? &it->second : nullptr;
-    }
+        if (cache.m_EncodedVersion == m_Version)
+            return cache.m_ArgumentBuffer;
 
-    const SamplerBinding* FindSamplerBinding(uint32_t binding) const
-    {
-        const auto it = m_SamplerBindings.find(binding);
-        return it != m_SamplerBindings.end() ? &it->second : nullptr;
+        [argumentEncoder setArgumentBuffer:cache.m_ArgumentBuffer offset:0];
+        EncodeStageArgumentBuffer(stagePlan, argumentEncoder);
+        cache.m_EncodedVersion = m_Version;
+        return cache.m_ArgumentBuffer;
     }
 
 private:
+    struct StageArgumentBufferCache
+    {
+        ShaderStage m_Stage = ShaderStage::None;
+        id<MTLBuffer> m_ArgumentBuffer = nil;
+        uint32_t m_EncodedVersion = std::numeric_limits<uint32_t>::max();
+    };
+
     const BindingInfo& RequireBindingInfo(uint32_t binding, ResourceKind kind) const
     {
         RTRLAB_ASSERT_MSG(m_Layout != nullptr, "Metal ResourceSet binding validation requires a valid PipelineLayout.");
@@ -743,6 +1213,101 @@ private:
         m_ConstantBuffer = newBuffer;
     }
 
+    StageArgumentBufferCache& GetStageCache(ShaderStage stage)
+    {
+        for (StageArgumentBufferCache& cache : m_StageCaches)
+        {
+            if (cache.m_Stage == stage)
+                return cache;
+        }
+
+        RTRLAB_ASSERT_MSG(false, "Metal ResourceSet encountered an unsupported shader stage cache.");
+        return m_StageCaches[0];
+    }
+
+    void EnsureArgumentBufferCapacity(StageArgumentBufferCache& cache, NSUInteger requiredLength)
+    {
+        if (cache.m_ArgumentBuffer != nil && [cache.m_ArgumentBuffer length] >= requiredLength)
+            return;
+
+        id<MTLBuffer> newBuffer = [m_Device newBufferWithLength:requiredLength
+                                                        options:ToMetalBufferResourceOptions(MemoryUsage::CpuToGpu)];
+        RTRLAB_ASSERT_MSG(newBuffer != nil, "Failed to allocate the Metal ResourceSet argument buffer.");
+        if (cache.m_ArgumentBuffer != nil)
+            [cache.m_ArgumentBuffer release];
+        cache.m_ArgumentBuffer = newBuffer;
+        cache.m_EncodedVersion = std::numeric_limits<uint32_t>::max();
+    }
+
+    void EncodeStageArgumentBuffer(const MetalStageBindingPlan& stagePlan, id<MTLArgumentEncoder> argumentEncoder)
+    {
+        for (const MetalBindingPlanEntry& entry : stagePlan.m_Entries)
+        {
+            switch (entry.m_Kind)
+            {
+                case ResourceKind::UniformBuffer:
+                    [argumentEncoder setBuffer:m_ConstantBuffer offset:0 atIndex:entry.m_Binding];
+                    break;
+                case ResourceKind::StorageBuffer:
+                {
+                    const auto it = m_BufferBindings.find(entry.m_Binding);
+                    const BufferBinding* bufferBinding = it != m_BufferBindings.end() ? &it->second : nullptr;
+                    id<MTLBuffer> buffer = nil;
+                    NSUInteger offset = 0;
+                    if (bufferBinding != nullptr && bufferBinding->m_Buffer != nullptr)
+                    {
+                        auto* metalBuffer = dynamic_cast<MetalBuffer*>(bufferBinding->m_Buffer);
+                        RTRLAB_ASSERT_MSG(metalBuffer != nullptr, "Buffer is not owned by the Metal backend.");
+                        buffer = metalBuffer->GetMetalBuffer();
+                        offset = static_cast<NSUInteger>(bufferBinding->m_Offset);
+                    }
+                    [argumentEncoder setBuffer:buffer offset:offset atIndex:entry.m_Binding];
+                    break;
+                }
+                case ResourceKind::SampledTexture:
+                case ResourceKind::StorageTexture:
+                {
+                    const auto it = m_TextureBindings.find(entry.m_Binding);
+                    const TextureBinding* textureBinding = it != m_TextureBindings.end() ? &it->second : nullptr;
+                    id<MTLTexture> texture = nil;
+                    if (textureBinding != nullptr &&
+                        (textureBinding->m_Texture != nullptr || textureBinding->m_View != nullptr))
+                    {
+                        if (textureBinding->m_View != nullptr)
+                        {
+                            const auto* metalTextureView = dynamic_cast<MetalTextureView*>(textureBinding->m_View);
+                            RTRLAB_ASSERT_MSG(metalTextureView != nullptr,
+                                              "TextureView is not owned by the Metal backend.");
+                            texture = metalTextureView->GetMetalTextureView();
+                        }
+                        else
+                        {
+                            auto* metalTexture = dynamic_cast<MetalTexture*>(textureBinding->m_Texture);
+                            RTRLAB_ASSERT_MSG(metalTexture != nullptr, "Texture is not owned by the Metal backend.");
+                            texture = metalTexture->GetMetalTexture();
+                        }
+                    }
+                    [argumentEncoder setTexture:texture atIndex:entry.m_Binding];
+                    break;
+                }
+                case ResourceKind::Sampler:
+                {
+                    const auto it = m_SamplerBindings.find(entry.m_Binding);
+                    const SamplerBinding* samplerBinding = it != m_SamplerBindings.end() ? &it->second : nullptr;
+                    id<MTLSamplerState> sampler = nil;
+                    if (samplerBinding != nullptr && samplerBinding->m_Sampler != nullptr)
+                    {
+                        const auto* metalSampler = dynamic_cast<MetalSampler*>(samplerBinding->m_Sampler);
+                        RTRLAB_ASSERT_MSG(metalSampler != nullptr, "Sampler is not owned by the Metal backend.");
+                        sampler = metalSampler->GetMetalSampler();
+                    }
+                    [argumentEncoder setSamplerState:sampler atIndex:entry.m_Binding];
+                    break;
+                }
+            }
+        }
+    }
+
     id<MTLDevice> m_Device = nil;
     PipelineLayout* m_Layout = nullptr;
     uint32_t m_SetIndex = 0;
@@ -751,6 +1316,11 @@ private:
     std::unordered_map<uint32_t, TextureBinding> m_TextureBindings;
     std::unordered_map<uint32_t, SamplerBinding> m_SamplerBindings;
     id<MTLBuffer> m_ConstantBuffer = nil;
+    std::array<StageArgumentBufferCache, 3> m_StageCaches = {
+        StageArgumentBufferCache{ShaderStage::Vertex, nil, std::numeric_limits<uint32_t>::max()},
+        StageArgumentBufferCache{ShaderStage::Fragment, nil, std::numeric_limits<uint32_t>::max()},
+        StageArgumentBufferCache{ShaderStage::Compute, nil, std::numeric_limits<uint32_t>::max()},
+    };
     uint32_t m_Version = 0;
 };
 
@@ -770,8 +1340,12 @@ class MetalGraphicsPipeline final : public GraphicsPipeline
 public:
     MetalGraphicsPipeline(id<MTLRenderPipelineState> pipelineState,
                           const GraphicsPipelineDesc& desc,
-                          uint32_t vertexBufferSlotBase)
-        : m_PipelineState([pipelineState retain]), m_Desc(desc), m_VertexBufferSlotBase(vertexBufferSlotBase)
+                          uint32_t vertexBufferSlotBase,
+                          std::vector<MetalStageArgumentEncoderEntry>&& argumentEncoders)
+        : m_PipelineState([pipelineState retain]),
+          m_Desc(desc),
+          m_VertexBufferSlotBase(vertexBufferSlotBase),
+          m_ArgumentEncoders(std::move(argumentEncoders))
     {
     }
 
@@ -782,16 +1356,32 @@ public:
             [m_PipelineState release];
             m_PipelineState = nil;
         }
+
+        for (const MetalStageArgumentEncoderEntry& entry : m_ArgumentEncoders)
+        {
+            if (entry.m_Encoder != nil)
+                [entry.m_Encoder release];
+        }
     }
 
     const GraphicsPipelineDesc& GetDesc() const override { return m_Desc; }
     id<MTLRenderPipelineState> GetPipelineState() const { return m_PipelineState; }
     uint32_t GetVertexBufferSlotBase() const { return m_VertexBufferSlotBase; }
+    const MetalStageArgumentEncoderEntry* FindArgumentEncoderEntry(uint32_t setIndex, ShaderStage stage) const
+    {
+        const auto it =
+            std::find_if(m_ArgumentEncoders.begin(),
+                         m_ArgumentEncoders.end(),
+                         [setIndex, stage](const MetalStageArgumentEncoderEntry& entry)
+                         { return entry.m_SetIndex == setIndex && entry.m_Stage == stage; });
+        return it != m_ArgumentEncoders.end() ? &(*it) : nullptr;
+    }
 
 private:
     id<MTLRenderPipelineState> m_PipelineState = nil;
     GraphicsPipelineDesc m_Desc;
     uint32_t m_VertexBufferSlotBase = 0;
+    std::vector<MetalStageArgumentEncoderEntry> m_ArgumentEncoders;
 };
 
 const MetalShaderProgram& GetMetalShaderProgram(ShaderProgram* shaderProgram)
@@ -1018,112 +1608,30 @@ void MetalCommandList::BindResourceSet(uint32_t setIndex, ResourceSet* resourceS
     RTRLAB_ASSERT_MSG(resourceSet->GetLayout() == pipelineLayout,
                       "Metal BindResourceSet currently requires resource sets created from the bound pipeline layout.");
 
-    MetalPipelineLayout& metalPipelineLayout = GetMetalPipelineLayout(pipelineLayout);
     MetalResourceSet& metalResourceSet = GetMetalResourceSet(resourceSet);
-    const MetalSetBindingPlan& setPlan = metalPipelineLayout.GetSetBindingPlan(setIndex);
-
-    for (const MetalBindingPlanEntry& entry : setPlan.m_Entries)
+    const MetalShaderProgram& shaderProgram = GetMetalShaderProgram(metalPipeline.GetDesc().m_ShaderProgram);
+    const MetalStageBindingPlan* vertexStagePlan = shaderProgram.FindStageBindingPlan(setIndex, ShaderStage::Vertex);
+    if (vertexStagePlan != nullptr)
     {
-        switch (entry.m_Kind)
-        {
-            case ResourceKind::UniformBuffer:
-            {
-                if (!metalResourceSet.HasConstantBuffer())
-                    break;
+        const MetalStageArgumentEncoderEntry* encoderEntry =
+            metalPipeline.FindArgumentEncoderEntry(setIndex, ShaderStage::Vertex);
+        RTRLAB_ASSERT_MSG(encoderEntry != nullptr && encoderEntry->m_Encoder != nil,
+                          "Metal vertex-stage argument-buffer binding requires a valid encoder.");
+        id<MTLBuffer> argumentBuffer =
+            metalResourceSet.GetEncodedArgumentBuffer(*vertexStagePlan, encoderEntry->m_Encoder);
+        [m_Data->m_RenderEncoder setVertexBuffer:argumentBuffer offset:0 atIndex:encoderEntry->m_Slot];
+    }
 
-                for (const MetalStageSlotAssignment& slot : entry.m_Slots)
-                {
-                    switch (slot.m_Stage)
-                    {
-                        case ShaderStage::Vertex:
-                            [m_Data->m_RenderEncoder setVertexBuffer:metalResourceSet.GetConstantBuffer()
-                                                              offset:0
-                                                             atIndex:slot.m_Slot];
-                            break;
-                        case ShaderStage::Fragment:
-                            [m_Data->m_RenderEncoder setFragmentBuffer:metalResourceSet.GetConstantBuffer()
-                                                                offset:0
-                                                               atIndex:slot.m_Slot];
-                            break;
-                        default:
-                            break;
-                    }
-                }
-                break;
-            }
-            case ResourceKind::StorageBuffer:
-            {
-                const BufferBinding* bufferBinding = metalResourceSet.FindBufferBinding(entry.m_Binding);
-                if (bufferBinding == nullptr || bufferBinding->m_Buffer == nullptr)
-                    break;
-
-                id<MTLBuffer> metalBuffer = GetMetalBuffer(bufferBinding->m_Buffer).GetMetalBuffer();
-                const NSUInteger offset = static_cast<NSUInteger>(bufferBinding->m_Offset);
-                for (const MetalStageSlotAssignment& slot : entry.m_Slots)
-                {
-                    switch (slot.m_Stage)
-                    {
-                        case ShaderStage::Vertex:
-                            [m_Data->m_RenderEncoder setVertexBuffer:metalBuffer offset:offset atIndex:slot.m_Slot];
-                            break;
-                        case ShaderStage::Fragment:
-                            [m_Data->m_RenderEncoder setFragmentBuffer:metalBuffer offset:offset atIndex:slot.m_Slot];
-                            break;
-                        default:
-                            break;
-                    }
-                }
-                break;
-            }
-            case ResourceKind::SampledTexture:
-            case ResourceKind::StorageTexture:
-            {
-                const TextureBinding* textureBinding = metalResourceSet.FindTextureBinding(entry.m_Binding);
-                if (textureBinding == nullptr ||
-                    (textureBinding->m_Texture == nullptr && textureBinding->m_View == nullptr))
-                    break;
-
-                id<MTLTexture> metalTexture = ResolveMetalTextureForBinding(*textureBinding);
-                for (const MetalStageSlotAssignment& slot : entry.m_Slots)
-                {
-                    switch (slot.m_Stage)
-                    {
-                        case ShaderStage::Vertex:
-                            [m_Data->m_RenderEncoder setVertexTexture:metalTexture atIndex:slot.m_Slot];
-                            break;
-                        case ShaderStage::Fragment:
-                            [m_Data->m_RenderEncoder setFragmentTexture:metalTexture atIndex:slot.m_Slot];
-                            break;
-                        default:
-                            break;
-                    }
-                }
-                break;
-            }
-            case ResourceKind::Sampler:
-            {
-                const SamplerBinding* samplerBinding = metalResourceSet.FindSamplerBinding(entry.m_Binding);
-                if (samplerBinding == nullptr || samplerBinding->m_Sampler == nullptr)
-                    break;
-
-                id<MTLSamplerState> metalSampler = GetMetalSampler(samplerBinding->m_Sampler).GetMetalSampler();
-                for (const MetalStageSlotAssignment& slot : entry.m_Slots)
-                {
-                    switch (slot.m_Stage)
-                    {
-                        case ShaderStage::Vertex:
-                            [m_Data->m_RenderEncoder setVertexSamplerState:metalSampler atIndex:slot.m_Slot];
-                            break;
-                        case ShaderStage::Fragment:
-                            [m_Data->m_RenderEncoder setFragmentSamplerState:metalSampler atIndex:slot.m_Slot];
-                            break;
-                        default:
-                            break;
-                    }
-                }
-                break;
-            }
-        }
+    const MetalStageBindingPlan* fragmentStagePlan = shaderProgram.FindStageBindingPlan(setIndex, ShaderStage::Fragment);
+    if (fragmentStagePlan != nullptr)
+    {
+        const MetalStageArgumentEncoderEntry* encoderEntry =
+            metalPipeline.FindArgumentEncoderEntry(setIndex, ShaderStage::Fragment);
+        RTRLAB_ASSERT_MSG(encoderEntry != nullptr && encoderEntry->m_Encoder != nil,
+                          "Metal fragment-stage argument-buffer binding requires a valid encoder.");
+        id<MTLBuffer> argumentBuffer =
+            metalResourceSet.GetEncodedArgumentBuffer(*fragmentStagePlan, encoderEntry->m_Encoder);
+        [m_Data->m_RenderEncoder setFragmentBuffer:argumentBuffer offset:0 atIndex:encoderEntry->m_Slot];
     }
 }
 
@@ -1558,7 +2066,7 @@ Scope<Sampler> MetalDevice::CreateSampler(const SamplerDesc& desc)
     // until the shader-system milestone grows the full sampler contract.
     samplerDesc.lodMinClamp = desc.m_MinLod;
     samplerDesc.lodMaxClamp = desc.m_MaxLod;
-    samplerDesc.supportArgumentBuffers = NO;
+    samplerDesc.supportArgumentBuffers = YES;
     samplerDesc.maxAnisotropy =
         desc.m_AnisotropyEnable ? static_cast<NSUInteger>(std::max(desc.m_MaxAnisotropy, 1.0f)) : 1;
 
@@ -1577,6 +2085,7 @@ Scope<ShaderProgram> MetalDevice::CreateShaderProgram(const CompiledShaderProgra
 
     std::vector<MetalShaderProgram::StageFunction> functions;
     functions.reserve(desc.m_Blobs.size());
+    std::vector<MetalSetBindingPlan> usedSetBindingPlans;
 
     for (const CompiledShaderBlob& blob : desc.m_Blobs)
     {
@@ -1585,7 +2094,14 @@ Scope<ShaderProgram> MetalDevice::CreateShaderProgram(const CompiledShaderProgra
 
         RTRLAB_ASSERT_MSG(blob.m_MetalCodeFormat == MetalCodeFormat::MslSource,
                           "Early Metal shader bring-up currently expects MSL source blobs.");
-        NSString* source = MakeNSString(blob.m_Code);
+        std::vector<MetalSetBindingPlan> blobUsedSetPlans;
+        const std::string remappedSource = RewriteMetalShaderSourceForArgumentBuffers(
+            desc,
+            blob,
+            std::string_view(reinterpret_cast<const char*>(blob.m_Code.data()), blob.m_Code.size()),
+            &blobUsedSetPlans);
+        MergeUsedMetalSetBindingPlans(&usedSetBindingPlans, std::move(blobUsedSetPlans));
+        NSString* source = MakeNSString(std::vector<uint8_t>(remappedSource.begin(), remappedSource.end()));
         RTRLAB_ASSERT_MSG(source != nil, "Metal shader blobs must contain valid UTF-8 MSL source.");
 
         NSError* error = nil;
@@ -1619,7 +2135,7 @@ Scope<ShaderProgram> MetalDevice::CreateShaderProgram(const CompiledShaderProgra
     }
 
     RTRLAB_ASSERT_MSG(!functions.empty(), "Metal CreateShaderProgram requires at least one Metal shader blob.");
-    return CreateScope<MetalShaderProgram>(desc, std::move(functions));
+    return CreateScope<MetalShaderProgram>(desc, std::move(functions), std::move(usedSetBindingPlans));
 }
 
 Scope<PipelineLayout> MetalDevice::CreatePipelineLayout(const PipelineLayoutDesc& desc)
@@ -1690,6 +2206,36 @@ Scope<GraphicsPipeline> MetalDevice::CreateGraphicsPipeline(const GraphicsPipeli
     if (desc.m_DepthFormat != Format::Unknown)
         pipelineDesc.depthAttachmentPixelFormat = ToMetalPixelFormat(desc.m_DepthFormat);
 
+    std::vector<MetalStageArgumentEncoderEntry> argumentEncoders;
+    for (const MetalSetBindingPlan& setPlan : shaderProgram.GetSetBindingPlans())
+    {
+        for (const MetalStageBindingPlan& stagePlan : setPlan.m_StagePlans)
+        {
+            id<MTLFunction> stageFunction = nil;
+            switch (stagePlan.m_Stage)
+            {
+                case ShaderStage::Vertex:
+                    stageFunction = pipelineDesc.vertexFunction;
+                    break;
+                case ShaderStage::Fragment:
+                    stageFunction = pipelineDesc.fragmentFunction;
+                    break;
+                default:
+                    break;
+            }
+
+            if (stageFunction == nil)
+                continue;
+
+            id<MTLArgumentEncoder> argumentEncoder =
+                [stageFunction newArgumentEncoderWithBufferIndex:stagePlan.m_ArgumentBufferSlot];
+            RTRLAB_ASSERT_MSG(argumentEncoder != nil,
+                              "Failed to create a Metal argument encoder for a resource set binding.");
+            argumentEncoders.push_back(
+                {setPlan.m_SetIndex, stagePlan.m_Stage, stagePlan.m_ArgumentBufferSlot, argumentEncoder});
+        }
+    }
+
     NSError* error = nil;
     id<MTLRenderPipelineState> pipelineState = [m_Data->m_Device newRenderPipelineStateWithDescriptor:pipelineDesc
                                                                                                 error:&error];
@@ -1698,7 +2244,8 @@ Scope<GraphicsPipeline> MetalDevice::CreateGraphicsPipeline(const GraphicsPipeli
                       error != nil ? [[error localizedDescription] UTF8String]
                                    : "Failed to create the Metal render pipeline state.");
 
-    auto result = CreateScope<MetalGraphicsPipeline>(pipelineState, desc, pipelineLayout.GetVertexBufferSlotBase());
+    auto result = CreateScope<MetalGraphicsPipeline>(
+        pipelineState, desc, pipelineLayout.GetVertexBufferSlotBase(), std::move(argumentEncoders));
     [pipelineState release];
     return result;
 }
