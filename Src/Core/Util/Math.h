@@ -1,13 +1,12 @@
 #pragma once
 
 /// @file Math.h
-/// @brief Small math helpers over Eigen that replicate the glm-compatible
-///        conventions previously used throughout the project.
+/// @brief Small math helpers over Eigen for the engine's render-facing math conventions.
 ///
-/// All functions assume a right-handed coordinate system with NDC depth in
-/// [-1, 1], matching glm's default RH_NO configuration so that matrices
-/// produced here are bit-equivalent (up to floating-point rounding) to the
-/// matrices the codebase produced before the glm->Eigen migration.
+/// The engine keeps Eigen as the implementation layer but centralizes its
+/// render-facing aliases and projection helpers here so backend-sensitive
+/// choices stay explicit. For Vulkan/Metal-facing rendering code, prefer the
+/// explicit RH_ZO helpers rather than relying on historical glm defaults.
 
 #include <cmath>
 #include <numbers>
@@ -33,25 +32,25 @@ inline float Radians(float degrees)
 }
 
 /// Post-multiply `m` by a translation matrix built from `v`. Matches glm::translate.
-inline Eigen::Matrix4f Translate(const Eigen::Matrix4f& m, const Eigen::Vector3f& v)
+inline Mat4 Translate(const Mat4& m, const Vec3& v)
 {
-    Eigen::Matrix4f result = m;
+    Mat4 result = m;
     result.col(3) = m.col(0) * v.x() + m.col(1) * v.y() + m.col(2) * v.z() + m.col(3);
     return result;
 }
 
 /// Post-multiply `m` by a rotation around `axis` by `angleRadians`. Matches glm::rotate.
-inline Eigen::Matrix4f Rotate(const Eigen::Matrix4f& m, float angleRadians, const Eigen::Vector3f& axis)
+inline Mat4 Rotate(const Mat4& m, float angleRadians, const Vec3& axis)
 {
-    Eigen::Matrix4f rotation = Eigen::Matrix4f::Identity();
+    Mat4 rotation = Mat4::Identity();
     rotation.topLeftCorner<3, 3>() = Eigen::AngleAxisf(angleRadians, axis.normalized()).toRotationMatrix();
     return m * rotation;
 }
 
 /// Post-multiply `m` by a non-uniform scale. Matches glm::scale.
-inline Eigen::Matrix4f Scale(const Eigen::Matrix4f& m, const Eigen::Vector3f& s)
+inline Mat4 Scale(const Mat4& m, const Vec3& s)
 {
-    Eigen::Matrix4f result;
+    Mat4 result;
     result.col(0) = m.col(0) * s.x();
     result.col(1) = m.col(1) * s.y();
     result.col(2) = m.col(2) * s.z();
@@ -59,12 +58,28 @@ inline Eigen::Matrix4f Scale(const Eigen::Matrix4f& m, const Eigen::Vector3f& s)
     return result;
 }
 
-/// Right-handed perspective projection with NDC z in [-1, 1]. Matches glm::perspective (RH_NO).
-inline Eigen::Matrix4f Perspective(float fovyRadians, float aspect, float zNear, float zFar)
+/// Right-handed perspective projection with NDC z in [0, 1].
+/// Prefer this for the engine's Vulkan/Metal render path.
+inline Mat4 PerspectiveRH_ZO(float fovyRadians, float aspect, float zNear, float zFar)
 {
     const float tanHalfFovy = std::tan(fovyRadians * 0.5f);
 
-    Eigen::Matrix4f result = Eigen::Matrix4f::Zero();
+    Mat4 result = Mat4::Zero();
+    result(0, 0) = 1.0f / (aspect * tanHalfFovy);
+    result(1, 1) = 1.0f / tanHalfFovy;
+    result(2, 2) = -zFar / (zFar - zNear);
+    result(3, 2) = -1.0f;
+    result(2, 3) = -(zFar * zNear) / (zFar - zNear);
+    return result;
+}
+
+/// Right-handed perspective projection with NDC z in [-1, 1].
+/// Use this only when interoperating with code that explicitly expects the legacy glm RH_NO convention.
+inline Mat4 PerspectiveRH_NO(float fovyRadians, float aspect, float zNear, float zFar)
+{
+    const float tanHalfFovy = std::tan(fovyRadians * 0.5f);
+
+    Mat4 result = Mat4::Zero();
     result(0, 0) = 1.0f / (aspect * tanHalfFovy);
     result(1, 1) = 1.0f / tanHalfFovy;
     result(2, 2) = -(zFar + zNear) / (zFar - zNear);
@@ -74,13 +89,13 @@ inline Eigen::Matrix4f Perspective(float fovyRadians, float aspect, float zNear,
 }
 
 /// Right-handed look-at view matrix. Matches glm::lookAt (RH).
-inline Eigen::Matrix4f LookAt(const Eigen::Vector3f& eye, const Eigen::Vector3f& center, const Eigen::Vector3f& up)
+inline Mat4 LookAt(const Vec3& eye, const Vec3& center, const Vec3& up)
 {
-    const Eigen::Vector3f f = (center - eye).normalized();
-    const Eigen::Vector3f s = f.cross(up).normalized();
-    const Eigen::Vector3f u = s.cross(f);
+    const Vec3 f = (center - eye).normalized();
+    const Vec3 s = f.cross(up).normalized();
+    const Vec3 u = s.cross(f);
 
-    Eigen::Matrix4f result = Eigen::Matrix4f::Identity();
+    Mat4 result = Mat4::Identity();
     result(0, 0) = s.x();
     result(0, 1) = s.y();
     result(0, 2) = s.z();
