@@ -65,6 +65,10 @@ if(GLAB_BACKEND_METAL)
 endif()
 
 if(GLAB_BACKEND_VULKAN)
+    target_include_directories(RTRLabCore PUBLIC
+        ${CMAKE_SOURCE_DIR}/Vendor/volk
+    )
+
     target_link_libraries(RTRLabCore PUBLIC
         volk
         vma

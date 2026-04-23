@@ -168,6 +168,12 @@ if(GLAB_BACKEND_METAL)
     )
 endif()
 
+if(GLAB_BACKEND_VULKAN)
+    list(APPEND GLAB_IMGUI_SOURCES
+        imgui/backends/imgui_impl_vulkan.cpp
+    )
+endif()
+
 if(GLAB_BUILD_IMGUI_DEMO)
     list(APPEND GLAB_IMGUI_SOURCES
         imgui/imgui_demo.cpp
@@ -186,5 +192,19 @@ target_include_directories(imgui PUBLIC
 target_link_libraries(imgui PRIVATE
     glfw
 )
+
+if(GLAB_BACKEND_VULKAN)
+    target_include_directories(imgui PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/volk
+    )
+
+    target_link_libraries(imgui PRIVATE
+        volk
+    )
+
+    target_compile_definitions(imgui PUBLIC
+        IMGUI_IMPL_VULKAN_USE_VOLK
+    )
+endif()
 
 glab_enable_parallel_compilation(imgui)

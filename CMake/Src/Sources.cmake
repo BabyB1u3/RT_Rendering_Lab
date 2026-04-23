@@ -308,11 +308,30 @@ set(GLAB_GUI_SOURCES
 
 set(GLAB_GUI_HEADERS
     GUI/ImGuiLayer.h
-    GUI/Backends/Metal/MetalImGuiBridge.h
     GUI/Panels/ConsolePanel.h
     GUI/Panels/DebugPanel.h
     GUI/Panels/DemoSelectorPanel.h
 )
+
+if(GLAB_BACKEND_METAL)
+    list(APPEND GLAB_GUI_SOURCES
+        GUI/Backends/Metal/MetalImGuiBridge.mm
+    )
+
+    list(APPEND GLAB_GUI_HEADERS
+        GUI/Backends/Metal/MetalImGuiBridge.h
+    )
+endif()
+
+if(GLAB_BACKEND_VULKAN)
+    list(APPEND GLAB_GUI_SOURCES
+        GUI/Backends/Vulkan/VulkanImGuiBridge.cpp
+    )
+
+    list(APPEND GLAB_GUI_HEADERS
+        GUI/Backends/Vulkan/VulkanImGuiBridge.h
+    )
+endif()
 
 set(GLAB_PLATFORM_SOURCES)
 if(WIN32)
@@ -352,6 +371,7 @@ endif()
 if(GLAB_BACKEND_METAL)
     list(APPEND GLAB_CORE_SKIP_UNITY_SOURCES
         ${GLAB_RENDER_BACKEND_METAL_SOURCES}
+        GUI/Backends/Metal/MetalImGuiBridge.mm
     )
 endif()
 

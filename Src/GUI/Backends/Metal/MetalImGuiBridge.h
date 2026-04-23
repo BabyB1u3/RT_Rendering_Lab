@@ -7,10 +7,13 @@
 /// surface with the same lifecycle shape used by the higher-level ImGui layer:
 /// Init -> NewFrame -> RenderDrawData -> Shutdown.
 
+class Device;
+class Texture;
+
 namespace MetalImGuiBridge
 {
-void Init(void* mtlDevice);
+void Init(Device& device);
 void Shutdown();
-void NewFrame(void* drawableTexture);
-void RenderDrawData(void* drawData, void* commandBuffer, void* drawableTexture);
+void NewFrame(Texture* drawableTexture);
+void RenderDrawData(void* drawData, Device& device, Texture* drawableTexture);
 } // namespace MetalImGuiBridge
