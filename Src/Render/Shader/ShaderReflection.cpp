@@ -126,6 +126,13 @@ bool ValidateReflectedField(const ReflectedField& field,
         return false;
     }
 
+    if (field.m_TypeKind == ReflectedTypeKind::ParameterBlock && field.m_Size == 0)
+    {
+        AssignShaderReflectionError(errorMessage,
+                                    "Reflected ParameterBlock fields require a non-zero declared byte size.");
+        return false;
+    }
+
     std::unordered_set<std::string> childNames;
     childNames.reserve(field.m_Children.size());
     for (const ReflectedField& child : field.m_Children)

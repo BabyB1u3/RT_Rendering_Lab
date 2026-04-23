@@ -49,6 +49,8 @@ void AddOrMergeBindingInfo(std::vector<BindingInfo>& bindings, const BindingInfo
         it->m_Name = candidate.m_Name;
     RTRLAB_ASSERT_MSG(it->m_ArrayCount == candidate.m_ArrayCount,
                       "Reflected bindings that share set/binding/kind must also share the same array count.");
+    RTRLAB_ASSERT_MSG(it->m_ByteSize == candidate.m_ByteSize,
+                      "Reflected bindings that share set/binding/kind must also share the same byte size.");
     it->m_StageMask |= candidate.m_StageMask;
 }
 
@@ -75,6 +77,7 @@ void CollectPipelineBindings(const ReflectedField& field,
         bindingInfo.m_SetIndex = resolvedSetIndex;
         bindingInfo.m_Binding = field.m_Binding;
         bindingInfo.m_Kind = MapReflectedResourceKind(field.m_TypeKind);
+        bindingInfo.m_ByteSize = field.m_TypeKind == ReflectedTypeKind::ParameterBlock ? field.m_Size : 0;
         bindingInfo.m_ArrayCount = field.m_ArrayCount;
         bindingInfo.m_StageMask = field.m_StageMask;
         AddOrMergeBindingInfo(bindings, bindingInfo);
@@ -212,6 +215,13 @@ ShellResourceSet::ShellResourceSet(PipelineLayout* layout, uint32_t setIndex) : 
     const std::vector<const BindingInfo*> setBindings = CollectBindingInfosForSet(m_Layout->GetDesc(), m_SetIndex);
     RTRLAB_ASSERTF(
         !setBindings.empty(), "ResourceSet set {} does not exist in the provided PipelineLayout.", m_SetIndex);
+
+    if (const BindingInfo* constantBindingInfo =
+            FindFirstBindingInfoForSet(m_Layout->GetDesc(), m_SetIndex, ResourceKind::UniformBuffer);
+        constantBindingInfo != nullptr && constantBindingInfo->m_ByteSize > 0)
+    {
+        m_Constants.Resize(constantBindingInfo->m_ByteSize);
+    }
 }
 
 void ShellResourceSet::SetConstantDataRaw(uint32_t offset, const void* data, size_t size)
@@ -219,7 +229,9 @@ void ShellResourceSet::SetConstantDataRaw(uint32_t offset, const void* data, siz
     if (size == 0)
         return;
 
-    ValidateConstantBindingExists();
+    const BindingInfo& bindingInfo = ValidateConstantBindingExists();
+    RTRLAB_ASSERT_MSG(offset + size <= bindingInfo.m_ByteSize,
+                      "ResourceSet constant write exceeds the declared UniformBuffer size.");
     m_Constants.SetRaw(offset, data, size);
     ++m_Version;
 }
@@ -264,13 +276,14 @@ const BindingInfo& ShellResourceSet::RequireBindingInfo(uint32_t binding, Resour
     return *bindingInfo;
 }
 
-void ShellResourceSet::ValidateConstantBindingExists() const
+const BindingInfo& ShellResourceSet::ValidateConstantBindingExists() const
 {
     RTRLAB_ASSERT_MSG(m_Layout != nullptr, "ResourceSet constant validation requires a valid PipelineLayout.");
     const BindingInfo* bindingInfo =
         FindFirstBindingInfoForSet(m_Layout->GetDesc(), m_SetIndex, ResourceKind::UniformBuffer);
     RTRLAB_ASSERTF(
         bindingInfo != nullptr, "ResourceSet set {} has no UniformBuffer binding in its PipelineLayout.", m_SetIndex);
+    return *bindingInfo;
 }
 
 void ShellCommandListBase::BeginRendering(const RenderingInfo& renderingInfo)

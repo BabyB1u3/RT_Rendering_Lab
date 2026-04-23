@@ -88,6 +88,13 @@ uint32_t GetBindableArrayCount(const SlangReflectionType& type)
     return 1;
 }
 
+uint32_t GetParameterBlockByteSize(const SlangReflectionType& type, const SlangReflectionBinding& binding)
+{
+    if (type.m_ElementVarBinding.has_value() && type.m_ElementVarBinding->m_Size > 0)
+        return type.m_ElementVarBinding->m_Size;
+    return binding.m_Size;
+}
+
 ReflectedTypeKind MapResourceTypeKind(const SlangReflectionType& type, const SlangReflectionBinding& binding)
 {
     const std::string_view bindingKind = binding.m_Kind;
@@ -148,6 +155,7 @@ bool ConvertStructuredField(const SlangReflectionField& field,
         outField.m_TypeKind = ReflectedTypeKind::ParameterBlock;
         outField.m_SetIndex = binding.m_Space;
         outField.m_Binding = binding.m_Index;
+        outField.m_Size = GetParameterBlockByteSize(*field.m_Type, binding);
         outField.m_ArrayCount = GetBindableArrayCount(*field.m_Type);
         return ConvertFieldChildren(
             *ResolveStructuredElementType(*field.m_Type), stageMask, outField.m_Children, errorMessage);
@@ -158,6 +166,7 @@ bool ConvertStructuredField(const SlangReflectionField& field,
         outField.m_TypeKind = ReflectedTypeKind::ParameterBlock;
         outField.m_SetIndex = binding.m_Space;
         outField.m_Binding = binding.m_Index;
+        outField.m_Size = GetParameterBlockByteSize(*field.m_Type, binding);
         outField.m_ArrayCount = GetBindableArrayCount(*field.m_Type);
         return ConvertFieldChildren(
             *ResolveStructuredElementType(*field.m_Type), stageMask, outField.m_Children, errorMessage);
@@ -228,6 +237,7 @@ bool ConvertParameter(const SlangReflectionParameter& parameter,
         outField.m_TypeKind = ReflectedTypeKind::ParameterBlock;
         outField.m_SetIndex = binding.m_Space;
         outField.m_Binding = binding.m_Index;
+        outField.m_Size = GetParameterBlockByteSize(parameter.m_Type, binding);
         outField.m_ArrayCount = GetBindableArrayCount(parameter.m_Type);
         return ConvertFieldChildren(
             *ResolveStructuredElementType(parameter.m_Type), stageMask, outField.m_Children, errorMessage);

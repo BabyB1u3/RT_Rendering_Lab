@@ -148,7 +148,7 @@ public:
 
 private:
     const BindingInfo& RequireBindingInfo(uint32_t binding, ResourceKind kind) const;
-    void ValidateConstantBindingExists() const;
+    const BindingInfo& ValidateConstantBindingExists() const;
 
     PipelineLayout* m_Layout = nullptr;
     uint32_t m_SetIndex = 0;

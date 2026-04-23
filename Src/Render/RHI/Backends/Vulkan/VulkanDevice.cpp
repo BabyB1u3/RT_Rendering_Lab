@@ -313,6 +313,13 @@ public:
           m_DescriptorSet(descriptorSet),
           m_FrameConstantCaches(frameSlotCount)
     {
+        RTRLAB_ASSERT_MSG(m_Layout != nullptr, "Vulkan ResourceSet creation requires a valid PipelineLayout.");
+        if (const BindingInfo* constantBindingInfo =
+                RHIInternal::FindFirstBindingInfoForSet(m_Layout->GetDesc(), m_SetIndex, ResourceKind::UniformBuffer);
+            constantBindingInfo != nullptr && constantBindingInfo->m_ByteSize > 0)
+        {
+            m_Constants.Resize(constantBindingInfo->m_ByteSize);
+        }
     }
 
     ~VulkanResourceSet() override
@@ -330,7 +337,9 @@ public:
         if (size == 0)
             return;
 
-        ValidateConstantBindingExists();
+        const BindingInfo& bindingInfo = ValidateConstantBindingExists();
+        RTRLAB_ASSERT_MSG(offset + size <= bindingInfo.m_ByteSize,
+                          "Vulkan ResourceSet constant write exceeds the declared UniformBuffer size.");
         m_Constants.SetRaw(offset, data, size);
         ++m_Version;
     }
@@ -464,7 +473,7 @@ private:
         return *bindingInfo;
     }
 
-    void ValidateConstantBindingExists() const
+    const BindingInfo& ValidateConstantBindingExists() const
     {
         RTRLAB_ASSERT_MSG(m_Layout != nullptr,
                           "Vulkan ResourceSet constant validation requires a valid PipelineLayout.");
@@ -473,18 +482,16 @@ private:
         RTRLAB_ASSERTF(bindingInfo != nullptr,
                        "Vulkan ResourceSet set {} has no UniformBuffer binding in its PipelineLayout.",
                        m_SetIndex);
+        return *bindingInfo;
     }
 
     const BindingInfo& RequireConstantBindingInfo() const
     {
-        ValidateConstantBindingExists();
-        const BindingInfo* bindingInfo =
-            RHIInternal::FindFirstBindingInfoForSet(m_Layout->GetDesc(), m_SetIndex, ResourceKind::UniformBuffer);
-        RTRLAB_ASSERT_MSG(bindingInfo != nullptr, "Vulkan ResourceSet failed to resolve its UniformBuffer binding.");
-        RTRLAB_ASSERT_MSG(bindingInfo->m_ArrayCount <= 1,
+        const BindingInfo& bindingInfo = ValidateConstantBindingExists();
+        RTRLAB_ASSERT_MSG(bindingInfo.m_ArrayCount <= 1,
                           "Vulkan ResourceSet constant uploads currently only support non-array UniformBuffer "
                           "bindings.");
-        return *bindingInfo;
+        return bindingInfo;
     }
 
     void WriteBufferDescriptor(const BindingInfo& bindingInfo, const BufferBinding& bufferBinding)

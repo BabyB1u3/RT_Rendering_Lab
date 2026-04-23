@@ -26,6 +26,7 @@ struct BindingInfo
     uint32_t m_SetIndex = 0;
     uint32_t m_Binding = 0;
     ResourceKind m_Kind = ResourceKind::UniformBuffer;
+    uint32_t m_ByteSize = 0;
     uint32_t m_ArrayCount = 1;
     ShaderStage m_StageMask = ShaderStage::None;
 };

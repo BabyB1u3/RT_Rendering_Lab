@@ -40,6 +40,7 @@ struct SlangReflectionType
     uint32_t m_ColumnCount = 0;
 
     std::unique_ptr<SlangReflectionType> m_ElementType;
+    std::optional<SlangReflectionBinding> m_ElementVarBinding;
     std::vector<SlangReflectionField> m_Fields;
     std::vector<SlangReflectionType> m_GenericArguments;
 };

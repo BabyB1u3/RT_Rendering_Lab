@@ -1074,6 +1074,13 @@ public:
         RTRLAB_ASSERTF(!setBindings.empty(),
                        "Metal ResourceSet set {} does not exist in the provided PipelineLayout.",
                        m_SetIndex);
+
+        if (const BindingInfo* constantBindingInfo =
+                RHIInternal::FindFirstBindingInfoForSet(m_Layout->GetDesc(), m_SetIndex, ResourceKind::UniformBuffer);
+            constantBindingInfo != nullptr && constantBindingInfo->m_ByteSize > 0)
+        {
+            m_Constants.Resize(constantBindingInfo->m_ByteSize);
+        }
     }
 
     ~MetalResourceSet() override
@@ -1109,7 +1116,9 @@ public:
         if (size == 0)
             return;
 
-        ValidateConstantBindingExists();
+        const BindingInfo& bindingInfo = ValidateConstantBindingExists();
+        RTRLAB_ASSERT_MSG(offset + size <= bindingInfo.m_ByteSize,
+                          "Metal ResourceSet constant write exceeds the declared UniformBuffer size.");
         m_Constants.SetRaw(offset, data, size);
         EnsureConstantBufferCapacity(m_Constants.GetSize());
         if (m_ConstantBuffer != nil && m_Constants.GetData() != nullptr)
@@ -1187,7 +1196,7 @@ private:
         return *bindingInfo;
     }
 
-    void ValidateConstantBindingExists() const
+    const BindingInfo& ValidateConstantBindingExists() const
     {
         RTRLAB_ASSERT_MSG(m_Layout != nullptr,
                           "Metal ResourceSet constant validation requires a valid PipelineLayout.");
@@ -1196,6 +1205,7 @@ private:
         RTRLAB_ASSERTF(bindingInfo != nullptr,
                        "Metal ResourceSet set {} has no UniformBuffer binding in its PipelineLayout.",
                        m_SetIndex);
+        return *bindingInfo;
     }
 
     void EnsureConstantBufferCapacity(size_t requiredSize)
