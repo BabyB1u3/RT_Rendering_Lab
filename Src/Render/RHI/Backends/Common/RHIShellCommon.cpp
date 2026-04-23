@@ -416,6 +416,19 @@ void ShellCommandListBase::DrawIndexed(uint32_t indexCount, uint32_t firstIndex,
     m_LastDrawVertexOffset = vertexOffset;
 }
 
+void ShellCommandListBase::CopyBuffer(Buffer*, Buffer*, std::span<const BufferCopyRegion>)
+{
+    RTRLAB_ASSERT_MSG(false,
+                      "CopyBuffer is not implemented for the shell backend. Use a backend with a real copy path.");
+}
+
+void ShellCommandListBase::CopyBufferToTexture(Buffer*, Texture*, std::span<const BufferTextureCopyRegion>)
+{
+    RTRLAB_ASSERT_MSG(false,
+                      "CopyBufferToTexture is not implemented for the shell backend. Use a backend with a real "
+                      "copy/upload path.");
+}
+
 void ShellCommandListBase::Dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ)
 {
     m_LastDispatchX = groupX;

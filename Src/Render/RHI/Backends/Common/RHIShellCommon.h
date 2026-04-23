@@ -185,6 +185,11 @@ public:
 
     void Draw(uint32_t vertexCount, uint32_t firstVertex) override;
     void DrawIndexed(uint32_t indexCount, uint32_t firstIndex, int32_t vertexOffset) override;
+    void
+    CopyBuffer(Buffer* sourceBuffer, Buffer* destinationBuffer, std::span<const BufferCopyRegion> regions) override;
+    void CopyBufferToTexture(Buffer* sourceBuffer,
+                             Texture* destinationTexture,
+                             std::span<const BufferTextureCopyRegion> regions) override;
 
     void Dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ) override;
 

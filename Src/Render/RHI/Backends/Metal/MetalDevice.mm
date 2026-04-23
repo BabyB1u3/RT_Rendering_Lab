@@ -202,6 +202,42 @@ bool HasStencilComponent(Format format)
     return format == Format::D24_UNORM_S8_UINT || format == Format::D32_SFLOAT_S8_UINT;
 }
 
+uint32_t GetFormatBytesPerPixel(Format format)
+{
+    switch (format)
+    {
+        case Format::R8_UNORM:
+            return 1;
+        case Format::RG8_UNORM:
+            return 2;
+        case Format::RGBA8_UNORM:
+        case Format::RGBA8_SRGB:
+        case Format::BGRA8_UNORM:
+        case Format::BGRA8_SRGB:
+        case Format::R32F:
+        case Format::R32_UINT:
+        case Format::D32_SFLOAT:
+            return 4;
+        case Format::R16F:
+        case Format::D16_UNORM:
+            return 2;
+        case Format::RG16F:
+        case Format::RG32F:
+            return 8;
+        case Format::RGBA16F:
+        case Format::RGBA32F:
+            return 16;
+        case Format::D24_UNORM_S8_UINT:
+        case Format::D32_SFLOAT_S8_UINT:
+            return 4;
+        default:
+            break;
+    }
+
+    RTRLAB_ASSERTF(false, "Unsupported Metal copy format {}", static_cast<uint32_t>(format));
+    return 0;
+}
+
 bool HasDebugName(const char* debugName)
 {
     return debugName != nullptr && debugName[0] != '\0';
@@ -1921,6 +1957,107 @@ void MetalCommandList::DrawIndexed(uint32_t indexCount, uint32_t firstIndex, int
                                      instanceCount:1
                                         baseVertex:vertexOffset
                                       baseInstance:0];
+}
+
+void MetalCommandList::CopyBuffer(Buffer* sourceBuffer,
+                                  Buffer* destinationBuffer,
+                                  std::span<const BufferCopyRegion> regions)
+{
+    RTRLAB_ASSERT_MSG(!m_IsRendering, "Metal CopyBuffer cannot be recorded inside an active rendering scope.");
+    RTRLAB_ASSERT_MSG(m_Data != nullptr && m_Data->m_DeviceData != nullptr &&
+                          m_Data->m_DeviceData->m_CurrentCommandBuffer != nil,
+                      "Metal CopyBuffer requires an active command buffer.");
+    RTRLAB_ASSERT_MSG(sourceBuffer != nullptr && destinationBuffer != nullptr,
+                      "Metal CopyBuffer requires valid source and destination buffers.");
+    RTRLAB_ASSERT_MSG(!regions.empty(), "Metal CopyBuffer requires at least one copy region.");
+
+    id<MTLBlitCommandEncoder> blitEncoder = [m_Data->m_DeviceData->m_CurrentCommandBuffer blitCommandEncoder];
+    RTRLAB_ASSERT_MSG(blitEncoder != nil, "Failed to create the Metal blit command encoder.");
+
+    id<MTLBuffer> sourceMetalBuffer = GetMetalBuffer(sourceBuffer).GetMetalBuffer();
+    id<MTLBuffer> destinationMetalBuffer = GetMetalBuffer(destinationBuffer).GetMetalBuffer();
+    for (const BufferCopyRegion& region : regions)
+    {
+        RTRLAB_ASSERT_MSG(region.m_Size > 0, "Metal CopyBuffer regions must have a non-zero size.");
+        [blitEncoder copyFromBuffer:sourceMetalBuffer
+                       sourceOffset:region.m_SourceOffset
+                           toBuffer:destinationMetalBuffer
+                  destinationOffset:region.m_DestinationOffset
+                               size:region.m_Size];
+    }
+
+    [blitEncoder endEncoding];
+}
+
+void MetalCommandList::CopyBufferToTexture(Buffer* sourceBuffer,
+                                           Texture* destinationTexture,
+                                           std::span<const BufferTextureCopyRegion> regions)
+{
+    RTRLAB_ASSERT_MSG(!m_IsRendering, "Metal CopyBufferToTexture cannot be recorded inside an active rendering scope.");
+    RTRLAB_ASSERT_MSG(m_Data != nullptr && m_Data->m_DeviceData != nullptr &&
+                          m_Data->m_DeviceData->m_CurrentCommandBuffer != nil,
+                      "Metal CopyBufferToTexture requires an active command buffer.");
+    RTRLAB_ASSERT_MSG(sourceBuffer != nullptr && destinationTexture != nullptr,
+                      "Metal CopyBufferToTexture requires a valid source buffer and destination texture.");
+    RTRLAB_ASSERT_MSG(!regions.empty(), "Metal CopyBufferToTexture requires at least one copy region.");
+
+    id<MTLBlitCommandEncoder> blitEncoder = [m_Data->m_DeviceData->m_CurrentCommandBuffer blitCommandEncoder];
+    RTRLAB_ASSERT_MSG(blitEncoder != nil, "Failed to create the Metal blit command encoder.");
+
+    id<MTLBuffer> sourceMetalBuffer = GetMetalBuffer(sourceBuffer).GetMetalBuffer();
+    id<MTLTexture> destinationMetalTexture = GetMetalTextureFromTexture(destinationTexture);
+    const TextureDesc& destinationDesc = destinationTexture->GetDesc();
+    const uint32_t bytesPerPixel = GetFormatBytesPerPixel(destinationDesc.m_Format);
+
+    for (const BufferTextureCopyRegion& region : regions)
+    {
+        RTRLAB_ASSERT_MSG(region.m_LayerCount > 0, "Metal CopyBufferToTexture regions must target at least one layer.");
+        RTRLAB_ASSERT_MSG(region.m_TextureExtent.m_Width > 0 && region.m_TextureExtent.m_Height > 0 &&
+                              region.m_TextureExtent.m_Depth > 0,
+                          "Metal CopyBufferToTexture regions must have a non-zero extent.");
+
+        const NSUInteger sourceBytesPerRow = static_cast<NSUInteger>(
+            region.m_BufferRowPitch != 0 ? region.m_BufferRowPitch : region.m_TextureExtent.m_Width * bytesPerPixel);
+        const NSUInteger sourceBytesPerImage = static_cast<NSUInteger>(
+            region.m_BufferRowsPerImage != 0 ? sourceBytesPerRow * region.m_BufferRowsPerImage
+                                             : sourceBytesPerRow * region.m_TextureExtent.m_Height);
+
+        if (destinationDesc.m_Type == TextureType::Tex3D)
+        {
+            RTRLAB_ASSERT_MSG(region.m_BaseArrayLayer == 0 && region.m_LayerCount == 1,
+                              "Metal CopyBufferToTexture uses destination slices for array textures. Tex3D copies "
+                              "must target exactly one destination slice.");
+            [blitEncoder copyFromBuffer:sourceMetalBuffer
+                           sourceOffset:region.m_BufferOffset
+                      sourceBytesPerRow:sourceBytesPerRow
+                    sourceBytesPerImage:sourceBytesPerImage
+                             sourceSize:MTLSizeMake(region.m_TextureExtent.m_Width,
+                                                    region.m_TextureExtent.m_Height,
+                                                    region.m_TextureExtent.m_Depth)
+                              toTexture:destinationMetalTexture
+                       destinationSlice:0
+                       destinationLevel:region.m_MipLevel
+                      destinationOrigin:MTLOriginMake(region.m_TextureOffset.m_X,
+                                                      region.m_TextureOffset.m_Y,
+                                                      region.m_TextureOffset.m_Z)];
+            continue;
+        }
+
+        for (uint32_t layerIndex = 0; layerIndex < region.m_LayerCount; ++layerIndex)
+        {
+            [blitEncoder copyFromBuffer:sourceMetalBuffer
+                           sourceOffset:region.m_BufferOffset + static_cast<uint64_t>(layerIndex) * sourceBytesPerImage
+                      sourceBytesPerRow:sourceBytesPerRow
+                    sourceBytesPerImage:sourceBytesPerImage
+                             sourceSize:MTLSizeMake(region.m_TextureExtent.m_Width, region.m_TextureExtent.m_Height, 1)
+                              toTexture:destinationMetalTexture
+                       destinationSlice:region.m_BaseArrayLayer + layerIndex
+                       destinationLevel:region.m_MipLevel
+                      destinationOrigin:MTLOriginMake(region.m_TextureOffset.m_X, region.m_TextureOffset.m_Y, 0)];
+        }
+    }
+
+    [blitEncoder endEncoding];
 }
 
 MetalSwapchain::MetalSwapchain(MetalDevice& device,

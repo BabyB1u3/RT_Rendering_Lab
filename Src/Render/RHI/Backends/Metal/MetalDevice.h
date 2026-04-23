@@ -37,6 +37,11 @@ public:
     void SetScissor(int32_t x, int32_t y, uint32_t w, uint32_t h) override;
     void Dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ) override;
     void DrawIndexed(uint32_t indexCount, uint32_t firstIndex, int32_t vertexOffset) override;
+    void
+    CopyBuffer(Buffer* sourceBuffer, Buffer* destinationBuffer, std::span<const BufferCopyRegion> regions) override;
+    void CopyBufferToTexture(Buffer* sourceBuffer,
+                             Texture* destinationTexture,
+                             std::span<const BufferTextureCopyRegion> regions) override;
 
     bool IsRenderingActive() const { return m_IsRendering; }
 
