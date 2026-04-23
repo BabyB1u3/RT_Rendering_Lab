@@ -21,13 +21,18 @@ public:
 
 private:
     void CreateTriangleResources();
+    void UploadTriangleGeometry(CommandList& commandList, ResourceStateTracker& resourceStateTracker);
+    void ForgetTrackedBuffers();
     void UpdateAnimatedParameters();
 
     uint32_t m_ViewportWidth = 0;
     uint32_t m_ViewportHeight = 0;
 
+    Scope<Buffer> m_VertexUploadBuffer;
     Scope<Buffer> m_VertexBuffer;
+    Scope<Buffer> m_IndexUploadBuffer;
     Scope<Buffer> m_IndexBuffer;
+    bool m_GeometryUploadPending = false;
     Scope<ShaderProgram> m_ShaderProgram;
     Scope<PipelineLayout> m_PipelineLayout;
     Scope<ResourceSet> m_FrameSet;
