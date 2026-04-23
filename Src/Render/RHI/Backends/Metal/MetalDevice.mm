@@ -351,6 +351,7 @@ struct MetalBindingPlanEntry
 {
     std::string m_Name;
     uint32_t m_Binding = 0;
+    uint32_t m_ArgumentIndex = 0;
     uint32_t m_ArrayCount = 1;
     ResourceKind m_Kind = ResourceKind::UniformBuffer;
 };
@@ -678,7 +679,7 @@ std::string RewriteMetalShaderSourceForArgumentBuffers(const CompiledShaderProgr
 
             StageSetRewrite& setRewrite = findOrAddSetRewrite(setPlan.m_SetIndex, stagePlan->m_ArgumentBufferSlot);
             const std::string memberDeclaration =
-                parsedParameter.m_DeclarationText + " [[id(" + std::to_string(entry->m_Binding) + ")]];";
+                parsedParameter.m_DeclarationText + " [[id(" + std::to_string(entry->m_ArgumentIndex) + ")]];";
             const bool alreadyAddedMember = std::find(setRewrite.m_MemberDeclarations.begin(),
                                                       setRewrite.m_MemberDeclarations.end(),
                                                       memberDeclaration) != setRewrite.m_MemberDeclarations.end();
@@ -890,6 +891,20 @@ std::vector<MetalSetBindingPlan> BuildMetalSetBindingPlans(const PipelineLayoutD
                     break;
                 default:
                     break;
+            }
+        }
+    }
+
+    for (MetalSetBindingPlan& setPlan : plans)
+    {
+        for (MetalStageBindingPlan& stagePlan : setPlan.m_StagePlans)
+        {
+            uint32_t nextArgumentIndex = 0;
+            for (MetalBindingPlanEntry& entry : stagePlan.m_Entries)
+            {
+                // Metal argument buffers share one `id(...)` namespace across all resource kinds.
+                entry.m_ArgumentIndex = nextArgumentIndex;
+                nextArgumentIndex += std::max(entry.m_ArrayCount, 1u);
             }
         }
     }
@@ -1360,7 +1375,7 @@ private:
             switch (entry.m_Kind)
             {
                 case ResourceKind::UniformBuffer:
-                    [argumentEncoder setBuffer:m_ConstantBuffer offset:0 atIndex:entry.m_Binding];
+                    [argumentEncoder setBuffer:m_ConstantBuffer offset:0 atIndex:entry.m_ArgumentIndex];
                     break;
                 case ResourceKind::StorageBuffer:
                 {
@@ -1387,7 +1402,7 @@ private:
                     }
                     [argumentEncoder setBuffers:buffers.data()
                                         offsets:offsets.data()
-                                      withRange:NSMakeRange(entry.m_Binding, entry.m_ArrayCount)];
+                                      withRange:NSMakeRange(entry.m_ArgumentIndex, entry.m_ArrayCount)];
                     break;
                 }
                 case ResourceKind::SampledTexture:
@@ -1421,7 +1436,7 @@ private:
                         }
                     }
                     [argumentEncoder setTextures:textures.data()
-                                       withRange:NSMakeRange(entry.m_Binding, entry.m_ArrayCount)];
+                                       withRange:NSMakeRange(entry.m_ArgumentIndex, entry.m_ArrayCount)];
                     break;
                 }
                 case ResourceKind::Sampler:
@@ -1446,7 +1461,7 @@ private:
                         }
                     }
                     [argumentEncoder setSamplerStates:samplers.data()
-                                            withRange:NSMakeRange(entry.m_Binding, entry.m_ArrayCount)];
+                                            withRange:NSMakeRange(entry.m_ArgumentIndex, entry.m_ArrayCount)];
                     break;
                 }
             }
