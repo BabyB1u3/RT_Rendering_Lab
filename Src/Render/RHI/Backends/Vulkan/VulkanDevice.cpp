@@ -1252,6 +1252,13 @@ void VulkanCommandList::BindGraphicsPipeline(GraphicsPipeline* pipeline)
     vkCmdBindPipeline(m_CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipeline.GetVkPipeline());
 }
 
+void VulkanCommandList::BindComputePipeline(ComputePipeline*)
+{
+    RTRLAB_ASSERT_MSG(false,
+                      "Vulkan compute pipelines are not implemented yet. This backend no longer falls back to the "
+                      "shell compute path.");
+}
+
 void VulkanCommandList::BindResourceSet(uint32_t setIndex, ResourceSet* resourceSet)
 {
     ShellCommandListBase::BindResourceSet(setIndex, resourceSet);
@@ -1287,6 +1294,13 @@ void VulkanCommandList::BindResourceSet(uint32_t setIndex, ResourceSet* resource
                             &descriptorSet,
                             0,
                             nullptr);
+}
+
+void VulkanCommandList::PushConstants(ShaderStage, uint32_t, uint32_t, const void*)
+{
+    RTRLAB_ASSERT_MSG(false,
+                      "Vulkan push constants are not implemented yet. This backend no longer records shell-only "
+                      "push-constant state.");
 }
 
 void VulkanCommandList::BindMesh(const MeshBinding& meshBinding, const uint64_t* vertexOffsets)
@@ -1366,6 +1380,13 @@ void VulkanCommandList::SetScissor(int32_t x, int32_t y, uint32_t w, uint32_t h)
     scissor.offset = {x, y};
     scissor.extent = {w, h};
     vkCmdSetScissor(m_CommandBuffer, 0, 1, &scissor);
+}
+
+void VulkanCommandList::Dispatch(uint32_t, uint32_t, uint32_t)
+{
+    RTRLAB_ASSERT_MSG(false,
+                      "Vulkan dispatch is not implemented yet. This backend no longer falls back to the shell "
+                      "compute path.");
 }
 
 void VulkanCommandList::Draw(uint32_t vertexCount, uint32_t firstVertex)
@@ -1987,6 +2008,14 @@ Scope<GraphicsPipeline> VulkanDevice::CreateGraphicsPipeline(const GraphicsPipel
     if (result != VK_SUCCESS)
         CheckVk(result, "vkCreateGraphicsPipelines");
     return CreateScope<VulkanGraphicsPipeline>(m_Device, desc, &pipelineLayout, pipeline);
+}
+
+Scope<ComputePipeline> VulkanDevice::CreateComputePipeline(const ComputePipelineDesc&)
+{
+    RTRLAB_ASSERT_MSG(false,
+                      "Vulkan compute pipelines are not implemented yet. This backend no longer creates shell "
+                      "compute-pipeline placeholders.");
+    return nullptr;
 }
 
 void VulkanDevice::WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size)

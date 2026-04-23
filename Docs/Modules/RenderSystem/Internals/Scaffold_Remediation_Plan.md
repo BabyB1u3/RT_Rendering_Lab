@@ -183,6 +183,18 @@ The current codebase contains several cases where unsupported features appear va
 - `BufferBarrier`
 - texture binding contract between `ShaderParameterWriter`, `ResourceSet`, and Vulkan
 
+### Phase 1 Implementation Notes
+
+- Vulkan and Metal should explicitly reject compute and push-constant usage until they have real backend implementations. Shell fallback is not acceptable for these paths.
+- Barrier honesty must be staged more carefully than compute honesty:
+  - `Application` currently asks `ResourceStateTracker` to transition the swapchain image before `BeginRendering()` and after `EndRendering()`
+  - backend barrier methods still inherit shell no-op behavior
+  - Vulkan also performs swapchain layout transitions inside `BeginRendering()` and `EndRendering()`
+- Because of that overlap, blindly turning `TextureBarrier()` and `BufferBarrier()` into asserts will break the current graphics path before state ownership is clarified.
+- The safe next step is:
+  - first decide whether swapchain transitions belong to `Application`/`ResourceStateTracker` or to backend-owned present/rendering glue
+  - then implement backend barriers and remove the duplicate ownership
+
 ### Deliverables
 
 - unsupported features now fail explicitly

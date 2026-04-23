@@ -1592,6 +1592,13 @@ void MetalCommandList::BindGraphicsPipeline(GraphicsPipeline* pipeline)
     }
 }
 
+void MetalCommandList::BindComputePipeline(ComputePipeline*)
+{
+    RTRLAB_ASSERT_MSG(false,
+                      "Metal compute pipelines are not implemented yet. This backend no longer falls back to the "
+                      "shell compute path.");
+}
+
 void MetalCommandList::BindResourceSet(uint32_t setIndex, ResourceSet* resourceSet)
 {
     ShellCommandListBase::BindResourceSet(setIndex, resourceSet);
@@ -1638,6 +1645,13 @@ void MetalCommandList::BindResourceSet(uint32_t setIndex, ResourceSet* resourceS
             metalResourceSet.GetEncodedArgumentBuffer(*fragmentStagePlan, encoderEntry->m_Encoder);
         [m_Data->m_RenderEncoder setFragmentBuffer:argumentBuffer offset:0 atIndex:encoderEntry->m_Slot];
     }
+}
+
+void MetalCommandList::PushConstants(ShaderStage, uint32_t, uint32_t, const void*)
+{
+    RTRLAB_ASSERT_MSG(false,
+                      "Metal push constants are not implemented yet. This backend no longer records shell-only "
+                      "push-constant state.");
 }
 
 void MetalCommandList::BindMesh(const MeshBinding& meshBinding, const uint64_t* vertexOffsets)
@@ -1714,6 +1728,13 @@ void MetalCommandList::SetScissor(int32_t x, int32_t y, uint32_t w, uint32_t h)
     scissor.width = static_cast<NSUInteger>(w);
     scissor.height = static_cast<NSUInteger>(h);
     [m_Data->m_RenderEncoder setScissorRect:scissor];
+}
+
+void MetalCommandList::Dispatch(uint32_t, uint32_t, uint32_t)
+{
+    RTRLAB_ASSERT_MSG(false,
+                      "Metal dispatch is not implemented yet. This backend no longer falls back to the shell "
+                      "compute path.");
 }
 
 void MetalCommandList::DrawIndexed(uint32_t indexCount, uint32_t firstIndex, int32_t vertexOffset)
@@ -2253,6 +2274,14 @@ Scope<GraphicsPipeline> MetalDevice::CreateGraphicsPipeline(const GraphicsPipeli
         pipelineState, desc, pipelineLayout.GetVertexBufferSlotBase(), std::move(argumentEncoders));
     [pipelineState release];
     return result;
+}
+
+Scope<ComputePipeline> MetalDevice::CreateComputePipeline(const ComputePipelineDesc&)
+{
+    RTRLAB_ASSERT_MSG(false,
+                      "Metal compute pipelines are not implemented yet. This backend no longer creates shell "
+                      "compute-pipeline placeholders.");
+    return nullptr;
 }
 
 void MetalDevice::WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size)
