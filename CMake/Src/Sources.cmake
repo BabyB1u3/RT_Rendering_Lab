@@ -200,10 +200,13 @@ set(GLAB_RENDER_HEADERS
 )
 
 set(GLAB_RENDER_BACKEND_VULKAN_SOURCES
+    Render/RHI/Backends/Vulkan/VulkanConversions.cpp
     Render/RHI/Backends/Vulkan/VulkanDevice.cpp
 )
 
 set(GLAB_RENDER_BACKEND_VULKAN_HEADERS
+    Render/RHI/Backends/Vulkan/VulkanCommon.h
+    Render/RHI/Backends/Vulkan/VulkanConversions.h
     Render/RHI/Backends/Vulkan/VulkanDevice.h
 )
 
