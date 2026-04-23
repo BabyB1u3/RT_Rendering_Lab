@@ -83,6 +83,21 @@ void ShaderParameterWriter::SetTexture(ResourceSet& resourceSet, BindingHandle b
     resourceSet.SetTexture(bindingInfo.m_Binding, textureBinding);
 }
 
+void ShaderParameterWriter::SetTextureView(ResourceSet& resourceSet,
+                                           BindingHandle bindingHandle,
+                                           TextureView* textureView) const
+{
+    const BindingInfo& bindingInfo = GetBindingInfo(bindingHandle);
+    ValidateResourceSetSetIndex(resourceSet, bindingInfo.m_SetIndex, "resource binding");
+    RTRLAB_ASSERT_MSG(bindingInfo.m_TypeKind == ReflectedTypeKind::Texture,
+                      "BindingHandle must resolve to a texture field for SetTextureView.");
+
+    TextureBinding textureBinding;
+    textureBinding.m_Texture = textureView != nullptr ? textureView->GetTexture() : nullptr;
+    textureBinding.m_View = textureView;
+    resourceSet.SetTexture(bindingInfo.m_Binding, textureBinding);
+}
+
 void ShaderParameterWriter::SetSampler(ResourceSet& resourceSet, BindingHandle bindingHandle, Sampler* sampler) const
 {
     const BindingInfo& bindingInfo = GetBindingInfo(bindingHandle);
@@ -136,6 +151,15 @@ void ShaderParameterWriter::SetTexture(ResourceSet& resourceSet, std::string_vie
     const BindingHandle bindingHandle = ResolveBinding(path);
     RTRLAB_ASSERT_MSG(bindingHandle.IsValid(), "SetTexture requires a valid reflected texture-binding path.");
     SetTexture(resourceSet, bindingHandle, texture);
+}
+
+void ShaderParameterWriter::SetTextureView(ResourceSet& resourceSet,
+                                           std::string_view path,
+                                           TextureView* textureView) const
+{
+    const BindingHandle bindingHandle = ResolveBinding(path);
+    RTRLAB_ASSERT_MSG(bindingHandle.IsValid(), "SetTextureView requires a valid reflected texture-binding path.");
+    SetTextureView(resourceSet, bindingHandle, textureView);
 }
 
 void ShaderParameterWriter::SetSampler(ResourceSet& resourceSet, std::string_view path, Sampler* sampler) const

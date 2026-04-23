@@ -291,6 +291,12 @@ private:
     std::vector<VkDescriptorSetLayout> m_DescriptorSetLayouts;
 };
 
+namespace
+{
+VkImageView GetVkImageViewFromTextureView(TextureView* textureView);
+Scope<TextureView> CreateDefaultVulkanTextureView(VkDevice device, Texture* texture);
+} // namespace
+
 class VulkanResourceSet final : public ResourceSet
 {
 public:
@@ -340,8 +346,17 @@ public:
     void SetTexture(uint32_t binding, const TextureBinding& textureBinding) override
     {
         const BindingInfo& bindingInfo = RequireBindingInfo(binding, ResourceKind::SampledTexture);
-        m_TextureBindings[binding] = textureBinding;
-        WriteTextureDescriptor(bindingInfo, textureBinding);
+        TextureBinding resolvedBinding = textureBinding;
+        if (resolvedBinding.m_View == nullptr && resolvedBinding.m_Texture != nullptr)
+            resolvedBinding.m_View = ResolveAutoTextureView(binding, resolvedBinding.m_Texture);
+        else
+            m_AutoTextureViews.erase(binding);
+
+        if (resolvedBinding.m_Texture == nullptr && resolvedBinding.m_View != nullptr)
+            resolvedBinding.m_Texture = resolvedBinding.m_View->GetTexture();
+
+        m_TextureBindings[binding] = resolvedBinding;
+        WriteTextureDescriptor(bindingInfo, resolvedBinding);
         ++m_Version;
     }
 
@@ -493,13 +508,13 @@ private:
     {
         RTRLAB_ASSERT_MSG(bindingInfo.m_ArrayCount <= 1,
                           "Vulkan ResourceSet descriptor writes currently only support non-array texture bindings.");
-        RTRLAB_ASSERT_MSG(textureBinding.m_View != nullptr,
-                          "Vulkan ResourceSet texture descriptor writes require a valid TextureView.");
-        auto* vulkanTextureView = dynamic_cast<VulkanTextureView*>(textureBinding.m_View);
-        RTRLAB_ASSERT_MSG(vulkanTextureView != nullptr, "TextureView is not owned by the Vulkan backend.");
+        RTRLAB_ASSERT_MSG(textureBinding.m_View != nullptr || textureBinding.m_Texture != nullptr,
+                          "Vulkan ResourceSet texture descriptor writes require a valid Texture or TextureView.");
 
         VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageView = vulkanTextureView->GetVkImageView();
+        imageInfo.imageView = textureBinding.m_View != nullptr ? GetVkImageViewFromTextureView(textureBinding.m_View)
+                                                               : GetVkImageViewFromTextureView(ResolveAutoTextureView(
+                                                                     bindingInfo.m_Binding, textureBinding.m_Texture));
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
         VkWriteDescriptorSet write{};
@@ -536,6 +551,24 @@ private:
         vkUpdateDescriptorSets(m_Device, 1, &write, 0, nullptr);
     }
 
+    TextureView* ResolveAutoTextureView(uint32_t binding, Texture* texture)
+    {
+        RTRLAB_ASSERT_MSG(texture != nullptr,
+                          "Vulkan ResourceSet automatic texture-view resolution requires a valid Texture.");
+
+        const auto autoViewIt = m_AutoTextureViews.find(binding);
+        if (autoViewIt != m_AutoTextureViews.end() && autoViewIt->second != nullptr &&
+            autoViewIt->second->GetTexture() == texture)
+        {
+            return autoViewIt->second.get();
+        }
+
+        Scope<TextureView> autoView = CreateDefaultVulkanTextureView(m_Device, texture);
+        TextureView* autoViewPtr = autoView.get();
+        m_AutoTextureViews[binding] = std::move(autoView);
+        return autoViewPtr;
+    }
+
     VkDevice m_Device = VK_NULL_HANDLE;
     PipelineLayout* m_Layout = nullptr;
     uint32_t m_SetIndex = 0;
@@ -545,6 +578,7 @@ private:
     std::vector<FrameConstantCache> m_FrameConstantCaches;
     std::unordered_map<uint32_t, BufferBinding> m_BufferBindings;
     std::unordered_map<uint32_t, TextureBinding> m_TextureBindings;
+    std::unordered_map<uint32_t, Scope<TextureView>> m_AutoTextureViews;
     std::unordered_map<uint32_t, SamplerBinding> m_SamplerBindings;
     uint32_t m_Version = 0;
 };
@@ -630,6 +664,77 @@ VulkanBuffer& GetVulkanBuffer(Buffer* buffer)
 VkBuffer GetVkBufferFromBuffer(Buffer* buffer)
 {
     return GetVulkanBuffer(buffer).GetVkBuffer();
+}
+
+TextureAspect ResolveDefaultTextureViewAspect(const TextureDesc& textureDesc)
+{
+    if (IsDepthFormat(textureDesc.m_Format))
+    {
+        return HasStencilComponent(textureDesc.m_Format) ? (TextureAspect::Depth | TextureAspect::Stencil)
+                                                         : TextureAspect::Depth;
+    }
+
+    return TextureAspect::Color;
+}
+
+TextureViewDesc BuildDefaultTextureViewDesc(const TextureDesc& textureDesc)
+{
+    TextureViewDesc viewDesc;
+    viewDesc.m_Type = textureDesc.m_Type;
+    viewDesc.m_Format = textureDesc.m_Format;
+    viewDesc.m_Aspect = ResolveDefaultTextureViewAspect(textureDesc);
+    viewDesc.m_BaseMipLevel = 0;
+    viewDesc.m_MipLevelCount = std::max(textureDesc.m_MipLevels, 1u);
+    viewDesc.m_BaseArrayLayer = 0;
+    viewDesc.m_ArrayLayerCount = std::max(textureDesc.m_ArrayLayers, 1u);
+    return viewDesc;
+}
+
+VkImage GetVkImageFromTexture(Texture* texture)
+{
+    if (auto* vulkanTexture = dynamic_cast<VulkanTexture*>(texture))
+        return vulkanTexture->GetVkImage();
+    if (auto* swapchainTexture = dynamic_cast<VulkanSwapchainTexture*>(texture))
+        return swapchainTexture->GetVkImage();
+
+    RTRLAB_ASSERT_MSG(false, "Texture is not owned by the Vulkan backend.");
+    return VK_NULL_HANDLE;
+}
+
+VkImageView GetVkImageViewFromTextureView(TextureView* textureView)
+{
+    if (auto* vulkanTextureView = dynamic_cast<VulkanTextureView*>(textureView))
+        return vulkanTextureView->GetVkImageView();
+    if (auto* swapchainImageView = dynamic_cast<VulkanSwapchainImageView*>(textureView))
+        return swapchainImageView->GetVkImageView();
+
+    RTRLAB_ASSERT_MSG(false, "TextureView is not owned by the Vulkan backend.");
+    return VK_NULL_HANDLE;
+}
+
+Scope<TextureView> CreateDefaultVulkanTextureView(VkDevice device, Texture* texture)
+{
+    RTRLAB_ASSERT_MSG(texture != nullptr, "Vulkan default texture-view creation requires a valid Texture.");
+
+    const TextureDesc& textureDesc = texture->GetDesc();
+    const TextureViewDesc viewDesc = BuildDefaultTextureViewDesc(textureDesc);
+
+    VkImageViewCreateInfo createInfo = MakeVkStruct<VkImageViewCreateInfo, VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO>();
+    createInfo.image = GetVkImageFromTexture(texture);
+    createInfo.viewType = ToVkImageViewType(viewDesc.m_Type);
+    createInfo.format = ToVkFormat(viewDesc.m_Format);
+    createInfo.subresourceRange.aspectMask = ToVkImageAspect(viewDesc.m_Aspect, viewDesc.m_Format);
+    createInfo.subresourceRange.baseMipLevel = viewDesc.m_BaseMipLevel;
+    createInfo.subresourceRange.levelCount = viewDesc.m_MipLevelCount;
+    createInfo.subresourceRange.baseArrayLayer = viewDesc.m_BaseArrayLayer;
+    createInfo.subresourceRange.layerCount = viewDesc.m_ArrayLayerCount;
+
+    VkImageView imageView = VK_NULL_HANDLE;
+    CheckVk(vkCreateImageView(device, &createInfo, nullptr, &imageView), "vkCreateImageView(default texture view)");
+    const std::string debugName = MakeTextureViewDebugName(*texture);
+    SetVulkanDebugName(device, VK_OBJECT_TYPE_IMAGE_VIEW, reinterpret_cast<uint64_t>(imageView), debugName.c_str());
+
+    return CreateScope<VulkanTextureView>(device, texture, imageView, viewDesc);
 }
 
 std::vector<VkDescriptorSetLayout> CreateVkDescriptorSetLayouts(VkDevice device, const PipelineLayoutDesc& desc)

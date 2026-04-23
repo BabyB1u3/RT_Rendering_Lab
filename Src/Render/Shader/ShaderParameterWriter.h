@@ -45,6 +45,7 @@ public:
     void SetFloat4(ResourceSet& resourceSet, FieldHandle fieldHandle, const Math::Vec4& value) const;
     void SetMatrix4x4(ResourceSet& resourceSet, FieldHandle fieldHandle, const Math::Mat4& value) const;
     void SetTexture(ResourceSet& resourceSet, BindingHandle bindingHandle, Texture* texture) const;
+    void SetTextureView(ResourceSet& resourceSet, BindingHandle bindingHandle, TextureView* textureView) const;
     void SetSampler(ResourceSet& resourceSet, BindingHandle bindingHandle, Sampler* sampler) const;
     void SetBuffer(
         ResourceSet& resourceSet, BindingHandle bindingHandle, Buffer* buffer, uint64_t offset, uint64_t size) const;
@@ -53,6 +54,7 @@ public:
     void SetFloat4(ResourceSet& resourceSet, std::string_view path, const Math::Vec4& value) const;
     void SetMatrix4x4(ResourceSet& resourceSet, std::string_view path, const Math::Mat4& value) const;
     void SetTexture(ResourceSet& resourceSet, std::string_view path, Texture* texture) const;
+    void SetTextureView(ResourceSet& resourceSet, std::string_view path, TextureView* textureView) const;
     void SetSampler(ResourceSet& resourceSet, std::string_view path, Sampler* sampler) const;
     void
     SetBuffer(ResourceSet& resourceSet, std::string_view path, Buffer* buffer, uint64_t offset, uint64_t size) const;
