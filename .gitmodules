@@ -11,3 +11,4 @@
 [submodule "Vendor/eigen"]
 	path = Vendor/eigen
 	url = https://gitlab.com/libeigen/eigen.git
+	ignore = dirty
