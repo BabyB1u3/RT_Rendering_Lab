@@ -6,14 +6,12 @@
 #include <cstddef>
 #include <utility>
 
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-
 #include "Core/App/Application.h"
 #include "Core/Diagnostics/Assert/Assert.h"
 #include "Core/Diagnostics/Logging/LogCategories.h"
 #include "Core/Diagnostics/Logging/LogMacros.h"
 #include "Core/Resource/FileSystem.h"
+#include "Core/Util/Math.h"
 #include "Core/Util/Time.h"
 #include "Render/Shader/ShaderCompiler.h"
 #include "Render/Shader/ShaderParameterWriter.h"
@@ -23,8 +21,8 @@ namespace
 {
 struct TriangleVertex
 {
-    glm::vec2 m_Position;
-    glm::vec4 m_Color;
+    Math::Vec2 m_Position;
+    Math::Vec4 m_Color;
 };
 
 struct DemoViewport
@@ -164,7 +162,8 @@ void HelloTriangle::CreateTriangleResources()
     Application& app = Application::Get();
     Device& device = app.GetDevice();
 
-    static constexpr std::array<TriangleVertex, 3> kVertices = {{
+    // Eigen vector constructors are not constexpr, so this array is only const.
+    static const std::array<TriangleVertex, 3> kVertices = {{
         {{0.0f, -0.65f}, {1.0f, 0.25f, 0.25f, 1.0f}},
         {{0.65f, 0.55f}, {0.25f, 1.0f, 0.35f, 1.0f}},
         {{-0.65f, 0.55f}, {0.25f, 0.45f, 1.0f, 1.0f}},
@@ -200,8 +199,8 @@ void HelloTriangle::CreateTriangleResources()
 
     ShaderParameterWriter parameterWriter(m_ShaderProgram->GetReflection());
 
-    const glm::mat4 viewProj = glm::mat4(1.0f);
-    const glm::vec4 baseColor = glm::vec4(1.0f, 0.95f, 0.85f, 1.0f);
+    const Math::Mat4 viewProj = Math::Mat4::Identity();
+    const Math::Vec4 baseColor = Math::Vec4(1.0f, 0.95f, 0.85f, 1.0f);
 
     parameterWriter.SetMatrix4x4(*m_FrameSet, "gFrame.viewProj", viewProj);
     parameterWriter.SetFloat4(*m_MaterialSet, "gMaterial.baseColor", baseColor);
@@ -237,10 +236,10 @@ void HelloTriangle::UpdateAnimatedParameters()
     const float verticalOffset = -0.04f + (pulse - 0.5f) * 0.10f;
     const float uniformScale = 0.88f + pulse * 0.10f;
 
-    const glm::vec4 tint = glm::vec4(0.70f + 0.30f * pulse, 0.80f + 0.15f * pulse, 0.90f, 1.0f);
-    const glm::vec4 baseColor = glm::vec4(1.0f, 0.70f + 0.25f * pulse, 0.70f + 0.20f * pulse, 1.0f);
-    const glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, verticalOffset, 0.0f)) *
-                            glm::scale(glm::mat4(1.0f), glm::vec3(uniformScale, uniformScale, 1.0f));
+    const Math::Vec4 tint = Math::Vec4(0.70f + 0.30f * pulse, 0.80f + 0.15f * pulse, 0.90f, 1.0f);
+    const Math::Vec4 baseColor = Math::Vec4(1.0f, 0.70f + 0.25f * pulse, 0.70f + 0.20f * pulse, 1.0f);
+    const Math::Mat4 model = Math::Translate(Math::Mat4::Identity(), Math::Vec3(0.0f, verticalOffset, 0.0f)) *
+                             Math::Scale(Math::Mat4::Identity(), Math::Vec3(uniformScale, uniformScale, 1.0f));
 
     ShaderParameterWriter parameterWriter(m_ShaderProgram->GetReflection());
     parameterWriter.SetFloat4(*m_FrameSet, "gFrame.tint", tint);

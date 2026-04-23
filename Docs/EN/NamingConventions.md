@@ -50,7 +50,7 @@ Examples:
 ```cpp
 void Initialize();
 void BeginFrame();
-void SetPosition(const glm::vec3& position);
+void SetPosition(const Math::Vec3& position);
 bool ShouldRenderFrame() const;
 ```
 

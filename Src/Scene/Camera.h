@@ -13,7 +13,7 @@
 ///
 /// Basis vectors (Forward, Right, Up) are derived from yaw/pitch via RecalculateBasis().
 
-#include <glm/glm.hpp>
+#include "Core/Util/Math.h"
 
 class Camera
 {
@@ -25,20 +25,20 @@ public:
     void SetViewportSize(uint32_t width, uint32_t height);
     void SetAspectRatio(float aspectRatio);
 
-    void SetPosition(const glm::vec3& position);
+    void SetPosition(const Math::Vec3& position);
     void SetRotation(float yawDegrees, float pitchDegrees);
 
-    const glm::vec3& GetPosition() const { return m_Position; }
+    const Math::Vec3& GetPosition() const { return m_Position; }
     float GetYaw() const { return m_Yaw; }
     float GetPitch() const { return m_Pitch; }
 
-    const glm::vec3& GetForward() const { return m_Forward; }
-    const glm::vec3& GetRight() const { return m_Right; }
-    const glm::vec3& GetUp() const { return m_Up; }
+    const Math::Vec3& GetForward() const { return m_Forward; }
+    const Math::Vec3& GetRight() const { return m_Right; }
+    const Math::Vec3& GetUp() const { return m_Up; }
 
-    const glm::mat4& GetProjection() const { return m_Projection; }
-    const glm::mat4& GetView() const { return m_View; }
-    glm::mat4 GetViewProjection() const { return m_Projection * m_View; }
+    const Math::Mat4& GetProjection() const { return m_Projection; }
+    const Math::Mat4& GetView() const { return m_View; }
+    Math::Mat4 GetViewProjection() const { return m_Projection * m_View; }
 
     float GetVerticalFovDegrees() const { return m_VerticalFovDegrees; }
     float GetAspectRatio() const { return m_AspectRatio; }
@@ -59,16 +59,16 @@ private:
     float m_FarClip = 100.0f;
 
     // Transform
-    glm::vec3 m_Position{0.0f, 0.0f, 3.0f};
+    Math::Vec3 m_Position{0.0f, 0.0f, 3.0f};
     float m_Yaw = -90.0f;
     float m_Pitch = 0.0f;
 
     // Basis vectors
-    glm::vec3 m_Forward{0.0f, 0.0f, -1.0f};
-    glm::vec3 m_Right{1.0f, 0.0f, 0.0f};
-    glm::vec3 m_Up{0.0f, 1.0f, 0.0f};
-    glm::vec3 m_WorldUp{0.0f, 1.0f, 0.0f};
+    Math::Vec3 m_Forward{0.0f, 0.0f, -1.0f};
+    Math::Vec3 m_Right{1.0f, 0.0f, 0.0f};
+    Math::Vec3 m_Up{0.0f, 1.0f, 0.0f};
+    Math::Vec3 m_WorldUp{0.0f, 1.0f, 0.0f};
 
-    glm::mat4 m_Projection{1.0f};
-    glm::mat4 m_View{1.0f};
+    Math::Mat4 m_Projection = Math::Mat4::Identity();
+    Math::Mat4 m_View = Math::Mat4::Identity();
 };

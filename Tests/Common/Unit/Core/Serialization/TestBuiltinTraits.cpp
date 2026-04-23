@@ -6,8 +6,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include <glm/glm.hpp>
-
 #include "Core/Serialization/BuiltinTraits.h"
 #include "Core/Resource/Catalog/AssetPath.h"
 #include "MathTestUtils.h"
@@ -23,25 +21,25 @@ enum class Color
     Blue
 };
 
-void ExpectVec2Eq(const glm::vec2& lhs, const glm::vec2& rhs)
+void ExpectVec2Eq(const Math::Vec2& lhs, const Math::Vec2& rhs)
 {
-    EXPECT_FLOAT_EQ(lhs.x, rhs.x);
-    EXPECT_FLOAT_EQ(lhs.y, rhs.y);
+    EXPECT_FLOAT_EQ(lhs.x(), rhs.x());
+    EXPECT_FLOAT_EQ(lhs.y(), rhs.y());
 }
 
-void ExpectVec3Eq(const glm::vec3& lhs, const glm::vec3& rhs)
+void ExpectVec3Eq(const Math::Vec3& lhs, const Math::Vec3& rhs)
 {
-    EXPECT_FLOAT_EQ(lhs.x, rhs.x);
-    EXPECT_FLOAT_EQ(lhs.y, rhs.y);
-    EXPECT_FLOAT_EQ(lhs.z, rhs.z);
+    EXPECT_FLOAT_EQ(lhs.x(), rhs.x());
+    EXPECT_FLOAT_EQ(lhs.y(), rhs.y());
+    EXPECT_FLOAT_EQ(lhs.z(), rhs.z());
 }
 
-void ExpectVec4Eq(const glm::vec4& lhs, const glm::vec4& rhs)
+void ExpectVec4Eq(const Math::Vec4& lhs, const Math::Vec4& rhs)
 {
-    EXPECT_FLOAT_EQ(lhs.x, rhs.x);
-    EXPECT_FLOAT_EQ(lhs.y, rhs.y);
-    EXPECT_FLOAT_EQ(lhs.z, rhs.z);
-    EXPECT_FLOAT_EQ(lhs.w, rhs.w);
+    EXPECT_FLOAT_EQ(lhs.x(), rhs.x());
+    EXPECT_FLOAT_EQ(lhs.y(), rhs.y());
+    EXPECT_FLOAT_EQ(lhs.z(), rhs.z());
+    EXPECT_FLOAT_EQ(lhs.w(), rhs.w());
 }
 
 } // namespace
@@ -268,11 +266,11 @@ TEST(BuiltinTraitsTests, EnumDeserializeFromNonStringReturnsFalseAndLeavesOutput
 
 TEST(BuiltinTraitsTests, Vec2RoundTrip)
 {
-    const glm::vec2 input(1.0f, -2.0f);
+    const Math::Vec2 input(1.0f, -2.0f);
     PropertyTree tree;
     Serialize(tree, input);
 
-    glm::vec2 output(0.0f);
+    Math::Vec2 output = Math::Vec2::Zero();
     ASSERT_TRUE(Deserialize(tree, output));
     EXPECT_TRUE(tree.IsArray());
     EXPECT_EQ(tree.Size(), 2u);
@@ -281,11 +279,11 @@ TEST(BuiltinTraitsTests, Vec2RoundTrip)
 
 TEST(BuiltinTraitsTests, Vec3RoundTrip)
 {
-    const glm::vec3 input(1.0f, -2.0f, 3.5f);
+    const Math::Vec3 input(1.0f, -2.0f, 3.5f);
     PropertyTree tree;
     Serialize(tree, input);
 
-    glm::vec3 output(0.0f);
+    Math::Vec3 output = Math::Vec3::Zero();
     ASSERT_TRUE(Deserialize(tree, output));
     EXPECT_TRUE(tree.IsArray());
     EXPECT_EQ(tree.Size(), 3u);
@@ -294,11 +292,11 @@ TEST(BuiltinTraitsTests, Vec3RoundTrip)
 
 TEST(BuiltinTraitsTests, Vec4RoundTrip)
 {
-    const glm::vec4 input(1.0f, -2.0f, 3.5f, 4.25f);
+    const Math::Vec4 input(1.0f, -2.0f, 3.5f, 4.25f);
     PropertyTree tree;
     Serialize(tree, input);
 
-    glm::vec4 output(0.0f);
+    Math::Vec4 output = Math::Vec4::Zero();
     ASSERT_TRUE(Deserialize(tree, output));
     EXPECT_TRUE(tree.IsArray());
     EXPECT_EQ(tree.Size(), 4u);
@@ -307,20 +305,22 @@ TEST(BuiltinTraitsTests, Vec4RoundTrip)
 
 TEST(BuiltinTraitsTests, Mat4RoundTripUsesColumnMajorLayout)
 {
-    const glm::mat4 input(
-        1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f, 10.0f, 11.0f, 12.0f, 13.0f, 14.0f, 15.0f, 16.0f);
+    // Fill so that column-major storage is [1,2,3,4, 5,6,7,8, 9,10,11,12, 13,14,15,16],
+    // matching the previous column-major serialization expectation.
+    Math::Mat4 input;
+    input << 1.0f, 5.0f, 9.0f, 13.0f, 2.0f, 6.0f, 10.0f, 14.0f, 3.0f, 7.0f, 11.0f, 15.0f, 4.0f, 8.0f, 12.0f, 16.0f;
 
     PropertyTree tree;
     Serialize(tree, input);
 
     ASSERT_TRUE(tree.IsArray());
     ASSERT_EQ(tree.Size(), 16u);
-    EXPECT_FLOAT_EQ(static_cast<float>(tree[0].AsFloat()), input[0][0]);
-    EXPECT_FLOAT_EQ(static_cast<float>(tree[1].AsFloat()), input[0][1]);
-    EXPECT_FLOAT_EQ(static_cast<float>(tree[4].AsFloat()), input[1][0]);
-    EXPECT_FLOAT_EQ(static_cast<float>(tree[15].AsFloat()), input[3][3]);
+    EXPECT_FLOAT_EQ(static_cast<float>(tree[0].AsFloat()), input(0, 0));
+    EXPECT_FLOAT_EQ(static_cast<float>(tree[1].AsFloat()), input(1, 0));
+    EXPECT_FLOAT_EQ(static_cast<float>(tree[4].AsFloat()), input(0, 1));
+    EXPECT_FLOAT_EQ(static_cast<float>(tree[15].AsFloat()), input(3, 3));
 
-    glm::mat4 output(0.0f);
+    Math::Mat4 output = Math::Mat4::Zero();
     ASSERT_TRUE(Deserialize(tree, output));
     ExpectMat4Near(output, input, 1e-5f);
 }
@@ -328,28 +328,28 @@ TEST(BuiltinTraitsTests, Mat4RoundTripUsesColumnMajorLayout)
 TEST(BuiltinTraitsTests, Vec3DeserializeFromTooShortArrayReturnsFalseAndLeavesOutputUnchanged)
 {
     PropertyTree tree(PropertyTree::Array{PropertyTree(1.0f), PropertyTree(2.0f)});
-    glm::vec3 value(9.0f, 8.0f, 7.0f);
+    Math::Vec3 value(9.0f, 8.0f, 7.0f);
 
     EXPECT_FALSE(Deserialize(tree, value));
-    ExpectVec3Eq(value, glm::vec3(9.0f, 8.0f, 7.0f));
+    ExpectVec3Eq(value, Math::Vec3(9.0f, 8.0f, 7.0f));
 }
 
 TEST(BuiltinTraitsTests, Vec3DeserializeFromTooLongArrayReturnsFalseAndLeavesOutputUnchanged)
 {
     PropertyTree tree(
         PropertyTree::Array{PropertyTree(1.0f), PropertyTree(2.0f), PropertyTree(3.0f), PropertyTree(4.0f)});
-    glm::vec3 value(9.0f, 8.0f, 7.0f);
+    Math::Vec3 value(9.0f, 8.0f, 7.0f);
 
     EXPECT_FALSE(Deserialize(tree, value));
-    ExpectVec3Eq(value, glm::vec3(9.0f, 8.0f, 7.0f));
+    ExpectVec3Eq(value, Math::Vec3(9.0f, 8.0f, 7.0f));
 }
 
 TEST(BuiltinTraitsTests, Mat4DeserializeFromTooShortArrayReturnsFalseAndLeavesOutputUnchanged)
 {
     PropertyTree::Array arr(15, PropertyTree(1.0f));
     PropertyTree tree(std::move(arr));
-    glm::mat4 value(2.0f);
-    const glm::mat4 original = value;
+    Math::Mat4 value = 2.0f * Math::Mat4::Identity();
+    const Math::Mat4 original = value;
 
     EXPECT_FALSE(Deserialize(tree, value));
     ExpectMat4Near(value, original, 1e-5f);
@@ -359,8 +359,8 @@ TEST(BuiltinTraitsTests, Mat4DeserializeFromTooLongArrayReturnsFalseAndLeavesOut
 {
     PropertyTree::Array arr(17, PropertyTree(1.0f));
     PropertyTree tree(std::move(arr));
-    glm::mat4 value(2.0f);
-    const glm::mat4 original = value;
+    Math::Mat4 value = 2.0f * Math::Mat4::Identity();
+    const Math::Mat4 original = value;
 
     EXPECT_FALSE(Deserialize(tree, value));
     ExpectMat4Near(value, original, 1e-5f);

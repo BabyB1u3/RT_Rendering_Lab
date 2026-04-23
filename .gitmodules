@@ -1,10 +1,11 @@
 [submodule "vendor/glfw"]
 	path = Vendor/glfw
 	url = https://github.com/glfw/glfw.git
-[submodule "vendor/glm"]
-	path = Vendor/glm
-	url = https://github.com/g-truc/glm.git
 [submodule "vendor/imgui"]
 	path = Vendor/imgui
 	url = https://github.com/ocornut/imgui.git
 	branch = docking
+[submodule "Vendor/eigen"]
+	path = Vendor/eigen
+	url = https://gitlab.com/libeigen/eigen.git
+	ignore = dirty

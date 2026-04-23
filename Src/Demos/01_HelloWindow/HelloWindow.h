@@ -9,9 +9,8 @@
 
 #include <cstdint>
 
-#include <glm/glm.hpp>
-
 #include "Core/Util/Base.h"
+#include "Core/Util/Math.h"
 #include "Demos/DemoBase.h"
 
 class RenderTarget;
@@ -33,5 +32,5 @@ private:
 
     Ref<RenderTarget> m_BackBuffer;
 
-    glm::vec3 m_ClearColor{0.2f, 0.3f, 0.3f};
+    Math::Vec3 m_ClearColor{0.2f, 0.3f, 0.3f};
 };

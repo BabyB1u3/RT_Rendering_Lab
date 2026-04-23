@@ -114,7 +114,7 @@ git submodule update --init --recursive
 当前固定的子模块版本：
 
 - `GLFW`: `3.4.0`
-- `GLM`: `1.0.3`
+- `Eigen`: `5.0.0`
 - `Dear ImGui`: `1.92.6`（`docking` 分支）
 
 ### 使用 Presets 构建
@@ -252,7 +252,7 @@ ctest --preset test-windows-release
 | 库 | 作用 | 来源 |
 | --- | --- | --- |
 | [GLFW](https://github.com/glfw/glfw) | 窗口与输入 | Git 子模块（`Vendor/glfw`，`3.4.0`） |
-| [GLM](https://github.com/g-truc/glm) | 线性代数 | Git 子模块（`Vendor/glm`，`1.0.3`） |
+| [Eigen](https://eigen.tuxfamily.org/) | 线性代数 | Git 子模块（`Vendor/eigen`，`5.0.0`） |
 | [STB Image](https://github.com/nothings/stb) | 图像加载 | `Vendor/stb/` |
 | [Dear ImGui](https://github.com/ocornut/imgui) | 调试 GUI | Git 子模块（`Vendor/imgui`，`1.92.6`，`docking` 分支） |
 | [spdlog](https://github.com/gabime/spdlog) | 日志系统 | `Vendor/spdlog/` |

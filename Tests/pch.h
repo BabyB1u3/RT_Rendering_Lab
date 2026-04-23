@@ -4,7 +4,5 @@
 #include <string>
 #include <vector>
 
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-
+#include "Core/Util/Math.h"
 #include <gtest/gtest.h>

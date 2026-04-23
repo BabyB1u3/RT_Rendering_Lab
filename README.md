@@ -110,7 +110,7 @@ cd RT_Rendering_Lab
 Current pinned submodule versions:
 
 - `GLFW`: `3.4.0`
-- `GLM`: `1.0.3`
+- `Eigen`: `5.0.0`
 - `Dear ImGui`: `1.92.6` (`docking` branch)
 
 ### Build with Presets
@@ -248,7 +248,7 @@ Preset defaults can override these project-level defaults. In particular, the sh
 | Library                                                    | Purpose                    | Source                                                       |
 | ---------------------------------------------------------- | -------------------------- | ------------------------------------------------------------ |
 | [GLFW](https://github.com/glfw/glfw)                       | Windowing & input          | Git submodule (`Vendor/glfw`, `3.4.0`)                       |
-| [GLM](https://github.com/g-truc/glm)                       | Linear algebra             | Git submodule (`Vendor/glm`, `1.0.3`)                        |
+| [Eigen](https://eigen.tuxfamily.org/)                      | Linear algebra             | Git submodule (`Vendor/eigen`, `5.0.0`)                      |
 | [STB Image](https://github.com/nothings/stb)               | Image loading              | `Vendor/stb/`                                                |
 | [Dear ImGui](https://github.com/ocornut/imgui)             | Debug GUI                  | Git submodule (`Vendor/imgui`, `1.92.6`, `docking` branch)   |
 | [spdlog](https://github.com/gabime/spdlog)                 | Logging                    | `Vendor/spdlog/`                                             |
