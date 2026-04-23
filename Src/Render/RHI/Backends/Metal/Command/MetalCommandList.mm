@@ -1,3 +1,20 @@
+#include "Render/RHI/Backends/Metal/Command/MetalCommandList.h"
+
+#include <algorithm>
+
+#include "Core/Diagnostics/Assert/Assert.h"
+#include "Render/RHI/Backends/Metal/Resources/MetalBuffer.h"
+#include "Render/RHI/Backends/Metal/Common/MetalCommon.h"
+#include "Render/RHI/Backends/Metal/Common/MetalConversions.h"
+#include "Render/RHI/Backends/Metal/Device/MetalDevice.h"
+#include "Render/RHI/Backends/Metal/Pipeline/MetalGraphicsPipeline.h"
+#include "Render/RHI/Backends/Metal/Pipeline/MetalPipelineLayout.h"
+#include "Render/RHI/Backends/Metal/Resources/MetalResourceSet.h"
+#include "Render/RHI/Backends/Metal/Pipeline/MetalShaderProgram.h"
+#include "Render/RHI/Backends/Metal/Resources/MetalTexture.h"
+
+using namespace MetalRHI;
+
 MetalCommandList::MetalCommandList() : m_Data(new MetalCommandListData()) {}
 
 MetalCommandList::~MetalCommandList()

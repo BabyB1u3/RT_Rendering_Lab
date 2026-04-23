@@ -1,3 +1,20 @@
+#include "Render/RHI/Backends/Vulkan/Command/VulkanCommandList.h"
+
+#include <algorithm>
+#include <vector>
+
+#include "Core/Diagnostics/Assert/Assert.h"
+#include "Render/RHI/Backends/Vulkan/Common/VulkanBarriers.h"
+#include "Render/RHI/Backends/Vulkan/Resources/VulkanBuffer.h"
+#include "Render/RHI/Backends/Vulkan/Common/VulkanConversions.h"
+#include "Render/RHI/Backends/Vulkan/Device/VulkanDevice.h"
+#include "Render/RHI/Backends/Vulkan/Pipeline/VulkanGraphicsPipeline.h"
+#include "Render/RHI/Backends/Vulkan/Pipeline/VulkanPipelineLayout.h"
+#include "Render/RHI/Backends/Vulkan/Resources/VulkanResourceSet.h"
+#include "Render/RHI/Backends/Vulkan/Resources/VulkanTexture.h"
+
+using namespace VulkanRHI;
+
 VulkanCommandList::~VulkanCommandList()
 {
     Shutdown();

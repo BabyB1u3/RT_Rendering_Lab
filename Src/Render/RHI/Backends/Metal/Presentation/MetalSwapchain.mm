@@ -1,3 +1,16 @@
+#include "Render/RHI/Backends/Metal/Presentation/MetalSwapchain.h"
+
+#include <algorithm>
+
+#include "Core/Diagnostics/Assert/Assert.h"
+#include "Render/RHI/Backends/Common/RHIShellCommon.h"
+#include "Render/RHI/Backends/Metal/Common/MetalCommon.h"
+#include "Render/RHI/Backends/Metal/Common/MetalConversions.h"
+#include "Render/RHI/Backends/Metal/Device/MetalDevice.h"
+#include "Render/RHI/Backends/Metal/Resources/MetalTexture.h"
+
+using namespace MetalRHI;
+
 MetalSwapchain::MetalSwapchain(MetalDevice& device,
                                const SwapchainDesc& desc,
                                const NativeWindowHandle& nativeWindowHandle)
@@ -11,8 +24,6 @@ MetalSwapchain::MetalSwapchain(MetalDevice& device,
     RTRLAB_ASSERT_MSG(nativeWindowHandle.m_Layer != nullptr, "Metal swapchain creation requires a valid CAMetalLayer.");
 
     m_Data->m_Layer = [(__bridge CAMetalLayer*)nativeWindowHandle.m_Layer retain];
-    // Window/platform code only supplies the presentation surface. Metal-specific layer
-    // configuration is owned here by the backend swapchain.
     m_Data->m_Layer.device = m_Device.GetData()->m_Device;
     m_Data->m_Layer.pixelFormat = ToMetalPixelFormat(m_Desc.m_Format);
     m_Data->m_Layer.framebufferOnly = YES;
@@ -48,10 +59,6 @@ uint32_t MetalSwapchain::AcquireNextImage()
     RTRLAB_ASSERT_MSG(m_Data != nullptr && m_Data->m_Layer != nil,
                       "Metal swapchain layer must be valid before acquiring a drawable.");
 
-    // Core Animation may keep stretching the last presented drawable during
-    // live resize until the next frame is acquired. Refresh the drawable size
-    // from the current layer bounds on every acquire so interactive resize
-    // redraws use the latest backing-pixel dimensions.
     SyncDrawableSizeToLayer();
 
     id<CAMetalDrawable> drawable = [m_Data->m_Layer nextDrawable];

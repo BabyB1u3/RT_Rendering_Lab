@@ -6,7 +6,7 @@
 
 #include <string>
 
-#include "Render/RHI/Backends/Vulkan/VulkanCommon.h"
+#include "Render/RHI/Backends/Vulkan/Common/VulkanCommon.h"
 #include "Render/RHI/RHICommandList.h"
 #include "Render/RHI/RHIPipeline.h"
 #include "Render/RHI/RHIResources.h"
@@ -46,11 +46,16 @@ VkColorComponentFlags ToVkColorWriteMask(uint8_t colorWriteMask);
 
 VkDescriptorType ToVkDescriptorType(ResourceKind resourceKind);
 VkImageAspectFlags ToVkImageAspect(TextureAspect aspect, Format format);
+VkAttachmentLoadOp ToVkAttachmentLoadOp(LoadOp loadOp);
+VkAttachmentStoreOp ToVkAttachmentStoreOp(StoreOp storeOp);
 
 VmaMemoryUsage ToVmaMemoryUsage(MemoryUsage memoryUsage);
 VmaAllocationCreateFlags ToVmaAllocationCreateFlags(MemoryUsage memoryUsage);
 
 VkIndexType ToVkIndexType(IndexType indexType);
+
+uint32_t GetFormatBytesPerPixel(Format format);
+TextureAspect GetFullTextureAspect(const TextureDesc& desc);
 
 bool HasDebugName(const char* debugName);
 void SetVulkanDebugName(VkDevice device, VkObjectType objectType, uint64_t objectHandle, const char* debugName);

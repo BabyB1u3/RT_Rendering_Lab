@@ -200,29 +200,64 @@ set(GLAB_RENDER_HEADERS
 )
 
 set(GLAB_RENDER_BACKEND_VULKAN_SOURCES
-    Render/RHI/Backends/Vulkan/VulkanConversions.cpp
-    Render/RHI/Backends/Vulkan/VulkanDevice.cpp
+    Render/RHI/Backends/Vulkan/Common/VulkanBarriers.cpp
+    Render/RHI/Backends/Vulkan/Command/VulkanCommandList.cpp
+    Render/RHI/Backends/Vulkan/Common/VulkanConversions.cpp
+    Render/RHI/Backends/Vulkan/Common/VulkanDescriptors.cpp
+    Render/RHI/Backends/Vulkan/Device/VulkanDevice.cpp
+    Render/RHI/Backends/Vulkan/Resources/VulkanResourceSet.cpp
+    Render/RHI/Backends/Vulkan/Presentation/VulkanSurface.cpp
+    Render/RHI/Backends/Vulkan/Presentation/VulkanSwapchain.cpp
+    Render/RHI/Backends/Vulkan/Resources/VulkanTexture.cpp
 )
 
 set(GLAB_RENDER_BACKEND_VULKAN_HEADERS
-    Render/RHI/Backends/Vulkan/VulkanCommon.h
-    Render/RHI/Backends/Vulkan/VulkanConversions.h
-    Render/RHI/Backends/Vulkan/VulkanDevice.h
-    Render/RHI/Backends/Vulkan/VulkanCommandList.inl
-    Render/RHI/Backends/Vulkan/VulkanSwapchain.inl
-    Render/RHI/Backends/Vulkan/VulkanDeviceImpl.inl
+    Render/RHI/Backends/Vulkan/Common/VulkanBarriers.h
+    Render/RHI/Backends/Vulkan/Resources/VulkanBuffer.h
+    Render/RHI/Backends/Vulkan/Command/VulkanCommandList.h
+    Render/RHI/Backends/Vulkan/Common/VulkanCommon.h
+    Render/RHI/Backends/Vulkan/Common/VulkanConversions.h
+    Render/RHI/Backends/Vulkan/Common/VulkanDescriptors.h
+    Render/RHI/Backends/Vulkan/Device/VulkanDevice.h
+    Render/RHI/Backends/Vulkan/Pipeline/VulkanGraphicsPipeline.h
+    Render/RHI/Backends/Vulkan/Pipeline/VulkanPipelineLayout.h
+    Render/RHI/Backends/Vulkan/Resources/VulkanResourceSet.h
+    Render/RHI/Backends/Vulkan/Resources/VulkanSampler.h
+    Render/RHI/Backends/Vulkan/Pipeline/VulkanShaderProgram.h
+    Render/RHI/Backends/Vulkan/Presentation/VulkanSurface.h
+    Render/RHI/Backends/Vulkan/Presentation/VulkanSwapchain.h
+    Render/RHI/Backends/Vulkan/Resources/VulkanTexture.h
+
 )
 
 set(GLAB_RENDER_BACKEND_METAL_SOURCES
-    Render/RHI/Backends/Metal/MetalDevice.mm
+    Render/RHI/Backends/Metal/Resources/MetalBuffer.mm
+    Render/RHI/Backends/Metal/Command/MetalCommandList.mm
+    Render/RHI/Backends/Metal/Common/MetalConversions.mm
+    Render/RHI/Backends/Metal/Device/MetalDevice.mm
+    Render/RHI/Backends/Metal/Pipeline/MetalGraphicsPipeline.mm
+    Render/RHI/Backends/Metal/Pipeline/MetalPipelineLayout.mm
+    Render/RHI/Backends/Metal/Resources/MetalResourceSet.mm
+    Render/RHI/Backends/Metal/Resources/MetalSampler.mm
+    Render/RHI/Backends/Metal/Pipeline/MetalShaderProgram.mm
+    Render/RHI/Backends/Metal/Presentation/MetalSwapchain.mm
+    Render/RHI/Backends/Metal/Resources/MetalTexture.mm
 )
 
 set(GLAB_RENDER_BACKEND_METAL_HEADERS
-    Render/RHI/Backends/Metal/MetalDevice.h
-    Render/RHI/Backends/Metal/MetalInternals.inl
-    Render/RHI/Backends/Metal/MetalCommandList.inl
-    Render/RHI/Backends/Metal/MetalSwapchain.inl
-    Render/RHI/Backends/Metal/MetalDeviceImpl.inl
+    Render/RHI/Backends/Metal/Resources/MetalBuffer.h
+    Render/RHI/Backends/Metal/Command/MetalCommandList.h
+    Render/RHI/Backends/Metal/Common/MetalCommon.h
+    Render/RHI/Backends/Metal/Common/MetalConversions.h
+    Render/RHI/Backends/Metal/Device/MetalDevice.h
+    Render/RHI/Backends/Metal/Pipeline/MetalGraphicsPipeline.h
+    Render/RHI/Backends/Metal/Pipeline/MetalPipelineLayout.h
+    Render/RHI/Backends/Metal/Resources/MetalResourceSet.h
+    Render/RHI/Backends/Metal/Resources/MetalSampler.h
+    Render/RHI/Backends/Metal/Pipeline/MetalShaderProgram.h
+    Render/RHI/Backends/Metal/Presentation/MetalSwapchain.h
+    Render/RHI/Backends/Metal/Resources/MetalTexture.h
+
 )
 
 if(GLAB_BACKEND_VULKAN)

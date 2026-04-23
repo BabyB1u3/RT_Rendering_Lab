@@ -1,3 +1,18 @@
+#include "Render/RHI/Backends/Vulkan/Presentation/VulkanSwapchain.h"
+
+#include <algorithm>
+#include <limits>
+#include <vector>
+
+#include "Core/Diagnostics/Assert/Assert.h"
+#include "Render/RHI/Backends/Common/RHIShellCommon.h"
+#include "Render/RHI/Backends/Vulkan/Common/VulkanConversions.h"
+#include "Render/RHI/Backends/Vulkan/Device/VulkanDevice.h"
+#include "Render/RHI/Backends/Vulkan/Presentation/VulkanSurface.h"
+#include "Render/RHI/Backends/Vulkan/Resources/VulkanTexture.h"
+
+using namespace VulkanRHI;
+
 VulkanSwapchain::VulkanSwapchain(VulkanDevice& device,
                                  const SwapchainDesc& desc,
                                  const NativeWindowHandle& nativeWindowHandle)
@@ -230,4 +245,3 @@ void VulkanSwapchain::DestroySwapchain()
         m_Swapchain = VK_NULL_HANDLE;
     }
 }
-

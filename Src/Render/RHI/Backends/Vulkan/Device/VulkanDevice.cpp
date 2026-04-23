@@ -1,3 +1,27 @@
+#include "Render/RHI/Backends/Vulkan/Device/VulkanDevice.h"
+
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstring>
+#include <limits>
+#include <string>
+#include <vector>
+
+#include "Render/RHI/Backends/Vulkan/Resources/VulkanBuffer.h"
+#include "Render/RHI/Backends/Vulkan/Common/VulkanConversions.h"
+#include "Render/RHI/Backends/Vulkan/Common/VulkanDescriptors.h"
+#include "Render/RHI/Backends/Vulkan/Pipeline/VulkanGraphicsPipeline.h"
+#include "Render/RHI/Backends/Vulkan/Pipeline/VulkanPipelineLayout.h"
+#include "Render/RHI/Backends/Vulkan/Resources/VulkanResourceSet.h"
+#include "Render/RHI/Backends/Vulkan/Resources/VulkanSampler.h"
+#include "Render/RHI/Backends/Vulkan/Pipeline/VulkanShaderProgram.h"
+#include "Render/RHI/Backends/Vulkan/Presentation/VulkanSurface.h"
+#include "Render/RHI/Backends/Vulkan/Presentation/VulkanSwapchain.h"
+#include "Render/RHI/Backends/Vulkan/Resources/VulkanTexture.h"
+
+using namespace VulkanRHI;
+
 VulkanDevice::VulkanDevice()
 {
     CheckVk(volkInitialize(), "volkInitialize");

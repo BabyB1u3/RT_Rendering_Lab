@@ -1,3 +1,25 @@
+#include "Render/RHI/Backends/Metal/Device/MetalDevice.h"
+
+#include <algorithm>
+#include <array>
+#include <cstring>
+#include <limits>
+#include <string>
+
+#include "Core/Diagnostics/Assert/Assert.h"
+#include "Render/RHI/Backends/Metal/Resources/MetalBuffer.h"
+#include "Render/RHI/Backends/Metal/Common/MetalCommon.h"
+#include "Render/RHI/Backends/Metal/Common/MetalConversions.h"
+#include "Render/RHI/Backends/Metal/Pipeline/MetalGraphicsPipeline.h"
+#include "Render/RHI/Backends/Metal/Pipeline/MetalPipelineLayout.h"
+#include "Render/RHI/Backends/Metal/Resources/MetalResourceSet.h"
+#include "Render/RHI/Backends/Metal/Resources/MetalSampler.h"
+#include "Render/RHI/Backends/Metal/Pipeline/MetalShaderProgram.h"
+#include "Render/RHI/Backends/Metal/Presentation/MetalSwapchain.h"
+#include "Render/RHI/Backends/Metal/Resources/MetalTexture.h"
+
+using namespace MetalRHI;
+
 MetalDevice::MetalDevice() : m_Data(new MetalDeviceData())
 {
     m_Data->m_Device = MTLCreateSystemDefaultDevice();

@@ -1,4 +1,4 @@
-#include "Render/RHI/Backends/Vulkan/VulkanConversions.h"
+#include "Render/RHI/Backends/Vulkan/Common/VulkanConversions.h"
 
 namespace VulkanRHI
 {
@@ -414,6 +414,34 @@ VkImageAspectFlags ToVkImageAspect(TextureAspect aspect, Format format)
     return result;
 }
 
+VkAttachmentLoadOp ToVkAttachmentLoadOp(LoadOp loadOp)
+{
+    switch (loadOp)
+    {
+        case LoadOp::Load:
+            return VK_ATTACHMENT_LOAD_OP_LOAD;
+        case LoadOp::Clear:
+            return VK_ATTACHMENT_LOAD_OP_CLEAR;
+        case LoadOp::DontCare:
+            return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    }
+
+    return VK_ATTACHMENT_LOAD_OP_LOAD;
+}
+
+VkAttachmentStoreOp ToVkAttachmentStoreOp(StoreOp storeOp)
+{
+    switch (storeOp)
+    {
+        case StoreOp::Store:
+            return VK_ATTACHMENT_STORE_OP_STORE;
+        case StoreOp::DontCare:
+            return VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    }
+
+    return VK_ATTACHMENT_STORE_OP_STORE;
+}
+
 VmaMemoryUsage ToVmaMemoryUsage(MemoryUsage memoryUsage)
 {
     switch (memoryUsage)
@@ -454,6 +482,53 @@ VkIndexType ToVkIndexType(IndexType indexType)
     }
 
     return VK_INDEX_TYPE_UINT32;
+}
+
+uint32_t GetFormatBytesPerPixel(Format format)
+{
+    switch (format)
+    {
+        case Format::R8_UNORM:
+            return 1;
+        case Format::RG8_UNORM:
+            return 2;
+        case Format::RGBA8_UNORM:
+        case Format::RGBA8_SRGB:
+        case Format::BGRA8_UNORM:
+        case Format::BGRA8_SRGB:
+        case Format::R32F:
+        case Format::R32_UINT:
+        case Format::D32_SFLOAT:
+            return 4;
+        case Format::R16F:
+        case Format::D16_UNORM:
+            return 2;
+        case Format::RG16F:
+        case Format::RG32F:
+            return 8;
+        case Format::RGBA16F:
+        case Format::RGBA32F:
+            return 16;
+        case Format::D24_UNORM_S8_UINT:
+        case Format::D32_SFLOAT_S8_UINT:
+            return 4;
+        default:
+            break;
+    }
+
+    RTRLAB_ASSERTF(false, "Unsupported Vulkan copy format {}", static_cast<uint32_t>(format));
+    return 0;
+}
+
+TextureAspect GetFullTextureAspect(const TextureDesc& desc)
+{
+    if (IsDepthFormat(desc.m_Format))
+    {
+        return HasStencilComponent(desc.m_Format) ? (TextureAspect::Depth | TextureAspect::Stencil)
+                                                  : TextureAspect::Depth;
+    }
+
+    return TextureAspect::Color;
 }
 
 bool HasDebugName(const char* debugName)
