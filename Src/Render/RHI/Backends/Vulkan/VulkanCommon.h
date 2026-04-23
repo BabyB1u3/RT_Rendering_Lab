@@ -32,6 +32,18 @@
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 0
 #include <vma/vk_mem_alloc.h>
 
+// Vulkan headers transitively pull in <X11/Xlib.h> on Linux when
+// VK_USE_PLATFORM_XLIB_KHR is set. Xlib defines `None` and `Always` as macros,
+// which collide with public RHI enum members (BufferUsage::None, CompareOp::Always,
+// CullMode::None, MipFilterMode::None, ...). Undef them here so every TU that
+// includes VulkanCommon.h sees clean identifiers.
+#ifdef None
+#undef None
+#endif
+#ifdef Always
+#undef Always
+#endif
+
 namespace VulkanRHI
 {
 template <typename TVkStruct, VkStructureType SType> TVkStruct MakeVkStruct()
