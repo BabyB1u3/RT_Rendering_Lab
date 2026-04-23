@@ -1,4 +1,5 @@
 #include "Render/Shader/SlangCompiler.h"
+#include "Core/Diagnostics/Assert/Assert.h"
 #include "Core/Diagnostics/Logging/LogCategories.h"
 #include "Core/Diagnostics/Logging/LogMacros.h"
 #include "Core/Resource/FileSystem.h"
@@ -6,6 +7,7 @@
 #include "Render/Shader/SlangReflectionConverter.h"
 #include "Render/Shader/SlangReflectionJson.h"
 
+#include <array>
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
@@ -473,6 +475,40 @@ bool BuildMergedReflectionData(const SlangReflectionDocument& document,
     return true;
 }
 
+void AppendVulkanBindingShiftArguments(SlangCompileJob* outJob)
+{
+    RTRLAB_ASSERT_MSG(outJob != nullptr, "Vulkan binding-shift argument generation requires a valid compile job.");
+
+    // Vulkan uses a single binding namespace per descriptor set, while HLSL-style
+    // source registers use separate b/t/s/u namespaces. We reserve stable binding
+    // bands per register class during Vulkan compilation so shared Slang shaders
+    // can keep backend-agnostic D3D-style register annotations without requiring
+    // per-shader [[vk::binding]] metadata.
+    //
+    // Current project policy:
+    // - b registers keep their original binding indices
+    // - t registers map to binding 256+
+    // - s registers map to binding 512+
+    // - u registers map to binding 768+
+    //
+    // If future shaders intentionally use more than 256 bindings in any single
+    // register class within one space, this policy should be revisited and lifted
+    // into an explicit project binding-allocation scheme.
+    constexpr std::array<std::pair<const char*, uint32_t>, 4> k_VulkanRegisterShifts = {{
+        {"-fvk-b-shift", 0},
+        {"-fvk-t-shift", 256},
+        {"-fvk-s-shift", 512},
+        {"-fvk-u-shift", 768},
+    }};
+
+    for (const auto& [flag, shift] : k_VulkanRegisterShifts)
+    {
+        outJob->m_Arguments.push_back(flag);
+        outJob->m_Arguments.push_back(std::to_string(shift));
+        outJob->m_Arguments.push_back("all");
+    }
+}
+
 bool AppendJobArguments(const ShaderCompileTargetDesc& target,
                         const ShaderSourceDesc& source,
                         const ShaderEntryPointDesc& entry,
@@ -520,7 +556,10 @@ bool AppendJobArguments(const ShaderCompileTargetDesc& target,
     }
 
     if (target.m_Backend == BackendType::Vulkan)
+    {
         outJob->m_Arguments.push_back("-emit-spirv-directly");
+        AppendVulkanBindingShiftArguments(outJob);
+    }
 
     if (config.m_UseColumnMajorMatrices)
         outJob->m_Arguments.push_back("-matrix-layout-column-major");
