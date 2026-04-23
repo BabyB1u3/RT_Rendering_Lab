@@ -244,6 +244,7 @@ set(GLAB_DEMO_SOURCES
     Demos/01_HelloWindow/HelloWindow.cpp
     Demos/02_HelloTriangle/HelloTriangle.cpp
     Demos/03_HelloTexture/HelloTexture.cpp
+    Demos/04_HelloOffscreen/HelloOffscreen.cpp
 )
 
 set(GLAB_DEMO_HEADERS
@@ -253,6 +254,7 @@ set(GLAB_DEMO_HEADERS
     Demos/01_HelloWindow/HelloWindow.h
     Demos/02_HelloTriangle/HelloTriangle.h
     Demos/03_HelloTexture/HelloTexture.h
+    Demos/04_HelloOffscreen/HelloOffscreen.h
 )
 
 set(GLAB_GUI_SOURCES

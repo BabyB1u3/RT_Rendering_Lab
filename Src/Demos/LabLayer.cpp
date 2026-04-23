@@ -13,6 +13,7 @@
 #include "Demos/01_HelloWindow/HelloWindow.h"
 #include "Demos/02_HelloTriangle/HelloTriangle.h"
 #include "Demos/03_HelloTexture/HelloTexture.h"
+#include "Demos/04_HelloOffscreen/HelloOffscreen.h"
 
 LabLayer::LabLayer() : Layer("LabLayer") {}
 
@@ -25,11 +26,11 @@ void LabLayer::OnAttach()
     if (!m_ActiveDemo)
     {
         // Default demo
-        m_SelectedDemoIndex = 2;
-        LOG_INFO_CAT(LogCategory::k_Demo, "Loading default demo: 03 - Hello Texture");
-        auto defaultDemo = DemoRegistry::Create("03 - Hello Texture");
-        RTRLAB_ASSERT_MSG(defaultDemo, "Failed to create default demo: 03 - Hello Texture");
-        SetActiveDemo(std::move(defaultDemo), "03 - Hello Texture");
+        m_SelectedDemoIndex = 3;
+        LOG_INFO_CAT(LogCategory::k_Demo, "Loading default demo: 04 - Hello Offscreen");
+        auto defaultDemo = DemoRegistry::Create("04 - Hello Offscreen");
+        RTRLAB_ASSERT_MSG(defaultDemo, "Failed to create default demo: 04 - Hello Offscreen");
+        SetActiveDemo(std::move(defaultDemo), "04 - Hello Offscreen");
     }
 
     if (m_ActiveDemo)
@@ -109,6 +110,12 @@ void LabLayer::RegisterBuiltInDemos()
                            {
                                const auto& window = Application::Get().GetWindow();
                                return CreateScope<HelloTexture>(window.GetWidth(), window.GetHeight());
+                           });
+    DemoRegistry::Register("04 - Hello Offscreen",
+                           []()
+                           {
+                               const auto& window = Application::Get().GetWindow();
+                               return CreateScope<HelloOffscreen>(window.GetWidth(), window.GetHeight());
                            });
 
     m_DemosRegistered = true;
