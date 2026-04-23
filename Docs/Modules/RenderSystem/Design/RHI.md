@@ -808,6 +808,38 @@ struct MeshBinding
 
 These types are referenced by `GraphicsPipelineDesc`.
 
+### 10.1.1 Clip Space Policy
+
+For the active Vulkan and Metal backends, the project should use one explicit
+render-facing policy rather than backend-specific shader or projection hacks.
+
+Recommended policy:
+
+- renderer-facing projection math is right-handed
+- clip/NDC `x` and `y` are in `[-1, 1]`
+- NDC `z` is in `[0, 1]`
+- logical `+Y` remains up / top in renderer-facing math
+- front-face semantic is defined once at the public-RHI level
+
+Backend consequences:
+
+- **Metal** can use this policy directly
+- **Vulkan** should match it through a negative-height viewport rather than
+  shader-side `y` negation or alternate projection matrices
+- because the Vulkan viewport flip changes framebuffer-space winding, the
+  Vulkan backend must translate the public `FrontFace` semantic to the
+  appropriate native `VkFrontFace`
+
+Version-1 guidance:
+
+- treat `FrontFace` as a logical project-facing semantic, not as a promise
+  that all backends will use the same native winding enum value
+- generate projection matrices for `z in [0, 1]`
+- do not carry forward OpenGL-style `z in [-1, 1]` assumptions into the
+  Vulkan/Metal renderer path
+- do not introduce backend-specific `gl_Position.y` fixes in shaders
+  when the viewport transform can reconcile the difference centrally
+
 ```cpp
 enum class PrimitiveTopology
 {

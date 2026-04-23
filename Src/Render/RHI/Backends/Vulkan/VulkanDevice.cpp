@@ -1346,9 +1346,9 @@ void VulkanCommandList::SetViewport(float x, float y, float w, float h, float zm
 
     VkViewport viewport{};
     viewport.x = x;
-    // Normalize Vulkan's framebuffer-space Y direction to the public RHI
-    // convention used by the demo layer by flipping the viewport in backend
-    // space instead of forcing per-demo/per-shader Y adjustments. See
+    // Normalize Vulkan's framebuffer-space Y direction to the project's
+    // public render policy by flipping the viewport in backend space instead
+    // of forcing per-shader or per-projection Vulkan branches. See
     // ToVkFrontFace(): the winding must be inverted alongside this flip.
     viewport.y = y + h;
     viewport.width = w;

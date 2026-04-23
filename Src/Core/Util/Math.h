@@ -5,8 +5,17 @@
 ///
 /// The engine keeps Eigen as the implementation layer but centralizes its
 /// render-facing aliases and projection helpers here so backend-sensitive
-/// choices stay explicit. For Vulkan/Metal-facing rendering code, prefer the
-/// explicit RH_ZO helpers rather than relying on historical clip-space defaults.
+/// choices stay explicit.
+///
+/// Render-facing policy for the active Vulkan/Metal backends:
+/// - right-handed view/projection math
+/// - clip/NDC x,y in [-1, 1]
+/// - NDC z in [0, 1]
+/// - logical +Y stays up in renderer-facing math; backend viewport setup
+///   reconciles any native API differences
+///
+/// For Vulkan/Metal-facing rendering code, prefer the explicit RH_ZO helpers
+/// rather than relying on historical clip-space defaults.
 
 #include <cmath>
 #include <numbers>
@@ -59,7 +68,8 @@ inline Mat4 Scale(const Mat4& m, const Vec3& s)
 }
 
 /// Right-handed perspective projection with NDC z in [0, 1].
-/// Prefer this for the engine's Vulkan/Metal render path.
+/// This is the canonical projection helper for the engine's Vulkan/Metal
+/// render path. Do not add backend-specific z remaps on top of this matrix.
 inline Mat4 PerspectiveRH_ZO(float fovyRadians, float aspect, float zNear, float zFar)
 {
     const float tanHalfFovy = std::tan(fovyRadians * 0.5f);
