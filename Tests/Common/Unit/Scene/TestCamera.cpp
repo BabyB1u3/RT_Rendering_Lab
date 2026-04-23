@@ -1,8 +1,10 @@
 #include <gtest/gtest.h>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/norm.hpp>
+
 #include <cmath>
 
+#include <Eigen/Core>
+
+#include "Core/Util/Math.h"
 #include "Scene/Camera.h"
 #include "MathTestUtils.h"
 
@@ -10,25 +12,25 @@ TEST(CameraTests, DefaultBasisVectorsAreOrthogonalAndNormalized)
 {
     Camera camera;
 
-    EXPECT_NEAR(glm::length(camera.GetForward()), 1.0f, 1e-4f);
-    EXPECT_NEAR(glm::length(camera.GetRight()), 1.0f, 1e-4f);
-    EXPECT_NEAR(glm::length(camera.GetUp()), 1.0f, 1e-4f);
+    EXPECT_NEAR(camera.GetForward().norm(), 1.0f, 1e-4f);
+    EXPECT_NEAR(camera.GetRight().norm(), 1.0f, 1e-4f);
+    EXPECT_NEAR(camera.GetUp().norm(), 1.0f, 1e-4f);
 
-    EXPECT_NEAR(glm::dot(camera.GetForward(), camera.GetRight()), 0.0f, 1e-4f);
-    EXPECT_NEAR(glm::dot(camera.GetForward(), camera.GetUp()), 0.0f, 1e-4f);
-    EXPECT_NEAR(glm::dot(camera.GetRight(), camera.GetUp()), 0.0f, 1e-4f);
+    EXPECT_NEAR(camera.GetForward().dot(camera.GetRight()), 0.0f, 1e-4f);
+    EXPECT_NEAR(camera.GetForward().dot(camera.GetUp()), 0.0f, 1e-4f);
+    EXPECT_NEAR(camera.GetRight().dot(camera.GetUp()), 0.0f, 1e-4f);
 }
 
 TEST(CameraTests, DefaultConstructionBuildsConsistentViewAndProjection)
 {
     Camera camera;
 
-    glm::mat4 expectedView =
-        glm::lookAt(camera.GetPosition(), camera.GetPosition() + camera.GetForward(), camera.GetUp());
-    glm::mat4 expectedProjection = glm::perspective(glm::radians(camera.GetVerticalFovDegrees()),
-                                                    camera.GetAspectRatio(),
-                                                    camera.GetNearClip(),
-                                                    camera.GetFarClip());
+    Eigen::Matrix4f expectedView =
+        Math::LookAt(camera.GetPosition(), camera.GetPosition() + camera.GetForward(), camera.GetUp());
+    Eigen::Matrix4f expectedProjection = Math::Perspective(Math::Radians(camera.GetVerticalFovDegrees()),
+                                                           camera.GetAspectRatio(),
+                                                           camera.GetNearClip(),
+                                                           camera.GetFarClip());
 
     ExpectMat4Near(camera.GetView(), expectedView);
     ExpectMat4Near(camera.GetProjection(), expectedProjection);
@@ -57,7 +59,7 @@ TEST(CameraTests, SetViewportSizeWithZeroHeightKeepsProjectionStateUnchanged)
     Camera camera(45.0f, 16.0f / 9.0f, 0.1f, 100.0f);
 
     const float originalAspect = camera.GetAspectRatio();
-    const glm::mat4 originalProjection = camera.GetProjection();
+    const Eigen::Matrix4f originalProjection = camera.GetProjection();
 
     camera.SetViewportSize(1920, 0);
 
@@ -67,29 +69,18 @@ TEST(CameraTests, SetViewportSizeWithZeroHeightKeepsProjectionStateUnchanged)
 
 TEST(CameraTests, ExtremePitchKeepsBasisAndViewFinite)
 {
-    auto isFiniteVec3 = [](const glm::vec3& value)
-    {
-        return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z);
-    };
-    auto isFiniteVec4 = [](const glm::vec4& value)
-    {
-        return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z) && std::isfinite(value.w);
-    };
-
     Camera camera;
     camera.SetRotation(-90.0f, 90.0f);
 
-    EXPECT_TRUE(isFiniteVec3(camera.GetForward()));
-    EXPECT_TRUE(isFiniteVec3(camera.GetRight()));
-    EXPECT_TRUE(isFiniteVec3(camera.GetUp()));
+    EXPECT_TRUE(camera.GetForward().allFinite());
+    EXPECT_TRUE(camera.GetRight().allFinite());
+    EXPECT_TRUE(camera.GetUp().allFinite());
 
-    EXPECT_NEAR(glm::length2(camera.GetForward()), 1.0f, 1e-3f);
-    EXPECT_NEAR(glm::length2(camera.GetRight()), 1.0f, 1e-3f);
-    EXPECT_NEAR(glm::length2(camera.GetUp()), 1.0f, 1e-3f);
+    EXPECT_NEAR(camera.GetForward().squaredNorm(), 1.0f, 1e-3f);
+    EXPECT_NEAR(camera.GetRight().squaredNorm(), 1.0f, 1e-3f);
+    EXPECT_NEAR(camera.GetUp().squaredNorm(), 1.0f, 1e-3f);
 
-    const glm::mat4& view = camera.GetView();
-    for (int c = 0; c < 4; ++c)
-        EXPECT_TRUE(isFiniteVec4(view[c]));
+    EXPECT_TRUE(camera.GetView().allFinite());
 }
 
 TEST(CameraTests, SetAspectRatioUpdatesProjectionState)
@@ -100,7 +91,7 @@ TEST(CameraTests, SetAspectRatioUpdatesProjectionState)
     camera.SetAspectRatio(1.0f);
     auto after = camera.GetProjection();
 
-    EXPECT_NE(before[0][0], after[0][0]);
+    EXPECT_NE(before(0, 0), after(0, 0));
     EXPECT_FLOAT_EQ(camera.GetAspectRatio(), 1.0f);
 }
 
@@ -110,6 +101,6 @@ TEST(CameraTests, ViewProjectionMatchesProjectionTimesView)
     camera.SetPosition({1.0f, 2.0f, 3.0f});
     camera.SetRotation(-90.0f, 0.0f);
 
-    glm::mat4 expected = camera.GetProjection() * camera.GetView();
+    Eigen::Matrix4f expected = camera.GetProjection() * camera.GetView();
     ExpectMat4Near(camera.GetViewProjection(), expected);
 }

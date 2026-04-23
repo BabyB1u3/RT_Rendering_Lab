@@ -1,15 +1,15 @@
 #pragma once
 
 /// @file BuiltinTraits.h
-/// @brief Built-in Serialize/Deserialize overloads for primitives, GLM types,
-///        enums (via magic_enum), and standard containers.
+/// @brief Built-in Serialize/Deserialize overloads for primitives, Eigen vector/matrix
+///        types, enums (via magic_enum), and standard containers.
 
 #include "Core/Serialization/SerializationTraits.h"
 #include "Core/Diagnostics/Logging/LogCategories.h"
 #include "Core/Diagnostics/Logging/LogMacros.h"
 #include "Core/Resource/Catalog/AssetPath.h"
 
-#include <glm/glm.hpp>
+#include <Eigen/Core>
 #include <magic_enum.hpp>
 
 #include <optional>
@@ -184,73 +184,73 @@ bool Deserialize(const PropertyTree& tree, E& value)
 }
 
 // ---------------------------------------------------------------------
-// GLM types
+// Eigen vector / matrix types
 // ---------------------------------------------------------------------
 
-// --- glm::vec2 ---
-inline void Serialize(PropertyTree& tree, const glm::vec2& v)
+// --- Eigen::Vector2f ---
+inline void Serialize(PropertyTree& tree, const Eigen::Vector2f& v)
 {
-    tree = PropertyTree::Array{PropertyTree(v.x), PropertyTree(v.y)};
+    tree = PropertyTree::Array{PropertyTree(v.x()), PropertyTree(v.y())};
 }
 
-inline bool Deserialize(const PropertyTree& tree, glm::vec2& v)
+inline bool Deserialize(const PropertyTree& tree, Eigen::Vector2f& v)
 {
     if (!tree.IsArray() || tree.Size() != 2)
         return false;
-    v.x = static_cast<float>(tree[size_t(0)].AsFloat());
-    v.y = static_cast<float>(tree[size_t(1)].AsFloat());
+    v.x() = static_cast<float>(tree[size_t(0)].AsFloat());
+    v.y() = static_cast<float>(tree[size_t(1)].AsFloat());
     return true;
 }
 
-// --- glm::vec3 ---
-inline void Serialize(PropertyTree& tree, const glm::vec3& v)
+// --- Eigen::Vector3f ---
+inline void Serialize(PropertyTree& tree, const Eigen::Vector3f& v)
 {
-    tree = PropertyTree::Array{PropertyTree(v.x), PropertyTree(v.y), PropertyTree(v.z)};
+    tree = PropertyTree::Array{PropertyTree(v.x()), PropertyTree(v.y()), PropertyTree(v.z())};
 }
 
-inline bool Deserialize(const PropertyTree& tree, glm::vec3& v)
+inline bool Deserialize(const PropertyTree& tree, Eigen::Vector3f& v)
 {
     if (!tree.IsArray() || tree.Size() != 3)
         return false;
-    v.x = static_cast<float>(tree[size_t(0)].AsFloat());
-    v.y = static_cast<float>(tree[size_t(1)].AsFloat());
-    v.z = static_cast<float>(tree[size_t(2)].AsFloat());
+    v.x() = static_cast<float>(tree[size_t(0)].AsFloat());
+    v.y() = static_cast<float>(tree[size_t(1)].AsFloat());
+    v.z() = static_cast<float>(tree[size_t(2)].AsFloat());
     return true;
 }
 
-// --- glm::vec4 ---
-inline void Serialize(PropertyTree& tree, const glm::vec4& v)
+// --- Eigen::Vector4f ---
+inline void Serialize(PropertyTree& tree, const Eigen::Vector4f& v)
 {
-    tree = PropertyTree::Array{PropertyTree(v.x), PropertyTree(v.y), PropertyTree(v.z), PropertyTree(v.w)};
+    tree = PropertyTree::Array{PropertyTree(v.x()), PropertyTree(v.y()), PropertyTree(v.z()), PropertyTree(v.w())};
 }
 
-inline bool Deserialize(const PropertyTree& tree, glm::vec4& v)
+inline bool Deserialize(const PropertyTree& tree, Eigen::Vector4f& v)
 {
     if (!tree.IsArray() || tree.Size() != 4)
         return false;
-    v.x = static_cast<float>(tree[size_t(0)].AsFloat());
-    v.y = static_cast<float>(tree[size_t(1)].AsFloat());
-    v.z = static_cast<float>(tree[size_t(2)].AsFloat());
-    v.w = static_cast<float>(tree[size_t(3)].AsFloat());
+    v.x() = static_cast<float>(tree[size_t(0)].AsFloat());
+    v.y() = static_cast<float>(tree[size_t(1)].AsFloat());
+    v.z() = static_cast<float>(tree[size_t(2)].AsFloat());
+    v.w() = static_cast<float>(tree[size_t(3)].AsFloat());
     return true;
 }
 
-// --- glm::mat4 (16 floats, column-major) ---
-inline void Serialize(PropertyTree& tree, const glm::mat4& m)
+// --- Eigen::Matrix4f (16 floats, column-major) ---
+inline void Serialize(PropertyTree& tree, const Eigen::Matrix4f& m)
 {
     PropertyTree::Array arr;
     arr.reserve(16);
-    const float* p = &m[0][0];
+    const float* p = m.data();
     for (int i = 0; i < 16; ++i)
         arr.push_back(PropertyTree(p[i]));
     tree = std::move(arr);
 }
 
-inline bool Deserialize(const PropertyTree& tree, glm::mat4& m)
+inline bool Deserialize(const PropertyTree& tree, Eigen::Matrix4f& m)
 {
     if (!tree.IsArray() || tree.Size() != 16)
         return false;
-    float* p = &m[0][0];
+    float* p = m.data();
     for (int i = 0; i < 16; ++i)
         p[i] = static_cast<float>(tree[size_t(i)].AsFloat());
     return true;

@@ -9,13 +9,13 @@
 ///
 /// The padding field ensures 16-byte alignment for potential future UBO upload.
 
-#include <glm/glm.hpp>
+#include <Eigen/Core>
 
 struct DirectionalLight
 {
-    glm::vec3 m_Direction = glm::normalize(glm::vec3(-0.5f, -1.0f, -0.3f));
+    Eigen::Vector3f m_Direction = Eigen::Vector3f(-0.5f, -1.0f, -0.3f).normalized();
     float m_Intensity = 1.0f;
 
-    glm::vec3 m_Color{1.0f, 1.0f, 1.0f};
+    Eigen::Vector3f m_Color{1.0f, 1.0f, 1.0f};
     float m_Padding = 0.0f; // Align to 16 bytes for potential future UBO layout
 };

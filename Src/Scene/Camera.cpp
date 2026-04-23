@@ -3,8 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/constants.hpp>
+#include "Core/Util/Math.h"
 
 Camera::Camera()
 {
@@ -45,7 +44,7 @@ void Camera::SetAspectRatio(float aspectRatio)
     RecalculateProjection();
 }
 
-void Camera::SetPosition(const glm::vec3& position)
+void Camera::SetPosition(const Eigen::Vector3f& position)
 {
     m_Position = position;
     RecalculateView();
@@ -66,31 +65,31 @@ void Camera::SetRotation(float yawDegrees, float pitchDegrees)
 
 void Camera::RecalculateProjection()
 {
-    m_Projection = glm::perspective(glm::radians(m_VerticalFovDegrees), m_AspectRatio, m_NearClip, m_FarClip);
+    m_Projection = Math::Perspective(Math::Radians(m_VerticalFovDegrees), m_AspectRatio, m_NearClip, m_FarClip);
 }
 
 void Camera::RecalculateView()
 {
-    m_View = glm::lookAt(m_Position, m_Position + m_Forward, m_Up);
+    m_View = Math::LookAt(m_Position, m_Position + m_Forward, m_Up);
 }
 
 void Camera::RecalculateBasis()
 {
     // Convert Euler angles (yaw, pitch) to a forward direction vector.
     // Yaw rotates around Y in the XZ plane; pitch tilts up/down.
-    glm::vec3 forward;
-    forward.x = std::cos(glm::radians(m_Yaw)) * std::cos(glm::radians(m_Pitch));
-    forward.y = std::sin(glm::radians(m_Pitch));
-    forward.z = std::sin(glm::radians(m_Yaw)) * std::cos(glm::radians(m_Pitch));
+    Eigen::Vector3f forward;
+    forward.x() = std::cos(Math::Radians(m_Yaw)) * std::cos(Math::Radians(m_Pitch));
+    forward.y() = std::sin(Math::Radians(m_Pitch));
+    forward.z() = std::sin(Math::Radians(m_Yaw)) * std::cos(Math::Radians(m_Pitch));
 
-    m_Forward = glm::normalize(forward);
+    m_Forward = forward.normalized();
 
     // When forward aligns with world-up, the usual cross product degenerates to
     // zero. Switch to a stable fallback axis so the basis stays well-defined.
-    glm::vec3 referenceUp = m_WorldUp;
-    if (std::abs(glm::dot(m_Forward, m_WorldUp)) > 0.999f)
-        referenceUp = glm::vec3(0.0f, 0.0f, 1.0f);
+    Eigen::Vector3f referenceUp = m_WorldUp;
+    if (std::abs(m_Forward.dot(m_WorldUp)) > 0.999f)
+        referenceUp = Eigen::Vector3f(0.0f, 0.0f, 1.0f);
 
-    m_Right = glm::normalize(glm::cross(m_Forward, referenceUp));
-    m_Up = glm::normalize(glm::cross(m_Right, m_Forward));
+    m_Right = m_Forward.cross(referenceUp).normalized();
+    m_Up = m_Right.cross(m_Forward).normalized();
 }

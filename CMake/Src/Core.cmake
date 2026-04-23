@@ -27,7 +27,6 @@ endif()
 
 target_link_libraries(RTRLabCore PUBLIC
     glfw
-    glm
     eigen
     imgui
     magic_enum
@@ -91,7 +90,6 @@ if(UNIX AND NOT APPLE)
 endif()
 
 target_compile_definitions(RTRLabCore PUBLIC
-    GLM_ENABLE_EXPERIMENTAL
     $<$<CONFIG:Debug>:RTRLAB_CONFIG_DEBUG>
     $<$<CONFIG:RelWithDebInfo>:RTRLAB_CONFIG_RELWITHDEBINFO>
     $<$<CONFIG:Release>:RTRLAB_CONFIG_RELEASE>

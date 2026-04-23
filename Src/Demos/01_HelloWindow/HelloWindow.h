@@ -9,7 +9,7 @@
 
 #include <cstdint>
 
-#include <glm/glm.hpp>
+#include <Eigen/Core>
 
 #include "Core/Util/Base.h"
 #include "Demos/DemoBase.h"
@@ -33,5 +33,5 @@ private:
 
     Ref<RenderTarget> m_BackBuffer;
 
-    glm::vec3 m_ClearColor{0.2f, 0.3f, 0.3f};
+    Eigen::Vector3f m_ClearColor{0.2f, 0.3f, 0.3f};
 };

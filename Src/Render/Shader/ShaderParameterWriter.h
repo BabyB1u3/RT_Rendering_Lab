@@ -11,7 +11,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include <glm/fwd.hpp>
+#include <Eigen/Core>
 
 #include "Render/RHI/RHIResources.h"
 #include "Render/Shader/ShaderTypes.h"
@@ -43,16 +43,16 @@ public:
     BindingHandle ResolveBinding(std::string_view path) const;
 
     void SetFloat(ResourceSet& resourceSet, FieldHandle fieldHandle, float value) const;
-    void SetFloat4(ResourceSet& resourceSet, FieldHandle fieldHandle, const glm::vec4& value) const;
-    void SetMatrix4x4(ResourceSet& resourceSet, FieldHandle fieldHandle, const glm::mat4& value) const;
+    void SetFloat4(ResourceSet& resourceSet, FieldHandle fieldHandle, const Eigen::Vector4f& value) const;
+    void SetMatrix4x4(ResourceSet& resourceSet, FieldHandle fieldHandle, const Eigen::Matrix4f& value) const;
     void SetTexture(ResourceSet& resourceSet, BindingHandle bindingHandle, Texture* texture) const;
     void SetSampler(ResourceSet& resourceSet, BindingHandle bindingHandle, Sampler* sampler) const;
     void SetBuffer(
         ResourceSet& resourceSet, BindingHandle bindingHandle, Buffer* buffer, uint64_t offset, uint64_t size) const;
 
     void SetFloat(ResourceSet& resourceSet, std::string_view path, float value) const;
-    void SetFloat4(ResourceSet& resourceSet, std::string_view path, const glm::vec4& value) const;
-    void SetMatrix4x4(ResourceSet& resourceSet, std::string_view path, const glm::mat4& value) const;
+    void SetFloat4(ResourceSet& resourceSet, std::string_view path, const Eigen::Vector4f& value) const;
+    void SetMatrix4x4(ResourceSet& resourceSet, std::string_view path, const Eigen::Matrix4f& value) const;
     void SetTexture(ResourceSet& resourceSet, std::string_view path, Texture* texture) const;
     void SetSampler(ResourceSet& resourceSet, std::string_view path, Sampler* sampler) const;
     void

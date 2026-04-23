@@ -129,7 +129,6 @@ endif()
 # -----------------------------------------------------------------------------
 # Header-only dependencies
 # -----------------------------------------------------------------------------
-glab_add_header_only_vendor(glm glm)
 glab_add_header_only_vendor(eigen eigen)
 glab_add_header_only_vendor(nlohmann_json nlohmann)
 glab_add_header_only_vendor(magic_enum magic_enum)

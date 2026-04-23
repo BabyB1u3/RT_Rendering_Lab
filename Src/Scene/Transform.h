@@ -7,29 +7,31 @@
 /// Rotation order is ZYX (roll, then yaw, then pitch) - standard for FPS-style objects.
 /// The matrix is recomputed on every call; caching can be added if profiling shows a need.
 
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+
+#include "Core/Util/Math.h"
 
 struct Transform
 {
-    glm::vec3 m_Position{0.0f, 0.0f, 0.0f};
-    glm::vec3 m_RotationEulerDegrees{0.0f, 0.0f, 0.0f};
-    glm::vec3 m_Scale{1.0f, 1.0f, 1.0f};
+    Eigen::Vector3f m_Position{0.0f, 0.0f, 0.0f};
+    Eigen::Vector3f m_RotationEulerDegrees{0.0f, 0.0f, 0.0f};
+    Eigen::Vector3f m_Scale{1.0f, 1.0f, 1.0f};
 
     /// Compute the TRS model matrix. Rotation order: Z * Y * X.
-    glm::mat4 GetMatrix() const
+    Eigen::Matrix4f GetMatrix() const
     {
-        glm::mat4 translation = glm::translate(glm::mat4(1.0f), m_Position);
+        const Eigen::Matrix4f translation = Math::Translate(Eigen::Matrix4f::Identity(), m_Position);
 
-        glm::mat4 rotationX =
-            glm::rotate(glm::mat4(1.0f), glm::radians(m_RotationEulerDegrees.x), glm::vec3(1.0f, 0.0f, 0.0f));
-        glm::mat4 rotationY =
-            glm::rotate(glm::mat4(1.0f), glm::radians(m_RotationEulerDegrees.y), glm::vec3(0.0f, 1.0f, 0.0f));
-        glm::mat4 rotationZ =
-            glm::rotate(glm::mat4(1.0f), glm::radians(m_RotationEulerDegrees.z), glm::vec3(0.0f, 0.0f, 1.0f));
+        const Eigen::Matrix4f rotationX = Math::Rotate(
+            Eigen::Matrix4f::Identity(), Math::Radians(m_RotationEulerDegrees.x()), Eigen::Vector3f(1.0f, 0.0f, 0.0f));
+        const Eigen::Matrix4f rotationY = Math::Rotate(
+            Eigen::Matrix4f::Identity(), Math::Radians(m_RotationEulerDegrees.y()), Eigen::Vector3f(0.0f, 1.0f, 0.0f));
+        const Eigen::Matrix4f rotationZ = Math::Rotate(
+            Eigen::Matrix4f::Identity(), Math::Radians(m_RotationEulerDegrees.z()), Eigen::Vector3f(0.0f, 0.0f, 1.0f));
 
-        glm::mat4 rotation = rotationZ * rotationY * rotationX;
-        glm::mat4 scale = glm::scale(glm::mat4(1.0f), m_Scale);
+        const Eigen::Matrix4f rotation = rotationZ * rotationY * rotationX;
+        const Eigen::Matrix4f scale = Math::Scale(Eigen::Matrix4f::Identity(), m_Scale);
 
         return translation * rotation * scale;
     }
