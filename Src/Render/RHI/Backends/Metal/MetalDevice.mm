@@ -159,6 +159,49 @@ MTLStoreAction ToMetalStoreAction(StoreOp storeOp)
     }
 }
 
+MTLCompareFunction ToMetalCompareFunction(CompareOp compareOp)
+{
+    switch (compareOp)
+    {
+        case CompareOp::Never:
+            return MTLCompareFunctionNever;
+        case CompareOp::Less:
+            return MTLCompareFunctionLess;
+        case CompareOp::Equal:
+            return MTLCompareFunctionEqual;
+        case CompareOp::LessEqual:
+            return MTLCompareFunctionLessEqual;
+        case CompareOp::Greater:
+            return MTLCompareFunctionGreater;
+        case CompareOp::NotEqual:
+            return MTLCompareFunctionNotEqual;
+        case CompareOp::GreaterEqual:
+            return MTLCompareFunctionGreaterEqual;
+        case CompareOp::Always:
+        default:
+            return MTLCompareFunctionAlways;
+    }
+}
+
+bool IsDepthFormat(Format format)
+{
+    switch (format)
+    {
+        case Format::D16_UNORM:
+        case Format::D32_SFLOAT:
+        case Format::D24_UNORM_S8_UINT:
+        case Format::D32_SFLOAT_S8_UINT:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool HasStencilComponent(Format format)
+{
+    return format == Format::D24_UNORM_S8_UINT || format == Format::D32_SFLOAT_S8_UINT;
+}
+
 bool HasDebugName(const char* debugName)
 {
     return debugName != nullptr && debugName[0] != '\0';
@@ -1405,10 +1448,12 @@ class MetalGraphicsPipeline final : public GraphicsPipeline
 {
 public:
     MetalGraphicsPipeline(id<MTLRenderPipelineState> pipelineState,
+                          id<MTLDepthStencilState> depthStencilState,
                           const GraphicsPipelineDesc& desc,
                           uint32_t vertexBufferSlotBase,
                           std::vector<MetalStageArgumentEncoderEntry>&& argumentEncoders)
         : m_PipelineState([pipelineState retain]),
+          m_DepthStencilState([depthStencilState retain]),
           m_Desc(desc),
           m_VertexBufferSlotBase(vertexBufferSlotBase),
           m_ArgumentEncoders(std::move(argumentEncoders))
@@ -1423,6 +1468,12 @@ public:
             m_PipelineState = nil;
         }
 
+        if (m_DepthStencilState != nil)
+        {
+            [m_DepthStencilState release];
+            m_DepthStencilState = nil;
+        }
+
         for (const MetalStageArgumentEncoderEntry& entry : m_ArgumentEncoders)
         {
             if (entry.m_Encoder != nil)
@@ -1432,6 +1483,7 @@ public:
 
     const GraphicsPipelineDesc& GetDesc() const override { return m_Desc; }
     id<MTLRenderPipelineState> GetPipelineState() const { return m_PipelineState; }
+    id<MTLDepthStencilState> GetDepthStencilState() const { return m_DepthStencilState; }
     uint32_t GetVertexBufferSlotBase() const { return m_VertexBufferSlotBase; }
     const MetalStageArgumentEncoderEntry* FindArgumentEncoderEntry(uint32_t setIndex, ShaderStage stage) const
     {
@@ -1444,6 +1496,7 @@ public:
 
 private:
     id<MTLRenderPipelineState> m_PipelineState = nil;
+    id<MTLDepthStencilState> m_DepthStencilState = nil;
     GraphicsPipelineDesc m_Desc;
     uint32_t m_VertexBufferSlotBase = 0;
     std::vector<MetalStageArgumentEncoderEntry> m_ArgumentEncoders;
@@ -1491,29 +1544,47 @@ MetalResourceSet& GetMetalResourceSet(ResourceSet* resourceSet)
     return *metalResourceSet;
 }
 
-const MetalTexture& GetMetalTexture(Texture* texture)
-{
-    auto* metalTexture = dynamic_cast<MetalTexture*>(texture);
-    RTRLAB_ASSERT_MSG(metalTexture != nullptr, "Texture is not owned by the Metal backend.");
-    return *metalTexture;
-}
-
 const MetalTextureView* TryGetMetalTextureView(TextureView* textureView)
 {
     return dynamic_cast<MetalTextureView*>(textureView);
+}
+
+const MetalSwapchainImageView* TryGetMetalSwapchainImageView(TextureView* textureView)
+{
+    return dynamic_cast<MetalSwapchainImageView*>(textureView);
+}
+
+id<MTLTexture> GetMetalTextureFromTexture(Texture* texture)
+{
+    if (auto* metalTexture = dynamic_cast<MetalTexture*>(texture))
+        return metalTexture->GetMetalTexture();
+    if (auto* swapchainTexture = dynamic_cast<MetalSwapchainTexture*>(texture))
+        return swapchainTexture->GetMetalTexture();
+
+    RTRLAB_ASSERT_MSG(false, "Texture is not owned by the Metal backend.");
+    return nil;
+}
+
+id<MTLTexture> GetMetalTextureFromView(TextureView* textureView)
+{
+    if (const MetalTextureView* metalTextureView = TryGetMetalTextureView(textureView))
+        return metalTextureView->GetMetalTextureView();
+    if (const MetalSwapchainImageView* swapchainImageView = TryGetMetalSwapchainImageView(textureView))
+        return GetMetalTextureFromTexture(swapchainImageView->GetTexture());
+
+    RTRLAB_ASSERT_MSG(false, "TextureView is not owned by the Metal backend.");
+    return nil;
 }
 
 id<MTLTexture> ResolveMetalTextureForBinding(const TextureBinding& textureBinding)
 {
     if (textureBinding.m_View != nullptr)
     {
-        const MetalTextureView* metalTextureView = TryGetMetalTextureView(textureBinding.m_View);
-        RTRLAB_ASSERT_MSG(metalTextureView != nullptr, "TextureView is not owned by the Metal backend.");
-        return metalTextureView->GetMetalTextureView();
+        return GetMetalTextureFromView(textureBinding.m_View);
     }
 
     RTRLAB_ASSERT_MSG(textureBinding.m_Texture != nullptr, "Metal texture bindings require a texture or view.");
-    return GetMetalTexture(textureBinding.m_Texture).GetMetalTexture();
+    return GetMetalTextureFromTexture(textureBinding.m_Texture);
 }
 
 const MetalSampler& GetMetalSampler(Sampler* sampler)
@@ -1583,26 +1654,54 @@ void MetalCommandList::BeginRendering(const RenderingInfo& renderingInfo)
                       "Metal command list must be initialized before rendering.");
     RTRLAB_ASSERT_MSG(m_Data->m_DeviceData->m_CurrentCommandBuffer != nil,
                       "Metal rendering requires an active command buffer.");
-    RTRLAB_ASSERT_MSG(renderingInfo.m_ColorAttachments.size() == 1,
-                      "Early Metal bring-up currently supports exactly one color attachment.");
-    RTRLAB_ASSERT_MSG(renderingInfo.m_DepthAttachment.m_View == nullptr,
-                      "Early Metal bring-up does not support depth attachments yet.");
-
-    const ColorAttachmentInfo& colorAttachment = renderingInfo.m_ColorAttachments.front();
-    auto* imageView = dynamic_cast<MetalSwapchainImageView*>(colorAttachment.m_View);
-    RTRLAB_ASSERT_MSG(imageView != nullptr, "Metal BeginRendering currently expects a swapchain image view.");
-
-    auto* texture = dynamic_cast<MetalSwapchainTexture*>(imageView->GetTexture());
-    RTRLAB_ASSERT_MSG(texture != nullptr, "Metal BeginRendering currently expects a swapchain texture.");
 
     MTLRenderPassDescriptor* renderPassDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
-    renderPassDescriptor.colorAttachments[0].texture = texture->GetMetalTexture();
-    renderPassDescriptor.colorAttachments[0].loadAction = ToMetalLoadAction(colorAttachment.m_LoadOp);
-    renderPassDescriptor.colorAttachments[0].storeAction = ToMetalStoreAction(colorAttachment.m_StoreOp);
-    renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(colorAttachment.m_ClearValue.m_R,
-                                                                            colorAttachment.m_ClearValue.m_G,
-                                                                            colorAttachment.m_ClearValue.m_B,
-                                                                            colorAttachment.m_ClearValue.m_A);
+    for (uint32_t colorIndex = 0; colorIndex < static_cast<uint32_t>(renderingInfo.m_ColorAttachments.size());
+         ++colorIndex)
+    {
+        const ColorAttachmentInfo& colorAttachmentInfo = renderingInfo.m_ColorAttachments[colorIndex];
+        RTRLAB_ASSERT_MSG(colorAttachmentInfo.m_View != nullptr,
+                          "Metal BeginRendering requires non-null color attachment views.");
+        Texture* colorTexture = colorAttachmentInfo.m_View->GetTexture();
+        RTRLAB_ASSERT_MSG(colorTexture != nullptr, "Metal color attachment views must reference textures.");
+        RTRLAB_ASSERT_MSG(!IsDepthFormat(colorTexture->GetDesc().m_Format),
+                          "Metal color attachments must use color formats.");
+
+        MTLRenderPassColorAttachmentDescriptor* attachment = renderPassDescriptor.colorAttachments[colorIndex];
+        attachment.texture = GetMetalTextureFromView(colorAttachmentInfo.m_View);
+        attachment.loadAction = ToMetalLoadAction(colorAttachmentInfo.m_LoadOp);
+        attachment.storeAction = ToMetalStoreAction(colorAttachmentInfo.m_StoreOp);
+        attachment.clearColor = MTLClearColorMake(colorAttachmentInfo.m_ClearValue.m_R,
+                                                  colorAttachmentInfo.m_ClearValue.m_G,
+                                                  colorAttachmentInfo.m_ClearValue.m_B,
+                                                  colorAttachmentInfo.m_ClearValue.m_A);
+    }
+
+    if (renderingInfo.m_DepthAttachment.m_View != nullptr)
+    {
+        Texture* depthTexture = renderingInfo.m_DepthAttachment.m_View->GetTexture();
+        RTRLAB_ASSERT_MSG(depthTexture != nullptr, "Metal depth attachment views must reference textures.");
+        RTRLAB_ASSERT_MSG(IsDepthFormat(depthTexture->GetDesc().m_Format),
+                          "Metal depth attachments must use depth/stencil formats.");
+
+        id<MTLTexture> depthStencilTexture = GetMetalTextureFromView(renderingInfo.m_DepthAttachment.m_View);
+        renderPassDescriptor.depthAttachment.texture = depthStencilTexture;
+        renderPassDescriptor.depthAttachment.loadAction = ToMetalLoadAction(renderingInfo.m_DepthAttachment.m_LoadOp);
+        renderPassDescriptor.depthAttachment.storeAction =
+            ToMetalStoreAction(renderingInfo.m_DepthAttachment.m_StoreOp);
+        renderPassDescriptor.depthAttachment.clearDepth = renderingInfo.m_DepthAttachment.m_ClearValue.m_Depth;
+
+        if (HasStencilComponent(depthTexture->GetDesc().m_Format))
+        {
+            renderPassDescriptor.stencilAttachment.texture = depthStencilTexture;
+            renderPassDescriptor.stencilAttachment.loadAction =
+                ToMetalLoadAction(renderingInfo.m_DepthAttachment.m_LoadOp);
+            renderPassDescriptor.stencilAttachment.storeAction =
+                ToMetalStoreAction(renderingInfo.m_DepthAttachment.m_StoreOp);
+            renderPassDescriptor.stencilAttachment.clearStencil =
+                renderingInfo.m_DepthAttachment.m_ClearValue.m_Stencil;
+        }
+    }
 
     m_Data->m_RenderEncoder =
         [[m_Data->m_DeviceData->m_CurrentCommandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor] retain];
@@ -1633,6 +1732,7 @@ void MetalCommandList::BindGraphicsPipeline(GraphicsPipeline* pipeline)
                       "Metal graphics pipelines require an active render encoder.");
     const MetalGraphicsPipeline& metalPipeline = GetMetalGraphicsPipeline(pipeline);
     [m_Data->m_RenderEncoder setRenderPipelineState:metalPipeline.GetPipelineState()];
+    [m_Data->m_RenderEncoder setDepthStencilState:metalPipeline.GetDepthStencilState()];
     [m_Data->m_RenderEncoder setCullMode:ToMetalCullMode(metalPipeline.GetDesc().m_RasterState.m_CullMode)];
     [m_Data->m_RenderEncoder setFrontFacingWinding:ToMetalWinding(metalPipeline.GetDesc().m_RasterState.m_FrontFace)];
     [m_Data->m_RenderEncoder
@@ -2291,7 +2391,22 @@ Scope<GraphicsPipeline> MetalDevice::CreateGraphicsPipeline(const GraphicsPipeli
         pipelineDesc.colorAttachments[colorIndex].pixelFormat = ToMetalPixelFormat(desc.m_ColorFormats[colorIndex]);
 
     if (desc.m_DepthFormat != Format::Unknown)
+    {
         pipelineDesc.depthAttachmentPixelFormat = ToMetalPixelFormat(desc.m_DepthFormat);
+        if (HasStencilComponent(desc.m_DepthFormat))
+            pipelineDesc.stencilAttachmentPixelFormat = ToMetalPixelFormat(desc.m_DepthFormat);
+    }
+
+    id<MTLDepthStencilState> depthStencilState = nil;
+    if (desc.m_DepthFormat != Format::Unknown)
+    {
+        MTLDepthStencilDescriptor* depthStencilDesc = [[MTLDepthStencilDescriptor alloc] init];
+        depthStencilDesc.depthCompareFunction = ToMetalCompareFunction(desc.m_DepthStencilState.m_DepthCompareOp);
+        depthStencilDesc.depthWriteEnabled = desc.m_DepthStencilState.m_DepthWriteEnable ? YES : NO;
+        depthStencilState = [m_Data->m_Device newDepthStencilStateWithDescriptor:depthStencilDesc];
+        [depthStencilDesc release];
+        RTRLAB_ASSERT_MSG(depthStencilState != nil, "Failed to create the Metal depth-stencil state.");
+    }
 
     std::vector<MetalStageArgumentEncoderEntry> argumentEncoders;
     for (const MetalSetBindingPlan& setPlan : shaderProgram.GetSetBindingPlans())
@@ -2332,8 +2447,10 @@ Scope<GraphicsPipeline> MetalDevice::CreateGraphicsPipeline(const GraphicsPipeli
                                    : "Failed to create the Metal render pipeline state.");
 
     auto result = CreateScope<MetalGraphicsPipeline>(
-        pipelineState, desc, pipelineLayout.GetVertexBufferSlotBase(), std::move(argumentEncoders));
+        pipelineState, depthStencilState, desc, pipelineLayout.GetVertexBufferSlotBase(), std::move(argumentEncoders));
     [pipelineState release];
+    if (depthStencilState != nil)
+        [depthStencilState release];
     return result;
 }
 

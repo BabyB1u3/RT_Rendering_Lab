@@ -1256,6 +1256,32 @@ VkPipelineStageFlags ToVkPipelineStageMask(ShaderStage stageMask)
     return result;
 }
 
+VkAttachmentLoadOp ToVkAttachmentLoadOp(LoadOp loadOp)
+{
+    switch (loadOp)
+    {
+        case LoadOp::Clear:
+            return VK_ATTACHMENT_LOAD_OP_CLEAR;
+        case LoadOp::DontCare:
+            return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        case LoadOp::Load:
+        default:
+            return VK_ATTACHMENT_LOAD_OP_LOAD;
+    }
+}
+
+VkAttachmentStoreOp ToVkAttachmentStoreOp(StoreOp storeOp)
+{
+    switch (storeOp)
+    {
+        case StoreOp::DontCare:
+            return VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        case StoreOp::Store:
+        default:
+            return VK_ATTACHMENT_STORE_OP_STORE;
+    }
+}
+
 TextureAspect GetFullTextureAspect(const TextureDesc& desc)
 {
     if (IsDepthFormat(desc.m_Format))
@@ -1493,48 +1519,100 @@ void VulkanCommandList::BeginRendering(const RenderingInfo& renderingInfo)
 {
     ShellCommandListBase::BeginRendering(renderingInfo);
 
-    RTRLAB_ASSERT_MSG(renderingInfo.m_ColorAttachments.size() == 1,
-                      "Early Vulkan bring-up currently supports exactly one color attachment.");
-    RTRLAB_ASSERT_MSG(renderingInfo.m_DepthAttachment.m_View == nullptr,
-                      "Early Vulkan bring-up does not support depth attachments yet.");
+    uint32_t layerCount = 1;
+    bool hasResolvedLayerCount = false;
+    auto updateLayerCount = [&layerCount, &hasResolvedLayerCount](const TextureView* view)
+    {
+        const uint32_t viewLayerCount = std::max(view->GetDesc().m_ArrayLayerCount, 1u);
+        if (!hasResolvedLayerCount)
+        {
+            layerCount = viewLayerCount;
+            hasResolvedLayerCount = true;
+            return;
+        }
 
-    const ColorAttachmentInfo& colorAttachment = renderingInfo.m_ColorAttachments.front();
-    auto* imageView = dynamic_cast<VulkanSwapchainImageView*>(colorAttachment.m_View);
-    RTRLAB_ASSERT_MSG(imageView != nullptr, "Vulkan BeginRendering currently expects a swapchain image view.");
+        RTRLAB_ASSERT_MSG(layerCount == viewLayerCount,
+                          "Vulkan BeginRendering requires every attachment view to target the same layer count.");
+    };
 
-    auto* texture = dynamic_cast<VulkanSwapchainTexture*>(imageView->GetTexture());
-    RTRLAB_ASSERT_MSG(texture != nullptr, "Vulkan BeginRendering currently expects a swapchain texture.");
-    RTRLAB_ASSERT_MSG(texture->GetCurrentState() == TextureState::RenderTarget,
-                      "Vulkan BeginRendering requires the color attachment to be transitioned to RenderTarget "
-                      "before BeginRendering.");
-    RTRLAB_ASSERT_MSG(texture->GetCurrentLayout() == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                      "Vulkan BeginRendering requires the color attachment to already be in "
-                      "VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.");
+    std::vector<VkRenderingAttachmentInfo> colorAttachmentInfos(renderingInfo.m_ColorAttachments.size());
+    for (size_t attachmentIndex = 0; attachmentIndex < renderingInfo.m_ColorAttachments.size(); ++attachmentIndex)
+    {
+        const ColorAttachmentInfo& colorAttachment = renderingInfo.m_ColorAttachments[attachmentIndex];
+        RTRLAB_ASSERT_MSG(colorAttachment.m_View != nullptr,
+                          "Vulkan BeginRendering requires non-null color attachment views.");
 
-    const VkClearValue clearValue = {{
-        colorAttachment.m_ClearValue.m_R,
-        colorAttachment.m_ClearValue.m_G,
-        colorAttachment.m_ClearValue.m_B,
-        colorAttachment.m_ClearValue.m_A,
-    }};
+        TextureView* colorView = colorAttachment.m_View;
+        Texture* colorTexture = colorView->GetTexture();
+        RTRLAB_ASSERT_MSG(colorTexture != nullptr,
+                          "Vulkan BeginRendering color attachment views must reference textures.");
+        RTRLAB_ASSERT_MSG(!IsDepthFormat(colorTexture->GetDesc().m_Format),
+                          "Vulkan BeginRendering color attachments must use color formats.");
+        RTRLAB_ASSERT_MSG(GetTrackedTextureState(colorTexture) == TextureState::RenderTarget,
+                          "Vulkan BeginRendering requires every color attachment to already be transitioned to "
+                          "RenderTarget.");
+        RTRLAB_ASSERT_MSG(GetTrackedImageLayout(colorTexture) == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                          "Vulkan BeginRendering requires every color attachment to already be in "
+                          "VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.");
+        updateLayerCount(colorView);
 
-    VkRenderingAttachmentInfo colorAttachmentInfo =
-        MakeVkStruct<VkRenderingAttachmentInfo, VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO>();
-    colorAttachmentInfo.imageView = imageView->GetVkImageView();
-    colorAttachmentInfo.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    colorAttachmentInfo.loadOp = colorAttachment.m_LoadOp == LoadOp::Clear      ? VK_ATTACHMENT_LOAD_OP_CLEAR
-                                 : colorAttachment.m_LoadOp == LoadOp::DontCare ? VK_ATTACHMENT_LOAD_OP_DONT_CARE
-                                                                                : VK_ATTACHMENT_LOAD_OP_LOAD;
-    colorAttachmentInfo.storeOp = colorAttachment.m_StoreOp == StoreOp::DontCare ? VK_ATTACHMENT_STORE_OP_DONT_CARE
-                                                                                 : VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachmentInfo.clearValue = clearValue;
+        VkRenderingAttachmentInfo& colorAttachmentInfo = colorAttachmentInfos[attachmentIndex];
+        colorAttachmentInfo = MakeVkStruct<VkRenderingAttachmentInfo, VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO>();
+        colorAttachmentInfo.imageView = GetVkImageViewFromTextureView(colorView);
+        colorAttachmentInfo.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        colorAttachmentInfo.loadOp = ToVkAttachmentLoadOp(colorAttachment.m_LoadOp);
+        colorAttachmentInfo.storeOp = ToVkAttachmentStoreOp(colorAttachment.m_StoreOp);
+        colorAttachmentInfo.clearValue.color = {{colorAttachment.m_ClearValue.m_R,
+                                                 colorAttachment.m_ClearValue.m_G,
+                                                 colorAttachment.m_ClearValue.m_B,
+                                                 colorAttachment.m_ClearValue.m_A}};
+    }
+
+    VkRenderingAttachmentInfo depthAttachmentInfo{};
+    VkRenderingAttachmentInfo stencilAttachmentInfo{};
+    VkRenderingAttachmentInfo* depthAttachmentPtr = nullptr;
+    VkRenderingAttachmentInfo* stencilAttachmentPtr = nullptr;
+    if (renderingInfo.m_DepthAttachment.m_View != nullptr)
+    {
+        TextureView* depthView = renderingInfo.m_DepthAttachment.m_View;
+        Texture* depthTexture = depthView->GetTexture();
+        RTRLAB_ASSERT_MSG(depthTexture != nullptr,
+                          "Vulkan BeginRendering depth attachment views must reference textures.");
+        RTRLAB_ASSERT_MSG(IsDepthFormat(depthTexture->GetDesc().m_Format),
+                          "Vulkan BeginRendering depth attachments must use depth/stencil formats.");
+        RTRLAB_ASSERT_MSG(GetTrackedTextureState(depthTexture) == TextureState::DepthStencil,
+                          "Vulkan BeginRendering requires the depth attachment to already be transitioned to "
+                          "DepthStencil.");
+        RTRLAB_ASSERT_MSG(GetTrackedImageLayout(depthTexture) ==
+                              ToVkImageLayout(TextureState::DepthStencil, depthTexture->GetDesc()),
+                          "Vulkan BeginRendering requires the depth attachment to already be in its "
+                          "depth/stencil attachment layout.");
+        updateLayerCount(depthView);
+
+        depthAttachmentInfo = MakeVkStruct<VkRenderingAttachmentInfo, VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO>();
+        depthAttachmentInfo.imageView = GetVkImageViewFromTextureView(depthView);
+        depthAttachmentInfo.imageLayout = ToVkImageLayout(TextureState::DepthStencil, depthTexture->GetDesc());
+        depthAttachmentInfo.loadOp = ToVkAttachmentLoadOp(renderingInfo.m_DepthAttachment.m_LoadOp);
+        depthAttachmentInfo.storeOp = ToVkAttachmentStoreOp(renderingInfo.m_DepthAttachment.m_StoreOp);
+        depthAttachmentInfo.clearValue.depthStencil = {renderingInfo.m_DepthAttachment.m_ClearValue.m_Depth,
+                                                       renderingInfo.m_DepthAttachment.m_ClearValue.m_Stencil};
+        depthAttachmentPtr = &depthAttachmentInfo;
+
+        if (HasStencilComponent(depthTexture->GetDesc().m_Format))
+        {
+            stencilAttachmentInfo = depthAttachmentInfo;
+            stencilAttachmentPtr = &stencilAttachmentInfo;
+        }
+    }
 
     VkRenderingInfo vkRenderingInfo = MakeVkStruct<VkRenderingInfo, VK_STRUCTURE_TYPE_RENDERING_INFO>();
     vkRenderingInfo.renderArea.offset = {renderingInfo.m_RenderArea.m_X, renderingInfo.m_RenderArea.m_Y};
     vkRenderingInfo.renderArea.extent = {renderingInfo.m_RenderArea.m_Width, renderingInfo.m_RenderArea.m_Height};
-    vkRenderingInfo.layerCount = 1;
-    vkRenderingInfo.colorAttachmentCount = 1;
-    vkRenderingInfo.pColorAttachments = &colorAttachmentInfo;
+    vkRenderingInfo.layerCount = layerCount;
+    vkRenderingInfo.colorAttachmentCount = static_cast<uint32_t>(colorAttachmentInfos.size());
+    vkRenderingInfo.pColorAttachments = colorAttachmentInfos.empty() ? nullptr : colorAttachmentInfos.data();
+    vkRenderingInfo.pDepthAttachment = depthAttachmentPtr;
+    vkRenderingInfo.pStencilAttachment = stencilAttachmentPtr;
 
     vkCmdBeginRendering(m_CommandBuffer, &vkRenderingInfo);
     SetViewport(static_cast<float>(renderingInfo.m_RenderArea.m_X),
@@ -1553,17 +1631,24 @@ void VulkanCommandList::EndRendering()
 {
     RTRLAB_ASSERT_MSG(m_IsRendering, "Vulkan EndRendering requires an active rendering scope.");
 
-    const ColorAttachmentInfo& colorAttachment = m_RenderingInfo.m_ColorAttachments.front();
-    auto* imageView = dynamic_cast<VulkanSwapchainImageView*>(colorAttachment.m_View);
-    RTRLAB_ASSERT_MSG(imageView != nullptr, "Vulkan EndRendering currently expects a swapchain image view.");
-
-    auto* texture = dynamic_cast<VulkanSwapchainTexture*>(imageView->GetTexture());
-    RTRLAB_ASSERT_MSG(texture != nullptr, "Vulkan EndRendering currently expects a swapchain texture.");
-
     vkCmdEndRendering(m_CommandBuffer);
-    RTRLAB_ASSERT_MSG(texture->GetCurrentState() == TextureState::RenderTarget,
-                      "Vulkan EndRendering expects the render pass attachment to remain in RenderTarget state "
-                      "until an explicit barrier transitions it elsewhere.");
+    for (const ColorAttachmentInfo& colorAttachment : m_RenderingInfo.m_ColorAttachments)
+    {
+        Texture* colorTexture = colorAttachment.m_View != nullptr ? colorAttachment.m_View->GetTexture() : nullptr;
+        RTRLAB_ASSERT_MSG(colorTexture != nullptr, "Vulkan EndRendering requires valid color attachment textures.");
+        RTRLAB_ASSERT_MSG(GetTrackedTextureState(colorTexture) == TextureState::RenderTarget,
+                          "Vulkan EndRendering expects color attachments to remain in RenderTarget state until an "
+                          "explicit barrier transitions them elsewhere.");
+    }
+
+    if (m_RenderingInfo.m_DepthAttachment.m_View != nullptr)
+    {
+        Texture* depthTexture = m_RenderingInfo.m_DepthAttachment.m_View->GetTexture();
+        RTRLAB_ASSERT_MSG(depthTexture != nullptr, "Vulkan EndRendering requires a valid depth attachment texture.");
+        RTRLAB_ASSERT_MSG(GetTrackedTextureState(depthTexture) == TextureState::DepthStencil,
+                          "Vulkan EndRendering expects the depth attachment to remain in DepthStencil state until an "
+                          "explicit barrier transitions it elsewhere.");
+    }
 
     ShellCommandListBase::EndRendering();
 }
