@@ -17,7 +17,7 @@
 #include "Render/Shader/ShaderParameterWriter.h"
 
 #if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
-namespace
+namespace HelloTriangleDemo
 {
 struct TriangleVertex
 {
@@ -90,7 +90,7 @@ CompiledShaderProgramDesc BuildHelloTriangleShaderProgramDesc()
                    compileResult.m_ErrorMessage);
     return std::move(compileResult.m_Program);
 }
-} // namespace
+} // namespace HelloTriangleDemo
 #endif
 
 HelloTriangle::HelloTriangle(uint32_t width, uint32_t height) : m_ViewportWidth(width), m_ViewportHeight(height) {}
@@ -157,7 +157,8 @@ void HelloTriangle::OnRender()
     meshBinding.m_IndexBuffer = m_IndexBuffer.get();
     meshBinding.m_IndexType = IndexType::UInt16;
 
-    const DemoViewport viewport = ComputeAspectPreservingViewport(m_ViewportWidth, m_ViewportHeight);
+    const HelloTriangleDemo::DemoViewport viewport =
+        HelloTriangleDemo::ComputeAspectPreservingViewport(m_ViewportWidth, m_ViewportHeight);
     commandList->SetViewport(viewport.m_X, viewport.m_Y, viewport.m_Width, viewport.m_Height, 0.0f, 1.0f);
     commandList->SetScissor(0, 0, m_ViewportWidth, m_ViewportHeight);
     commandList->BindGraphicsPipeline(m_GraphicsPipeline.get());
@@ -186,7 +187,7 @@ void HelloTriangle::CreateTriangleResources()
     Device& device = app.GetDevice();
 
     // Eigen vector constructors are not constexpr, so this array is only const.
-    static const std::array<TriangleVertex, 3> kVertices = {{
+    static const std::array<HelloTriangleDemo::TriangleVertex, 3> kVertices = {{
         {{0.0f, -0.65f}, {1.0f, 0.25f, 0.25f, 1.0f}},
         {{0.65f, 0.55f}, {0.25f, 1.0f, 0.35f, 1.0f}},
         {{-0.65f, 0.55f}, {0.25f, 0.45f, 1.0f, 1.0f}},
@@ -224,12 +225,12 @@ void HelloTriangle::CreateTriangleResources()
     device.WriteBuffer(m_IndexUploadBuffer.get(), 0, kIndices.data(), sizeof(kIndices));
     m_GeometryUploadPending = true;
 
-    m_ShaderProgram = device.CreateShaderProgram(BuildHelloTriangleShaderProgramDesc());
+    m_ShaderProgram = device.CreateShaderProgram(HelloTriangleDemo::BuildHelloTriangleShaderProgramDesc());
     m_PipelineLayout = device.CreatePipelineLayout(m_ShaderProgram->DerivePipelineLayoutDesc());
     const PipelineLayoutDesc& pipelineLayoutDesc = m_PipelineLayout->GetDesc();
-    m_FrameSetIndex = FindRequiredSetIndex(pipelineLayoutDesc, "gFrame");
-    m_MaterialSetIndex = FindRequiredSetIndex(pipelineLayoutDesc, "gMaterial");
-    m_ObjectSetIndex = FindRequiredSetIndex(pipelineLayoutDesc, "gObject");
+    m_FrameSetIndex = HelloTriangleDemo::FindRequiredSetIndex(pipelineLayoutDesc, "gFrame");
+    m_MaterialSetIndex = HelloTriangleDemo::FindRequiredSetIndex(pipelineLayoutDesc, "gMaterial");
+    m_ObjectSetIndex = HelloTriangleDemo::FindRequiredSetIndex(pipelineLayoutDesc, "gObject");
 
     m_FrameSet = device.CreateResourceSet(m_PipelineLayout.get(), m_FrameSetIndex);
     m_MaterialSet = device.CreateResourceSet(m_PipelineLayout.get(), m_MaterialSetIndex);
@@ -245,10 +246,10 @@ void HelloTriangle::CreateTriangleResources()
     UpdateAnimatedParameters();
 
     VertexInputLayoutDesc vertexInputLayoutDesc;
-    vertexInputLayoutDesc.m_Buffers = {{static_cast<uint32_t>(sizeof(TriangleVertex)), false}};
+    vertexInputLayoutDesc.m_Buffers = {{static_cast<uint32_t>(sizeof(HelloTriangleDemo::TriangleVertex)), false}};
     vertexInputLayoutDesc.m_Attributes = {
-        {0u, Format::RG32F, static_cast<uint32_t>(offsetof(TriangleVertex, m_Position)), 0u},
-        {1u, Format::RGBA32F, static_cast<uint32_t>(offsetof(TriangleVertex, m_Color)), 0u},
+        {0u, Format::RG32F, static_cast<uint32_t>(offsetof(HelloTriangleDemo::TriangleVertex, m_Position)), 0u},
+        {1u, Format::RGBA32F, static_cast<uint32_t>(offsetof(HelloTriangleDemo::TriangleVertex, m_Color)), 0u},
     };
     m_VertexInputLayout = device.CreateVertexInputLayout(vertexInputLayoutDesc);
 

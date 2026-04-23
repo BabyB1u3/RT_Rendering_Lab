@@ -18,7 +18,7 @@
 #include "Render/Shader/ShaderParameterWriter.h"
 
 #if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
-namespace
+namespace HelloTextureDemo
 {
 struct TexturedVertex
 {
@@ -117,7 +117,7 @@ CompiledShaderProgramDesc BuildHelloTextureShaderProgramDesc()
                    compileResult.m_ErrorMessage);
     return std::move(compileResult.m_Program);
 }
-} // namespace
+} // namespace HelloTextureDemo
 #endif
 
 HelloTexture::HelloTexture(uint32_t width, uint32_t height) : m_ViewportWidth(width), m_ViewportHeight(height) {}
@@ -185,7 +185,8 @@ void HelloTexture::OnRender()
     meshBinding.m_IndexBuffer = m_IndexBuffer.get();
     meshBinding.m_IndexType = IndexType::UInt16;
 
-    const DemoViewport viewport = ComputeAspectPreservingViewport(m_ViewportWidth, m_ViewportHeight);
+    const HelloTextureDemo::DemoViewport viewport =
+        HelloTextureDemo::ComputeAspectPreservingViewport(m_ViewportWidth, m_ViewportHeight);
     commandList->SetViewport(viewport.m_X, viewport.m_Y, viewport.m_Width, viewport.m_Height, 0.0f, 1.0f);
     commandList->SetScissor(0, 0, m_ViewportWidth, m_ViewportHeight);
     commandList->BindGraphicsPipeline(m_GraphicsPipeline.get());
@@ -211,7 +212,7 @@ void HelloTexture::CreateTextureDemoResources()
     Application& app = Application::Get();
     Device& device = app.GetDevice();
 
-    static const std::array<TexturedVertex, 4> kVertices = {{
+    static const std::array<HelloTextureDemo::TexturedVertex, 4> kVertices = {{
         {{-0.75f, -0.75f}, {0.0f, 1.0f}},
         {{0.75f, -0.75f}, {1.0f, 1.0f}},
         {{0.75f, 0.75f}, {1.0f, 0.0f}},
@@ -251,7 +252,7 @@ void HelloTexture::CreateTextureDemoResources()
     m_GeometryUploadPending = true;
 
     const std::filesystem::path texturePath = FileSystem::GetRootPath() / "Project" / "Textures" / "Grassy_Square.jpg";
-    const LoadedImage loadedImage = LoadTextureFileRGBA8(texturePath);
+    const HelloTextureDemo::LoadedImage loadedImage = HelloTextureDemo::LoadTextureFileRGBA8(texturePath);
 
     TextureDesc textureDesc;
     textureDesc.m_Type = TextureType::Tex2D;
@@ -294,10 +295,10 @@ void HelloTexture::CreateTextureDemoResources()
                        static_cast<uint64_t>(loadedImage.m_Pixels.size()));
     m_TextureUploadPending = true;
 
-    m_ShaderProgram = device.CreateShaderProgram(BuildHelloTextureShaderProgramDesc());
+    m_ShaderProgram = device.CreateShaderProgram(HelloTextureDemo::BuildHelloTextureShaderProgramDesc());
     m_PipelineLayout = device.CreatePipelineLayout(m_ShaderProgram->DerivePipelineLayoutDesc());
     const PipelineLayoutDesc& pipelineLayoutDesc = m_PipelineLayout->GetDesc();
-    m_TextureSetIndex = FindRequiredSetIndex(pipelineLayoutDesc, "gAlbedo");
+    m_TextureSetIndex = HelloTextureDemo::FindRequiredSetIndex(pipelineLayoutDesc, "gAlbedo");
     m_TextureSet = device.CreateResourceSet(m_PipelineLayout.get(), m_TextureSetIndex);
 
     ShaderParameterWriter parameterWriter(m_ShaderProgram->GetReflection());
@@ -305,10 +306,10 @@ void HelloTexture::CreateTextureDemoResources()
     parameterWriter.SetSampler(*m_TextureSet, "gLinearSampler", m_Sampler.get());
 
     VertexInputLayoutDesc vertexInputLayoutDesc;
-    vertexInputLayoutDesc.m_Buffers = {{static_cast<uint32_t>(sizeof(TexturedVertex)), false}};
+    vertexInputLayoutDesc.m_Buffers = {{static_cast<uint32_t>(sizeof(HelloTextureDemo::TexturedVertex)), false}};
     vertexInputLayoutDesc.m_Attributes = {
-        {0u, Format::RG32F, static_cast<uint32_t>(offsetof(TexturedVertex, m_Position)), 0u},
-        {1u, Format::RG32F, static_cast<uint32_t>(offsetof(TexturedVertex, m_UV)), 0u},
+        {0u, Format::RG32F, static_cast<uint32_t>(offsetof(HelloTextureDemo::TexturedVertex, m_Position)), 0u},
+        {1u, Format::RG32F, static_cast<uint32_t>(offsetof(HelloTextureDemo::TexturedVertex, m_UV)), 0u},
     };
     m_VertexInputLayout = device.CreateVertexInputLayout(vertexInputLayoutDesc);
 

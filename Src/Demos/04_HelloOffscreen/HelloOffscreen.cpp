@@ -14,7 +14,7 @@
 #include "Render/Shader/ShaderParameterWriter.h"
 
 #if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
-namespace
+namespace HelloOffscreenDemo
 {
 struct TexturedVertex
 {
@@ -106,7 +106,7 @@ CompiledShaderProgramDesc CompileShaderProgramDesc(const ShaderCompileRequest& r
                    compileResult.m_ErrorMessage);
     return std::move(compileResult.m_Program);
 }
-} // namespace
+} // namespace HelloOffscreenDemo
 #endif
 
 HelloOffscreen::HelloOffscreen(uint32_t width, uint32_t height) : m_ViewportWidth(width), m_ViewportHeight(height) {}
@@ -202,7 +202,8 @@ void HelloOffscreen::OnRender()
     swapchainRenderingInfo.m_RenderArea = {0, 0, m_ViewportWidth, m_ViewportHeight};
     commandList->BeginRendering(swapchainRenderingInfo);
 
-    const DemoViewport viewport = ComputeAspectPreservingViewport(m_ViewportWidth, m_ViewportHeight);
+    const HelloOffscreenDemo::DemoViewport viewport =
+        HelloOffscreenDemo::ComputeAspectPreservingViewport(m_ViewportWidth, m_ViewportHeight);
     commandList->SetViewport(viewport.m_X, viewport.m_Y, viewport.m_Width, viewport.m_Height, 0.0f, 1.0f);
     commandList->SetScissor(0, 0, m_ViewportWidth, m_ViewportHeight);
     commandList->BindGraphicsPipeline(m_CompositePipeline.get());
@@ -228,7 +229,7 @@ void HelloOffscreen::CreateOffscreenDemoResources()
     Application& app = Application::Get();
     Device& device = app.GetDevice();
 
-    static const std::array<TexturedVertex, 4> kVertices = {{
+    static const std::array<HelloOffscreenDemo::TexturedVertex, 4> kVertices = {{
         {{-1.0f, -1.0f}, {0.0f, 1.0f}},
         {{1.0f, -1.0f}, {1.0f, 1.0f}},
         {{1.0f, 1.0f}, {1.0f, 0.0f}},
@@ -296,15 +297,15 @@ void HelloOffscreen::CreateOffscreenDemoResources()
     samplerDesc.m_AddressW = AddressMode::ClampToEdge;
     m_OffscreenSampler = device.CreateSampler(samplerDesc);
 
-    m_OffscreenShaderProgram = device.CreateShaderProgram(
-        CompileShaderProgramDesc(BuildOffscreenPassShaderCompileRequest(), "offscreen pass"));
+    m_OffscreenShaderProgram = device.CreateShaderProgram(HelloOffscreenDemo::CompileShaderProgramDesc(
+        HelloOffscreenDemo::BuildOffscreenPassShaderCompileRequest(), "offscreen pass"));
     m_OffscreenPipelineLayout = device.CreatePipelineLayout(m_OffscreenShaderProgram->DerivePipelineLayoutDesc());
 
-    m_CompositeShaderProgram = device.CreateShaderProgram(
-        CompileShaderProgramDesc(BuildOffscreenCompositeShaderCompileRequest(), "composite"));
+    m_CompositeShaderProgram = device.CreateShaderProgram(HelloOffscreenDemo::CompileShaderProgramDesc(
+        HelloOffscreenDemo::BuildOffscreenCompositeShaderCompileRequest(), "composite"));
     m_CompositePipelineLayout = device.CreatePipelineLayout(m_CompositeShaderProgram->DerivePipelineLayoutDesc());
     const PipelineLayoutDesc& compositeLayoutDesc = m_CompositePipelineLayout->GetDesc();
-    m_CompositeTextureSetIndex = FindRequiredSetIndex(compositeLayoutDesc, "gOffscreenTexture");
+    m_CompositeTextureSetIndex = HelloOffscreenDemo::FindRequiredSetIndex(compositeLayoutDesc, "gOffscreenTexture");
     m_CompositeTextureSet = device.CreateResourceSet(m_CompositePipelineLayout.get(), m_CompositeTextureSetIndex);
 
     ShaderParameterWriter compositeParameterWriter(m_CompositeShaderProgram->GetReflection());
@@ -312,10 +313,10 @@ void HelloOffscreen::CreateOffscreenDemoResources()
     compositeParameterWriter.SetSampler(*m_CompositeTextureSet, "gLinearSampler", m_OffscreenSampler.get());
 
     VertexInputLayoutDesc vertexInputLayoutDesc;
-    vertexInputLayoutDesc.m_Buffers = {{static_cast<uint32_t>(sizeof(TexturedVertex)), false}};
+    vertexInputLayoutDesc.m_Buffers = {{static_cast<uint32_t>(sizeof(HelloOffscreenDemo::TexturedVertex)), false}};
     vertexInputLayoutDesc.m_Attributes = {
-        {0u, Format::RG32F, static_cast<uint32_t>(offsetof(TexturedVertex, m_Position)), 0u},
-        {1u, Format::RG32F, static_cast<uint32_t>(offsetof(TexturedVertex, m_UV)), 0u},
+        {0u, Format::RG32F, static_cast<uint32_t>(offsetof(HelloOffscreenDemo::TexturedVertex, m_Position)), 0u},
+        {1u, Format::RG32F, static_cast<uint32_t>(offsetof(HelloOffscreenDemo::TexturedVertex, m_UV)), 0u},
     };
     m_VertexInputLayout = device.CreateVertexInputLayout(vertexInputLayoutDesc);
 
