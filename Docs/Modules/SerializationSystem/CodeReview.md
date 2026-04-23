@@ -17,7 +17,7 @@ Code review of the `src/Core/Serialization/` module and its primary consumer
 - [Serialization System Code Review](#serialization-system-code-review)
   - [Table of Contents](#table-of-contents)
   - [Summary](#summary)
-  - [1. Bug Risk: GLM Deserialization Is Not Atomic](#1-bug-risk-glm-deserialization-is-not-atomic)
+  - [1. Bug Risk: Math Deserialization Is Not Atomic](#1-bug-risk-math-deserialization-is-not-atomic)
   - [2. Interface Contract: ReadFromString Does Not Guarantee tree Unchanged on Failure](#2-interface-contract-readfromstring-does-not-guarantee-tree-unchanged-on-failure)
   - [3. Compile Performance: BuiltinTraits.h Is a Heavyweight Header](#3-compile-performance-builtintraitsh-is-a-heavyweight-header)
   - [4. Interface Contract: LoadFromFile Requires Default-Constructible T](#4-interface-contract-loadfromfile-requires-default-constructible-t)
@@ -53,12 +53,12 @@ design/document mismatches.
 
 ---
 
-## 1. Bug Risk: GLM Deserialization Is Not Atomic
+## 1. Bug Risk: Math Deserialization Is Not Atomic
 
 **File**: `src/Core/Serialization/BuiltinTraits.h:172-227`
 
 ```cpp
-inline bool Deserialize(const PropertyTree &tree, glm::vec2 &v)
+inline bool Deserialize(const PropertyTree &tree, Math::Vec2 &v)
 {
     if (!tree.IsArray() || tree.Size() != 2)
         return false;
@@ -69,15 +69,15 @@ inline bool Deserialize(const PropertyTree &tree, glm::vec2 &v)
 ```
 
 The design document promises that partial failures do not commit, and most container
-traits follow that rule by deserializing into temporaries. However, `glm::vec2`, `vec3`,
-`vec4`, and `mat4` write directly into the destination object.
+traits follow that rule by deserializing into temporaries. However, `Math::Vec2`, `Vec3`,
+`Vec4`, and `Mat4` write directly into the destination object.
 
 In practice the risk is low because the shape checks are strong and `AsFloat()` accepts
 integer values, but this is still inconsistent with the atomicity story the rest of the
 framework tells.
 
 **Recommendation**: deserialize into local temporaries first, then assign on success. If
-that is intentionally out of scope, document GLM traits as in-place exceptions.
+that is intentionally out of scope, document math traits as in-place exceptions.
 
 ---
 
@@ -102,16 +102,16 @@ on success.
 
 **File**: `src/Core/Serialization/BuiltinTraits.h`
 
-This header pulls in GLM, `magic_enum`, and standard container traits in one place. Any
+This header pulls in math traits, `magic_enum`, and standard container traits in one place. Any
 consumer that needs even a small subset of built-in traits transitively pays for all of
 them.
 
-That is manageable at current scale, but `magic_enum` and GLM are both meaningful compile
+That is manageable at current scale, but `magic_enum` and the math traits are both meaningful compile
 time contributors, so this header is likely to become a build-time hotspot as adoption
 widens.
 
 **Recommendation**: split into focused headers such as `PrimitiveTraits.h`,
-`ContainerTraits.h`, `EnumTraits.h`, and `GlmTraits.h`, while keeping
+`ContainerTraits.h`, `EnumTraits.h`, and `MathTraits.h`, while keeping
 `BuiltinTraits.h` as a convenience umbrella include.
 
 ---

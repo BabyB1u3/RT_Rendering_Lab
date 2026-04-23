@@ -70,7 +70,7 @@ path to YAML or binary.
 
 - **Format independence** — domain types serialize into a `PropertyTree`; backends translate that tree to JSON, YAML, or binary. Swapping formats requires zero changes to domain code.
 - **ADL-based traits** — free function pairs `Serialize` / `Deserialize` discovered via argument-dependent lookup. No base class, no virtual functions, no registration macros.
-- **Built-in trait library** — out-of-the-box support for primitives, GLM types, `enum class` (via `magic_enum`), and standard containers.
+- **Built-in trait library** — out-of-the-box support for primitives, engine math types, `enum class` (via `magic_enum`), and standard containers.
 - **Single coupling point** — `#include <json.hpp>` appears only in `JsonBackend.cpp`. No other engine file imports nlohmann/json for serialization.
 - **Consistent error handling** — unknown keys warn rather than reject, type mismatches warn and skip, partial failures never commit.
 - **Atomic load** — `LoadFromFile` deserializes into a temporary, then moves on success; the caller's value is unchanged if deserialization fails.
@@ -184,7 +184,7 @@ private:
 - `Int` is `int64_t` — covers all integer types the project uses.
 - `IsNumber()` returns true for either Int or Float, simplifying numeric deserialization.
 - `operator[](const std::string&)` on a Null tree auto-promotes to Object for ergonomic building.
-- No `glm::vec3` etc. in the tree — those are composed from arrays in the trait layer.
+- No `Math::Vec3` etc. in the tree — those are composed from arrays in the trait layer.
 - Variant-based, no heap allocation for scalars.
 - `AsFloat()` accepts `Int` and promotes — simplifies numeric deserialization without requiring `IsNumber()` checks in every trait.
 
@@ -229,7 +229,7 @@ no `.cpp` needed):
 |----------|-------|-------|
 | **Primitives** | `bool`, `int`, `int64_t`, `float`, `double`, `std::string`, `uint8_t`, `uint16_t` | Direct tree assignment; numeric Deserialize uses `IsNumber()` for int→float promotion |
 | **Named enums** | Any `enum class` via `magic_enum` | Serialize as string token; Deserialize with `enum_cast`. Opt out by providing a custom overload (e.g., `Key::Code` uses `InputNames.h`) |
-| **GLM** | `glm::vec2`, `glm::vec3`, `glm::vec4`, `glm::mat4` | Arrays: `[x,y]`, `[x,y,z]`, `[x,y,z,w]`, 16 floats column-major |
+| **Math** | `Math::Vec2`, `Math::Vec3`, `Math::Vec4`, `Math::Mat4` | Arrays: `[x,y]`, `[x,y,z]`, `[x,y,z,w]`, 16 floats column-major |
 | **Containers** | `std::vector<T>`, `std::unordered_map<std::string, T>`, `std::optional<T>` | Require `Serializable T`; optional serializes as null when empty |
 
 Enum trait default path (magic_enum):
@@ -665,7 +665,7 @@ src/
     serialization/
       PropertyTree.h / .cpp        ✅ Layer 0: intermediate representation
       SerializationTraits.h        ✅ Layer 1: Serializable concept
-      BuiltinTraits.h              ✅ Layer 1: primitives, glm, enum, containers (header-only)
+      BuiltinTraits.h              ✅ Layer 1: primitives, math, enum, containers (header-only)
       IFormatBackend.h             ✅ Layer 2: backend interface
       JsonBackend.h / .cpp         ✅ Layer 2: nlohmann/json backend
       Serialization.h              ✅ Layer 4: convenience SaveToFile/LoadFromFile (header-only)

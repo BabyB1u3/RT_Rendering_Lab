@@ -29,7 +29,7 @@ design rationale. This document focuses on implementation mechanics and industry
       - [3.2 ADL Discovery Mechanics](#32-adl-discovery-mechanics)
       - [3.3 Builtin Trait Catalog](#33-builtin-trait-catalog)
       - [3.4 Enum Serialization via magic\_enum](#34-enum-serialization-via-magic_enum)
-      - [3.5 GLM Type Traits](#35-glm-type-traits)
+      - [3.5 Math Type Traits](#35-math-type-traits)
       - [3.6 Container Traits and Atomicity](#36-container-traits-and-atomicity)
       - [3.7 Domain Type Traits — InputActionMap Case Study](#37-domain-type-traits--inputactionmap-case-study)
     - [4. Layer 2: Format Backends](#4-layer-2-format-backends)
@@ -262,8 +262,8 @@ simply provide a more-specific overload, which C++ overload resolution prefers.
 | Narrow ints | `uint8_t`, `uint16_t` | Int node (promoted via `static_cast<int>`) | `IsInt()` + range check (0..max) |
 | Asset refs | `Resource::AssetPath` | String (validated logical path) | `IsString()` + `TryCreate` validation |
 | Enums | any `enum class` | String via `magic_enum::enum_name` | `IsString()` + `magic_enum::enum_cast` |
-| GLM | `vec2`, `vec3`, `vec4` | Array of floats | `IsArray()` + size check |
-| GLM | `mat4` | Array of 16 floats (column-major) | `IsArray()` + `Size() == 16` |
+| Math | `Vec2`, `Vec3`, `Vec4` | Array of floats | `IsArray()` + size check |
+| Math | `Mat4` | Array of 16 floats (column-major) | `IsArray()` + `Size() == 16` |
 | Containers | `std::vector<T>` | Array of serialized `T` | Element-wise deserialize into temp |
 | Containers | `std::unordered_map<std::string, T>` | Object with string keys | Entry-wise deserialize into temp |
 | Containers | `std::optional<T>` | Null when empty, serialized T otherwise | `IsNull()` → nullopt, else deserialize |
@@ -314,19 +314,19 @@ Important caveats:
 - `magic_enum` instantiates significant compile-time templates per enum type. This is
   concentrated in `BuiltinTraits.h` — any file including it pays the compilation cost.
 
-#### 3.5 GLM Type Traits
+#### 3.5 Math Type Traits
 
-GLM vectors serialize as JSON arrays:
+Engine math vectors serialize as JSON arrays:
 
 ```
-glm::vec3{1.0, 2.0, 3.0}  →  [1.0, 2.0, 3.0]
-glm::mat4                  →  [16 floats, column-major]
+Math::Vec3{1.0, 2.0, 3.0}  →  [1.0, 2.0, 3.0]
+Math::Mat4                  →  [16 floats, column-major]
 ```
 
 Deserialization validates the array size before reading elements. For `vec3`:
 
 ```cpp
-inline bool Deserialize(const PropertyTree &tree, glm::vec3 &v)
+inline bool Deserialize(const PropertyTree &tree, Math::Vec3 &v)
 {
     if (!tree.IsArray() || tree.Size() != 3)
         return false;
@@ -337,7 +337,7 @@ inline bool Deserialize(const PropertyTree &tree, glm::vec3 &v)
 }
 ```
 
-Note: GLM traits write directly into the output parameter rather than deserializing
+Note: math traits write directly into the output parameter rather than deserializing
 into a local temporary. This means if `AsFloat()` were to throw after `v.x` is already
 written, `v` would be left in a partially modified state. In practice the preceding
 `IsArray() && Size() == 3` check prevents reaching `AsFloat()` with bad data, so the
@@ -870,7 +870,7 @@ current stage:
   shipping engines, implemented cleanly.
 
 **Architectural risks**:
-- `BuiltinTraits.h` is a compilation bottleneck — pulling in GLM, magic_enum, and all
+- `BuiltinTraits.h` is a compilation bottleneck — pulling in math traits, magic_enum, and all
   container headers into every consumer. Splitting into focused headers before the type
   count grows would prevent build time regression.
 - magic_enum token instability — currently mitigated by custom overloads for

@@ -6,7 +6,7 @@
 /// The engine keeps Eigen as the implementation layer but centralizes its
 /// render-facing aliases and projection helpers here so backend-sensitive
 /// choices stay explicit. For Vulkan/Metal-facing rendering code, prefer the
-/// explicit RH_ZO helpers rather than relying on historical glm defaults.
+/// explicit RH_ZO helpers rather than relying on historical clip-space defaults.
 
 #include <cmath>
 #include <numbers>
@@ -31,7 +31,7 @@ inline float Radians(float degrees)
     return degrees * (std::numbers::pi_v<float> / 180.0f);
 }
 
-/// Post-multiply `m` by a translation matrix built from `v`. Matches glm::translate.
+/// Post-multiply `m` by a translation matrix built from `v`.
 inline Mat4 Translate(const Mat4& m, const Vec3& v)
 {
     Mat4 result = m;
@@ -39,7 +39,7 @@ inline Mat4 Translate(const Mat4& m, const Vec3& v)
     return result;
 }
 
-/// Post-multiply `m` by a rotation around `axis` by `angleRadians`. Matches glm::rotate.
+/// Post-multiply `m` by a rotation around `axis` by `angleRadians`.
 inline Mat4 Rotate(const Mat4& m, float angleRadians, const Vec3& axis)
 {
     Mat4 rotation = Mat4::Identity();
@@ -47,7 +47,7 @@ inline Mat4 Rotate(const Mat4& m, float angleRadians, const Vec3& axis)
     return m * rotation;
 }
 
-/// Post-multiply `m` by a non-uniform scale. Matches glm::scale.
+/// Post-multiply `m` by a non-uniform scale.
 inline Mat4 Scale(const Mat4& m, const Vec3& s)
 {
     Mat4 result;
@@ -74,7 +74,7 @@ inline Mat4 PerspectiveRH_ZO(float fovyRadians, float aspect, float zNear, float
 }
 
 /// Right-handed perspective projection with NDC z in [-1, 1].
-/// Use this only when interoperating with code that explicitly expects the legacy glm RH_NO convention.
+/// Use this only when interoperating with code that explicitly expects the legacy RH_NO convention.
 inline Mat4 PerspectiveRH_NO(float fovyRadians, float aspect, float zNear, float zFar)
 {
     const float tanHalfFovy = std::tan(fovyRadians * 0.5f);
@@ -88,7 +88,7 @@ inline Mat4 PerspectiveRH_NO(float fovyRadians, float aspect, float zNear, float
     return result;
 }
 
-/// Right-handed look-at view matrix. Matches glm::lookAt (RH).
+/// Right-handed look-at view matrix.
 inline Mat4 LookAt(const Vec3& eye, const Vec3& center, const Vec3& up)
 {
     const Vec3 f = (center - eye).normalized();
