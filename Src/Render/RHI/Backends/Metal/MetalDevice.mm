@@ -2638,6 +2638,7 @@ CommandList* MetalDevice::BeginCommandList()
     RTRLAB_ASSERT_MSG(m_Data != nullptr && m_Data->m_FrameInProgress,
                       "Metal command recording requires an active frame.");
     RTRLAB_ASSERT_MSG(!m_Data->m_FrameSubmitted, "Metal command recording must happen before submission.");
+    m_CommandList.ResetState();
     return &m_CommandList;
 }
 

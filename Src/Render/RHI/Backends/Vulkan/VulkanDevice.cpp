@@ -2658,6 +2658,8 @@ CommandList* VulkanDevice::BeginCommandList()
     RTRLAB_ASSERT_MSG(m_FrameInProgress, "Vulkan command recording requires an active frame.");
     RTRLAB_ASSERT_MSG(!m_FrameSubmitted, "Vulkan command recording must happen before queue submission.");
 
+    m_CommandList.ResetState();
+
     VkCommandBuffer commandBuffer = m_CommandList.GetVkCommandBuffer();
     CheckVk(vkResetCommandBuffer(commandBuffer, 0), "vkResetCommandBuffer");
 

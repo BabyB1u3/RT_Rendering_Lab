@@ -166,6 +166,8 @@ private:
 class ShellCommandListBase : public CommandList
 {
 public:
+    void ResetState();
+
     void BeginRendering(const RenderingInfo& renderingInfo) override;
     void EndRendering() override;
 

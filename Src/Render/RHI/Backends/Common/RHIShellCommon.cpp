@@ -327,6 +327,28 @@ void ShellCommandListBase::EndRendering()
     m_IsRendering = false;
 }
 
+void ShellCommandListBase::ResetState()
+{
+    m_RenderingInfo = {};
+    m_IsRendering = false;
+    m_GraphicsPipeline = nullptr;
+    m_ComputePipeline = nullptr;
+    m_ResourceSets.clear();
+    m_MeshBinding = {};
+    m_VertexOffsets.clear();
+    m_IndexBuffer = nullptr;
+    m_IndexOffset = 0;
+    m_IndexType = IndexType::UInt32;
+    m_Scissor = {};
+    m_Viewport[0] = 0.0f;
+    m_Viewport[1] = 0.0f;
+    m_Viewport[2] = 0.0f;
+    m_Viewport[3] = 0.0f;
+    m_Viewport[4] = 0.0f;
+    m_Viewport[5] = 1.0f;
+    m_PushConstants.clear();
+}
+
 void ShellCommandListBase::BindGraphicsPipeline(GraphicsPipeline* pipeline)
 {
     m_GraphicsPipeline = pipeline;
