@@ -19,6 +19,7 @@
 #include <string>
 #include <cstdint>
 #include <limits>
+#include <vector>
 
 #include "Core/Util/Base.h"
 #include "Core/Event/EventBus.h"
@@ -84,6 +85,10 @@ private:
     void EndFrame();
     /// Present the completed frame. Future explicit-RHI swapchain present lands here.
     void PresentFrame();
+    /// Drop tracker state for the swapchain images currently known to the application.
+    void ForgetTrackedSwapchainImages();
+    /// Refresh the application's cached swapchain-image list after resize or backend recreation.
+    void RefreshTrackedSwapchainImages();
     /// Create the backend-selected device and swapchain used by the application frame loop.
     void InitializeRHI();
 
@@ -111,6 +116,7 @@ private:
     uint32_t m_SwapchainImageIndex = std::numeric_limits<uint32_t>::max();
     Texture* m_SwapchainImage = nullptr;
     TextureView* m_SwapchainImageView = nullptr;
+    std::vector<Texture*> m_TrackedSwapchainImages;
 
     ScopedConnection m_ResizeConnection;
 };

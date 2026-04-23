@@ -134,6 +134,8 @@ class ResourceStateTracker
 public:
     void Transition(Texture* texture, TextureState newState);
     void Transition(Buffer* buffer, BufferState newState);
+    void Forget(Texture* texture);
+    void Forget(Buffer* buffer);
     void FlushBarriers(CommandList* commandList);
     void Reset();
 

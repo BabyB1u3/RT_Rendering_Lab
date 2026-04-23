@@ -40,6 +40,16 @@ public:
     void SetViewport(float x, float y, float w, float h, float zmin, float zmax) override;
     void SetScissor(int32_t x, int32_t y, uint32_t w, uint32_t h) override;
     void Dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ) override;
+    void TextureBarrier(Texture* texture,
+                        TextureState oldState,
+                        TextureState newState,
+                        ShaderStage srcStage,
+                        ShaderStage dstStage) override;
+    void BufferBarrier(Buffer* buffer,
+                       BufferState oldState,
+                       BufferState newState,
+                       ShaderStage srcStage,
+                       ShaderStage dstStage) override;
     void Draw(uint32_t vertexCount, uint32_t firstVertex) override;
     void DrawIndexed(uint32_t indexCount, uint32_t firstIndex, int32_t vertexOffset) override;
 

@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "Render/RHI/RHICommandList.h"
 
 namespace
@@ -59,6 +61,32 @@ void ResourceStateTracker::Transition(Buffer* buffer, BufferState newState)
 
     m_PendingBufferTransitions.push_back({buffer, currentState, newState});
     m_BufferStates[buffer] = newState;
+}
+
+void ResourceStateTracker::Forget(Texture* texture)
+{
+    if (texture == nullptr)
+        return;
+
+    m_TextureStates.erase(texture);
+    m_PendingTextureTransitions.erase(std::remove_if(m_PendingTextureTransitions.begin(),
+                                                     m_PendingTextureTransitions.end(),
+                                                     [texture](const PendingTextureTransition& pending)
+                                                     { return pending.m_Texture == texture; }),
+                                      m_PendingTextureTransitions.end());
+}
+
+void ResourceStateTracker::Forget(Buffer* buffer)
+{
+    if (buffer == nullptr)
+        return;
+
+    m_BufferStates.erase(buffer);
+    m_PendingBufferTransitions.erase(std::remove_if(m_PendingBufferTransitions.begin(),
+                                                    m_PendingBufferTransitions.end(),
+                                                    [buffer](const PendingBufferTransition& pending)
+                                                    { return pending.m_Buffer == buffer; }),
+                                     m_PendingBufferTransitions.end());
 }
 
 void ResourceStateTracker::FlushBarriers(CommandList* commandList)

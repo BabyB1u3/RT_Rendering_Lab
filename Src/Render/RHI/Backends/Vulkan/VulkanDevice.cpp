@@ -39,11 +39,14 @@ public:
     VkImage GetVkImage() const { return m_Image; }
     VkImageLayout GetCurrentLayout() const { return m_CurrentLayout; }
     void SetCurrentLayout(VkImageLayout layout) { m_CurrentLayout = layout; }
+    TextureState GetCurrentState() const { return m_CurrentState; }
+    void SetCurrentState(TextureState state) { m_CurrentState = state; }
 
 private:
     VkImage m_Image = VK_NULL_HANDLE;
     TextureDesc m_Desc;
     VkImageLayout m_CurrentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    TextureState m_CurrentState = TextureState::Undefined;
 };
 
 class VulkanSwapchainImageView final : public TextureView
@@ -88,12 +91,15 @@ public:
     const BufferDesc& GetDesc() const override { return m_Desc; }
     VkBuffer GetVkBuffer() const { return m_Buffer; }
     VmaAllocation GetVmaAllocation() const { return m_Allocation; }
+    BufferState GetCurrentState() const { return m_CurrentState; }
+    void SetCurrentState(BufferState state) { m_CurrentState = state; }
 
 private:
     VmaAllocator m_Allocator = nullptr;
     VkBuffer m_Buffer = VK_NULL_HANDLE;
     VmaAllocation m_Allocation = nullptr;
     BufferDesc m_Desc;
+    BufferState m_CurrentState = BufferState::Undefined;
 };
 
 class VulkanTexture final : public Texture
@@ -112,12 +118,18 @@ public:
 
     const TextureDesc& GetDesc() const override { return m_Desc; }
     VkImage GetVkImage() const { return m_Image; }
+    VkImageLayout GetCurrentLayout() const { return m_CurrentLayout; }
+    void SetCurrentLayout(VkImageLayout layout) { m_CurrentLayout = layout; }
+    TextureState GetCurrentState() const { return m_CurrentState; }
+    void SetCurrentState(TextureState state) { m_CurrentState = state; }
 
 private:
     VmaAllocator m_Allocator = nullptr;
     VkImage m_Image = VK_NULL_HANDLE;
     VmaAllocation m_Allocation = nullptr;
     TextureDesc m_Desc;
+    VkImageLayout m_CurrentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    TextureState m_CurrentState = TextureState::Undefined;
 };
 
 class VulkanTextureView final : public TextureView
@@ -1069,7 +1081,10 @@ void TransitionImageLayout(VkCommandBuffer commandBuffer,
                            VkPipelineStageFlags srcStageMask,
                            VkPipelineStageFlags dstStageMask,
                            VkAccessFlags srcAccessMask,
-                           VkAccessFlags dstAccessMask)
+                           VkAccessFlags dstAccessMask,
+                           VkImageAspectFlags aspectMask,
+                           uint32_t mipLevelCount,
+                           uint32_t arrayLayerCount)
 {
     VkImageMemoryBarrier barrier = MakeVkStruct<VkImageMemoryBarrier, VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER>();
     barrier.srcAccessMask = srcAccessMask;
@@ -1079,40 +1094,222 @@ void TransitionImageLayout(VkCommandBuffer commandBuffer,
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.image = image;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.aspectMask = aspectMask;
     barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.levelCount = mipLevelCount;
     barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
+    barrier.subresourceRange.layerCount = arrayLayerCount;
 
     vkCmdPipelineBarrier(commandBuffer, srcStageMask, dstStageMask, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 }
 
-VkPipelineStageFlags SourceStageForLayout(VkImageLayout layout)
+VkPipelineStageFlags ToVkPipelineStageMask(ShaderStage stageMask)
 {
-    switch (layout)
+    VkPipelineStageFlags result = 0;
+    if ((stageMask & ShaderStage::Vertex) != ShaderStage::None)
+        result |= VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
+    if ((stageMask & ShaderStage::Fragment) != ShaderStage::None)
+        result |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    if ((stageMask & ShaderStage::Compute) != ShaderStage::None)
+        result |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+    return result;
+}
+
+TextureAspect GetFullTextureAspect(const TextureDesc& desc)
+{
+    if (IsDepthFormat(desc.m_Format))
     {
-        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+        return HasStencilComponent(desc.m_Format) ? (TextureAspect::Depth | TextureAspect::Stencil)
+                                                  : TextureAspect::Depth;
+    }
+
+    return TextureAspect::Color;
+}
+
+VkImageLayout ToVkImageLayout(TextureState state, const TextureDesc& desc)
+{
+    switch (state)
+    {
+        case TextureState::Undefined:
+            return VK_IMAGE_LAYOUT_UNDEFINED;
+        case TextureState::RenderTarget:
+            return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        case TextureState::DepthStencil:
+            return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        case TextureState::ShaderRead:
+            return IsDepthFormat(desc.m_Format) ? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL
+                                                : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        case TextureState::ShaderReadWrite:
+            return VK_IMAGE_LAYOUT_GENERAL;
+        case TextureState::CopySource:
+            return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        case TextureState::CopyDest:
+            return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        case TextureState::Present:
+            return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    }
+
+    return VK_IMAGE_LAYOUT_UNDEFINED;
+}
+
+VkPipelineStageFlags TextureStateToPipelineStageMask(TextureState state, ShaderStage shaderStages, bool isDestination)
+{
+    switch (state)
+    {
+        case TextureState::RenderTarget:
             return VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
-            return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        case VK_IMAGE_LAYOUT_UNDEFINED:
+        case TextureState::DepthStencil:
+            return VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+        case TextureState::ShaderRead:
+        case TextureState::ShaderReadWrite:
+        {
+            const VkPipelineStageFlags shaderStageMask =
+                ToVkPipelineStageMask(shaderStages == ShaderStage::None ? ShaderStage::All : shaderStages);
+            return shaderStageMask != 0 ? shaderStageMask : VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+        }
+        case TextureState::CopySource:
+        case TextureState::CopyDest:
+            return VK_PIPELINE_STAGE_TRANSFER_BIT;
+        case TextureState::Present:
+            return isDestination ? VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        case TextureState::Undefined:
         default:
             return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
     }
 }
 
-VkAccessFlags SourceAccessForLayout(VkImageLayout layout)
+VkAccessFlags TextureStateToAccessMask(TextureState state)
 {
-    switch (layout)
+    switch (state)
     {
-        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-            return VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
-        case VK_IMAGE_LAYOUT_UNDEFINED:
+        case TextureState::RenderTarget:
+            return VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        case TextureState::DepthStencil:
+            return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        case TextureState::ShaderRead:
+            return VK_ACCESS_SHADER_READ_BIT;
+        case TextureState::ShaderReadWrite:
+            return VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+        case TextureState::CopySource:
+            return VK_ACCESS_TRANSFER_READ_BIT;
+        case TextureState::CopyDest:
+            return VK_ACCESS_TRANSFER_WRITE_BIT;
+        case TextureState::Present:
+        case TextureState::Undefined:
         default:
             return 0;
     }
+}
+
+VkPipelineStageFlags BufferStateToPipelineStageMask(BufferState state, ShaderStage shaderStages)
+{
+    switch (state)
+    {
+        case BufferState::VertexIndex:
+            return VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+        case BufferState::UniformRead:
+        case BufferState::StorageRead:
+        case BufferState::StorageReadWrite:
+        {
+            const VkPipelineStageFlags shaderStageMask =
+                ToVkPipelineStageMask(shaderStages == ShaderStage::None ? ShaderStage::All : shaderStages);
+            return shaderStageMask != 0 ? shaderStageMask : VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+        }
+        case BufferState::CopySource:
+        case BufferState::CopyDest:
+            return VK_PIPELINE_STAGE_TRANSFER_BIT;
+        case BufferState::IndirectArgument:
+            return VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+        case BufferState::Undefined:
+        default:
+            return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    }
+}
+
+VkAccessFlags BufferStateToAccessMask(BufferState state)
+{
+    switch (state)
+    {
+        case BufferState::VertexIndex:
+            return VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_INDEX_READ_BIT;
+        case BufferState::UniformRead:
+            return VK_ACCESS_UNIFORM_READ_BIT;
+        case BufferState::StorageRead:
+            return VK_ACCESS_SHADER_READ_BIT;
+        case BufferState::StorageReadWrite:
+            return VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+        case BufferState::CopySource:
+            return VK_ACCESS_TRANSFER_READ_BIT;
+        case BufferState::CopyDest:
+            return VK_ACCESS_TRANSFER_WRITE_BIT;
+        case BufferState::IndirectArgument:
+            return VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+        case BufferState::Undefined:
+        default:
+            return 0;
+    }
+}
+
+VulkanTexture* TryGetVulkanTexture(Texture* texture)
+{
+    return dynamic_cast<VulkanTexture*>(texture);
+}
+
+VulkanSwapchainTexture* TryGetVulkanSwapchainTexture(Texture* texture)
+{
+    return dynamic_cast<VulkanSwapchainTexture*>(texture);
+}
+
+VkImage GetVkImageForBarrier(Texture* texture)
+{
+    if (auto* ownedTexture = TryGetVulkanTexture(texture))
+        return ownedTexture->GetVkImage();
+    if (auto* swapchainTexture = TryGetVulkanSwapchainTexture(texture))
+        return swapchainTexture->GetVkImage();
+
+    RTRLAB_ASSERT_MSG(false, "Texture is not owned by the Vulkan backend.");
+    return VK_NULL_HANDLE;
+}
+
+VkImageLayout GetTrackedImageLayout(Texture* texture)
+{
+    if (auto* ownedTexture = TryGetVulkanTexture(texture))
+        return ownedTexture->GetCurrentLayout();
+    if (auto* swapchainTexture = TryGetVulkanSwapchainTexture(texture))
+        return swapchainTexture->GetCurrentLayout();
+
+    RTRLAB_ASSERT_MSG(false, "Texture is not owned by the Vulkan backend.");
+    return VK_IMAGE_LAYOUT_UNDEFINED;
+}
+
+TextureState GetTrackedTextureState(Texture* texture)
+{
+    if (auto* ownedTexture = TryGetVulkanTexture(texture))
+        return ownedTexture->GetCurrentState();
+    if (auto* swapchainTexture = TryGetVulkanSwapchainTexture(texture))
+        return swapchainTexture->GetCurrentState();
+
+    RTRLAB_ASSERT_MSG(false, "Texture is not owned by the Vulkan backend.");
+    return TextureState::Undefined;
+}
+
+void SetTrackedTextureState(Texture* texture, TextureState state, VkImageLayout layout)
+{
+    if (auto* ownedTexture = TryGetVulkanTexture(texture))
+    {
+        ownedTexture->SetCurrentState(state);
+        ownedTexture->SetCurrentLayout(layout);
+        return;
+    }
+
+    if (auto* swapchainTexture = TryGetVulkanSwapchainTexture(texture))
+    {
+        swapchainTexture->SetCurrentState(state);
+        swapchainTexture->SetCurrentLayout(layout);
+        return;
+    }
+
+    RTRLAB_ASSERT_MSG(false, "Texture is not owned by the Vulkan backend.");
 }
 } // namespace
 
@@ -1166,16 +1363,12 @@ void VulkanCommandList::BeginRendering(const RenderingInfo& renderingInfo)
 
     auto* texture = dynamic_cast<VulkanSwapchainTexture*>(imageView->GetTexture());
     RTRLAB_ASSERT_MSG(texture != nullptr, "Vulkan BeginRendering currently expects a swapchain texture.");
-
-    TransitionImageLayout(m_CommandBuffer,
-                          texture->GetVkImage(),
-                          texture->GetCurrentLayout(),
-                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                          SourceStageForLayout(texture->GetCurrentLayout()),
-                          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                          SourceAccessForLayout(texture->GetCurrentLayout()),
-                          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
-    texture->SetCurrentLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    RTRLAB_ASSERT_MSG(texture->GetCurrentState() == TextureState::RenderTarget,
+                      "Vulkan BeginRendering requires the color attachment to be transitioned to RenderTarget "
+                      "before BeginRendering.");
+    RTRLAB_ASSERT_MSG(texture->GetCurrentLayout() == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                      "Vulkan BeginRendering requires the color attachment to already be in "
+                      "VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.");
 
     const VkClearValue clearValue = {{
         colorAttachment.m_ClearValue.m_R,
@@ -1227,16 +1420,9 @@ void VulkanCommandList::EndRendering()
     RTRLAB_ASSERT_MSG(texture != nullptr, "Vulkan EndRendering currently expects a swapchain texture.");
 
     vkCmdEndRendering(m_CommandBuffer);
-
-    TransitionImageLayout(m_CommandBuffer,
-                          texture->GetVkImage(),
-                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                          VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-                          VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-                          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-                          0);
-    texture->SetCurrentLayout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    RTRLAB_ASSERT_MSG(texture->GetCurrentState() == TextureState::RenderTarget,
+                      "Vulkan EndRendering expects the render pass attachment to remain in RenderTarget state "
+                      "until an explicit barrier transitions it elsewhere.");
 
     ShellCommandListBase::EndRendering();
 }
@@ -1387,6 +1573,75 @@ void VulkanCommandList::Dispatch(uint32_t, uint32_t, uint32_t)
     RTRLAB_ASSERT_MSG(false,
                       "Vulkan dispatch is not implemented yet. This backend no longer falls back to the shell "
                       "compute path.");
+}
+
+void VulkanCommandList::TextureBarrier(
+    Texture* texture, TextureState oldState, TextureState newState, ShaderStage srcStage, ShaderStage dstStage)
+{
+    if (texture == nullptr || oldState == newState)
+        return;
+
+    const TextureDesc& desc = texture->GetDesc();
+    const TextureState trackedState = GetTrackedTextureState(texture);
+    RTRLAB_ASSERTF(trackedState == oldState,
+                   "Vulkan TextureBarrier expected old state {} but tracked state is {}.",
+                   static_cast<uint32_t>(oldState),
+                   static_cast<uint32_t>(trackedState));
+
+    const VkImageLayout oldLayout = GetTrackedImageLayout(texture);
+    const VkImageLayout expectedOldLayout = ToVkImageLayout(oldState, desc);
+    RTRLAB_ASSERT_MSG(oldLayout == expectedOldLayout,
+                      "Vulkan TextureBarrier found a layout/state mismatch before recording the barrier.");
+
+    const VkImageLayout newLayout = ToVkImageLayout(newState, desc);
+    TransitionImageLayout(m_CommandBuffer,
+                          GetVkImageForBarrier(texture),
+                          oldLayout,
+                          newLayout,
+                          TextureStateToPipelineStageMask(oldState, srcStage, false),
+                          TextureStateToPipelineStageMask(newState, dstStage, true),
+                          TextureStateToAccessMask(oldState),
+                          TextureStateToAccessMask(newState),
+                          ToVkImageAspect(GetFullTextureAspect(desc), desc.m_Format),
+                          std::max(desc.m_MipLevels, 1u),
+                          std::max(desc.m_ArrayLayers, 1u));
+
+    SetTrackedTextureState(texture, newState, newLayout);
+}
+
+void VulkanCommandList::BufferBarrier(
+    Buffer* buffer, BufferState oldState, BufferState newState, ShaderStage srcStage, ShaderStage dstStage)
+{
+    if (buffer == nullptr || oldState == newState)
+        return;
+
+    VulkanBuffer& vulkanBuffer = GetVulkanBuffer(buffer);
+    RTRLAB_ASSERTF(vulkanBuffer.GetCurrentState() == oldState,
+                   "Vulkan BufferBarrier expected old state {} but tracked state is {}.",
+                   static_cast<uint32_t>(oldState),
+                   static_cast<uint32_t>(vulkanBuffer.GetCurrentState()));
+
+    VkBufferMemoryBarrier barrier = MakeVkStruct<VkBufferMemoryBarrier, VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER>();
+    barrier.srcAccessMask = BufferStateToAccessMask(oldState);
+    barrier.dstAccessMask = BufferStateToAccessMask(newState);
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.buffer = vulkanBuffer.GetVkBuffer();
+    barrier.offset = 0;
+    barrier.size = vulkanBuffer.GetDesc().m_Size;
+
+    vkCmdPipelineBarrier(m_CommandBuffer,
+                         BufferStateToPipelineStageMask(oldState, srcStage),
+                         BufferStateToPipelineStageMask(newState, dstStage),
+                         0,
+                         0,
+                         nullptr,
+                         1,
+                         &barrier,
+                         0,
+                         nullptr);
+
+    vulkanBuffer.SetCurrentState(newState);
 }
 
 void VulkanCommandList::Draw(uint32_t vertexCount, uint32_t firstVertex)
