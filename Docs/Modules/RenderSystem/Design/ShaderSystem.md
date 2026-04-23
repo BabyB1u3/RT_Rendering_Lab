@@ -97,8 +97,8 @@ To keep the architecture stable in version 1, the shader feature subset should b
 - deep nested parameter block hierarchies
 - aggressive target-specific special cases
 - advanced bindless patterns
-- heavy reliance on OpenGL-specific GLSL behavior
-- assuming identical target behavior across Vulkan / Metal / OpenGL
+- heavy reliance on backend-specific shader quirks
+- assuming identical target behavior across Vulkan / Metal
 
 ---
 
@@ -134,13 +134,13 @@ enum class ReflectedTypeKind
 
 **v1 canonical layout policy**: the engine adopts a single canonical CPU-side constant layout for all backends. In v1 this is **`Std430`** (the Slang/SPIR-V default for uniform and storage buffers). The ShaderSystem is responsible for compiling all backend targets with Slang layout decorations that produce a `Std430`-compatible reflection output, or for normalizing the raw Slang reflection output into `Std430` offsets before emitting `ShaderReflectionData`. `ShaderParameterWriter` writes CPU-side constant data assuming this single layout.
 
-Rationale: if layout were truly per-target, the same `"gFrame.viewProj"` field could resolve to different offsets on Vulkan vs. OpenGL, making the single `ParameterBlockData` blob incorrect for one of them. A canonical layout eliminates this ambiguity at design time. Shader features that cannot be expressed under `Std430` are out of scope for v1.
+Rationale: if layout were truly per-target, the same `"gFrame.viewProj"` field could resolve to different offsets on Vulkan vs. Metal, making the single `ParameterBlockData` blob incorrect for one of them. A canonical layout eliminates this ambiguity at design time. Shader features that cannot be expressed under `Std430` are out of scope for v1.
 
 ```cpp
 enum class LayoutConvention
 {
     Std430,         // canonical v1 engine layout — Slang/SPIR-V default for UBO/SSBO
-    Std140,         // OpenGL classic UBO layout (for validation / compatibility tooling)
+    Std140,         // legacy UBO layout retained for validation / compatibility tooling
     Scalar,         // tightly packed scalar layout (future; requires Slang scalar layout target)
 };
 ```
@@ -220,7 +220,6 @@ enum class BackendType
 {
     Vulkan,
     Metal,
-    OpenGL,
 };
 
 enum class ShaderStage : uint32_t
@@ -265,7 +264,6 @@ enum class MetalCodeFormat
 // One compiled code blob for a specific backend and stage.
 // Vulkan:  SPIR-V bytes.
 // Metal:   MSL source or .metallib bytes — format indicated by metalCodeFormat.
-// OpenGL:  GLSL source string (null-terminated, stored as bytes).
 struct CompiledShaderBlob
 {
     BackendType     backend;
@@ -387,7 +385,6 @@ For each shader program, compilation should generate:
 
 - **Vulkan**: SPIR-V bytecode
 - **Metal**: MSL source (`MetalCodeFormat::MslSource`) for development builds; pre-compiled `.metallib` bytes (`MetalCodeFormat::Metallib`) for release builds — distinguished by `CompiledShaderBlob::metalCodeFormat`. The `.metallib` bytes are loaded at runtime via `[MTLDevice newLibraryWithData:error:]` (see RHI_Backend_Metal.md §7)
-- **OpenGL**: GLSL source
 - reflection metadata (populates `ShaderReflectionData`)
 - `CompiledShaderProgramDesc` — the complete ready-to-consume RHI input package
 - optional serialized cache artifact
@@ -410,7 +407,6 @@ A separate shader build step is recommended.
 ### Outputs
 - `*.spv`
 - `*.metal`
-- `*.glsl`
 - reflection cache data
 
 This enables:

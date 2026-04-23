@@ -317,8 +317,13 @@ public:
     virtual PipelineLayout* GetLayout() const = 0;
     virtual uint32_t GetSetIndex() const = 0;
 
-    virtual ParameterBlockData& GetConstants() = 0;
     virtual const ParameterBlockData& GetConstants() const = 0;
+    virtual void SetConstantDataRaw(uint32_t offset, const void* data, size_t size) = 0;
+
+    template <typename T> void SetConstantData(uint32_t offset, const T& value)
+    {
+        SetConstantDataRaw(offset, &value, sizeof(T));
+    }
 
     virtual void SetBuffer(uint32_t binding, const BufferBinding& bufferBinding) = 0;
     virtual void SetTexture(uint32_t binding, const TextureBinding& textureBinding) = 0;

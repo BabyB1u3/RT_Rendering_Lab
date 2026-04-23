@@ -45,7 +45,6 @@ Design documents: [Docs/Modules/RenderSystem/Design/](../Modules/RenderSystem/De
 **Backends**
 - [ ] Metal backend — direct slot binding (v1), argument buffer migration path (v2)
 - [ ] Vulkan backend — descriptor sets, render passes, synchronization
-- [ ] OpenGL compatibility backend — state translation layer, SPIR-V path via Slang
 
 **First render demo**
 - [ ] Forward rendering pass in the new RHI

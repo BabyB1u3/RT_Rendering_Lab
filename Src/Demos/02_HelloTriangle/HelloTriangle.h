@@ -21,6 +21,7 @@ public:
 
 private:
     void CreateTriangleResources();
+    void UpdateAnimatedParameters();
 
     uint32_t m_ViewportWidth = 0;
     uint32_t m_ViewportHeight = 0;
@@ -29,6 +30,12 @@ private:
     Scope<Buffer> m_IndexBuffer;
     Scope<ShaderProgram> m_ShaderProgram;
     Scope<PipelineLayout> m_PipelineLayout;
+    Scope<ResourceSet> m_FrameSet;
+    uint32_t m_FrameSetIndex = 0;
+    Scope<ResourceSet> m_MaterialSet;
+    uint32_t m_MaterialSetIndex = 1;
+    Scope<ResourceSet> m_ObjectSet;
+    uint32_t m_ObjectSetIndex = 2;
     Scope<VertexInputLayout> m_VertexInputLayout;
     Scope<GraphicsPipeline> m_GraphicsPipeline;
 };

@@ -7,7 +7,7 @@
 /// automatically when position, rotation, FOV, or aspect ratio change.
 ///
 /// Orientation is defined by yaw (horizontal, degrees) and pitch (vertical, degrees).
-/// Yaw = -90 looks along -Z (OpenGL convention). Pitch is NOT clamped internally -
+/// Yaw = -90 looks along -Z in this right-handed camera setup. Pitch is NOT clamped internally -
 /// clamping is the responsibility of the controller (e.g., DebugCameraController)
 /// so that specialized cameras (orbit, light) can use the full range.
 ///

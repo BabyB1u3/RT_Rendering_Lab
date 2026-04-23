@@ -1,6 +1,6 @@
 # RHI Design
 ## Slang + C++ Multi-Backend Renderer — RHI Public API Contract
-## Target Backends: OpenGL / Metal / Vulkan
+## Target Backends: Metal / Vulkan
 
 This document defines the **public RHI API contract** — the backend-neutral interface that renderer code uses to allocate resources, create pipelines, record commands, and present frames. It is the primary reference for anyone writing rendering code above the RHI layer.
 
@@ -8,7 +8,6 @@ Related documents:
 - [ShaderSystem.md](ShaderSystem.md) — Slang shader authoring, neutral reflection model, shader compilation, and the parameter writer
 - [RHI_Backend_Vulkan.md](RHI_Backend_Vulkan.md) — Vulkan implementation strategy
 - [RHI_Backend_Metal.md](RHI_Backend_Metal.md) — Metal implementation strategy
-- [RHI_Backend_OpenGL.md](RHI_Backend_OpenGL.md) — OpenGL implementation strategy
 
 ---
 
@@ -18,13 +17,11 @@ This document defines a practical rendering backend abstraction for a C++ engine
 
 - **Vulkan**
 - **Metal**
-- **OpenGL**
 
 The design goal is to create a rendering backend abstraction that is:
 
 - modern enough to map naturally to Vulkan
 - flexible enough to map cleanly to Metal
-- compatible enough to support OpenGL as a secondary backend
 - driven by **Slang reflection**, instead of duplicated hand-maintained shader binding metadata
 - suitable as a long-term foundation for:
   - material systems
@@ -63,9 +60,7 @@ This gives us:
 
 - a natural mapping to Vulkan
 - a clean mapping to Metal
-- a compatibility translation layer for OpenGL
-
-OpenGL should be treated as an implementation backend, **not** as the architectural reference model.
+- a clean separation from legacy state-machine-era API design
 
 ---
 
@@ -96,11 +91,10 @@ This is one of the central architectural decisions. See [ShaderSystem.md](Shader
 
 Vertex/index buffers must **not** be treated as ordinary shader resources.
 
-They are a separate concept in all three backends:
+They are a separate concept in both active backends:
 
 - **Vulkan**: vertex/index buffers are bound separately from descriptor sets
 - **Metal**: vertex input is not the same abstraction as argument buffers or general resource sets
-- **OpenGL**: index buffer binding is part of VAO state, and vertex attribute layout has its own system
 
 Therefore, the design must keep these two systems separate:
 
@@ -122,19 +116,15 @@ This separation is mandatory.
 
 ---
 
-### 2.4 OpenGL is a compatibility backend, not a feature-defining backend
+### 2.4 Do not regress to legacy state-machine semantics
 
-Because Slang's Vulkan/SPIR-V and Metal paths are stronger than its OpenGL/GLSL path, this architecture must assume:
-
-- Vulkan and Metal are the primary-quality targets
-- OpenGL support is restricted to a well-controlled shader subset
-- advanced shader system decisions must not be limited by OpenGL's weakest points
+Even though only Vulkan and Metal are active targets, the public abstraction still must not regress toward older state-machine-era API design.
 
 That means:
 
 - the public abstraction remains modern
-- OpenGL adapts to the abstraction
-- the abstraction does **not** collapse down to OpenGL-era state machine semantics
+- backend implementations adapt to the abstraction
+- the abstraction does **not** collapse down to implicit global-state semantics
 
 ---
 
@@ -153,7 +143,6 @@ This layout aligns well with:
 
 - Vulkan descriptor-set usage
 - Metal argument-buffer grouping
-- OpenGL compatibility-layer batch application
 
 ---
 
@@ -167,7 +156,6 @@ Engine/
 │   ├── Common/
 │   ├── Vulkan/
 │   ├── Metal/
-│   └── OpenGL/
 │
 ├── ShaderSystem/
 │   ├── SlangCompiler
@@ -231,7 +219,7 @@ It is responsible for:
 - selecting pipelines
 - recording draw/dispatch commands
 
-The renderer should not care whether the backend is Vulkan, Metal, or OpenGL.
+The renderer should not care whether the backend is Vulkan or Metal.
 
 ---
 
@@ -622,7 +610,7 @@ A `ResourceSet` represents one logical shader parameter group instance, such as:
 
 It is the runtime instance of the shader-defined parameter block.
 
-**Two-layer model:** `ResourceSet` is the logical shader-parameter container. Backend binding objects derived from it — Vulkan `VkDescriptorSet`, Metal argument buffer or slot cache, OpenGL binding table — are transient, cacheable implementation details that may be frame-local. They must not be externally observable through the public API.
+**Two-layer model:** `ResourceSet` is the logical shader-parameter container. Backend binding objects derived from it — Vulkan `VkDescriptorSet` or a Metal argument-buffer / slot cache — are transient, cacheable implementation details that may be frame-local. They must not be externally observable through the public API.
 
 ---
 
@@ -640,7 +628,7 @@ A `ResourceSet` is split into two layers with distinct ownership and lifetime.
 
 #### Backend layer (implementation-private, may be frame-local)
 
-- cached backend binding objects (`VkDescriptorSet`, encoded Metal argument buffer, OpenGL binding table)
+- cached backend binding objects (`VkDescriptorSet`, encoded Metal argument buffer, or direct-slot cache)
 - per-frame upload allocations for constant data
 - dirty/staleness flags tracking whether the backend cache reflects current logical state
 
@@ -994,7 +982,7 @@ struct RenderingInfo
 };
 ```
 
-`RenderingInfo` maps directly to Vulkan's dynamic rendering (`VkRenderingInfo`), Metal's `MTLRenderPassDescriptor`, and OpenGL's framebuffer object attachment configuration.
+`RenderingInfo` maps directly to Vulkan's dynamic rendering (`VkRenderingInfo`) and Metal's `MTLRenderPassDescriptor`.
 
 ---
 
@@ -1369,31 +1357,31 @@ This renderer code is backend-agnostic — no backend-specific types or calls ap
 
 ## 16. Recommended Implementation Order
 
-To reduce complexity and validate the architecture early, implementation should proceed in **shared milestones**, not as three completely separate backend projects.
+To reduce complexity and validate the architecture early, implementation should proceed in **shared milestones**, not as two completely separate backend projects.
 
 ### 16.1 Shared implementation policy
 
 - define and freeze the public RHI interface first
-- advance **Vulkan, Metal, and OpenGL together at the milestone level**
+- advance **Vulkan and Metal together at the milestone level**
 - use **Vulkan as the reference backend** for semantics and edge-case resolution
-- allow Vulkan to land slightly ahead of the others inside a milestone, but do not let Metal/OpenGL drift across multiple milestones
+- allow Vulkan to land slightly ahead inside a milestone, but do not let Metal drift across multiple milestones
 
-This is a lockstep strategy, not a Vulkan-only strategy. The goal is to keep one coherent public abstraction while ensuring every milestone is exercised by all three backends.
+This is a lockstep strategy, not a Vulkan-only strategy. The goal is to keep one coherent public abstraction while ensuring every milestone is exercised by both active backends.
 
 ### 16.2 Milestone 1: Public API and backend shells
 Implement:
 
 - header-level RHI API draft
 - backend selection / factory plumbing
-- backend-private `Device`, `Swapchain`, and `CommandList` shells for Vulkan / Metal / OpenGL
+- backend-private `Device`, `Swapchain`, and `CommandList` shells for Vulkan / Metal
 - `NativeWindowHandle` extraction boundary between the platform window layer and the RHI
 
 Exit criteria:
 
-- all three backends compile against the same public headers
-- all three backends can create a device and a swapchain-compatible presentation path
+- both backends compile against the same public headers
+- both backends can create a device and a swapchain-compatible presentation path
 
-### 16.3 Milestone 2: Clear and present on all backends
+### 16.3 Milestone 2: Clear and present on both backends
 Implement:
 
 - frame lifecycle (`acquireNextImage()` / `beginFrame()` / `beginCommandList()` / `submit()` / `present()`)
@@ -1402,7 +1390,7 @@ Implement:
 
 Exit criteria:
 
-- the same "clear backbuffer and present" demo runs on Vulkan, Metal, and OpenGL
+- the same "clear backbuffer and present" demo runs on Vulkan and Metal
 
 ### 16.4 Milestone 3: Core resources and graphics pipeline
 Implement:
@@ -1416,7 +1404,7 @@ Implement:
 
 Exit criteria:
 
-- the same simple mesh draw path works on all three backends
+- the same simple mesh draw path works on both backends
 
 ### 16.5 Milestone 4: Shader pipeline and binding model
 Implement:
@@ -1432,7 +1420,7 @@ Implement:
 
 Exit criteria:
 
-- one shader program with `Frame` / `Material` / `Object` parameter groups works on all three backends
+- one shader program with `Frame` / `Material` / `Object` parameter groups works on both backends
 
 ### 16.6 Milestone 5: Minimal renderer demo
 Create a minimal renderer test:
@@ -1444,7 +1432,7 @@ Create a minimal renderer test:
 
 Exit criteria:
 
-- identical renderer-side code path above the RHI boundary for all backends
+- identical renderer-side code path above the RHI boundary for both backends
 
 ### 16.7 Optional improvements
 After first end-to-end success:
@@ -1474,10 +1462,10 @@ These are excluded to keep the architecture coherent and implementable.
 
 ## 18. Risks and Tradeoffs
 
-### 18.1 OpenGL feature ceiling
-OpenGL support will always be the most fragile path in this architecture.
+### 18.1 Backend asymmetry
+Vulkan and Metal will not always advance at exactly the same speed.
 
-This is acceptable because OpenGL is defined as a compatibility backend.
+This is acceptable as long as the public abstraction remains coherent and milestone drift stays bounded.
 
 ### 18.2 Reflection-driven complexity
 Relying on reflection introduces some system complexity, but it is still much better than maintaining duplicate truth sources manually.
@@ -1494,7 +1482,7 @@ Different backends may store parameter-block constant data differently internall
 
 The final architecture can be summarized in one sentence:
 
-> Build the engine's public rendering interface around explicit pipeline/resource-set concepts, derive all shader-visible layout from Slang reflection, use Vulkan as the conceptual reference backend, map Metal naturally through slots and optional argument buffers, and treat OpenGL as a compatibility translation layer.
+> Build the engine's public rendering interface around explicit pipeline/resource-set concepts, derive all shader-visible layout from Slang reflection, use Vulkan as the conceptual reference backend, and map Metal naturally through slots and optional argument buffers.
 
 In practical terms, that means:
 
@@ -1520,6 +1508,6 @@ The next implementation artifacts after this document should be:
    - `ObjectParams`
    - one unlit or PBR-lite shader
 4. a **platform window-handle extraction layer** that converts `GLFWwindow*` into `NativeWindowHandle`
-5. a **backend lockstep bring-up checklist** for the first clear/present milestone across Vulkan / Metal / OpenGL
+5. a **backend lockstep bring-up checklist** for the first clear/present milestone across Vulkan / Metal
 
 These artifacts together will turn this design from architecture into a buildable skeleton.

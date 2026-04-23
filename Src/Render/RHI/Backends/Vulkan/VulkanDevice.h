@@ -7,28 +7,8 @@
 #include <limits>
 #include <vector>
 
-#if defined(_WIN32)
-#ifndef VK_USE_PLATFORM_WIN32_KHR
-#define VK_USE_PLATFORM_WIN32_KHR
-#endif
-#elif defined(__linux__)
-#if defined(GLAB_GLFW_X11_NATIVE)
-#ifndef VK_USE_PLATFORM_XLIB_KHR
-#define VK_USE_PLATFORM_XLIB_KHR
-#endif
-#endif
-#if defined(GLAB_GLFW_WAYLAND_NATIVE)
-#ifndef VK_USE_PLATFORM_WAYLAND_KHR
-#define VK_USE_PLATFORM_WAYLAND_KHR
-#endif
-#endif
-#endif
-
-#include <volk/volk.h>
-
 #include "Render/RHI/Backends/Common/RHIShellCommon.h"
-
-struct VmaAllocator_T;
+#include "Render/RHI/Backends/Vulkan/VulkanCommon.h"
 
 class VulkanDevice;
 class VulkanSwapchainTexture;
@@ -45,11 +25,12 @@ public:
     VulkanCommandList(VulkanCommandList&&) = delete;
     VulkanCommandList& operator=(VulkanCommandList&&) = delete;
 
-    void Initialize(VkDevice device, VkCommandPool commandPool);
+    void Initialize(VulkanDevice* ownerDevice, VkDevice device, VkCommandPool commandPool);
     void Shutdown();
     void BeginRendering(const RenderingInfo& renderingInfo) override;
     void EndRendering() override;
     void BindGraphicsPipeline(GraphicsPipeline* pipeline) override;
+    void BindResourceSet(uint32_t setIndex, ResourceSet* resourceSet) override;
     void BindMesh(const MeshBinding& meshBinding, const uint64_t* vertexOffsets = nullptr) override;
     void
     BindVertexBuffers(uint32_t firstSlot, Buffer* const* buffers, uint32_t count, const uint64_t* offsets) override;
@@ -63,6 +44,7 @@ public:
     bool IsRenderingActive() const { return m_IsRendering; }
 
 private:
+    VulkanDevice* m_OwnerDevice = nullptr;
     VkDevice m_Device = VK_NULL_HANDLE;
     VkCommandPool m_CommandPool = VK_NULL_HANDLE;
     VkCommandBuffer m_CommandBuffer = VK_NULL_HANDLE;
@@ -121,6 +103,7 @@ public:
     Scope<Sampler> CreateSampler(const SamplerDesc& desc) override;
     Scope<ShaderProgram> CreateShaderProgram(const CompiledShaderProgramDesc& desc) override;
     Scope<PipelineLayout> CreatePipelineLayout(const PipelineLayoutDesc& desc) override;
+    Scope<ResourceSet> CreateResourceSet(PipelineLayout* layout, uint32_t setIndex) override;
     Scope<VertexInputLayout> CreateVertexInputLayout(const VertexInputLayoutDesc& desc) override;
     Scope<GraphicsPipeline> CreateGraphicsPipeline(const GraphicsPipelineDesc& desc) override;
     void WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size) override;
@@ -145,6 +128,19 @@ public:
     void AdvanceFrameSync();
 
 private:
+    struct FrameUploadArena
+    {
+        VkBuffer m_Buffer = VK_NULL_HANDLE;
+        VmaAllocation_T* m_Allocation = nullptr;
+        void* m_MappedData = nullptr;
+        bool m_RequiresUnmap = false;
+        uint64_t m_Capacity = 0;
+        uint64_t m_Head = 0;
+        uint64_t m_Serial = 0;
+    };
+
+    friend class VulkanCommandList;
+
     struct FrameSync
     {
         VkSemaphore m_ImageAvailable = VK_NULL_HANDLE;
@@ -154,6 +150,10 @@ private:
 
     FrameSync& GetCurrentFrameSync();
     const FrameSync& GetCurrentFrameSync() const;
+    void InitializeFrameUploadArenas();
+    void ShutdownFrameUploadArenas();
+    void ResetCurrentFrameUploadArena();
+    void PrepareResourceSetForBinding(ResourceSet* resourceSet);
     void InitializeInstance();
     void InitializeDeviceObjects();
     void InitializeDeviceObjectsForSurface(VkSurfaceKHR surface);
@@ -179,11 +179,15 @@ private:
     NativeWindowHandle m_NativeWindowHandle{};
     bool m_HasDeviceObjects = false;
     bool m_HasPresentationObjects = false;
-    // Frames in flight for CPU/GPU pacing; intentionally independent from swapchain imageCount.
-    std::array<FrameSync, 2> m_FrameSyncObjects{};
+    // Bring-up path currently records into a single VulkanCommandList/command buffer,
+    // so only one frame may be in flight safely. Expanding this back to multiple
+    // frames requires per-frame command buffers (or an equivalent ownership model).
+    std::array<FrameSync, 1> m_FrameSyncObjects{};
+    std::array<FrameUploadArena, 1> m_FrameUploadArenas{};
     uint32_t m_CurrentFrameSlot = 0;
     bool m_FrameInProgress = false;
     bool m_FrameSubmitted = false;
+    uint64_t m_MinUniformBufferOffsetAlignment = 1;
 
     VulkanCommandList m_CommandList;
     RHIInternal::ShellFrameContext m_FrameContext;

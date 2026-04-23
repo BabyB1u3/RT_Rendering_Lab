@@ -47,17 +47,6 @@ if(UNIX AND NOT APPLE)
     )
 endif()
 
-if(GLAB_BACKEND_OPENGL)
-    target_link_libraries(RTRLabCore PUBLIC
-        glad
-        OpenGL::GL
-    )
-
-    target_compile_definitions(RTRLabCore PUBLIC
-        GLAB_BACKEND_OPENGL
-    )
-endif()
-
 if(APPLE)
     target_link_libraries(RTRLabCore PUBLIC
         "-framework AppKit"
@@ -105,6 +94,10 @@ target_compile_definitions(RTRLabCore PUBLIC
     $<$<CONFIG:Debug>:RTRLAB_CONFIG_DEBUG>
     $<$<CONFIG:RelWithDebInfo>:RTRLAB_CONFIG_RELWITHDEBINFO>
     $<$<CONFIG:Release>:RTRLAB_CONFIG_RELEASE>
+    $<$<AND:$<BOOL:${RTRLAB_SLANGC}>,$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>>:RTRLAB_SLANGC_PATH="${RTRLAB_SLANGC}">
+    $<$<AND:$<BOOL:${RTRLAB_SLANG_STD_MODULE_DIR}>,$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>>:RTRLAB_SLANG_STD_MODULE_DIR="${RTRLAB_SLANG_STD_MODULE_DIR}">
+    $<$<AND:$<BOOL:${RTRLAB_PROJECT_SHADER_DIR}>,$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>>:RTRLAB_PROJECT_SHADER_DIR="${RTRLAB_PROJECT_SHADER_DIR}">
+    $<$<AND:$<BOOL:${RTRLAB_PROJECT_SHADER_MODULE_DIR}>,$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>>:RTRLAB_PROJECT_SHADER_MODULE_DIR="${RTRLAB_PROJECT_SHADER_MODULE_DIR}">
     $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:GLAB_ROOT_DIR="${CMAKE_SOURCE_DIR}">
     $<$<CONFIG:Debug>:RTRLAB_LOG_MIN_LEVEL=0>
     $<$<CONFIG:RelWithDebInfo>:RTRLAB_LOG_MIN_LEVEL=1>
@@ -115,9 +108,6 @@ if(MSVC)
     target_compile_definitions(RTRLabCore PUBLIC
         _CRT_SECURE_NO_WARNINGS
         NOMINMAX
-    )
-    target_compile_options(RTRLabCore PUBLIC
-        /wd4005  # macro redefinition (APIENTRY: glad vs windows.h, both identical)
     )
 endif()
 

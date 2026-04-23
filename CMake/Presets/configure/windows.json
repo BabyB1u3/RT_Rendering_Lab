@@ -13,17 +13,6 @@
       }
     },
     {
-      "name": "windows-opengl-debug",
-      "displayName": "Windows OpenGL Debug",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/windows-opengl-debug",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/windows-opengl-debug",
-        "GLAB_GRAPHICS_BACKEND": "OpenGL"
-      }
-    },
-    {
       "name": "windows-relwithdebinfo",
       "displayName": "Windows RelWithDebInfo",
       "generator": "Ninja",
@@ -67,18 +56,6 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-windows-debug",
         "GLAB_GRAPHICS_BACKEND": "Vulkan",
-        "GLAB_BUILD_TESTS": "ON"
-      }
-    },
-    {
-      "name": "ci-windows-opengl-debug",
-      "displayName": "Windows CI OpenGL Debug",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/ci-windows-opengl-debug",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-windows-opengl-debug",
-        "GLAB_GRAPHICS_BACKEND": "OpenGL",
         "GLAB_BUILD_TESTS": "ON"
       }
     },

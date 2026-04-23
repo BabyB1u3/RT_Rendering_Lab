@@ -1,6 +1,6 @@
 # 实时渲染实验室
 
-这是一个现代 C++ 图形引擎实验项目，主要用于探索实时渲染技术。长期目标是构建一个由 **Slang** 着色器和现代显式 RHI 驱动的多后端渲染器（Vulkan、Metal、OpenGL），并逐步补齐涵盖 PBR、阴影、屏幕空间效果等主题的渲染示例。
+这是一个现代 C++ 图形引擎实验项目，主要用于探索实时渲染技术。长期目标是构建一个由 **Slang** 着色器和现代显式 RHI 驱动的多后端渲染器（Vulkan、Metal），并逐步补齐涵盖 PBR、阴影、屏幕空间效果等主题的渲染示例。
 
 [English](../../README.md)
 
@@ -29,7 +29,7 @@
 关键设计决策：
 
 - 使用 **Slang** 作为着色语言，用单一源码面向多后端编译，替代旧的 GLSL/SPIR-V 流程。
-- 支持 **三种后端：Vulkan、Metal、OpenGL**。Vulkan 和 Metal 是主要目标，OpenGL 作为兼容后端保留。
+- 支持 **两种后端：Vulkan、Metal**。Vulkan 是主要的跨平台目标，Metal 负责 Apple 平台原生后端。
 - 对外暴露 **Vulkan 风格 API**，显式建模 `ShaderProgram`、`PipelineLayout`、`ResourceSet`、`GraphicsPipeline`、`CommandList` 等对象。
 - 参数绑定采用 **反射驱动**，由 Slang 反射结果作为布局真源，不再在 C++ 中手工维护绑定表。
 
@@ -253,7 +253,6 @@ ctest --preset test-windows-release
 | --- | --- | --- |
 | [GLFW](https://github.com/glfw/glfw) | 窗口与输入 | Git 子模块（`Vendor/glfw`，`3.4.0`） |
 | [GLM](https://github.com/g-truc/glm) | 线性代数 | Git 子模块（`Vendor/glm`，`1.0.3`） |
-| [Glad](https://glad.dav1d.de/) | OpenGL 4.6 加载器 | `Vendor/glad/` |
 | [STB Image](https://github.com/nothings/stb) | 图像加载 | `Vendor/stb/` |
 | [Dear ImGui](https://github.com/ocornut/imgui) | 调试 GUI | Git 子模块（`Vendor/imgui`，`1.92.6`，`docking` 分支） |
 | [spdlog](https://github.com/gabime/spdlog) | 日志系统 | `Vendor/spdlog/` |
@@ -264,7 +263,7 @@ ctest --preset test-windows-release
 
 ## 长期方向
 
-当前的近期目标是完成新的 RenderSystem，包括 RHI 层、Slang 集成，以及至少一个可运行的后端（Metal 或 Vulkan），使新的渲染演示能够重新跑起来。
+当前的近期目标是完成新的 RenderSystem，包括 RHI 层、Slang 集成，以及 Vulkan / Metal 主线后端，使新的渲染演示能够重新跑起来。
 
 之后项目还会继续探索：
 

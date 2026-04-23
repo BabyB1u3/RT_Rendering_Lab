@@ -13,10 +13,7 @@ project(RTRLab
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/CMake/Project.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/CMake/Helpers.cmake)
-
-if(GLAB_BACKEND_OPENGL)
-    find_package(OpenGL REQUIRED)
-endif()
+include(${CMAKE_CURRENT_SOURCE_DIR}/CMake/ShaderToolchain.cmake)
 
 if(GLAB_BACKEND_VULKAN)
     find_package(Vulkan REQUIRED)

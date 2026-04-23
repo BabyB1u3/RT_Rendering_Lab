@@ -5,7 +5,7 @@
 ///
 /// Pushed as an *overlay* on the LayerStack so it renders on top of all normal
 /// layers. OnAttach() initializes the ImGui context and the active renderer
-/// backend (OpenGL3 or Metal).
+/// backend.
 /// OnDetach() tears them down.
 ///
 /// Frame bracketing:

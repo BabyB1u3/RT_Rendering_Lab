@@ -6,18 +6,13 @@
 #if defined(GLAB_BACKEND_METAL)
 #include "Render/RHI/Backends/Metal/MetalDevice.h"
 #endif
-#if defined(GLAB_BACKEND_OPENGL)
-#include "Render/RHI/Backends/OpenGL/OpenGLDevice.h"
-#endif
 #if defined(GLAB_BACKEND_VULKAN)
 #include "Render/RHI/Backends/Vulkan/VulkanDevice.h"
 #endif
 
 BackendType GetDefaultBackendType()
 {
-#if defined(GLAB_BACKEND_OPENGL)
-    return BackendType::OpenGL;
-#elif defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_METAL)
     return BackendType::Metal;
 #elif defined(GLAB_BACKEND_VULKAN)
     return BackendType::Vulkan;
@@ -34,8 +29,6 @@ const char* GetBackendName(BackendType backend)
             return "Vulkan";
         case BackendType::Metal:
             return "Metal";
-        case BackendType::OpenGL:
-            return "OpenGL";
     }
 
     return "Unknown";
@@ -56,12 +49,6 @@ Scope<Device> CreateDevice(BackendType backend)
         case BackendType::Metal:
 #if defined(GLAB_BACKEND_METAL)
             return CreateScope<MetalDevice>();
-#else
-            break;
-#endif
-        case BackendType::OpenGL:
-#if defined(GLAB_BACKEND_OPENGL)
-            return CreateScope<OpenGLDevice>();
 #else
             break;
 #endif

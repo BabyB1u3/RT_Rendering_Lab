@@ -1,4 +1,5 @@
 #include "Render/RHI/Backends/Common/RHIShellCommon.h"
+#include "Render/Shader/ShaderReflection.h"
 
 #include <algorithm>
 #include <cstring>
@@ -25,10 +26,98 @@ ResourceKind MapReflectedResourceKind(ReflectedTypeKind typeKind)
 
     return ResourceKind::UniformBuffer;
 }
+
+void AddOrMergeBindingInfo(std::vector<BindingInfo>& bindings, const BindingInfo& candidate)
+{
+    auto it = std::find_if(bindings.begin(),
+                           bindings.end(),
+                           [&candidate](const BindingInfo& existing)
+                           {
+                               return existing.m_SetIndex == candidate.m_SetIndex &&
+                                      existing.m_Binding == candidate.m_Binding && existing.m_Kind == candidate.m_Kind;
+                           });
+
+    if (it == bindings.end())
+    {
+        bindings.push_back(candidate);
+        return;
+    }
+
+    if (it->m_Name.empty())
+        it->m_Name = candidate.m_Name;
+    RTRLAB_ASSERT_MSG(it->m_ArrayCount == candidate.m_ArrayCount,
+                      "Reflected bindings that share set/binding/kind must also share the same array count.");
+    it->m_StageMask |= candidate.m_StageMask;
+}
+
+void CollectPipelineBindings(const ReflectedField& field,
+                             uint32_t currentSetIndex,
+                             bool hasSetIndex,
+                             std::vector<BindingInfo>& bindings)
+{
+    uint32_t resolvedSetIndex = hasSetIndex ? currentSetIndex : field.m_SetIndex;
+    bool childHasSetIndex = hasSetIndex;
+    uint32_t childSetIndex = currentSetIndex;
+
+    if (field.m_TypeKind == ReflectedTypeKind::ParameterBlock)
+    {
+        resolvedSetIndex = field.m_SetIndex;
+        childHasSetIndex = true;
+        childSetIndex = field.m_SetIndex;
+    }
+
+    if (IsPipelineBindableReflectedType(field.m_TypeKind))
+    {
+        BindingInfo bindingInfo;
+        bindingInfo.m_Name = field.m_Name;
+        bindingInfo.m_SetIndex = resolvedSetIndex;
+        bindingInfo.m_Binding = field.m_Binding;
+        bindingInfo.m_Kind = MapReflectedResourceKind(field.m_TypeKind);
+        bindingInfo.m_ArrayCount = field.m_ArrayCount;
+        bindingInfo.m_StageMask = field.m_StageMask;
+        AddOrMergeBindingInfo(bindings, bindingInfo);
+    }
+
+    for (const ReflectedField& child : field.m_Children)
+        CollectPipelineBindings(child, childSetIndex, childHasSetIndex, bindings);
+}
 } // namespace
 
 namespace RHIInternal
 {
+std::vector<const BindingInfo*> CollectBindingInfosForSet(const PipelineLayoutDesc& desc, uint32_t setIndex)
+{
+    std::vector<const BindingInfo*> bindings;
+
+    for (const BindingInfo& binding : desc.m_Bindings)
+    {
+        if (binding.m_SetIndex == setIndex)
+            bindings.push_back(&binding);
+    }
+
+    return bindings;
+}
+
+const BindingInfo*
+FindBindingInfo(const PipelineLayoutDesc& desc, uint32_t setIndex, uint32_t binding, ResourceKind kind)
+{
+    const auto it = std::find_if(
+        desc.m_Bindings.begin(),
+        desc.m_Bindings.end(),
+        [setIndex, binding, kind](const BindingInfo& candidate)
+        { return candidate.m_SetIndex == setIndex && candidate.m_Binding == binding && candidate.m_Kind == kind; });
+    return it != desc.m_Bindings.end() ? &(*it) : nullptr;
+}
+
+const BindingInfo* FindFirstBindingInfoForSet(const PipelineLayoutDesc& desc, uint32_t setIndex, ResourceKind kind)
+{
+    const auto it = std::find_if(desc.m_Bindings.begin(),
+                                 desc.m_Bindings.end(),
+                                 [setIndex, kind](const BindingInfo& candidate)
+                                 { return candidate.m_SetIndex == setIndex && candidate.m_Kind == kind; });
+    return it != desc.m_Bindings.end() ? &(*it) : nullptr;
+}
+
 bool IsNativeWindowHandleValid(const NativeWindowHandle& nativeWindowHandle)
 {
     switch (nativeWindowHandle.m_System)
@@ -84,27 +173,26 @@ TextureDesc SanitizeTextureDesc(const TextureDesc& desc)
 
 PipelineLayoutDesc BuildPipelineLayoutDescFromReflection(const ShaderReflectionData& reflection)
 {
+    std::string validationError;
+    RTRLAB_ASSERT_MSG(ValidateShaderReflectionData(reflection, &validationError), validationError.c_str());
+
     PipelineLayoutDesc layoutDesc;
 
     for (const ReflectedField& field : reflection.m_Globals)
-    {
-        const bool isBindableResource =
-            field.m_TypeKind == ReflectedTypeKind::Texture || field.m_TypeKind == ReflectedTypeKind::Sampler ||
-            field.m_TypeKind == ReflectedTypeKind::Buffer || field.m_TypeKind == ReflectedTypeKind::ParameterBlock ||
-            field.m_TypeKind == ReflectedTypeKind::ConstantData;
+        CollectPipelineBindings(field, 0, false, layoutDesc.m_Bindings);
 
-        if (!isBindableResource)
-            continue;
-
-        BindingInfo bindingInfo;
-        bindingInfo.m_Name = field.m_Name;
-        bindingInfo.m_SetIndex = field.m_SetIndex;
-        bindingInfo.m_Binding = field.m_Binding;
-        bindingInfo.m_Kind = MapReflectedResourceKind(field.m_TypeKind);
-        bindingInfo.m_ArrayCount = field.m_ArrayCount;
-        bindingInfo.m_StageMask = field.m_StageMask;
-        layoutDesc.m_Bindings.push_back(std::move(bindingInfo));
-    }
+    std::sort(layoutDesc.m_Bindings.begin(),
+              layoutDesc.m_Bindings.end(),
+              [](const BindingInfo& lhs, const BindingInfo& rhs)
+              {
+                  if (lhs.m_SetIndex != rhs.m_SetIndex)
+                      return lhs.m_SetIndex < rhs.m_SetIndex;
+                  if (lhs.m_Binding != rhs.m_Binding)
+                      return lhs.m_Binding < rhs.m_Binding;
+                  if (lhs.m_Kind != rhs.m_Kind)
+                      return static_cast<uint32_t>(lhs.m_Kind) < static_cast<uint32_t>(rhs.m_Kind);
+                  return lhs.m_Name < rhs.m_Name;
+              });
 
     layoutDesc.m_PushConstants = reflection.m_PushConstants;
     return layoutDesc;
@@ -117,24 +205,63 @@ PipelineLayoutDesc ShellShaderProgram::DerivePipelineLayoutDesc() const
 
 ShellResourceSet::ShellResourceSet(PipelineLayout* layout, uint32_t setIndex) : m_Layout(layout), m_SetIndex(setIndex)
 {
+    RTRLAB_ASSERT_MSG(m_Layout != nullptr, "ResourceSet creation requires a valid PipelineLayout.");
+
+    const std::vector<const BindingInfo*> setBindings = CollectBindingInfosForSet(m_Layout->GetDesc(), m_SetIndex);
+    RTRLAB_ASSERTF(
+        !setBindings.empty(), "ResourceSet set {} does not exist in the provided PipelineLayout.", m_SetIndex);
+}
+
+void ShellResourceSet::SetConstantDataRaw(uint32_t offset, const void* data, size_t size)
+{
+    if (size == 0)
+        return;
+
+    ValidateConstantBindingExists();
+    m_Constants.SetRaw(offset, data, size);
+    ++m_Version;
 }
 
 void ShellResourceSet::SetBuffer(uint32_t binding, const BufferBinding& bufferBinding)
 {
+    (void)RequireBindingInfo(binding, ResourceKind::StorageBuffer);
     m_BufferBindings[binding] = bufferBinding;
     ++m_Version;
 }
 
 void ShellResourceSet::SetTexture(uint32_t binding, const TextureBinding& textureBinding)
 {
+    (void)RequireBindingInfo(binding, ResourceKind::SampledTexture);
     m_TextureBindings[binding] = textureBinding;
     ++m_Version;
 }
 
 void ShellResourceSet::SetSampler(uint32_t binding, const SamplerBinding& samplerBinding)
 {
+    (void)RequireBindingInfo(binding, ResourceKind::Sampler);
     m_SamplerBindings[binding] = samplerBinding;
     ++m_Version;
+}
+
+const BindingInfo& ShellResourceSet::RequireBindingInfo(uint32_t binding, ResourceKind kind) const
+{
+    RTRLAB_ASSERT_MSG(m_Layout != nullptr, "ResourceSet binding validation requires a valid PipelineLayout.");
+    const BindingInfo* bindingInfo = FindBindingInfo(m_Layout->GetDesc(), m_SetIndex, binding, kind);
+    RTRLAB_ASSERTF(bindingInfo != nullptr,
+                   "ResourceSet set {} has no binding {} of expected kind {} in its PipelineLayout.",
+                   m_SetIndex,
+                   binding,
+                   static_cast<uint32_t>(kind));
+    return *bindingInfo;
+}
+
+void ShellResourceSet::ValidateConstantBindingExists() const
+{
+    RTRLAB_ASSERT_MSG(m_Layout != nullptr, "ResourceSet constant validation requires a valid PipelineLayout.");
+    const BindingInfo* bindingInfo =
+        FindFirstBindingInfoForSet(m_Layout->GetDesc(), m_SetIndex, ResourceKind::UniformBuffer);
+    RTRLAB_ASSERTF(
+        bindingInfo != nullptr, "ResourceSet set {} has no UniformBuffer binding in its PipelineLayout.", m_SetIndex);
 }
 
 void ShellCommandListBase::BeginRendering(const RenderingInfo& renderingInfo)

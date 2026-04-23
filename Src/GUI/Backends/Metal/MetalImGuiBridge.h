@@ -4,8 +4,8 @@
 /// @brief Objective-C++ bridge for Dear ImGui's Metal backend.
 ///
 /// Keeps Metal/Obj-C details out of ImGuiLayer.cpp by exposing a tiny C++
-/// surface that mirrors the OpenGL backend lifecycle: Init -> NewFrame ->
-/// RenderDrawData -> Shutdown.
+/// surface with the same lifecycle shape used by the higher-level ImGui layer:
+/// Init -> NewFrame -> RenderDrawData -> Shutdown.
 
 namespace MetalImGuiBridge
 {

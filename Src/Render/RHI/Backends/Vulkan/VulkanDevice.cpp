@@ -5,13 +5,11 @@
 #include <cstddef>
 #include <cstring>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "Core/Diagnostics/Assert/Assert.h"
-
-#define VMA_STATIC_VULKAN_FUNCTIONS 0
-#define VMA_DYNAMIC_VULKAN_FUNCTIONS 0
-#include <vma/vk_mem_alloc.h>
+#include "Render/RHI/Backends/Vulkan/VulkanConversions.h"
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -29,6 +27,8 @@
 #include <wayland-client.h>
 #endif
 #endif
+
+using namespace VulkanRHI;
 
 class VulkanSwapchainTexture final : public Texture
 {
@@ -174,6 +174,7 @@ public:
     struct StageModule
     {
         ShaderStage m_Stage = ShaderStage::None;
+        std::string m_EntryPoint;
         VkShaderModule m_Module = VK_NULL_HANDLE;
     };
 
@@ -264,12 +265,276 @@ public:
 
     const PipelineLayoutDesc& GetDesc() const override { return m_Desc; }
     VkPipelineLayout GetVkPipelineLayout() const { return m_PipelineLayout; }
+    VkDescriptorSetLayout GetVkDescriptorSetLayout(uint32_t setIndex) const
+    {
+        RTRLAB_ASSERT_MSG(setIndex < m_DescriptorSetLayouts.size(),
+                          "Vulkan descriptor-set layout index is out of range.");
+        return m_DescriptorSetLayouts[setIndex];
+    }
 
 private:
     VkDevice m_Device = VK_NULL_HANDLE;
     PipelineLayoutDesc m_Desc;
     VkPipelineLayout m_PipelineLayout = VK_NULL_HANDLE;
     std::vector<VkDescriptorSetLayout> m_DescriptorSetLayouts;
+};
+
+class VulkanResourceSet final : public ResourceSet
+{
+public:
+    VulkanResourceSet(VkDevice device,
+                      PipelineLayout* layout,
+                      uint32_t setIndex,
+                      VkDescriptorPool descriptorPool,
+                      VkDescriptorSet descriptorSet,
+                      uint32_t frameSlotCount)
+        : m_Device(device),
+          m_Layout(layout),
+          m_SetIndex(setIndex),
+          m_DescriptorPool(descriptorPool),
+          m_DescriptorSet(descriptorSet),
+          m_FrameConstantCaches(frameSlotCount)
+    {
+    }
+
+    ~VulkanResourceSet() override
+    {
+        if (m_Device != VK_NULL_HANDLE && m_DescriptorPool != VK_NULL_HANDLE)
+            vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
+    }
+
+    PipelineLayout* GetLayout() const override { return m_Layout; }
+    uint32_t GetSetIndex() const override { return m_SetIndex; }
+
+    const ParameterBlockData& GetConstants() const override { return m_Constants; }
+    void SetConstantDataRaw(uint32_t offset, const void* data, size_t size) override
+    {
+        if (size == 0)
+            return;
+
+        ValidateConstantBindingExists();
+        m_Constants.SetRaw(offset, data, size);
+        ++m_Version;
+    }
+
+    void SetBuffer(uint32_t binding, const BufferBinding& bufferBinding) override
+    {
+        const BindingInfo& bindingInfo = RequireBindingInfo(binding, ResourceKind::StorageBuffer);
+        m_BufferBindings[binding] = bufferBinding;
+        WriteBufferDescriptor(bindingInfo, bufferBinding);
+        ++m_Version;
+    }
+
+    void SetTexture(uint32_t binding, const TextureBinding& textureBinding) override
+    {
+        const BindingInfo& bindingInfo = RequireBindingInfo(binding, ResourceKind::SampledTexture);
+        m_TextureBindings[binding] = textureBinding;
+        WriteTextureDescriptor(bindingInfo, textureBinding);
+        ++m_Version;
+    }
+
+    void SetSampler(uint32_t binding, const SamplerBinding& samplerBinding) override
+    {
+        const BindingInfo& bindingInfo = RequireBindingInfo(binding, ResourceKind::Sampler);
+        m_SamplerBindings[binding] = samplerBinding;
+        WriteSamplerDescriptor(bindingInfo, samplerBinding);
+        ++m_Version;
+    }
+
+    uint32_t GetVersion() const override { return m_Version; }
+
+    VkDescriptorSet GetVkDescriptorSet() const { return m_DescriptorSet; }
+    bool HasConstantBinding() const
+    {
+        return RHIInternal::FindFirstBindingInfoForSet(m_Layout->GetDesc(), m_SetIndex, ResourceKind::UniformBuffer) !=
+               nullptr;
+    }
+    bool NeedsConstantUploadForFrame(uint32_t frameSlot, uint64_t frameSerial) const
+    {
+        RTRLAB_ASSERT_MSG(frameSlot < m_FrameConstantCaches.size(),
+                          "Vulkan ResourceSet frame-slot index is out of range for constant uploads.");
+        const FrameConstantCache& cache = m_FrameConstantCaches[frameSlot];
+        return cache.m_Version != m_Version || cache.m_FrameSerial != frameSerial;
+    }
+    void WriteConstantDescriptorForFrame(
+        uint32_t frameSlot, VkBuffer uploadBuffer, VkDeviceSize offset, VkDeviceSize size, uint64_t frameSerial)
+    {
+        RTRLAB_ASSERT_MSG(frameSlot < m_FrameConstantCaches.size(),
+                          "Vulkan ResourceSet frame-slot index is out of range for constant descriptor writes.");
+        RTRLAB_ASSERT_MSG(uploadBuffer != VK_NULL_HANDLE,
+                          "Vulkan ResourceSet constant descriptor writes require a valid frame upload buffer.");
+
+        const BindingInfo& bindingInfo = RequireConstantBindingInfo();
+
+        VkDescriptorBufferInfo bufferInfo{};
+        bufferInfo.buffer = uploadBuffer;
+        bufferInfo.offset = offset;
+        bufferInfo.range = std::max<VkDeviceSize>(size, 1);
+
+        VkWriteDescriptorSet write{};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = m_DescriptorSet;
+        write.dstBinding = bindingInfo.m_Binding;
+        write.descriptorCount = 1;
+        write.descriptorType = ToDescriptorType(bindingInfo.m_Kind);
+        write.pBufferInfo = &bufferInfo;
+
+        vkUpdateDescriptorSets(m_Device, 1, &write, 0, nullptr);
+
+        FrameConstantCache& cache = m_FrameConstantCaches[frameSlot];
+        cache.m_Version = m_Version;
+        cache.m_FrameSerial = frameSerial;
+        cache.m_Offset = offset;
+        cache.m_Size = bufferInfo.range;
+    }
+
+private:
+    struct FrameConstantCache
+    {
+        uint32_t m_Version = std::numeric_limits<uint32_t>::max();
+        uint64_t m_FrameSerial = 0;
+        VkDeviceSize m_Offset = 0;
+        VkDeviceSize m_Size = 0;
+    };
+
+    static VkDescriptorType ToDescriptorType(ResourceKind resourceKind)
+    {
+        switch (resourceKind)
+        {
+            case ResourceKind::UniformBuffer:
+                return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            case ResourceKind::StorageBuffer:
+                return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            case ResourceKind::SampledTexture:
+                return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+            case ResourceKind::StorageTexture:
+                return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+            case ResourceKind::Sampler:
+                return VK_DESCRIPTOR_TYPE_SAMPLER;
+        }
+
+        return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    }
+
+    const BindingInfo& RequireBindingInfo(uint32_t binding, ResourceKind kind) const
+    {
+        RTRLAB_ASSERT_MSG(m_Layout != nullptr,
+                          "Vulkan ResourceSet binding validation requires a valid PipelineLayout.");
+        const BindingInfo* bindingInfo = RHIInternal::FindBindingInfo(m_Layout->GetDesc(), m_SetIndex, binding, kind);
+        RTRLAB_ASSERTF(bindingInfo != nullptr,
+                       "Vulkan ResourceSet set {} has no binding {} of expected kind {} in its PipelineLayout.",
+                       m_SetIndex,
+                       binding,
+                       static_cast<uint32_t>(kind));
+        return *bindingInfo;
+    }
+
+    void ValidateConstantBindingExists() const
+    {
+        RTRLAB_ASSERT_MSG(m_Layout != nullptr,
+                          "Vulkan ResourceSet constant validation requires a valid PipelineLayout.");
+        const BindingInfo* bindingInfo =
+            RHIInternal::FindFirstBindingInfoForSet(m_Layout->GetDesc(), m_SetIndex, ResourceKind::UniformBuffer);
+        RTRLAB_ASSERTF(bindingInfo != nullptr,
+                       "Vulkan ResourceSet set {} has no UniformBuffer binding in its PipelineLayout.",
+                       m_SetIndex);
+    }
+
+    const BindingInfo& RequireConstantBindingInfo() const
+    {
+        ValidateConstantBindingExists();
+        const BindingInfo* bindingInfo =
+            RHIInternal::FindFirstBindingInfoForSet(m_Layout->GetDesc(), m_SetIndex, ResourceKind::UniformBuffer);
+        RTRLAB_ASSERT_MSG(bindingInfo != nullptr, "Vulkan ResourceSet failed to resolve its UniformBuffer binding.");
+        RTRLAB_ASSERT_MSG(bindingInfo->m_ArrayCount <= 1,
+                          "Vulkan ResourceSet constant uploads currently only support non-array UniformBuffer "
+                          "bindings.");
+        return *bindingInfo;
+    }
+
+    void WriteBufferDescriptor(const BindingInfo& bindingInfo, const BufferBinding& bufferBinding)
+    {
+        RTRLAB_ASSERT_MSG(bindingInfo.m_ArrayCount <= 1,
+                          "Vulkan ResourceSet descriptor writes currently only support non-array buffer bindings.");
+        RTRLAB_ASSERT_MSG(bufferBinding.m_Buffer != nullptr,
+                          "Vulkan ResourceSet buffer descriptor writes require a valid Buffer.");
+        auto* vulkanBuffer = dynamic_cast<VulkanBuffer*>(bufferBinding.m_Buffer);
+        RTRLAB_ASSERT_MSG(vulkanBuffer != nullptr, "Buffer is not owned by the Vulkan backend.");
+
+        VkDescriptorBufferInfo bufferInfo{};
+        bufferInfo.buffer = vulkanBuffer->GetVkBuffer();
+        bufferInfo.offset = bufferBinding.m_Offset;
+        bufferInfo.range = bufferBinding.m_Size == 0 ? VK_WHOLE_SIZE : bufferBinding.m_Size;
+
+        VkWriteDescriptorSet write{};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = m_DescriptorSet;
+        write.dstBinding = bindingInfo.m_Binding;
+        write.descriptorCount = 1;
+        write.descriptorType = ToDescriptorType(bindingInfo.m_Kind);
+        write.pBufferInfo = &bufferInfo;
+
+        vkUpdateDescriptorSets(m_Device, 1, &write, 0, nullptr);
+    }
+
+    void WriteTextureDescriptor(const BindingInfo& bindingInfo, const TextureBinding& textureBinding)
+    {
+        RTRLAB_ASSERT_MSG(bindingInfo.m_ArrayCount <= 1,
+                          "Vulkan ResourceSet descriptor writes currently only support non-array texture bindings.");
+        RTRLAB_ASSERT_MSG(textureBinding.m_View != nullptr,
+                          "Vulkan ResourceSet texture descriptor writes require a valid TextureView.");
+        auto* vulkanTextureView = dynamic_cast<VulkanTextureView*>(textureBinding.m_View);
+        RTRLAB_ASSERT_MSG(vulkanTextureView != nullptr, "TextureView is not owned by the Vulkan backend.");
+
+        VkDescriptorImageInfo imageInfo{};
+        imageInfo.imageView = vulkanTextureView->GetVkImageView();
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+        VkWriteDescriptorSet write{};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = m_DescriptorSet;
+        write.dstBinding = bindingInfo.m_Binding;
+        write.descriptorCount = 1;
+        write.descriptorType = ToDescriptorType(bindingInfo.m_Kind);
+        write.pImageInfo = &imageInfo;
+
+        vkUpdateDescriptorSets(m_Device, 1, &write, 0, nullptr);
+    }
+
+    void WriteSamplerDescriptor(const BindingInfo& bindingInfo, const SamplerBinding& samplerBinding)
+    {
+        RTRLAB_ASSERT_MSG(bindingInfo.m_ArrayCount <= 1,
+                          "Vulkan ResourceSet descriptor writes currently only support non-array sampler bindings.");
+        RTRLAB_ASSERT_MSG(samplerBinding.m_Sampler != nullptr,
+                          "Vulkan ResourceSet sampler descriptor writes require a valid Sampler.");
+        auto* vulkanSampler = dynamic_cast<VulkanSampler*>(samplerBinding.m_Sampler);
+        RTRLAB_ASSERT_MSG(vulkanSampler != nullptr, "Sampler is not owned by the Vulkan backend.");
+
+        VkDescriptorImageInfo imageInfo{};
+        imageInfo.sampler = vulkanSampler->GetVkSampler();
+
+        VkWriteDescriptorSet write{};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = m_DescriptorSet;
+        write.dstBinding = bindingInfo.m_Binding;
+        write.descriptorCount = 1;
+        write.descriptorType = ToDescriptorType(bindingInfo.m_Kind);
+        write.pImageInfo = &imageInfo;
+
+        vkUpdateDescriptorSets(m_Device, 1, &write, 0, nullptr);
+    }
+
+    VkDevice m_Device = VK_NULL_HANDLE;
+    PipelineLayout* m_Layout = nullptr;
+    uint32_t m_SetIndex = 0;
+    VkDescriptorPool m_DescriptorPool = VK_NULL_HANDLE;
+    VkDescriptorSet m_DescriptorSet = VK_NULL_HANDLE;
+    ParameterBlockData m_Constants;
+    std::vector<FrameConstantCache> m_FrameConstantCaches;
+    std::unordered_map<uint32_t, BufferBinding> m_BufferBindings;
+    std::unordered_map<uint32_t, TextureBinding> m_TextureBindings;
+    std::unordered_map<uint32_t, SamplerBinding> m_SamplerBindings;
+    uint32_t m_Version = 0;
 };
 
 class VulkanGraphicsPipeline final : public GraphicsPipeline
@@ -308,487 +573,6 @@ private:
 
 namespace
 {
-
-template <typename TVkStruct, VkStructureType SType> TVkStruct MakeVkStruct()
-{
-    TVkStruct value{};
-    value.sType = SType;
-    return value;
-}
-
-void CheckVk(VkResult result, const char* what)
-{
-    RTRLAB_ASSERTF(result == VK_SUCCESS, "{} failed with VkResult={}", what, static_cast<int>(result));
-}
-
-VkFormat ToVkFormat(Format format)
-{
-    switch (format)
-    {
-        case Format::R8_UNORM:
-            return VK_FORMAT_R8_UNORM;
-        case Format::RG8_UNORM:
-            return VK_FORMAT_R8G8_UNORM;
-        case Format::R16F:
-            return VK_FORMAT_R16_SFLOAT;
-        case Format::RG16F:
-            return VK_FORMAT_R16G16_SFLOAT;
-        case Format::RGBA16F:
-            return VK_FORMAT_R16G16B16A16_SFLOAT;
-        case Format::R32F:
-            return VK_FORMAT_R32_SFLOAT;
-        case Format::RG32F:
-            return VK_FORMAT_R32G32_SFLOAT;
-        case Format::RGBA32F:
-            return VK_FORMAT_R32G32B32A32_SFLOAT;
-        case Format::R32_UINT:
-            return VK_FORMAT_R32_UINT;
-        case Format::BGRA8_UNORM:
-            return VK_FORMAT_B8G8R8A8_UNORM;
-        case Format::BGRA8_SRGB:
-            return VK_FORMAT_B8G8R8A8_SRGB;
-        case Format::RGBA8_UNORM:
-            return VK_FORMAT_R8G8B8A8_UNORM;
-        case Format::RGBA8_SRGB:
-            return VK_FORMAT_R8G8B8A8_SRGB;
-        case Format::D16_UNORM:
-            return VK_FORMAT_D16_UNORM;
-        case Format::D32_SFLOAT:
-            return VK_FORMAT_D32_SFLOAT;
-        case Format::D24_UNORM_S8_UINT:
-            return VK_FORMAT_D24_UNORM_S8_UINT;
-        case Format::D32_SFLOAT_S8_UINT:
-            return VK_FORMAT_D32_SFLOAT_S8_UINT;
-        default:
-            RTRLAB_ASSERTF(false, "Unsupported Vulkan RHI format {}", static_cast<uint32_t>(format));
-            return VK_FORMAT_UNDEFINED;
-    }
-}
-
-Format ToRhiFormat(VkFormat format)
-{
-    switch (format)
-    {
-        case VK_FORMAT_R8_UNORM:
-            return Format::R8_UNORM;
-        case VK_FORMAT_R8G8_UNORM:
-            return Format::RG8_UNORM;
-        case VK_FORMAT_B8G8R8A8_UNORM:
-            return Format::BGRA8_UNORM;
-        case VK_FORMAT_B8G8R8A8_SRGB:
-            return Format::BGRA8_SRGB;
-        case VK_FORMAT_R8G8B8A8_UNORM:
-            return Format::RGBA8_UNORM;
-        case VK_FORMAT_R8G8B8A8_SRGB:
-            return Format::RGBA8_SRGB;
-        case VK_FORMAT_R16_SFLOAT:
-            return Format::R16F;
-        case VK_FORMAT_R16G16_SFLOAT:
-            return Format::RG16F;
-        case VK_FORMAT_R16G16B16A16_SFLOAT:
-            return Format::RGBA16F;
-        case VK_FORMAT_R32_SFLOAT:
-            return Format::R32F;
-        case VK_FORMAT_R32G32_SFLOAT:
-            return Format::RG32F;
-        case VK_FORMAT_R32G32B32A32_SFLOAT:
-            return Format::RGBA32F;
-        case VK_FORMAT_R32_UINT:
-            return Format::R32_UINT;
-        case VK_FORMAT_D16_UNORM:
-            return Format::D16_UNORM;
-        case VK_FORMAT_D32_SFLOAT:
-            return Format::D32_SFLOAT;
-        case VK_FORMAT_D24_UNORM_S8_UINT:
-            return Format::D24_UNORM_S8_UINT;
-        case VK_FORMAT_D32_SFLOAT_S8_UINT:
-            return Format::D32_SFLOAT_S8_UINT;
-        default:
-            return Format::Unknown;
-    }
-}
-
-bool IsDepthFormat(Format format)
-{
-    switch (format)
-    {
-        case Format::D16_UNORM:
-        case Format::D32_SFLOAT:
-        case Format::D24_UNORM_S8_UINT:
-        case Format::D32_SFLOAT_S8_UINT:
-            return true;
-        default:
-            return false;
-    }
-}
-
-bool HasDebugName(const char* debugName)
-{
-    return debugName != nullptr && debugName[0] != '\0';
-}
-
-void SetVulkanDebugName(VkDevice device, VkObjectType objectType, uint64_t objectHandle, const char* debugName)
-{
-    if (device == VK_NULL_HANDLE || objectHandle == 0 || !HasDebugName(debugName) ||
-        vkSetDebugUtilsObjectNameEXT == nullptr)
-        return;
-
-    VkDebugUtilsObjectNameInfoEXT nameInfo =
-        MakeVkStruct<VkDebugUtilsObjectNameInfoEXT, VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT>();
-    nameInfo.objectType = objectType;
-    nameInfo.objectHandle = objectHandle;
-    nameInfo.pObjectName = debugName;
-    CheckVk(vkSetDebugUtilsObjectNameEXT(device, &nameInfo), "vkSetDebugUtilsObjectNameEXT");
-}
-
-std::string MakeTextureViewDebugName(const Texture& texture)
-{
-    const char* debugName = texture.GetDesc().m_DebugName;
-    if (!HasDebugName(debugName))
-        return {};
-
-    return std::string(debugName) + ".View";
-}
-
-bool HasStencilComponent(Format format)
-{
-    return format == Format::D24_UNORM_S8_UINT || format == Format::D32_SFLOAT_S8_UINT;
-}
-
-VkBufferUsageFlags ToVkBufferUsage(BufferUsage usageMask)
-{
-    VkBufferUsageFlags usage = 0;
-
-    if ((usageMask & BufferUsage::Vertex) != BufferUsage::None)
-        usage |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    if ((usageMask & BufferUsage::Index) != BufferUsage::None)
-        usage |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-    if ((usageMask & BufferUsage::Uniform) != BufferUsage::None)
-        usage |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-    if ((usageMask & BufferUsage::Storage) != BufferUsage::None)
-        usage |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-    if ((usageMask & BufferUsage::CopySrc) != BufferUsage::None)
-        usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    if ((usageMask & BufferUsage::CopyDst) != BufferUsage::None)
-        usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    if ((usageMask & BufferUsage::Indirect) != BufferUsage::None)
-        usage |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
-
-    return usage;
-}
-
-VkImageUsageFlags ToVkImageUsage(TextureUsage usageMask)
-{
-    VkImageUsageFlags usage = 0;
-
-    if ((usageMask & TextureUsage::Sampled) != TextureUsage::None)
-        usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-    if ((usageMask & TextureUsage::Storage) != TextureUsage::None)
-        usage |= VK_IMAGE_USAGE_STORAGE_BIT;
-    if ((usageMask & TextureUsage::RenderTarget) != TextureUsage::None)
-        usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-    if ((usageMask & TextureUsage::DepthStencil) != TextureUsage::None)
-        usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-    if ((usageMask & TextureUsage::CopySrc) != TextureUsage::None)
-        usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-    if ((usageMask & TextureUsage::CopyDst) != TextureUsage::None)
-        usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-
-    return usage;
-}
-
-VkImageType ToVkImageType(TextureType type)
-{
-    switch (type)
-    {
-        case TextureType::Tex2D:
-        case TextureType::Tex2DArray:
-        case TextureType::Cube:
-            return VK_IMAGE_TYPE_2D;
-        case TextureType::Tex3D:
-            return VK_IMAGE_TYPE_3D;
-    }
-
-    return VK_IMAGE_TYPE_2D;
-}
-
-VkImageViewType ToVkImageViewType(TextureType type)
-{
-    switch (type)
-    {
-        case TextureType::Tex2D:
-            return VK_IMAGE_VIEW_TYPE_2D;
-        case TextureType::Tex2DArray:
-            return VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-        case TextureType::Tex3D:
-            return VK_IMAGE_VIEW_TYPE_3D;
-        case TextureType::Cube:
-            return VK_IMAGE_VIEW_TYPE_CUBE;
-    }
-
-    return VK_IMAGE_VIEW_TYPE_2D;
-}
-
-VkFilter ToVkFilter(FilterMode mode)
-{
-    return mode == FilterMode::Nearest ? VK_FILTER_NEAREST : VK_FILTER_LINEAR;
-}
-
-VkSamplerMipmapMode ToVkMipmapMode(MipFilterMode mode)
-{
-    switch (mode)
-    {
-        case MipFilterMode::None:
-        case MipFilterMode::Nearest:
-            return VK_SAMPLER_MIPMAP_MODE_NEAREST;
-        case MipFilterMode::Linear:
-            return VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    }
-
-    return VK_SAMPLER_MIPMAP_MODE_LINEAR;
-}
-
-VkSamplerAddressMode ToVkAddressMode(AddressMode mode)
-{
-    switch (mode)
-    {
-        case AddressMode::Repeat:
-            return VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        case AddressMode::MirroredRepeat:
-            return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-        case AddressMode::ClampToEdge:
-            return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-        case AddressMode::ClampToBorder:
-            return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-    }
-
-    return VK_SAMPLER_ADDRESS_MODE_REPEAT;
-}
-
-VkShaderStageFlags ToVkShaderStageFlags(ShaderStage stageMask)
-{
-    VkShaderStageFlags flags = 0;
-    if ((stageMask & ShaderStage::Vertex) != ShaderStage::None)
-        flags |= VK_SHADER_STAGE_VERTEX_BIT;
-    if ((stageMask & ShaderStage::Fragment) != ShaderStage::None)
-        flags |= VK_SHADER_STAGE_FRAGMENT_BIT;
-    if ((stageMask & ShaderStage::Compute) != ShaderStage::None)
-        flags |= VK_SHADER_STAGE_COMPUTE_BIT;
-    return flags;
-}
-
-VkPrimitiveTopology ToVkPrimitiveTopology(PrimitiveTopology topology)
-{
-    switch (topology)
-    {
-        case PrimitiveTopology::TriangleList:
-            return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-        case PrimitiveTopology::TriangleStrip:
-            return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
-        case PrimitiveTopology::LineList:
-            return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-        case PrimitiveTopology::LineStrip:
-            return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
-        case PrimitiveTopology::PointList:
-            return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
-    }
-
-    return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-}
-
-VkCullModeFlags ToVkCullMode(CullMode cullMode)
-{
-    switch (cullMode)
-    {
-        case CullMode::None:
-            return VK_CULL_MODE_NONE;
-        case CullMode::Front:
-            return VK_CULL_MODE_FRONT_BIT;
-        case CullMode::Back:
-            return VK_CULL_MODE_BACK_BIT;
-    }
-
-    return VK_CULL_MODE_BACK_BIT;
-}
-
-VkFrontFace ToVkFrontFace(FrontFace frontFace)
-{
-    // The Vulkan backend applies a negative-height viewport to align the public
-    // RHI Y-up clip-space convention with OpenGL/Metal-facing demo data. That
-    // viewport flip also inverts raster winding, so front-face selection must
-    // be inverted here to preserve the public RasterState contract.
-    return frontFace == FrontFace::CW ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;
-}
-
-VkPolygonMode ToVkPolygonMode(FillMode fillMode)
-{
-    switch (fillMode)
-    {
-        case FillMode::Solid:
-            return VK_POLYGON_MODE_FILL;
-        case FillMode::Wireframe:
-            return VK_POLYGON_MODE_LINE;
-    }
-
-    return VK_POLYGON_MODE_FILL;
-}
-
-VkCompareOp ToVkCompareOp(CompareOp compareOp)
-{
-    switch (compareOp)
-    {
-        case CompareOp::Never:
-            return VK_COMPARE_OP_NEVER;
-        case CompareOp::Less:
-            return VK_COMPARE_OP_LESS;
-        case CompareOp::Equal:
-            return VK_COMPARE_OP_EQUAL;
-        case CompareOp::LessEqual:
-            return VK_COMPARE_OP_LESS_OR_EQUAL;
-        case CompareOp::Greater:
-            return VK_COMPARE_OP_GREATER;
-        case CompareOp::NotEqual:
-            return VK_COMPARE_OP_NOT_EQUAL;
-        case CompareOp::GreaterEqual:
-            return VK_COMPARE_OP_GREATER_OR_EQUAL;
-        case CompareOp::Always:
-            return VK_COMPARE_OP_ALWAYS;
-    }
-
-    return VK_COMPARE_OP_LESS;
-}
-
-VkBlendFactor ToVkBlendFactor(BlendFactor blendFactor)
-{
-    switch (blendFactor)
-    {
-        case BlendFactor::Zero:
-            return VK_BLEND_FACTOR_ZERO;
-        case BlendFactor::One:
-            return VK_BLEND_FACTOR_ONE;
-        case BlendFactor::SrcColor:
-            return VK_BLEND_FACTOR_SRC_COLOR;
-        case BlendFactor::OneMinusSrcColor:
-            return VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
-        case BlendFactor::DstColor:
-            return VK_BLEND_FACTOR_DST_COLOR;
-        case BlendFactor::OneMinusDstColor:
-            return VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
-        case BlendFactor::SrcAlpha:
-            return VK_BLEND_FACTOR_SRC_ALPHA;
-        case BlendFactor::OneMinusSrcAlpha:
-            return VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-        case BlendFactor::DstAlpha:
-            return VK_BLEND_FACTOR_DST_ALPHA;
-        case BlendFactor::OneMinusDstAlpha:
-            return VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
-    }
-
-    return VK_BLEND_FACTOR_ONE;
-}
-
-VkBlendOp ToVkBlendOp(BlendOp blendOp)
-{
-    switch (blendOp)
-    {
-        case BlendOp::Add:
-            return VK_BLEND_OP_ADD;
-        case BlendOp::Subtract:
-            return VK_BLEND_OP_SUBTRACT;
-        case BlendOp::ReverseSubtract:
-            return VK_BLEND_OP_REVERSE_SUBTRACT;
-        case BlendOp::Min:
-            return VK_BLEND_OP_MIN;
-        case BlendOp::Max:
-            return VK_BLEND_OP_MAX;
-    }
-
-    return VK_BLEND_OP_ADD;
-}
-
-VkColorComponentFlags ToVkColorWriteMask(uint8_t colorWriteMask)
-{
-    VkColorComponentFlags flags = 0;
-    if ((colorWriteMask & 0x1u) != 0)
-        flags |= VK_COLOR_COMPONENT_R_BIT;
-    if ((colorWriteMask & 0x2u) != 0)
-        flags |= VK_COLOR_COMPONENT_G_BIT;
-    if ((colorWriteMask & 0x4u) != 0)
-        flags |= VK_COLOR_COMPONENT_B_BIT;
-    if ((colorWriteMask & 0x8u) != 0)
-        flags |= VK_COLOR_COMPONENT_A_BIT;
-    return flags;
-}
-
-VkDescriptorType ToVkDescriptorType(ResourceKind resourceKind)
-{
-    switch (resourceKind)
-    {
-        case ResourceKind::UniformBuffer:
-            return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        case ResourceKind::StorageBuffer:
-            return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        case ResourceKind::SampledTexture:
-            return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-        case ResourceKind::StorageTexture:
-            return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-        case ResourceKind::Sampler:
-            return VK_DESCRIPTOR_TYPE_SAMPLER;
-    }
-
-    return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-}
-
-VkImageAspectFlags ToVkImageAspect(TextureAspect aspect, Format format)
-{
-    if (aspect == TextureAspect::None)
-    {
-        if (IsDepthFormat(format))
-            aspect =
-                HasStencilComponent(format) ? (TextureAspect::Depth | TextureAspect::Stencil) : TextureAspect::Depth;
-        else
-            aspect = TextureAspect::Color;
-    }
-
-    VkImageAspectFlags result = 0;
-    if ((aspect & TextureAspect::Color) != TextureAspect::None)
-        result |= VK_IMAGE_ASPECT_COLOR_BIT;
-    if ((aspect & TextureAspect::Depth) != TextureAspect::None)
-        result |= VK_IMAGE_ASPECT_DEPTH_BIT;
-    if ((aspect & TextureAspect::Stencil) != TextureAspect::None)
-        result |= VK_IMAGE_ASPECT_STENCIL_BIT;
-    return result;
-}
-
-VmaMemoryUsage ToVmaMemoryUsage(MemoryUsage memoryUsage)
-{
-    switch (memoryUsage)
-    {
-        case MemoryUsage::GpuOnly:
-            return VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-        case MemoryUsage::CpuToGpu:
-        case MemoryUsage::GpuToCpu:
-            return VMA_MEMORY_USAGE_AUTO;
-    }
-
-    return VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-}
-
-VmaAllocationCreateFlags ToVmaAllocationCreateFlags(MemoryUsage memoryUsage)
-{
-    switch (memoryUsage)
-    {
-        case MemoryUsage::GpuOnly:
-            return 0;
-        case MemoryUsage::CpuToGpu:
-            return VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
-        case MemoryUsage::GpuToCpu:
-            return VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
-    }
-
-    return 0;
-}
-
 const VulkanShaderProgram& GetVulkanShaderProgram(ShaderProgram* shaderProgram)
 {
     auto* vulkanShaderProgram = dynamic_cast<VulkanShaderProgram*>(shaderProgram);
@@ -810,6 +594,13 @@ VulkanPipelineLayout& GetVulkanPipelineLayout(PipelineLayout* pipelineLayout)
     return *vulkanPipelineLayout;
 }
 
+VulkanResourceSet& GetVulkanResourceSet(ResourceSet* resourceSet)
+{
+    auto* vulkanResourceSet = dynamic_cast<VulkanResourceSet*>(resourceSet);
+    RTRLAB_ASSERT_MSG(vulkanResourceSet != nullptr, "ResourceSet is not owned by the Vulkan backend.");
+    return *vulkanResourceSet;
+}
+
 const VulkanGraphicsPipeline& GetVulkanGraphicsPipeline(GraphicsPipeline* graphicsPipeline)
 {
     auto* vulkanGraphicsPipeline = dynamic_cast<VulkanGraphicsPipeline*>(graphicsPipeline);
@@ -827,19 +618,6 @@ VulkanBuffer& GetVulkanBuffer(Buffer* buffer)
 VkBuffer GetVkBufferFromBuffer(Buffer* buffer)
 {
     return GetVulkanBuffer(buffer).GetVkBuffer();
-}
-
-VkIndexType ToVkIndexType(IndexType indexType)
-{
-    switch (indexType)
-    {
-        case IndexType::UInt16:
-            return VK_INDEX_TYPE_UINT16;
-        case IndexType::UInt32:
-            return VK_INDEX_TYPE_UINT32;
-    }
-
-    return VK_INDEX_TYPE_UINT32;
 }
 
 std::vector<VkDescriptorSetLayout> CreateVkDescriptorSetLayouts(VkDevice device, const PipelineLayoutDesc& desc)
@@ -880,6 +658,63 @@ std::vector<VkDescriptorSetLayout> CreateVkDescriptorSetLayouts(VkDevice device,
     return descriptorSetLayouts;
 }
 
+VkDescriptorPool CreateVkDescriptorPoolForSet(VkDevice device, const PipelineLayoutDesc& desc, uint32_t setIndex)
+{
+    std::vector<VkDescriptorPoolSize> poolSizes;
+
+    for (const BindingInfo* bindingInfo : RHIInternal::CollectBindingInfosForSet(desc, setIndex))
+    {
+        const VkDescriptorType descriptorType = ToVkDescriptorType(bindingInfo->m_Kind);
+        const uint32_t descriptorCount = std::max(bindingInfo->m_ArrayCount, 1u);
+
+        auto it = std::find_if(poolSizes.begin(),
+                               poolSizes.end(),
+                               [descriptorType](const VkDescriptorPoolSize& poolSize)
+                               { return poolSize.type == descriptorType; });
+        if (it == poolSizes.end())
+        {
+            VkDescriptorPoolSize poolSize{};
+            poolSize.type = descriptorType;
+            poolSize.descriptorCount = descriptorCount;
+            poolSizes.push_back(poolSize);
+        }
+        else
+        {
+            it->descriptorCount += descriptorCount;
+        }
+    }
+
+    VkDescriptorPoolCreateInfo createInfo =
+        MakeVkStruct<VkDescriptorPoolCreateInfo, VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO>();
+    createInfo.maxSets = 1;
+    createInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    createInfo.pPoolSizes = poolSizes.empty() ? nullptr : poolSizes.data();
+
+    VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
+    CheckVk(vkCreateDescriptorPool(device, &createInfo, nullptr, &descriptorPool), "vkCreateDescriptorPool");
+    return descriptorPool;
+}
+
+VkDescriptorSet AllocateVkDescriptorSet(VkDevice device,
+                                        VkDescriptorPool descriptorPool,
+                                        const VulkanPipelineLayout& pipelineLayout,
+                                        uint32_t setIndex)
+{
+    const VkDescriptorSetLayout descriptorSetLayout = pipelineLayout.GetVkDescriptorSetLayout(setIndex);
+    RTRLAB_ASSERT_MSG(descriptorSetLayout != VK_NULL_HANDLE,
+                      "Vulkan ResourceSet allocation requires a valid VkDescriptorSetLayout.");
+
+    VkDescriptorSetAllocateInfo allocateInfo =
+        MakeVkStruct<VkDescriptorSetAllocateInfo, VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO>();
+    allocateInfo.descriptorPool = descriptorPool;
+    allocateInfo.descriptorSetCount = 1;
+    allocateInfo.pSetLayouts = &descriptorSetLayout;
+
+    VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+    CheckVk(vkAllocateDescriptorSets(device, &allocateInfo, &descriptorSet), "vkAllocateDescriptorSets");
+    return descriptorSet;
+}
+
 VkPipelineLayout CreateVkPipelineLayout(VkDevice device,
                                         const PipelineLayoutDesc& desc,
                                         const std::vector<VkDescriptorSetLayout>& descriptorSetLayouts)
@@ -906,8 +741,6 @@ VkPipelineLayout CreateVkPipelineLayout(VkDevice device,
     CheckVk(vkCreatePipelineLayout(device, &createInfo, nullptr, &pipelineLayout), "vkCreatePipelineLayout");
     return pipelineLayout;
 }
-
-constexpr const char* kVulkanShaderEntryPoint = "main";
 
 VkImage GetVkImageFromOwnedTexture(Texture* texture)
 {
@@ -1288,10 +1121,11 @@ VulkanCommandList::~VulkanCommandList()
     Shutdown();
 }
 
-void VulkanCommandList::Initialize(VkDevice device, VkCommandPool commandPool)
+void VulkanCommandList::Initialize(VulkanDevice* ownerDevice, VkDevice device, VkCommandPool commandPool)
 {
     Shutdown();
 
+    m_OwnerDevice = ownerDevice;
     m_Device = device;
     m_CommandPool = commandPool;
 
@@ -1314,6 +1148,7 @@ void VulkanCommandList::Shutdown()
     m_CommandBuffer = VK_NULL_HANDLE;
     m_CommandPool = VK_NULL_HANDLE;
     m_Device = VK_NULL_HANDLE;
+    m_OwnerDevice = nullptr;
 }
 
 void VulkanCommandList::BeginRendering(const RenderingInfo& renderingInfo)
@@ -1415,6 +1250,43 @@ void VulkanCommandList::BindGraphicsPipeline(GraphicsPipeline* pipeline)
 
     const VulkanGraphicsPipeline& vulkanPipeline = GetVulkanGraphicsPipeline(pipeline);
     vkCmdBindPipeline(m_CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vulkanPipeline.GetVkPipeline());
+}
+
+void VulkanCommandList::BindResourceSet(uint32_t setIndex, ResourceSet* resourceSet)
+{
+    ShellCommandListBase::BindResourceSet(setIndex, resourceSet);
+
+    if (resourceSet == nullptr)
+        return;
+
+    RTRLAB_ASSERTF(resourceSet->GetSetIndex() == setIndex,
+                   "Vulkan BindResourceSet expected resource set {} but received set {}.",
+                   setIndex,
+                   resourceSet->GetSetIndex());
+
+    VulkanResourceSet& vulkanResourceSet = GetVulkanResourceSet(resourceSet);
+    PipelineLayout* layout = resourceSet->GetLayout();
+    RTRLAB_ASSERT_MSG(layout != nullptr, "Vulkan BindResourceSet requires a valid PipelineLayout.");
+
+    VulkanPipelineLayout& vulkanPipelineLayout = GetVulkanPipelineLayout(layout);
+    const VkDescriptorSet descriptorSet = vulkanResourceSet.GetVkDescriptorSet();
+    RTRLAB_ASSERT_MSG(descriptorSet != VK_NULL_HANDLE, "Vulkan BindResourceSet requires a valid VkDescriptorSet.");
+
+    const VkPipelineLayout pipelineLayoutHandle = vulkanPipelineLayout.GetVkPipelineLayout();
+    RTRLAB_ASSERT_MSG(pipelineLayoutHandle != VK_NULL_HANDLE,
+                      "Vulkan BindResourceSet requires a valid VkPipelineLayout.");
+
+    RTRLAB_ASSERT_MSG(m_OwnerDevice != nullptr, "Vulkan BindResourceSet requires an initialized owner device.");
+    m_OwnerDevice->PrepareResourceSetForBinding(resourceSet);
+
+    vkCmdBindDescriptorSets(m_CommandBuffer,
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            pipelineLayoutHandle,
+                            setIndex,
+                            1,
+                            &descriptorSet,
+                            0,
+                            nullptr);
 }
 
 void VulkanCommandList::BindMesh(const MeshBinding& meshBinding, const uint64_t* vertexOffsets)
@@ -1903,16 +1775,13 @@ Scope<ShaderProgram> VulkanDevice::CreateShaderProgram(const CompiledShaderProgr
     std::vector<VulkanShaderProgram::StageModule> modules;
     modules.reserve(desc.m_Blobs.size());
 
-    // TRANSITIONAL(M4): CompiledShaderBlob does not yet carry per-stage entry-point
-    // names, so the Vulkan bring-up path assumes "main" for every stage. Once the
-    // shader system forwards real entry-point metadata, pipeline stage creation should
-    // consume it instead of this fixed convention.
     for (const CompiledShaderBlob& blob : desc.m_Blobs)
     {
         if (blob.m_Backend != BackendType::Vulkan)
             continue;
 
         RTRLAB_ASSERT_MSG(!blob.m_Code.empty(), "Vulkan shader blobs must contain SPIR-V bytes.");
+        RTRLAB_ASSERT_MSG(!blob.m_EntryPoint.empty(), "Vulkan shader blobs must carry an entry-point name.");
         RTRLAB_ASSERT_MSG((blob.m_Code.size() % sizeof(uint32_t)) == 0,
                           "Vulkan shader blobs must contain aligned SPIR-V words.");
 
@@ -1923,7 +1792,7 @@ Scope<ShaderProgram> VulkanDevice::CreateShaderProgram(const CompiledShaderProgr
 
         VkShaderModule shaderModule = VK_NULL_HANDLE;
         CheckVk(vkCreateShaderModule(m_Device, &createInfo, nullptr, &shaderModule), "vkCreateShaderModule");
-        modules.push_back({blob.m_Stage, shaderModule});
+        modules.push_back({blob.m_Stage, blob.m_EntryPoint, shaderModule});
     }
 
     RTRLAB_ASSERT_MSG(!modules.empty(), "Vulkan CreateShaderProgram requires at least one Vulkan shader blob.");
@@ -1937,6 +1806,22 @@ Scope<PipelineLayout> VulkanDevice::CreatePipelineLayout(const PipelineLayoutDes
     std::vector<VkDescriptorSetLayout> descriptorSetLayouts = CreateVkDescriptorSetLayouts(m_Device, desc);
     VkPipelineLayout pipelineLayout = CreateVkPipelineLayout(m_Device, desc, descriptorSetLayouts);
     return CreateScope<VulkanPipelineLayout>(m_Device, desc, pipelineLayout, std::move(descriptorSetLayouts));
+}
+
+Scope<ResourceSet> VulkanDevice::CreateResourceSet(PipelineLayout* layout, uint32_t setIndex)
+{
+    InitializeDeviceObjects();
+
+    VulkanPipelineLayout& pipelineLayout = GetVulkanPipelineLayout(layout);
+    const std::vector<const BindingInfo*> setBindings =
+        RHIInternal::CollectBindingInfosForSet(pipelineLayout.GetDesc(), setIndex);
+    RTRLAB_ASSERTF(
+        !setBindings.empty(), "Vulkan CreateResourceSet requires a valid set {} in the PipelineLayout.", setIndex);
+
+    VkDescriptorPool descriptorPool = CreateVkDescriptorPoolForSet(m_Device, pipelineLayout.GetDesc(), setIndex);
+    VkDescriptorSet descriptorSet = AllocateVkDescriptorSet(m_Device, descriptorPool, pipelineLayout, setIndex);
+    return CreateScope<VulkanResourceSet>(
+        m_Device, layout, setIndex, descriptorPool, descriptorSet, static_cast<uint32_t>(m_FrameUploadArenas.size()));
 }
 
 Scope<VertexInputLayout> VulkanDevice::CreateVertexInputLayout(const VertexInputLayoutDesc& desc)
@@ -1995,11 +1880,11 @@ Scope<GraphicsPipeline> VulkanDevice::CreateGraphicsPipeline(const GraphicsPipel
     shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
     shaderStages[0].module = vertexStage->m_Module;
-    shaderStages[0].pName = kVulkanShaderEntryPoint;
+    shaderStages[0].pName = vertexStage->m_EntryPoint.c_str();
     shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
     shaderStages[1].module = fragmentStage->m_Module;
-    shaderStages[1].pName = kVulkanShaderEntryPoint;
+    shaderStages[1].pName = fragmentStage->m_EntryPoint.c_str();
 
     VkPipelineVertexInputStateCreateInfo vertexInputState =
         MakeVkStruct<VkPipelineVertexInputStateCreateInfo, VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO>();
@@ -2186,6 +2071,7 @@ FrameContext* VulkanDevice::BeginFrame()
     CheckVk(vkWaitForFences(m_Device, 1, &frameSync.m_InFlightFence, VK_TRUE, std::numeric_limits<uint64_t>::max()),
             "vkWaitForFences");
     CheckVk(vkResetFences(m_Device, 1, &frameSync.m_InFlightFence), "vkResetFences");
+    ResetCurrentFrameUploadArena();
 
     m_FrameInProgress = true;
     m_FrameSubmitted = false;
@@ -2253,6 +2139,126 @@ void VulkanDevice::RecycleCurrentRenderFinishedSemaphore()
             "vkCreateSemaphore(renderFinished recycle)");
 }
 
+void VulkanDevice::InitializeFrameUploadArenas()
+{
+    RTRLAB_ASSERT_MSG(m_Allocator != nullptr, "Vulkan frame upload arenas require an initialized VMA allocator.");
+
+    for (FrameUploadArena& arena : m_FrameUploadArenas)
+    {
+        if (arena.m_Buffer != VK_NULL_HANDLE)
+            continue;
+
+        VkBufferCreateInfo createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        createInfo.size = kFrameUploadArenaInitialCapacity;
+        createInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+        createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+        VmaAllocationCreateInfo allocationCreateInfo{};
+        allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+        allocationCreateInfo.flags =
+            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+        VmaAllocationInfo allocationInfo{};
+        CheckVk(
+            vmaCreateBuffer(
+                m_Allocator, &createInfo, &allocationCreateInfo, &arena.m_Buffer, &arena.m_Allocation, &allocationInfo),
+            "vmaCreateBuffer(frame upload arena)");
+
+        arena.m_MappedData = allocationInfo.pMappedData;
+        arena.m_RequiresUnmap = false;
+        if (arena.m_MappedData == nullptr)
+        {
+            CheckVk(vmaMapMemory(m_Allocator, arena.m_Allocation, &arena.m_MappedData),
+                    "vmaMapMemory(frame upload arena)");
+            arena.m_RequiresUnmap = true;
+        }
+
+        arena.m_Capacity = createInfo.size;
+        arena.m_Head = 0;
+        arena.m_Serial = 0;
+    }
+}
+
+void VulkanDevice::ShutdownFrameUploadArenas()
+{
+    if (m_Allocator == nullptr)
+        return;
+
+    for (FrameUploadArena& arena : m_FrameUploadArenas)
+    {
+        if (arena.m_Buffer != VK_NULL_HANDLE)
+        {
+            if (arena.m_MappedData != nullptr && arena.m_RequiresUnmap)
+            {
+                vmaUnmapMemory(m_Allocator, arena.m_Allocation);
+                arena.m_MappedData = nullptr;
+            }
+
+            vmaDestroyBuffer(m_Allocator, arena.m_Buffer, arena.m_Allocation);
+        }
+
+        arena.m_Buffer = VK_NULL_HANDLE;
+        arena.m_Allocation = nullptr;
+        arena.m_MappedData = nullptr;
+        arena.m_RequiresUnmap = false;
+        arena.m_Capacity = 0;
+        arena.m_Head = 0;
+        arena.m_Serial = 0;
+    }
+}
+
+void VulkanDevice::ResetCurrentFrameUploadArena()
+{
+    FrameUploadArena& arena = m_FrameUploadArenas[m_CurrentFrameSlot];
+    RTRLAB_ASSERT_MSG(arena.m_Buffer != VK_NULL_HANDLE,
+                      "Vulkan frame upload arena must be initialized before beginning a frame.");
+    arena.m_Head = 0;
+    ++arena.m_Serial;
+}
+
+void VulkanDevice::PrepareResourceSetForBinding(ResourceSet* resourceSet)
+{
+    if (resourceSet == nullptr)
+        return;
+
+    VulkanResourceSet& vulkanResourceSet = GetVulkanResourceSet(resourceSet);
+    if (!vulkanResourceSet.HasConstantBinding())
+        return;
+
+    FrameUploadArena& arena = m_FrameUploadArenas[m_CurrentFrameSlot];
+    RTRLAB_ASSERT_MSG(arena.m_Buffer != VK_NULL_HANDLE,
+                      "Vulkan resource-set binding requires an initialized frame upload arena.");
+    RTRLAB_ASSERT_MSG(arena.m_MappedData != nullptr,
+                      "Vulkan resource-set binding requires the frame upload arena to be mapped.");
+
+    if (!vulkanResourceSet.NeedsConstantUploadForFrame(m_CurrentFrameSlot, arena.m_Serial))
+        return;
+
+    const size_t constantDataSize = vulkanResourceSet.GetConstants().GetSize();
+    const VkDeviceSize uploadSize = static_cast<VkDeviceSize>(std::max<size_t>(constantDataSize, 1));
+    const VkDeviceSize alignedOffset = AlignUp(arena.m_Head, m_MinUniformBufferOffsetAlignment);
+    RTRLAB_ASSERT_MSG(alignedOffset + uploadSize <= arena.m_Capacity,
+                      "Vulkan frame upload arena ran out of space while preparing a ResourceSet.");
+
+    std::byte* destination = static_cast<std::byte*>(arena.m_MappedData) + alignedOffset;
+    if (constantDataSize > 0)
+    {
+        std::memcpy(destination, vulkanResourceSet.GetConstants().GetData(), constantDataSize);
+    }
+    else
+    {
+        destination[0] = std::byte{0};
+    }
+
+    CheckVk(vmaFlushAllocation(m_Allocator, arena.m_Allocation, alignedOffset, uploadSize),
+            "vmaFlushAllocation(frame upload arena)");
+
+    arena.m_Head = alignedOffset + uploadSize;
+    vulkanResourceSet.WriteConstantDescriptorForFrame(
+        m_CurrentFrameSlot, arena.m_Buffer, alignedOffset, uploadSize, arena.m_Serial);
+}
+
 void VulkanDevice::InitializeInstance()
 {
     if (m_Instance != VK_NULL_HANDLE)
@@ -2310,9 +2316,15 @@ void VulkanDevice::InitializeDeviceObjects()
     CheckVk(vkCreateDevice(m_PhysicalDevice, &deviceCreateInfo, nullptr, &m_Device), "vkCreateDevice");
     volkLoadDevice(m_Device);
 
+    VkPhysicalDeviceProperties physicalDeviceProperties{};
+    vkGetPhysicalDeviceProperties(m_PhysicalDevice, &physicalDeviceProperties);
+    m_MinUniformBufferOffsetAlignment =
+        std::max<uint64_t>(physicalDeviceProperties.limits.minUniformBufferOffsetAlignment, 1);
+
     vkGetDeviceQueue(m_Device, m_GraphicsQueueFamily, 0, &m_GraphicsQueue);
     m_PresentQueue = m_GraphicsQueue;
     InitializeAllocator();
+    InitializeFrameUploadArenas();
 
     VkCommandPoolCreateInfo commandPoolCreateInfo =
         MakeVkStruct<VkCommandPoolCreateInfo, VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO>();
@@ -2320,7 +2332,7 @@ void VulkanDevice::InitializeDeviceObjects()
     commandPoolCreateInfo.queueFamilyIndex = m_GraphicsQueueFamily;
     CheckVk(vkCreateCommandPool(m_Device, &commandPoolCreateInfo, nullptr, &m_CommandPool), "vkCreateCommandPool");
 
-    m_CommandList.Initialize(m_Device, m_CommandPool);
+    m_CommandList.Initialize(this, m_Device, m_CommandPool);
     m_CurrentFrameSlot = 0;
     m_FrameInProgress = false;
     m_FrameSubmitted = false;
@@ -2382,9 +2394,15 @@ void VulkanDevice::InitializeDeviceObjectsForSurface(VkSurfaceKHR surface)
     CheckVk(vkCreateDevice(m_PhysicalDevice, &deviceCreateInfo, nullptr, &m_Device), "vkCreateDevice");
     volkLoadDevice(m_Device);
 
+    VkPhysicalDeviceProperties physicalDeviceProperties{};
+    vkGetPhysicalDeviceProperties(m_PhysicalDevice, &physicalDeviceProperties);
+    m_MinUniformBufferOffsetAlignment =
+        std::max<uint64_t>(physicalDeviceProperties.limits.minUniformBufferOffsetAlignment, 1);
+
     vkGetDeviceQueue(m_Device, m_GraphicsQueueFamily, 0, &m_GraphicsQueue);
     vkGetDeviceQueue(m_Device, m_PresentQueueFamily, 0, &m_PresentQueue);
     InitializeAllocator();
+    InitializeFrameUploadArenas();
 
     VkCommandPoolCreateInfo commandPoolCreateInfo =
         MakeVkStruct<VkCommandPoolCreateInfo, VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO>();
@@ -2392,7 +2410,7 @@ void VulkanDevice::InitializeDeviceObjectsForSurface(VkSurfaceKHR surface)
     commandPoolCreateInfo.queueFamilyIndex = m_GraphicsQueueFamily;
     CheckVk(vkCreateCommandPool(m_Device, &commandPoolCreateInfo, nullptr, &m_CommandPool), "vkCreateCommandPool");
 
-    m_CommandList.Initialize(m_Device, m_CommandPool);
+    m_CommandList.Initialize(this, m_Device, m_CommandPool);
     m_CurrentFrameSlot = 0;
     m_FrameInProgress = false;
     m_FrameSubmitted = false;
@@ -2528,6 +2546,7 @@ void VulkanDevice::ShutdownDeviceObjects()
         vkDeviceWaitIdle(m_Device);
 
     m_CommandList.Shutdown();
+    ShutdownFrameUploadArenas();
 
     ShutdownAllocator();
 
@@ -2551,5 +2570,6 @@ void VulkanDevice::ShutdownDeviceObjects()
     m_CurrentFrameSlot = 0;
     m_FrameInProgress = false;
     m_FrameSubmitted = false;
+    m_MinUniformBufferOffsetAlignment = 1;
     m_HasDeviceObjects = false;
 }

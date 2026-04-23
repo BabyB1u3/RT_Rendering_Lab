@@ -344,7 +344,7 @@ Scoring rules:
 
 Runtime tag sources:
 - `platformTag`: determined at compile time (`windows` / `macos` / `linux`).
-- `backendTag`: determined at compile time (`metal` or `opengl`).
+- `backendTag`: determined at compile time (`metal` or `vulkan`).
 - `profileTag`: development builds use the default `dev` profile. Release/shipping
   builds default to `shipping`, which maps artifact selection to `"cooked"`. The
   only remaining dev-mode override is `--dev-mode --root <path>`, which changes root

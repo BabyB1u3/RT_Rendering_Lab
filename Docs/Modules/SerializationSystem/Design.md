@@ -628,7 +628,7 @@ it deserves a dedicated decode step.
 #### Best Time To Focus This
 
 - not now, while reflected packing issues are still being shaken out
-- earliest reasonable time: after reflected packing works on both OpenGL and Metal
+- earliest reasonable time: after reflected packing works on both Vulkan and Metal
 - preferred time: after the shader/block API work is stable enough that sidecar schema
   changes are infrequent
 - good practical trigger: when the team wants to remove the last direct `nlohmann::json`

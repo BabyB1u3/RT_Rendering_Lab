@@ -1,12 +1,14 @@
 # RHI Code Review
 
+> Historical note: this review predates the retirement of the OpenGL backend from the project mainline. Any OpenGL-specific findings below are archival and no longer describe active shipping code.
+
 Code review of the `Src/Render/RHI/` surface after M3 Batch 1 landed on
 2026-04-20. Batch 1 extracted `Buffer` / `Texture` / `TextureView` / `Sampler`
 out of the shared `RHIInternal::Shell*` fallback path into real Vulkan / OpenGL
 / Metal implementations. M3 Batch 2 (VertexInputLayout + GraphicsPipeline) and
 Batch 3 (draw path + triangle demo) are not covered here.
 
-> **Overall assessment**: all three backends now own their resources with
+> **Overall assessment at the time**: all three backends then under development owned their resources with
 > matching public-API semantics, mapping helpers are clean and largely
 > symmetric, and the `TRANSITIONAL(M3)` markers on the Vulkan raw-memory path
 > are in the right spot. Three real bugs (C1–C3) sit in the "desc field

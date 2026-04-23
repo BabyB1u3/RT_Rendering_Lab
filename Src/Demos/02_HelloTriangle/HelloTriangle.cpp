@@ -2,17 +2,23 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
-#include <cstring>
 #include <utility>
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include "Core/App/Application.h"
 #include "Core/Diagnostics/Assert/Assert.h"
 #include "Core/Diagnostics/Logging/LogCategories.h"
 #include "Core/Diagnostics/Logging/LogMacros.h"
-#include "Demos/02_HelloTriangle/HelloTriangleShaders.h"
+#include "Core/Resource/FileSystem.h"
+#include "Core/Util/Time.h"
+#include "Render/Shader/ShaderCompiler.h"
+#include "Render/Shader/ShaderParameterWriter.h"
 
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_OPENGL) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
 namespace
 {
 struct TriangleVertex
@@ -29,30 +35,13 @@ struct DemoViewport
     float m_Height = 0.0f;
 };
 
-template <size_t N> std::vector<uint8_t> MakeShaderBytes(const uint32_t (&words)[N])
-{
-    std::vector<uint8_t> bytes(sizeof(words));
-    std::memcpy(bytes.data(), words, sizeof(words));
-    return bytes;
-}
-
-std::vector<uint8_t> MakeShaderBytes(const char* sourceText)
-{
-    RTRLAB_ASSERT_MSG(sourceText != nullptr, "Shader source text must be valid.");
-    const size_t sourceLength = std::strlen(sourceText);
-    std::vector<uint8_t> bytes(sourceLength);
-    std::memcpy(bytes.data(), sourceText, sourceLength);
-    return bytes;
-}
-
 DemoViewport ComputeAspectPreservingViewport(uint32_t framebufferWidth, uint32_t framebufferHeight)
 {
     RTRLAB_ASSERT_MSG(framebufferWidth > 0 && framebufferHeight > 0,
                       "HelloTriangle requires a non-zero framebuffer size.");
 
-    // TRANSITIONAL(M3): The demo still draws directly in clip space without a
-    // transform buffer, so preserve a square logical presentation area via the
-    // viewport until renderer-owned projection data exists.
+    // Keep the demo presentation square so the simple parameterized transform
+    // still looks centered and consistent across window aspect ratios.
     const float squareExtent = static_cast<float>(std::min(framebufferWidth, framebufferHeight));
 
     DemoViewport viewport;
@@ -63,53 +52,45 @@ DemoViewport ComputeAspectPreservingViewport(uint32_t framebufferWidth, uint32_t
     return viewport;
 }
 
-CompiledShaderProgramDesc BuildHelloTriangleShaderProgramDesc()
+uint32_t FindRequiredSetIndex(const PipelineLayoutDesc& layoutDesc, std::string_view bindingName)
 {
-    // TRANSITIONAL(M4): HelloTriangle still picks directly from embedded
-    // backend shader blobs until the shader asset pipeline exists.
-    CompiledShaderProgramDesc desc;
+    const auto it = std::find_if(layoutDesc.m_Bindings.begin(),
+                                 layoutDesc.m_Bindings.end(),
+                                 [bindingName](const BindingInfo& binding) { return binding.m_Name == bindingName; });
+    RTRLAB_ASSERTF(it != layoutDesc.m_Bindings.end(),
+                   "HelloTriangle failed to find reflected binding '{}' in the PipelineLayout.",
+                   bindingName);
+    return it->m_SetIndex;
+}
+
+ShaderCompileRequest BuildHelloTriangleShaderCompileRequest()
+{
+    ShaderCompileRequest request;
+
+    const std::filesystem::path shaderPath = FileSystem::GetRootPath() / "Project" / "Shaders" / "HelloTriangle.slang";
+    const std::string shaderModule = shaderPath.generic_string();
 
 #if defined(GLAB_BACKEND_VULKAN)
-    CompiledShaderBlob vertexShader;
-    vertexShader.m_Backend = BackendType::Vulkan;
-    vertexShader.m_Stage = ShaderStage::Vertex;
-    vertexShader.m_Code = MakeShaderBytes(kHelloTriangleVertexSpirv);
-    desc.m_Blobs.push_back(std::move(vertexShader));
-
-    CompiledShaderBlob fragmentShader;
-    fragmentShader.m_Backend = BackendType::Vulkan;
-    fragmentShader.m_Stage = ShaderStage::Fragment;
-    fragmentShader.m_Code = MakeShaderBytes(kHelloTriangleFragmentSpirv);
-    desc.m_Blobs.push_back(std::move(fragmentShader));
-#elif defined(GLAB_BACKEND_OPENGL)
-    CompiledShaderBlob vertexShader;
-    vertexShader.m_Backend = BackendType::OpenGL;
-    vertexShader.m_Stage = ShaderStage::Vertex;
-    vertexShader.m_Code = MakeShaderBytes(kHelloTriangleVertexOpenGL);
-    desc.m_Blobs.push_back(std::move(vertexShader));
-
-    CompiledShaderBlob fragmentShader;
-    fragmentShader.m_Backend = BackendType::OpenGL;
-    fragmentShader.m_Stage = ShaderStage::Fragment;
-    fragmentShader.m_Code = MakeShaderBytes(kHelloTriangleFragmentOpenGL);
-    desc.m_Blobs.push_back(std::move(fragmentShader));
+    request.m_Targets.push_back({BackendType::Vulkan, MetalCodeFormat::MslSource});
 #elif defined(GLAB_BACKEND_METAL)
-    CompiledShaderBlob vertexShader;
-    vertexShader.m_Backend = BackendType::Metal;
-    vertexShader.m_Stage = ShaderStage::Vertex;
-    vertexShader.m_MetalCodeFormat = MetalCodeFormat::MslSource;
-    vertexShader.m_Code = MakeShaderBytes(kHelloTriangleMetalSource);
-    desc.m_Blobs.push_back(std::move(vertexShader));
-
-    CompiledShaderBlob fragmentShader;
-    fragmentShader.m_Backend = BackendType::Metal;
-    fragmentShader.m_Stage = ShaderStage::Fragment;
-    fragmentShader.m_MetalCodeFormat = MetalCodeFormat::MslSource;
-    fragmentShader.m_Code = MakeShaderBytes(kHelloTriangleMetalSource);
-    desc.m_Blobs.push_back(std::move(fragmentShader));
+    request.m_Targets.push_back({BackendType::Metal, MetalCodeFormat::MslSource});
 #endif
 
-    return desc;
+    request.m_Source.m_Entries.push_back({shaderModule, "main_vertex", ShaderStage::Vertex});
+    request.m_Source.m_Entries.push_back({shaderModule, "main_fragment", ShaderStage::Fragment});
+    return request;
+}
+
+CompiledShaderProgramDesc BuildHelloTriangleShaderProgramDesc()
+{
+    Scope<ShaderCompiler> shaderCompiler = CreateShaderCompiler();
+    RTRLAB_ASSERT_MSG(shaderCompiler != nullptr, "HelloTriangle requires a valid ShaderCompiler instance.");
+
+    ShaderCompileResult compileResult = shaderCompiler->CompileProgram(BuildHelloTriangleShaderCompileRequest());
+    RTRLAB_ASSERTF(compileResult.m_Succeeded,
+                   "HelloTriangle failed to compile its Slang shader program: {}",
+                   compileResult.m_ErrorMessage);
+    return std::move(compileResult.m_Program);
 }
 } // namespace
 #endif
@@ -126,6 +107,9 @@ void HelloTriangle::OnDetach()
 {
     m_GraphicsPipeline.reset();
     m_VertexInputLayout.reset();
+    m_ObjectSet.reset();
+    m_MaterialSet.reset();
+    m_FrameSet.reset();
     m_PipelineLayout.reset();
     m_ShaderProgram.reset();
     m_IndexBuffer.reset();
@@ -135,7 +119,7 @@ void HelloTriangle::OnDetach()
 
 void HelloTriangle::OnRender()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_OPENGL) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
     if (!m_GraphicsPipeline || !m_VertexBuffer || !m_IndexBuffer)
         return;
 
@@ -146,6 +130,8 @@ void HelloTriangle::OnRender()
     // that active pass. A future render-graph path will move pass ownership out
     // of Application::RenderFrame and make it explicit at a higher level.
 
+    UpdateAnimatedParameters();
+
     MeshBinding meshBinding;
     meshBinding.m_VertexBuffers = {m_VertexBuffer.get()};
     meshBinding.m_IndexBuffer = m_IndexBuffer.get();
@@ -155,6 +141,9 @@ void HelloTriangle::OnRender()
     commandList->SetViewport(viewport.m_X, viewport.m_Y, viewport.m_Width, viewport.m_Height, 0.0f, 1.0f);
     commandList->SetScissor(0, 0, m_ViewportWidth, m_ViewportHeight);
     commandList->BindGraphicsPipeline(m_GraphicsPipeline.get());
+    commandList->BindResourceSet(m_FrameSetIndex, m_FrameSet.get());
+    commandList->BindResourceSet(m_MaterialSetIndex, m_MaterialSet.get());
+    commandList->BindResourceSet(m_ObjectSetIndex, m_ObjectSet.get());
     commandList->BindMesh(meshBinding);
     commandList->DrawIndexed(3, 0, 0);
 #endif
@@ -171,7 +160,7 @@ void HelloTriangle::OnResize(uint32_t width, uint32_t height)
 
 void HelloTriangle::CreateTriangleResources()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_OPENGL) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
     Application& app = Application::Get();
     Device& device = app.GetDevice();
 
@@ -188,8 +177,6 @@ void HelloTriangle::CreateTriangleResources()
     vertexBufferDesc.m_MemoryUsage = MemoryUsage::CpuToGpu;
     vertexBufferDesc.m_DebugName = "HelloTriangle.VertexBuffer";
     m_VertexBuffer = device.CreateBuffer(vertexBufferDesc);
-    // TRANSITIONAL(M3): HelloTriangle still uploads directly through Device
-    // until renderer-owned staging/upload code exists.
     device.WriteBuffer(m_VertexBuffer.get(), 0, kVertices.data(), sizeof(kVertices));
 
     BufferDesc indexBufferDesc;
@@ -202,6 +189,23 @@ void HelloTriangle::CreateTriangleResources()
 
     m_ShaderProgram = device.CreateShaderProgram(BuildHelloTriangleShaderProgramDesc());
     m_PipelineLayout = device.CreatePipelineLayout(m_ShaderProgram->DerivePipelineLayoutDesc());
+    const PipelineLayoutDesc& pipelineLayoutDesc = m_PipelineLayout->GetDesc();
+    m_FrameSetIndex = FindRequiredSetIndex(pipelineLayoutDesc, "gFrame");
+    m_MaterialSetIndex = FindRequiredSetIndex(pipelineLayoutDesc, "gMaterial");
+    m_ObjectSetIndex = FindRequiredSetIndex(pipelineLayoutDesc, "gObject");
+
+    m_FrameSet = device.CreateResourceSet(m_PipelineLayout.get(), m_FrameSetIndex);
+    m_MaterialSet = device.CreateResourceSet(m_PipelineLayout.get(), m_MaterialSetIndex);
+    m_ObjectSet = device.CreateResourceSet(m_PipelineLayout.get(), m_ObjectSetIndex);
+
+    ShaderParameterWriter parameterWriter(m_ShaderProgram->GetReflection());
+
+    const glm::mat4 viewProj = glm::mat4(1.0f);
+    const glm::vec4 baseColor = glm::vec4(1.0f, 0.95f, 0.85f, 1.0f);
+
+    parameterWriter.SetMatrix4x4(*m_FrameSet, "gFrame.viewProj", viewProj);
+    parameterWriter.SetFloat4(*m_MaterialSet, "gMaterial.baseColor", baseColor);
+    UpdateAnimatedParameters();
 
     VertexInputLayoutDesc vertexInputLayoutDesc;
     vertexInputLayoutDesc.m_Buffers = {{static_cast<uint32_t>(sizeof(TriangleVertex)), false}};
@@ -218,5 +222,30 @@ void HelloTriangle::CreateTriangleResources()
     pipelineDesc.m_RasterState.m_CullMode = CullMode::None;
     pipelineDesc.m_ColorFormats = {app.GetSwapchain().GetFormat()};
     m_GraphicsPipeline = device.CreateGraphicsPipeline(pipelineDesc);
+#endif
+}
+
+void HelloTriangle::UpdateAnimatedParameters()
+{
+#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+    RTRLAB_ASSERT_MSG(m_ShaderProgram != nullptr, "HelloTriangle animated parameters require a valid shader program.");
+    RTRLAB_ASSERT_MSG(m_FrameSet != nullptr && m_MaterialSet != nullptr && m_ObjectSet != nullptr,
+                      "HelloTriangle animated parameters require frame, material, and object resource sets.");
+
+    const float timeSeconds = static_cast<float>(Time::GetTotalTime());
+    const float pulse = 0.5f + 0.5f * std::sin(timeSeconds * 1.5f);
+    const float verticalOffset = -0.04f + (pulse - 0.5f) * 0.10f;
+    const float uniformScale = 0.88f + pulse * 0.10f;
+
+    const glm::vec4 tint = glm::vec4(0.70f + 0.30f * pulse, 0.80f + 0.15f * pulse, 0.90f, 1.0f);
+    const glm::vec4 baseColor = glm::vec4(1.0f, 0.70f + 0.25f * pulse, 0.70f + 0.20f * pulse, 1.0f);
+    const glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, verticalOffset, 0.0f)) *
+                            glm::scale(glm::mat4(1.0f), glm::vec3(uniformScale, uniformScale, 1.0f));
+
+    ShaderParameterWriter parameterWriter(m_ShaderProgram->GetReflection());
+    parameterWriter.SetFloat4(*m_FrameSet, "gFrame.tint", tint);
+    parameterWriter.SetFloat(*m_FrameSet, "gFrame.time", timeSeconds);
+    parameterWriter.SetFloat4(*m_MaterialSet, "gMaterial.baseColor", baseColor);
+    parameterWriter.SetMatrix4x4(*m_ObjectSet, "gObject.model", model);
 #endif
 }

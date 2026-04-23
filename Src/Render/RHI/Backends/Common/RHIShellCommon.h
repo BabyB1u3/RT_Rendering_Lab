@@ -15,6 +15,10 @@ BufferDesc SanitizeBufferDesc(const BufferDesc& desc);
 SwapchainDesc SanitizeSwapchainDesc(const SwapchainDesc& desc);
 TextureDesc SanitizeTextureDesc(const TextureDesc& desc);
 PipelineLayoutDesc BuildPipelineLayoutDescFromReflection(const ShaderReflectionData& reflection);
+std::vector<const BindingInfo*> CollectBindingInfosForSet(const PipelineLayoutDesc& desc, uint32_t setIndex);
+const BindingInfo*
+FindBindingInfo(const PipelineLayoutDesc& desc, uint32_t setIndex, uint32_t binding, ResourceKind kind);
+const BindingInfo* FindFirstBindingInfoForSet(const PipelineLayoutDesc& desc, uint32_t setIndex, ResourceKind kind);
 
 class ShellFrameContext : public FrameContext
 {
@@ -133,8 +137,8 @@ public:
     PipelineLayout* GetLayout() const override { return m_Layout; }
     uint32_t GetSetIndex() const override { return m_SetIndex; }
 
-    ParameterBlockData& GetConstants() override { return m_Constants; }
     const ParameterBlockData& GetConstants() const override { return m_Constants; }
+    void SetConstantDataRaw(uint32_t offset, const void* data, size_t size) override;
 
     void SetBuffer(uint32_t binding, const BufferBinding& bufferBinding) override;
     void SetTexture(uint32_t binding, const TextureBinding& textureBinding) override;
@@ -143,6 +147,9 @@ public:
     uint32_t GetVersion() const override { return m_Version; }
 
 private:
+    const BindingInfo& RequireBindingInfo(uint32_t binding, ResourceKind kind) const;
+    void ValidateConstantBindingExists() const;
+
     PipelineLayout* m_Layout = nullptr;
     uint32_t m_SetIndex = 0;
     ParameterBlockData m_Constants;

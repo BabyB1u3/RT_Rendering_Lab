@@ -1,8 +1,5 @@
 #include "Core/App/Window/Window.h"
 
-#if defined(GLAB_BACKEND_OPENGL)
-#include <glad/glad.h>
-#endif
 #include <GLFW/glfw3.h>
 
 #if defined(_WIN32)
@@ -54,12 +51,7 @@ void Window::Init(const WindowProps& props)
         g_GlfwInitialized = true;
     }
 
-#if defined(GLAB_BACKEND_OPENGL)
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
-#elif defined(GLAB_BACKEND_METAL) || defined(GLAB_BACKEND_VULKAN)
+#if defined(GLAB_BACKEND_METAL) || defined(GLAB_BACKEND_VULKAN)
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 #else
 #error Unsupported graphics backend
@@ -86,76 +78,6 @@ void Window::Init(const WindowProps& props)
                  m_Height,
                  props.m_Title);
 
-#if defined(GLAB_BACKEND_OPENGL)
-    glfwMakeContextCurrent(m_Handle);
-
-    RTRLAB_ASSERT_MSG(gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress)),
-                      "Failed to initialize GLAD.");
-
-    // Register an OpenGL debug callback to surface driver warnings/errors via our Logger.
-    // GL_DEBUG_OUTPUT_SYNCHRONOUS ensures the callback fires on the calling thread,
-    // making stack traces useful. Notifications are filtered out to reduce noise.
-    glEnable(GL_DEBUG_OUTPUT);
-    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-    glDebugMessageCallback(
-        [](GLenum source,
-           GLenum type,
-           GLuint id,
-           GLenum severity,
-           GLsizei /*length*/,
-           const GLchar* message,
-           const void* /*userParam*/)
-        {
-            if (severity == GL_DEBUG_SEVERITY_NOTIFICATION)
-                return;
-
-            const char* srcStr = [source]() -> const char*
-            {
-                switch (source)
-                {
-                    case GL_DEBUG_SOURCE_API:
-                        return "API";
-                    case GL_DEBUG_SOURCE_WINDOW_SYSTEM:
-                        return "Window System";
-                    case GL_DEBUG_SOURCE_SHADER_COMPILER:
-                        return "Shader Compiler";
-                    case GL_DEBUG_SOURCE_THIRD_PARTY:
-                        return "Third Party";
-                    case GL_DEBUG_SOURCE_APPLICATION:
-                        return "Application";
-                    default:
-                        return "Other";
-                }
-            }();
-
-            const char* typeStr = [type]() -> const char*
-            {
-                switch (type)
-                {
-                    case GL_DEBUG_TYPE_ERROR:
-                        return "Error";
-                    case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
-                        return "Deprecated";
-                    case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
-                        return "Undefined Behavior";
-                    case GL_DEBUG_TYPE_PORTABILITY:
-                        return "Portability";
-                    case GL_DEBUG_TYPE_PERFORMANCE:
-                        return "Performance";
-                    default:
-                        return "Other";
-                }
-            }();
-
-            if (severity == GL_DEBUG_SEVERITY_HIGH)
-                LOG_ERROR_CAT(LogCategory::k_Window, "[GL {}] {} (id={}): {}", srcStr, typeStr, id, message);
-            else
-                LOG_WARN_CAT(LogCategory::k_Window, "[GL {}] {} (id={}): {}", srcStr, typeStr, id, message);
-        },
-        nullptr);
-    LOG_INFO_CAT(LogCategory::k_Window, "OpenGL debug callback registered");
-#endif
-
     // Store 'this' in the GLFW window so that static callbacks can reach the Window instance.
     glfwSetWindowUserPointer(m_Handle, this);
 
@@ -168,13 +90,6 @@ void Window::Init(const WindowProps& props)
     glfwSetScrollCallback(m_Handle,
                           [](GLFWwindow* /*window*/, double /*xoffset*/, double yoffset)
                           { Input::AccumulateScroll(static_cast<float>(yoffset)); });
-
-#if defined(GLAB_BACKEND_OPENGL)
-    LOG_INFO_CAT(LogCategory::k_Window, "OpenGL Vendor   : {}", reinterpret_cast<const char*>(glGetString(GL_VENDOR)));
-    LOG_INFO_CAT(
-        LogCategory::k_Window, "OpenGL Renderer : {}", reinterpret_cast<const char*>(glGetString(GL_RENDERER)));
-    LOG_INFO_CAT(LogCategory::k_Window, "OpenGL Version  : {}", reinterpret_cast<const char*>(glGetString(GL_VERSION)));
-#endif
 }
 
 void Window::Shutdown()

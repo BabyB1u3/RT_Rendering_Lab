@@ -24,19 +24,6 @@ target_compile_definitions(glfw INTERFACE
 )
 
 # -----------------------------------------------------------------------------
-# GLAD
-# -----------------------------------------------------------------------------
-add_library(glad STATIC
-    glad/src/glad.c
-)
-
-target_include_directories(glad PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/glad/include
-)
-
-glab_enable_parallel_compilation(glad)
-
-# -----------------------------------------------------------------------------
 # Volk
 # -----------------------------------------------------------------------------
 if(GLAB_BACKEND_VULKAN)
@@ -175,12 +162,6 @@ set(GLAB_IMGUI_SOURCES
     imgui/backends/imgui_impl_glfw.cpp
 )
 
-if(GLAB_BACKEND_OPENGL)
-    list(APPEND GLAB_IMGUI_SOURCES
-        imgui/backends/imgui_impl_opengl3.cpp
-    )
-endif()
-
 if(GLAB_BACKEND_METAL)
     list(APPEND GLAB_IMGUI_SOURCES
         imgui/backends/imgui_impl_metal.mm
@@ -205,11 +186,5 @@ target_include_directories(imgui PUBLIC
 target_link_libraries(imgui PRIVATE
     glfw
 )
-
-if(GLAB_BACKEND_OPENGL)
-    target_link_libraries(imgui PRIVATE
-        glad
-    )
-endif()
 
 glab_enable_parallel_compilation(imgui)

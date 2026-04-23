@@ -52,33 +52,6 @@ jobs:
       - name: Test
         run: ctest --preset test-ci-windows-${{ matrix.profile }}
 
-  windows-opengl-compat:
-    name: Windows MSVC (OpenGL compat debug)
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          submodules: recursive
-
-      - name: Set up MSVC developer command prompt
-        uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Cache build
-        uses: actions/cache@v5
-        with:
-          path: build/ci-windows-opengl-debug
-          key: ci-windows-opengl-debug-${{ hashFiles('CMakeLists.txt', 'CMake/**/*.cmake', 'Src/CMakeLists.txt', 'Vendor/CMakeLists.txt', 'Tests/CMakeLists.txt', 'CMakePresets.json', 'CMake/Presets/configure/windows.json', 'CMake/Presets/build/windows.json', 'CMake/Presets/test/windows.json', 'CMake/Presets/test/common.json') }}
-          restore-keys: ci-windows-opengl-debug-
-
-      - name: Configure
-        run: cmake --preset ci-windows-opengl-debug
-
-      - name: Build
-        run: cmake --build --preset build-ci-windows-opengl-debug --parallel
-
-      - name: Test
-        run: ctest --preset test-ci-windows-opengl-debug
-
   linux:
     name: Linux GCC (${{ matrix.profile }})
     runs-on: ubuntu-latest
@@ -120,37 +93,6 @@ jobs:
 
       - name: Test
         run: ctest --preset test-ci-linux-${{ matrix.profile }}
-
-  linux-opengl-compat:
-    name: Linux GCC (OpenGL compat debug)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          submodules: recursive
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ninja-build \
-            libgl-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev \
-            libxkbcommon-dev libwayland-dev
-
-      - name: Cache build
-        uses: actions/cache@v5
-        with:
-          path: build/ci-linux-opengl-debug
-          key: ci-linux-opengl-debug-${{ hashFiles('CMakeLists.txt', 'CMake/**/*.cmake', 'Src/CMakeLists.txt', 'Vendor/CMakeLists.txt', 'Tests/CMakeLists.txt', 'CMakePresets.json', 'CMake/Presets/configure/linux.json', 'CMake/Presets/build/linux.json', 'CMake/Presets/test/linux.json', 'CMake/Presets/test/common.json') }}
-          restore-keys: ci-linux-opengl-debug-
-
-      - name: Configure
-        run: cmake --preset ci-linux-opengl-debug
-
-      - name: Build
-        run: cmake --build --preset build-ci-linux-opengl-debug --parallel
-
-      - name: Test
-        run: ctest --preset test-ci-linux-opengl-debug
 
   macos:
     name: macOS Clang (${{ matrix.profile }})

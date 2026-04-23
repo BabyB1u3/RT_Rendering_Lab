@@ -1,6 +1,6 @@
 # Real Time Rendering Lab
 
-A modern C++ graphics engine built for experimenting with real-time rendering techniques. The long-term goal is a multi-backend renderer (Vulkan, Metal, OpenGL) driven by **Slang** shaders and a modern explicit RHI, paired with a suite of rendering demos covering PBR, shadows, screen-space effects, and beyond.
+A modern C++ graphics engine built for experimenting with real-time rendering techniques. The long-term goal is a multi-backend renderer (Vulkan, Metal) driven by **Slang** shaders and a modern explicit RHI, paired with a suite of rendering demos covering PBR, shadows, screen-space effects, and beyond.
 
 [中文文档](./Docs/ZH_CN/README.ZH_CN.md)
 
@@ -29,7 +29,7 @@ The new render system is designed around a modern explicit RHI. Design documents
 Key decisions:
 
 - **Slang** as the shader language - single source compiled per-backend, replacing the old GLSL - SPIR-V pipeline
-- **Three backends: Vulkan · Metal · OpenGL** - Vulkan and Metal are primary targets; OpenGL is a compatibility backend
+- **Two backends: Vulkan · Metal** - Vulkan is the main cross-platform target, with Metal as the Apple-native backend
 - **Vulkan-style public API** - explicit objects (`ShaderProgram`, `PipelineLayout`, `ResourceSet`, `GraphicsPipeline`, `CommandList`); no implicit global state
 - **Reflection-driven parameter binding** - Slang reflection is the single source of truth for all shader parameter layout; no hand-maintained binding tables in C++
 
@@ -249,7 +249,6 @@ Preset defaults can override these project-level defaults. In particular, the sh
 | ---------------------------------------------------------- | -------------------------- | ------------------------------------------------------------ |
 | [GLFW](https://github.com/glfw/glfw)                       | Windowing & input          | Git submodule (`Vendor/glfw`, `3.4.0`)                       |
 | [GLM](https://github.com/g-truc/glm)                       | Linear algebra             | Git submodule (`Vendor/glm`, `1.0.3`)                        |
-| [Glad](https://glad.dav1d.de/)                             | OpenGL 4.6 loader          | `Vendor/glad/`                                               |
 | [STB Image](https://github.com/nothings/stb)               | Image loading              | `Vendor/stb/`                                                |
 | [Dear ImGui](https://github.com/ocornut/imgui)             | Debug GUI                  | Git submodule (`Vendor/imgui`, `1.92.6`, `docking` branch)   |
 | [spdlog](https://github.com/gabime/spdlog)                 | Logging                    | `Vendor/spdlog/`                                             |
@@ -260,7 +259,7 @@ Preset defaults can override these project-level defaults. In particular, the sh
 
 ## Long-Term Direction
 
-The immediate priority is completing the new RenderSystem - RHI layer, Slang integration, and at least one backend (Metal or Vulkan) to a point where render demos can run again.
+The immediate priority is completing the new RenderSystem - RHI layer, Slang integration, and the active Vulkan / Metal backends to a point where render demos can run again.
 
 Beyond that, the project will explore:
 

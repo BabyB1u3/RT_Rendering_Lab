@@ -13,17 +13,6 @@
       }
     },
     {
-      "name": "linux-opengl-debug",
-      "displayName": "Linux OpenGL Debug",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/linux-opengl-debug",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/linux-opengl-debug",
-        "GLAB_GRAPHICS_BACKEND": "OpenGL"
-      }
-    },
-    {
       "name": "linux-relwithdebinfo",
       "displayName": "Linux RelWithDebInfo",
       "generator": "Ninja",
@@ -67,18 +56,6 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-linux-debug",
         "GLAB_GRAPHICS_BACKEND": "Vulkan",
-        "GLAB_BUILD_TESTS": "ON"
-      }
-    },
-    {
-      "name": "ci-linux-opengl-debug",
-      "displayName": "Linux CI OpenGL Debug",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/ci-linux-opengl-debug",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-linux-opengl-debug",
-        "GLAB_GRAPHICS_BACKEND": "OpenGL",
         "GLAB_BUILD_TESTS": "ON"
       }
     },

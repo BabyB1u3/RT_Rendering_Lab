@@ -173,6 +173,12 @@ set(GLAB_RENDER_SOURCES
     Render/RHI/RHIFactory.cpp
     Render/RHI/ResourceStateTracker.cpp
     Render/RHI/Backends/Common/RHIShellCommon.cpp
+    Render/Shader/ShaderCompiler.cpp
+    Render/Shader/ShaderReflection.cpp
+    Render/Shader/SlangCompiler.cpp
+    Render/Shader/SlangReflectionConverter.cpp
+    Render/Shader/SlangReflectionJson.cpp
+    Render/Shader/ShaderParameterWriter.cpp
 )
 
 set(GLAB_RENDER_HEADERS
@@ -184,14 +190,23 @@ set(GLAB_RENDER_HEADERS
     Render/RHI/RHICommandList.h
     Render/RHI/RHIDevice.h
     Render/RHI/Backends/Common/RHIShellCommon.h
+    Render/Shader/ShaderCompiler.h
+    Render/Shader/ShaderReflection.h
+    Render/Shader/SlangCompiler.h
+    Render/Shader/SlangReflectionConverter.h
+    Render/Shader/SlangReflectionJson.h
+    Render/Shader/ShaderParameterWriter.h
     Render/Shader/ShaderTypes.h
 )
 
 set(GLAB_RENDER_BACKEND_VULKAN_SOURCES
+    Render/RHI/Backends/Vulkan/VulkanConversions.cpp
     Render/RHI/Backends/Vulkan/VulkanDevice.cpp
 )
 
 set(GLAB_RENDER_BACKEND_VULKAN_HEADERS
+    Render/RHI/Backends/Vulkan/VulkanCommon.h
+    Render/RHI/Backends/Vulkan/VulkanConversions.h
     Render/RHI/Backends/Vulkan/VulkanDevice.h
 )
 
@@ -201,14 +216,6 @@ set(GLAB_RENDER_BACKEND_METAL_SOURCES
 
 set(GLAB_RENDER_BACKEND_METAL_HEADERS
     Render/RHI/Backends/Metal/MetalDevice.h
-)
-
-set(GLAB_RENDER_BACKEND_OPENGL_SOURCES
-    Render/RHI/Backends/OpenGL/OpenGLDevice.cpp
-)
-
-set(GLAB_RENDER_BACKEND_OPENGL_HEADERS
-    Render/RHI/Backends/OpenGL/OpenGLDevice.h
 )
 
 if(GLAB_BACKEND_VULKAN)
@@ -231,16 +238,6 @@ if(GLAB_BACKEND_METAL)
     )
 endif()
 
-if(GLAB_BACKEND_OPENGL)
-    list(APPEND GLAB_RENDER_SOURCES
-        ${GLAB_RENDER_BACKEND_OPENGL_SOURCES}
-    )
-
-    list(APPEND GLAB_RENDER_HEADERS
-        ${GLAB_RENDER_BACKEND_OPENGL_HEADERS}
-    )
-endif()
-
 set(GLAB_DEMO_SOURCES
     Demos/DemoRegistry.cpp
     Demos/LabLayer.cpp
@@ -254,7 +251,6 @@ set(GLAB_DEMO_HEADERS
     Demos/LabLayer.h
     Demos/01_HelloWindow/HelloWindow.h
     Demos/02_HelloTriangle/HelloTriangle.h
-    Demos/02_HelloTriangle/HelloTriangleShaders.h
 )
 
 set(GLAB_GUI_SOURCES
@@ -304,13 +300,6 @@ endif()
 if(UNIX AND NOT APPLE)
     list(APPEND GLAB_CORE_SKIP_UNITY_SOURCES
         Core/App/Window/Native/Linux/LinuxNativeWindow.cpp
-    )
-endif()
-
-if(GLAB_BACKEND_OPENGL)
-    list(APPEND GLAB_CORE_SKIP_UNITY_SOURCES
-        Core/App/Application.cpp
-        Core/Input/Input.cpp
     )
 endif()
 

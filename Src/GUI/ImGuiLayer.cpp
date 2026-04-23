@@ -2,9 +2,7 @@
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
-#if defined(GLAB_BACKEND_OPENGL)
-#include <imgui_impl_opengl3.h>
-#elif defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_METAL)
 // #include "GUI/Backends/Metal/MetalImGuiBridge.h"
 #elif defined(GLAB_BACKEND_VULKAN)
 // Vulkan renderer backend integration will be wired in once the RHI path lands.
@@ -40,11 +38,7 @@ void ImGuiLayer::OnAttach()
 
     // install_callbacks = true lets ImGui intercept GLFW input events.
     GLFWwindow* window = Application::Get().GetWindow().GetNativeHandle();
-#if defined(GLAB_BACKEND_OPENGL)
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    // GLSL 460 matches the OpenGL 4.6 core context created in Window.
-    ImGui_ImplOpenGL3_Init("#version 460");
-#elif defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_METAL)
     ImGui_ImplGlfw_InitForOther(window, true);
     // auto *metalDevice = static_cast<MetalGraphicsDevice *>(GetDevice().get());
     // MetalImGuiBridge::Init(metalDevice->GetMTLDevice());
@@ -55,9 +49,7 @@ void ImGuiLayer::OnAttach()
 
 void ImGuiLayer::OnDetach()
 {
-#if defined(GLAB_BACKEND_OPENGL)
-    ImGui_ImplOpenGL3_Shutdown();
-#elif defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_METAL)
     // MetalImGuiBridge::Shutdown();
 #elif defined(GLAB_BACKEND_VULKAN)
     // Vulkan renderer backend shutdown will be added with the Vulkan renderer path.
@@ -68,9 +60,7 @@ void ImGuiLayer::OnDetach()
 
 void ImGuiLayer::Begin()
 {
-#if defined(GLAB_BACKEND_OPENGL)
-    ImGui_ImplOpenGL3_NewFrame();
-#elif defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_METAL)
     // auto *metalDevice = static_cast<MetalGraphicsDevice *>(GetDevice().get());
     // metalDevice->GetMetalRenderCommand()->BeginImGuiFrame();
 #elif defined(GLAB_BACKEND_VULKAN)
@@ -89,9 +79,7 @@ void ImGuiLayer::Begin()
 void ImGuiLayer::End()
 {
     ImGui::Render();
-#if defined(GLAB_BACKEND_OPENGL)
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-#elif defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_METAL)
     // auto *metalDevice = static_cast<MetalGraphicsDevice *>(GetDevice().get());
     // metalDevice->GetMetalRenderCommand()->RenderImGui(ImGui::GetDrawData());
 #elif defined(GLAB_BACKEND_VULKAN)
