@@ -272,6 +272,7 @@ struct MetalBindingPlanEntry
 {
     std::string m_Name;
     uint32_t m_Binding = 0;
+    uint32_t m_ArrayCount = 1;
     ResourceKind m_Kind = ResourceKind::UniformBuffer;
 };
 
@@ -771,6 +772,7 @@ std::vector<MetalSetBindingPlan> BuildMetalSetBindingPlans(const PipelineLayoutD
         MetalBindingPlanEntry entry;
         entry.m_Name = binding.m_Name;
         entry.m_Binding = binding.m_Binding;
+        entry.m_ArrayCount = binding.m_ArrayCount;
         entry.m_Kind = binding.m_Kind;
 
         if (StageMaskContains(binding.m_StageMask, ShaderStage::Vertex))
@@ -1126,14 +1128,15 @@ public:
         ++m_Version;
     }
 
-    void SetBuffer(uint32_t binding, const BufferBinding& bufferBinding) override
+    void SetBufferArray(uint32_t binding, std::span<const BufferBinding> bufferBindings) override
     {
-        (void)RequireBindingInfo(binding, ResourceKind::StorageBuffer);
-        m_BufferBindings[binding] = bufferBinding;
+        const BindingInfo& bindingInfo = RequireBindingInfo(binding, ResourceKind::StorageBuffer);
+        ValidateBindingArrayCount(bindingInfo, bufferBindings.size(), "buffer");
+        m_BufferBindings[binding] = std::vector<BufferBinding>(bufferBindings.begin(), bufferBindings.end());
         ++m_Version;
     }
 
-    void SetTexture(uint32_t binding, const TextureBinding& textureBinding) override
+    void SetTextureArray(uint32_t binding, std::span<const TextureBinding> textureBindings) override
     {
         const BindingInfo* bindingInfo =
             RHIInternal::FindBindingInfo(m_Layout->GetDesc(), m_SetIndex, binding, ResourceKind::SampledTexture);
@@ -1144,14 +1147,16 @@ public:
                        "Metal ResourceSet set {} has no texture binding {} in its PipelineLayout.",
                        m_SetIndex,
                        binding);
-        m_TextureBindings[binding] = textureBinding;
+        ValidateBindingArrayCount(*bindingInfo, textureBindings.size(), "texture");
+        m_TextureBindings[binding] = std::vector<TextureBinding>(textureBindings.begin(), textureBindings.end());
         ++m_Version;
     }
 
-    void SetSampler(uint32_t binding, const SamplerBinding& samplerBinding) override
+    void SetSamplerArray(uint32_t binding, std::span<const SamplerBinding> samplerBindings) override
     {
-        (void)RequireBindingInfo(binding, ResourceKind::Sampler);
-        m_SamplerBindings[binding] = samplerBinding;
+        const BindingInfo& bindingInfo = RequireBindingInfo(binding, ResourceKind::Sampler);
+        ValidateBindingArrayCount(bindingInfo, samplerBindings.size(), "sampler");
+        m_SamplerBindings[binding] = std::vector<SamplerBinding>(samplerBindings.begin(), samplerBindings.end());
         ++m_Version;
     }
 
@@ -1205,7 +1210,22 @@ private:
         RTRLAB_ASSERTF(bindingInfo != nullptr,
                        "Metal ResourceSet set {} has no UniformBuffer binding in its PipelineLayout.",
                        m_SetIndex);
+        RTRLAB_ASSERT_MSG(bindingInfo->m_ArrayCount <= 1,
+                          "Metal ResourceSet constant writes currently only support non-array UniformBuffer "
+                          "bindings.");
         return *bindingInfo;
+    }
+
+    void
+    ValidateBindingArrayCount(const BindingInfo& bindingInfo, size_t providedCount, std::string_view resourceKind) const
+    {
+        RTRLAB_ASSERTF(providedCount == bindingInfo.m_ArrayCount,
+                       "Metal ResourceSet set {} binding {} expects exactly {} {} descriptor(s), but received {}.",
+                       m_SetIndex,
+                       bindingInfo.m_Binding,
+                       bindingInfo.m_ArrayCount,
+                       resourceKind,
+                       providedCount);
     }
 
     void EnsureConstantBufferCapacity(size_t requiredSize)
@@ -1265,58 +1285,89 @@ private:
                     break;
                 case ResourceKind::StorageBuffer:
                 {
+                    std::vector<id<MTLBuffer>> buffers(entry.m_ArrayCount, nil);
+                    std::vector<NSUInteger> offsets(entry.m_ArrayCount, 0);
                     const auto it = m_BufferBindings.find(entry.m_Binding);
-                    const BufferBinding* bufferBinding = it != m_BufferBindings.end() ? &it->second : nullptr;
-                    id<MTLBuffer> buffer = nil;
-                    NSUInteger offset = 0;
-                    if (bufferBinding != nullptr && bufferBinding->m_Buffer != nullptr)
+                    const std::vector<BufferBinding>* bufferBindings =
+                        it != m_BufferBindings.end() ? &it->second : nullptr;
+                    if (bufferBindings != nullptr)
                     {
-                        auto* metalBuffer = dynamic_cast<MetalBuffer*>(bufferBinding->m_Buffer);
-                        RTRLAB_ASSERT_MSG(metalBuffer != nullptr, "Buffer is not owned by the Metal backend.");
-                        buffer = metalBuffer->GetMetalBuffer();
-                        offset = static_cast<NSUInteger>(bufferBinding->m_Offset);
+                        RTRLAB_ASSERT_MSG(bufferBindings->size() == entry.m_ArrayCount,
+                                          "Metal binding-plan array count drifted from the stored buffer bindings.");
+                        for (uint32_t index = 0; index < entry.m_ArrayCount; ++index)
+                        {
+                            const BufferBinding& bufferBinding = (*bufferBindings)[index];
+                            if (bufferBinding.m_Buffer == nullptr)
+                                continue;
+
+                            auto* metalBuffer = dynamic_cast<MetalBuffer*>(bufferBinding.m_Buffer);
+                            RTRLAB_ASSERT_MSG(metalBuffer != nullptr, "Buffer is not owned by the Metal backend.");
+                            buffers[index] = metalBuffer->GetMetalBuffer();
+                            offsets[index] = static_cast<NSUInteger>(bufferBinding.m_Offset);
+                        }
                     }
-                    [argumentEncoder setBuffer:buffer offset:offset atIndex:entry.m_Binding];
+                    [argumentEncoder setBuffers:buffers.data()
+                                        offsets:offsets.data()
+                                      withRange:NSMakeRange(entry.m_Binding, entry.m_ArrayCount)];
                     break;
                 }
                 case ResourceKind::SampledTexture:
                 case ResourceKind::StorageTexture:
                 {
+                    std::vector<id<MTLTexture>> textures(entry.m_ArrayCount, nil);
                     const auto it = m_TextureBindings.find(entry.m_Binding);
-                    const TextureBinding* textureBinding = it != m_TextureBindings.end() ? &it->second : nullptr;
-                    id<MTLTexture> texture = nil;
-                    if (textureBinding != nullptr &&
-                        (textureBinding->m_Texture != nullptr || textureBinding->m_View != nullptr))
+                    const std::vector<TextureBinding>* textureBindings =
+                        it != m_TextureBindings.end() ? &it->second : nullptr;
+                    if (textureBindings != nullptr)
                     {
-                        if (textureBinding->m_View != nullptr)
+                        RTRLAB_ASSERT_MSG(textureBindings->size() == entry.m_ArrayCount,
+                                          "Metal binding-plan array count drifted from the stored texture bindings.");
+                        for (uint32_t index = 0; index < entry.m_ArrayCount; ++index)
                         {
-                            const auto* metalTextureView = dynamic_cast<MetalTextureView*>(textureBinding->m_View);
-                            RTRLAB_ASSERT_MSG(metalTextureView != nullptr,
-                                              "TextureView is not owned by the Metal backend.");
-                            texture = metalTextureView->GetMetalTextureView();
-                        }
-                        else
-                        {
-                            auto* metalTexture = dynamic_cast<MetalTexture*>(textureBinding->m_Texture);
-                            RTRLAB_ASSERT_MSG(metalTexture != nullptr, "Texture is not owned by the Metal backend.");
-                            texture = metalTexture->GetMetalTexture();
+                            const TextureBinding& textureBinding = (*textureBindings)[index];
+                            if (textureBinding.m_View != nullptr)
+                            {
+                                const auto* metalTextureView = dynamic_cast<MetalTextureView*>(textureBinding.m_View);
+                                RTRLAB_ASSERT_MSG(metalTextureView != nullptr,
+                                                  "TextureView is not owned by the Metal backend.");
+                                textures[index] = metalTextureView->GetMetalTextureView();
+                            }
+                            else if (textureBinding.m_Texture != nullptr)
+                            {
+                                auto* metalTexture = dynamic_cast<MetalTexture*>(textureBinding.m_Texture);
+                                RTRLAB_ASSERT_MSG(metalTexture != nullptr,
+                                                  "Texture is not owned by the Metal backend.");
+                                textures[index] = metalTexture->GetMetalTexture();
+                            }
                         }
                     }
-                    [argumentEncoder setTexture:texture atIndex:entry.m_Binding];
+                    [argumentEncoder setTextures:textures.data()
+                                       withRange:NSMakeRange(entry.m_Binding, entry.m_ArrayCount)];
                     break;
                 }
                 case ResourceKind::Sampler:
                 {
+                    std::vector<id<MTLSamplerState>> samplers(entry.m_ArrayCount, nil);
                     const auto it = m_SamplerBindings.find(entry.m_Binding);
-                    const SamplerBinding* samplerBinding = it != m_SamplerBindings.end() ? &it->second : nullptr;
-                    id<MTLSamplerState> sampler = nil;
-                    if (samplerBinding != nullptr && samplerBinding->m_Sampler != nullptr)
+                    const std::vector<SamplerBinding>* samplerBindings =
+                        it != m_SamplerBindings.end() ? &it->second : nullptr;
+                    if (samplerBindings != nullptr)
                     {
-                        const auto* metalSampler = dynamic_cast<MetalSampler*>(samplerBinding->m_Sampler);
-                        RTRLAB_ASSERT_MSG(metalSampler != nullptr, "Sampler is not owned by the Metal backend.");
-                        sampler = metalSampler->GetMetalSampler();
+                        RTRLAB_ASSERT_MSG(samplerBindings->size() == entry.m_ArrayCount,
+                                          "Metal binding-plan array count drifted from the stored sampler bindings.");
+                        for (uint32_t index = 0; index < entry.m_ArrayCount; ++index)
+                        {
+                            const SamplerBinding& samplerBinding = (*samplerBindings)[index];
+                            if (samplerBinding.m_Sampler == nullptr)
+                                continue;
+
+                            const auto* metalSampler = dynamic_cast<MetalSampler*>(samplerBinding.m_Sampler);
+                            RTRLAB_ASSERT_MSG(metalSampler != nullptr, "Sampler is not owned by the Metal backend.");
+                            samplers[index] = metalSampler->GetMetalSampler();
+                        }
                     }
-                    [argumentEncoder setSamplerState:sampler atIndex:entry.m_Binding];
+                    [argumentEncoder setSamplerStates:samplers.data()
+                                            withRange:NSMakeRange(entry.m_Binding, entry.m_ArrayCount)];
                     break;
                 }
             }
@@ -1327,9 +1378,9 @@ private:
     PipelineLayout* m_Layout = nullptr;
     uint32_t m_SetIndex = 0;
     ParameterBlockData m_Constants;
-    std::unordered_map<uint32_t, BufferBinding> m_BufferBindings;
-    std::unordered_map<uint32_t, TextureBinding> m_TextureBindings;
-    std::unordered_map<uint32_t, SamplerBinding> m_SamplerBindings;
+    std::unordered_map<uint32_t, std::vector<BufferBinding>> m_BufferBindings;
+    std::unordered_map<uint32_t, std::vector<TextureBinding>> m_TextureBindings;
+    std::unordered_map<uint32_t, std::vector<SamplerBinding>> m_SamplerBindings;
     id<MTLBuffer> m_ConstantBuffer = nil;
     std::array<StageArgumentBufferCache, 3> m_StageCaches = {
         StageArgumentBufferCache{ShaderStage::Vertex, nil, std::numeric_limits<uint32_t>::max()},

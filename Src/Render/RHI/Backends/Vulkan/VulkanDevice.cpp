@@ -344,15 +344,16 @@ public:
         ++m_Version;
     }
 
-    void SetBuffer(uint32_t binding, const BufferBinding& bufferBinding) override
+    void SetBufferArray(uint32_t binding, std::span<const BufferBinding> bufferBindings) override
     {
         const BindingInfo& bindingInfo = RequireBindingInfo(binding, ResourceKind::StorageBuffer);
-        m_BufferBindings[binding] = bufferBinding;
-        WriteBufferDescriptor(bindingInfo, bufferBinding);
+        ValidateBindingArrayCount(bindingInfo, bufferBindings.size(), "buffer");
+        m_BufferBindings[binding] = std::vector<BufferBinding>(bufferBindings.begin(), bufferBindings.end());
+        WriteBufferDescriptor(bindingInfo, m_BufferBindings[binding]);
         ++m_Version;
     }
 
-    void SetTexture(uint32_t binding, const TextureBinding& textureBinding) override
+    void SetTextureArray(uint32_t binding, std::span<const TextureBinding> textureBindings) override
     {
         const BindingInfo* bindingInfo =
             RHIInternal::FindBindingInfo(m_Layout->GetDesc(), m_SetIndex, binding, ResourceKind::SampledTexture);
@@ -363,25 +364,22 @@ public:
                        "Vulkan ResourceSet set {} has no texture binding {} in its PipelineLayout.",
                        m_SetIndex,
                        binding);
-        TextureBinding resolvedBinding = textureBinding;
-        if (resolvedBinding.m_View == nullptr && resolvedBinding.m_Texture != nullptr)
-            resolvedBinding.m_View = ResolveAutoTextureView(binding, resolvedBinding.m_Texture);
-        else
-            m_AutoTextureViews.erase(binding);
+        ValidateBindingArrayCount(*bindingInfo, textureBindings.size(), "texture");
 
-        if (resolvedBinding.m_Texture == nullptr && resolvedBinding.m_View != nullptr)
-            resolvedBinding.m_Texture = resolvedBinding.m_View->GetTexture();
+        std::vector<TextureBinding> resolvedBindings(textureBindings.begin(), textureBindings.end());
+        ResolveAutoTextureViews(binding, resolvedBindings);
 
-        m_TextureBindings[binding] = resolvedBinding;
-        WriteTextureDescriptor(*bindingInfo, resolvedBinding);
+        m_TextureBindings[binding] = std::move(resolvedBindings);
+        WriteTextureDescriptor(*bindingInfo, m_TextureBindings[binding]);
         ++m_Version;
     }
 
-    void SetSampler(uint32_t binding, const SamplerBinding& samplerBinding) override
+    void SetSamplerArray(uint32_t binding, std::span<const SamplerBinding> samplerBindings) override
     {
         const BindingInfo& bindingInfo = RequireBindingInfo(binding, ResourceKind::Sampler);
-        m_SamplerBindings[binding] = samplerBinding;
-        WriteSamplerDescriptor(bindingInfo, samplerBinding);
+        ValidateBindingArrayCount(bindingInfo, samplerBindings.size(), "sampler");
+        m_SamplerBindings[binding] = std::vector<SamplerBinding>(samplerBindings.begin(), samplerBindings.end());
+        WriteSamplerDescriptor(bindingInfo, m_SamplerBindings[binding]);
         ++m_Version;
     }
 
@@ -485,6 +483,18 @@ private:
         return *bindingInfo;
     }
 
+    void
+    ValidateBindingArrayCount(const BindingInfo& bindingInfo, size_t providedCount, std::string_view resourceKind) const
+    {
+        RTRLAB_ASSERTF(providedCount == bindingInfo.m_ArrayCount,
+                       "Vulkan ResourceSet set {} binding {} expects exactly {} {} descriptor(s), but received {}.",
+                       m_SetIndex,
+                       bindingInfo.m_Binding,
+                       bindingInfo.m_ArrayCount,
+                       resourceKind,
+                       providedCount);
+    }
+
     const BindingInfo& RequireConstantBindingInfo() const
     {
         const BindingInfo& bindingInfo = ValidateConstantBindingExists();
@@ -494,96 +504,105 @@ private:
         return bindingInfo;
     }
 
-    void WriteBufferDescriptor(const BindingInfo& bindingInfo, const BufferBinding& bufferBinding)
+    void WriteBufferDescriptor(const BindingInfo& bindingInfo, std::span<const BufferBinding> bufferBindings)
     {
-        RTRLAB_ASSERT_MSG(bindingInfo.m_ArrayCount <= 1,
-                          "Vulkan ResourceSet descriptor writes currently only support non-array buffer bindings.");
-        RTRLAB_ASSERT_MSG(bufferBinding.m_Buffer != nullptr,
-                          "Vulkan ResourceSet buffer descriptor writes require a valid Buffer.");
-        auto* vulkanBuffer = dynamic_cast<VulkanBuffer*>(bufferBinding.m_Buffer);
-        RTRLAB_ASSERT_MSG(vulkanBuffer != nullptr, "Buffer is not owned by the Vulkan backend.");
-
-        VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = vulkanBuffer->GetVkBuffer();
-        bufferInfo.offset = bufferBinding.m_Offset;
-        bufferInfo.range = bufferBinding.m_Size == 0 ? VK_WHOLE_SIZE : bufferBinding.m_Size;
-
-        VkWriteDescriptorSet write{};
-        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        write.dstSet = m_DescriptorSet;
-        write.dstBinding = bindingInfo.m_Binding;
-        write.descriptorCount = 1;
-        write.descriptorType = ToDescriptorType(bindingInfo.m_Kind);
-        write.pBufferInfo = &bufferInfo;
-
-        vkUpdateDescriptorSets(m_Device, 1, &write, 0, nullptr);
-    }
-
-    void WriteTextureDescriptor(const BindingInfo& bindingInfo, const TextureBinding& textureBinding)
-    {
-        RTRLAB_ASSERT_MSG(bindingInfo.m_ArrayCount <= 1,
-                          "Vulkan ResourceSet descriptor writes currently only support non-array texture bindings.");
-        RTRLAB_ASSERT_MSG(textureBinding.m_View != nullptr || textureBinding.m_Texture != nullptr,
-                          "Vulkan ResourceSet texture descriptor writes require a valid Texture or TextureView.");
-
-        VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageView = textureBinding.m_View != nullptr ? GetVkImageViewFromTextureView(textureBinding.m_View)
-                                                               : GetVkImageViewFromTextureView(ResolveAutoTextureView(
-                                                                     bindingInfo.m_Binding, textureBinding.m_Texture));
-        imageInfo.imageLayout = bindingInfo.m_Kind == ResourceKind::StorageTexture
-                                    ? VK_IMAGE_LAYOUT_GENERAL
-                                    : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-        VkWriteDescriptorSet write{};
-        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        write.dstSet = m_DescriptorSet;
-        write.dstBinding = bindingInfo.m_Binding;
-        write.descriptorCount = 1;
-        write.descriptorType = ToDescriptorType(bindingInfo.m_Kind);
-        write.pImageInfo = &imageInfo;
-
-        vkUpdateDescriptorSets(m_Device, 1, &write, 0, nullptr);
-    }
-
-    void WriteSamplerDescriptor(const BindingInfo& bindingInfo, const SamplerBinding& samplerBinding)
-    {
-        RTRLAB_ASSERT_MSG(bindingInfo.m_ArrayCount <= 1,
-                          "Vulkan ResourceSet descriptor writes currently only support non-array sampler bindings.");
-        RTRLAB_ASSERT_MSG(samplerBinding.m_Sampler != nullptr,
-                          "Vulkan ResourceSet sampler descriptor writes require a valid Sampler.");
-        auto* vulkanSampler = dynamic_cast<VulkanSampler*>(samplerBinding.m_Sampler);
-        RTRLAB_ASSERT_MSG(vulkanSampler != nullptr, "Sampler is not owned by the Vulkan backend.");
-
-        VkDescriptorImageInfo imageInfo{};
-        imageInfo.sampler = vulkanSampler->GetVkSampler();
-
-        VkWriteDescriptorSet write{};
-        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        write.dstSet = m_DescriptorSet;
-        write.dstBinding = bindingInfo.m_Binding;
-        write.descriptorCount = 1;
-        write.descriptorType = ToDescriptorType(bindingInfo.m_Kind);
-        write.pImageInfo = &imageInfo;
-
-        vkUpdateDescriptorSets(m_Device, 1, &write, 0, nullptr);
-    }
-
-    TextureView* ResolveAutoTextureView(uint32_t binding, Texture* texture)
-    {
-        RTRLAB_ASSERT_MSG(texture != nullptr,
-                          "Vulkan ResourceSet automatic texture-view resolution requires a valid Texture.");
-
-        const auto autoViewIt = m_AutoTextureViews.find(binding);
-        if (autoViewIt != m_AutoTextureViews.end() && autoViewIt->second != nullptr &&
-            autoViewIt->second->GetTexture() == texture)
+        std::vector<VkDescriptorBufferInfo> bufferInfos(bufferBindings.size());
+        for (size_t index = 0; index < bufferBindings.size(); ++index)
         {
-            return autoViewIt->second.get();
+            const BufferBinding& bufferBinding = bufferBindings[index];
+            RTRLAB_ASSERT_MSG(bufferBinding.m_Buffer != nullptr,
+                              "Vulkan ResourceSet buffer descriptor writes require valid Buffers.");
+            auto* vulkanBuffer = dynamic_cast<VulkanBuffer*>(bufferBinding.m_Buffer);
+            RTRLAB_ASSERT_MSG(vulkanBuffer != nullptr, "Buffer is not owned by the Vulkan backend.");
+
+            VkDescriptorBufferInfo& bufferInfo = bufferInfos[index];
+            bufferInfo.buffer = vulkanBuffer->GetVkBuffer();
+            bufferInfo.offset = bufferBinding.m_Offset;
+            bufferInfo.range = bufferBinding.m_Size == 0 ? VK_WHOLE_SIZE : bufferBinding.m_Size;
         }
 
-        Scope<TextureView> autoView = CreateDefaultVulkanTextureView(m_Device, texture);
-        TextureView* autoViewPtr = autoView.get();
-        m_AutoTextureViews[binding] = std::move(autoView);
-        return autoViewPtr;
+        VkWriteDescriptorSet write{};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = m_DescriptorSet;
+        write.dstBinding = bindingInfo.m_Binding;
+        write.descriptorCount = static_cast<uint32_t>(bufferInfos.size());
+        write.descriptorType = ToDescriptorType(bindingInfo.m_Kind);
+        write.pBufferInfo = bufferInfos.data();
+
+        vkUpdateDescriptorSets(m_Device, 1, &write, 0, nullptr);
+    }
+
+    void WriteTextureDescriptor(const BindingInfo& bindingInfo, std::span<const TextureBinding> textureBindings)
+    {
+        std::vector<VkDescriptorImageInfo> imageInfos(textureBindings.size());
+        for (size_t index = 0; index < textureBindings.size(); ++index)
+        {
+            const TextureBinding& textureBinding = textureBindings[index];
+            RTRLAB_ASSERT_MSG(textureBinding.m_View != nullptr || textureBinding.m_Texture != nullptr,
+                              "Vulkan ResourceSet texture descriptor writes require valid Textures or TextureViews.");
+
+            VkDescriptorImageInfo& imageInfo = imageInfos[index];
+            imageInfo.imageView = GetVkImageViewFromTextureView(textureBinding.m_View);
+            imageInfo.imageLayout = bindingInfo.m_Kind == ResourceKind::StorageTexture
+                                        ? VK_IMAGE_LAYOUT_GENERAL
+                                        : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        }
+
+        VkWriteDescriptorSet write{};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = m_DescriptorSet;
+        write.dstBinding = bindingInfo.m_Binding;
+        write.descriptorCount = static_cast<uint32_t>(imageInfos.size());
+        write.descriptorType = ToDescriptorType(bindingInfo.m_Kind);
+        write.pImageInfo = imageInfos.data();
+
+        vkUpdateDescriptorSets(m_Device, 1, &write, 0, nullptr);
+    }
+
+    void WriteSamplerDescriptor(const BindingInfo& bindingInfo, std::span<const SamplerBinding> samplerBindings)
+    {
+        std::vector<VkDescriptorImageInfo> imageInfos(samplerBindings.size());
+        for (size_t index = 0; index < samplerBindings.size(); ++index)
+        {
+            const SamplerBinding& samplerBinding = samplerBindings[index];
+            RTRLAB_ASSERT_MSG(samplerBinding.m_Sampler != nullptr,
+                              "Vulkan ResourceSet sampler descriptor writes require valid Samplers.");
+            auto* vulkanSampler = dynamic_cast<VulkanSampler*>(samplerBinding.m_Sampler);
+            RTRLAB_ASSERT_MSG(vulkanSampler != nullptr, "Sampler is not owned by the Vulkan backend.");
+
+            VkDescriptorImageInfo& imageInfo = imageInfos[index];
+            imageInfo.sampler = vulkanSampler->GetVkSampler();
+        }
+
+        VkWriteDescriptorSet write{};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = m_DescriptorSet;
+        write.dstBinding = bindingInfo.m_Binding;
+        write.descriptorCount = static_cast<uint32_t>(imageInfos.size());
+        write.descriptorType = ToDescriptorType(bindingInfo.m_Kind);
+        write.pImageInfo = imageInfos.data();
+
+        vkUpdateDescriptorSets(m_Device, 1, &write, 0, nullptr);
+    }
+
+    void ResolveAutoTextureViews(uint32_t binding, std::vector<TextureBinding>& textureBindings)
+    {
+        std::vector<Scope<TextureView>>& autoViews = m_AutoTextureViews[binding];
+        autoViews.clear();
+        autoViews.resize(textureBindings.size());
+
+        for (size_t index = 0; index < textureBindings.size(); ++index)
+        {
+            TextureBinding& textureBinding = textureBindings[index];
+            if (textureBinding.m_View == nullptr && textureBinding.m_Texture != nullptr)
+            {
+                autoViews[index] = CreateDefaultVulkanTextureView(m_Device, textureBinding.m_Texture);
+                textureBinding.m_View = autoViews[index].get();
+            }
+
+            if (textureBinding.m_Texture == nullptr && textureBinding.m_View != nullptr)
+                textureBinding.m_Texture = textureBinding.m_View->GetTexture();
+        }
     }
 
     VkDevice m_Device = VK_NULL_HANDLE;
@@ -593,10 +612,10 @@ private:
     VkDescriptorSet m_DescriptorSet = VK_NULL_HANDLE;
     ParameterBlockData m_Constants;
     std::vector<FrameConstantCache> m_FrameConstantCaches;
-    std::unordered_map<uint32_t, BufferBinding> m_BufferBindings;
-    std::unordered_map<uint32_t, TextureBinding> m_TextureBindings;
-    std::unordered_map<uint32_t, Scope<TextureView>> m_AutoTextureViews;
-    std::unordered_map<uint32_t, SamplerBinding> m_SamplerBindings;
+    std::unordered_map<uint32_t, std::vector<BufferBinding>> m_BufferBindings;
+    std::unordered_map<uint32_t, std::vector<TextureBinding>> m_TextureBindings;
+    std::unordered_map<uint32_t, std::vector<Scope<TextureView>>> m_AutoTextureViews;
+    std::unordered_map<uint32_t, std::vector<SamplerBinding>> m_SamplerBindings;
     uint32_t m_Version = 0;
 };
 

@@ -236,14 +236,15 @@ void ShellResourceSet::SetConstantDataRaw(uint32_t offset, const void* data, siz
     ++m_Version;
 }
 
-void ShellResourceSet::SetBuffer(uint32_t binding, const BufferBinding& bufferBinding)
+void ShellResourceSet::SetBufferArray(uint32_t binding, std::span<const BufferBinding> bufferBindings)
 {
-    (void)RequireBindingInfo(binding, ResourceKind::StorageBuffer);
-    m_BufferBindings[binding] = bufferBinding;
+    const BindingInfo& bindingInfo = RequireBindingInfo(binding, ResourceKind::StorageBuffer);
+    (void)ValidateBindingArrayCount(bindingInfo, bufferBindings.size(), "buffer");
+    m_BufferBindings[binding] = std::vector<BufferBinding>(bufferBindings.begin(), bufferBindings.end());
     ++m_Version;
 }
 
-void ShellResourceSet::SetTexture(uint32_t binding, const TextureBinding& textureBinding)
+void ShellResourceSet::SetTextureArray(uint32_t binding, std::span<const TextureBinding> textureBindings)
 {
     const BindingInfo* bindingInfo =
         FindBindingInfo(m_Layout->GetDesc(), m_SetIndex, binding, ResourceKind::SampledTexture);
@@ -253,14 +254,16 @@ void ShellResourceSet::SetTexture(uint32_t binding, const TextureBinding& textur
                    "ResourceSet set {} has no texture binding {} in its PipelineLayout.",
                    m_SetIndex,
                    binding);
-    m_TextureBindings[binding] = textureBinding;
+    (void)ValidateBindingArrayCount(*bindingInfo, textureBindings.size(), "texture");
+    m_TextureBindings[binding] = std::vector<TextureBinding>(textureBindings.begin(), textureBindings.end());
     ++m_Version;
 }
 
-void ShellResourceSet::SetSampler(uint32_t binding, const SamplerBinding& samplerBinding)
+void ShellResourceSet::SetSamplerArray(uint32_t binding, std::span<const SamplerBinding> samplerBindings)
 {
-    (void)RequireBindingInfo(binding, ResourceKind::Sampler);
-    m_SamplerBindings[binding] = samplerBinding;
+    const BindingInfo& bindingInfo = RequireBindingInfo(binding, ResourceKind::Sampler);
+    (void)ValidateBindingArrayCount(bindingInfo, samplerBindings.size(), "sampler");
+    m_SamplerBindings[binding] = std::vector<SamplerBinding>(samplerBindings.begin(), samplerBindings.end());
     ++m_Version;
 }
 
@@ -276,6 +279,20 @@ const BindingInfo& ShellResourceSet::RequireBindingInfo(uint32_t binding, Resour
     return *bindingInfo;
 }
 
+const BindingInfo& ShellResourceSet::ValidateBindingArrayCount(const BindingInfo& bindingInfo,
+                                                               size_t providedCount,
+                                                               std::string_view resourceKind) const
+{
+    RTRLAB_ASSERTF(providedCount == bindingInfo.m_ArrayCount,
+                   "ResourceSet set {} binding {} expects exactly {} {} descriptor(s), but received {}.",
+                   m_SetIndex,
+                   bindingInfo.m_Binding,
+                   bindingInfo.m_ArrayCount,
+                   resourceKind,
+                   providedCount);
+    return bindingInfo;
+}
+
 const BindingInfo& ShellResourceSet::ValidateConstantBindingExists() const
 {
     RTRLAB_ASSERT_MSG(m_Layout != nullptr, "ResourceSet constant validation requires a valid PipelineLayout.");
@@ -283,6 +300,8 @@ const BindingInfo& ShellResourceSet::ValidateConstantBindingExists() const
         FindFirstBindingInfoForSet(m_Layout->GetDesc(), m_SetIndex, ResourceKind::UniformBuffer);
     RTRLAB_ASSERTF(
         bindingInfo != nullptr, "ResourceSet set {} has no UniformBuffer binding in its PipelineLayout.", m_SetIndex);
+    RTRLAB_ASSERT_MSG(bindingInfo->m_ArrayCount <= 1,
+                      "ResourceSet constant writes currently only support non-array UniformBuffer bindings.");
     return *bindingInfo;
 }
 

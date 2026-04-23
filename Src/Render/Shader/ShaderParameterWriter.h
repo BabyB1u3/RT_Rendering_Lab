@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -45,19 +46,37 @@ public:
     void SetFloat4(ResourceSet& resourceSet, FieldHandle fieldHandle, const Math::Vec4& value) const;
     void SetMatrix4x4(ResourceSet& resourceSet, FieldHandle fieldHandle, const Math::Mat4& value) const;
     void SetTexture(ResourceSet& resourceSet, BindingHandle bindingHandle, Texture* texture) const;
+    void
+    SetTextureArray(ResourceSet& resourceSet, BindingHandle bindingHandle, std::span<Texture* const> textures) const;
     void SetTextureView(ResourceSet& resourceSet, BindingHandle bindingHandle, TextureView* textureView) const;
+    void SetTextureViewArray(ResourceSet& resourceSet,
+                             BindingHandle bindingHandle,
+                             std::span<TextureView* const> textureViews) const;
     void SetSampler(ResourceSet& resourceSet, BindingHandle bindingHandle, Sampler* sampler) const;
+    void
+    SetSamplerArray(ResourceSet& resourceSet, BindingHandle bindingHandle, std::span<Sampler* const> samplers) const;
     void SetBuffer(
         ResourceSet& resourceSet, BindingHandle bindingHandle, Buffer* buffer, uint64_t offset, uint64_t size) const;
+    void SetBufferArray(ResourceSet& resourceSet,
+                        BindingHandle bindingHandle,
+                        std::span<const BufferBinding> bufferBindings) const;
 
     void SetFloat(ResourceSet& resourceSet, std::string_view path, float value) const;
     void SetFloat4(ResourceSet& resourceSet, std::string_view path, const Math::Vec4& value) const;
     void SetMatrix4x4(ResourceSet& resourceSet, std::string_view path, const Math::Mat4& value) const;
     void SetTexture(ResourceSet& resourceSet, std::string_view path, Texture* texture) const;
+    void SetTextureArray(ResourceSet& resourceSet, std::string_view path, std::span<Texture* const> textures) const;
     void SetTextureView(ResourceSet& resourceSet, std::string_view path, TextureView* textureView) const;
+    void SetTextureViewArray(ResourceSet& resourceSet,
+                             std::string_view path,
+                             std::span<TextureView* const> textureViews) const;
     void SetSampler(ResourceSet& resourceSet, std::string_view path, Sampler* sampler) const;
+    void SetSamplerArray(ResourceSet& resourceSet, std::string_view path, std::span<Sampler* const> samplers) const;
     void
     SetBuffer(ResourceSet& resourceSet, std::string_view path, Buffer* buffer, uint64_t offset, uint64_t size) const;
+    void SetBufferArray(ResourceSet& resourceSet,
+                        std::string_view path,
+                        std::span<const BufferBinding> bufferBindings) const;
 
 private:
     struct FieldInfo
@@ -86,6 +105,10 @@ private:
     void AddFieldPath(std::string path, const FieldInfo& fieldInfo);
     void AddBindingPath(std::string path, const BindingInfo& bindingInfo);
     void SetConstantData(ResourceSet& resourceSet, FieldHandle fieldHandle, const void* data, size_t size) const;
+    void ValidateNonArrayBinding(const BindingInfo& bindingInfo, std::string_view operationName) const;
+    void ValidateArrayBindingCount(const BindingInfo& bindingInfo,
+                                   size_t providedCount,
+                                   std::string_view operationName) const;
     void ValidateResourceSetSetIndex(const ResourceSet& resourceSet,
                                      uint32_t expectedSetIndex,
                                      std::string_view pathKind) const;

@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -325,9 +326,24 @@ public:
         SetConstantDataRaw(offset, &value, sizeof(T));
     }
 
-    virtual void SetBuffer(uint32_t binding, const BufferBinding& bufferBinding) = 0;
-    virtual void SetTexture(uint32_t binding, const TextureBinding& textureBinding) = 0;
-    virtual void SetSampler(uint32_t binding, const SamplerBinding& samplerBinding) = 0;
+    virtual void SetBufferArray(uint32_t binding, std::span<const BufferBinding> bufferBindings) = 0;
+    virtual void SetTextureArray(uint32_t binding, std::span<const TextureBinding> textureBindings) = 0;
+    virtual void SetSamplerArray(uint32_t binding, std::span<const SamplerBinding> samplerBindings) = 0;
+
+    void SetBuffer(uint32_t binding, const BufferBinding& bufferBinding)
+    {
+        SetBufferArray(binding, std::span<const BufferBinding>(&bufferBinding, 1));
+    }
+
+    void SetTexture(uint32_t binding, const TextureBinding& textureBinding)
+    {
+        SetTextureArray(binding, std::span<const TextureBinding>(&textureBinding, 1));
+    }
+
+    void SetSampler(uint32_t binding, const SamplerBinding& samplerBinding)
+    {
+        SetSamplerArray(binding, std::span<const SamplerBinding>(&samplerBinding, 1));
+    }
 
     virtual uint32_t GetVersion() const = 0;
 };
