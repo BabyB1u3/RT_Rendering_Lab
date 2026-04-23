@@ -2,6 +2,7 @@
 
 #include <cstring>
 
+#include "Render/RHI/Backends/Common/RHIShellCommon.h"
 #include "Render/RHI/Backends/Metal/Resources/MetalBuffer.h"
 #include "Render/RHI/Backends/Metal/Common/MetalConversions.h"
 #include "Render/RHI/Backends/Metal/Resources/MetalSampler.h"
