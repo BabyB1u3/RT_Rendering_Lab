@@ -18,6 +18,15 @@
 namespace Math
 {
 
+// Shorter project-local aliases for the Eigen types used across the codebase.
+// Prefer these in new code; Eigen::VectorXf / MatrixXf still work seamlessly.
+using Vec2 = Eigen::Vector2f;
+using Vec3 = Eigen::Vector3f;
+using Vec4 = Eigen::Vector4f;
+using Mat3 = Eigen::Matrix3f;
+using Mat4 = Eigen::Matrix4f;
+using Quat = Eigen::Quaternionf;
+
 inline float Radians(float degrees)
 {
     return degrees * (std::numbers::pi_v<float> / 180.0f);
