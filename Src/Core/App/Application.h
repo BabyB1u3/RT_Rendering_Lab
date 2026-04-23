@@ -9,10 +9,10 @@
 /// Main loop (Application::Run):
 ///   1. Poll OS events
 ///   2. Update frame time
-///   3. Begin frame
+///   3. Begin frame / acquire swapchain image / open command list
 ///   4. For each layer: OnUpdate(dt) -> OnRender()
 ///   5. ImGuiLayer::Begin() -> For each layer: OnImGuiRender() -> ImGuiLayer::End()
-///   6. End frame -> present
+///   6. End frame / submit / present
 ///
 /// Only one Application instance may exist at a time (enforced by s_Instance).
 
@@ -62,12 +62,16 @@ public:
     const Device& GetDevice() const { return *m_Device; }
     Swapchain& GetSwapchain() { return *m_Swapchain; }
     const Swapchain& GetSwapchain() const { return *m_Swapchain; }
+    ResourceStateTracker& GetResourceStateTracker() { return m_ResourceStateTracker; }
+    const ResourceStateTracker& GetResourceStateTracker() const { return m_ResourceStateTracker; }
 
     EventBus& GetEventBus() { return m_EventBus; }
-    /// Transitional accessor for the command list currently being recorded.
-    /// Returns nullptr outside the active frame-recording window and should be
-    /// removed once a dedicated renderer-facing context exists.
+    /// Transitional per-frame recording accessors. These expose the active
+    /// command list and swapchain backbuffer while the application still
+    /// drives the frame pump, but pass ownership lives with the caller.
     CommandList* GetCurrentCommandList() const { return m_CommandList; }
+    Texture* GetCurrentSwapchainImage() const { return m_SwapchainImage; }
+    TextureView* GetCurrentSwapchainImageView() const { return m_SwapchainImageView; }
 
     static Application& Get() { return *s_Instance; }
 
@@ -79,9 +83,9 @@ private:
     void RenderFrame();
     /// Return whether the current loop tick should render a frame.
     bool ShouldRenderFrame() const;
-    /// Begin the graphics frame. Future explicit-RHI acquire/beginFrame work lands here.
+    /// Begin the graphics frame by acquiring the swapchain image and opening a command list.
     void BeginFrame();
-    /// End the graphics frame. Future explicit-RHI submit/endFrame work lands here.
+    /// End the graphics frame by finalizing swapchain state, submitting, and ending the backend frame.
     void EndFrame();
     /// Present the completed frame. Future explicit-RHI swapchain present lands here.
     void PresentFrame();

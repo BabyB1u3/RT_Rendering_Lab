@@ -121,12 +121,28 @@ void HelloTriangle::OnRender()
     if (!m_GraphicsPipeline || !m_VertexBuffer || !m_IndexBuffer)
         return;
 
-    CommandList* commandList = Application::Get().GetCurrentCommandList();
+    Application& app = Application::Get();
+    CommandList* commandList = app.GetCurrentCommandList();
     RTRLAB_ASSERT_MSG(commandList != nullptr, "HelloTriangle requires an active command list during OnRender.");
-    // NOTE: In the current demo contract, Application owns the outer
-    // BeginRendering/EndRendering scope and layers only record draw calls into
-    // that active pass. A future render-graph path will move pass ownership out
-    // of Application::RenderFrame and make it explicit at a higher level.
+    Texture* swapchainImage = app.GetCurrentSwapchainImage();
+    TextureView* swapchainImageView = app.GetCurrentSwapchainImageView();
+    RTRLAB_ASSERT_MSG(swapchainImage != nullptr && swapchainImageView != nullptr,
+                      "HelloTriangle requires the application to expose the active swapchain backbuffer.");
+
+    ResourceStateTracker& resourceStateTracker = app.GetResourceStateTracker();
+    resourceStateTracker.Transition(swapchainImage, TextureState::RenderTarget);
+    resourceStateTracker.FlushBarriers(commandList);
+
+    ColorAttachmentInfo colorAttachment;
+    colorAttachment.m_View = swapchainImageView;
+    colorAttachment.m_LoadOp = LoadOp::Clear;
+    colorAttachment.m_StoreOp = StoreOp::Store;
+    colorAttachment.m_ClearValue = {0.08f, 0.10f, 0.12f, 1.0f};
+
+    RenderingInfo renderingInfo;
+    renderingInfo.m_ColorAttachments = {colorAttachment};
+    renderingInfo.m_RenderArea = {0, 0, m_ViewportWidth, m_ViewportHeight};
+    commandList->BeginRendering(renderingInfo);
 
     UpdateAnimatedParameters();
 
@@ -144,6 +160,7 @@ void HelloTriangle::OnRender()
     commandList->BindResourceSet(m_ObjectSetIndex, m_ObjectSet.get());
     commandList->BindMesh(meshBinding);
     commandList->DrawIndexed(3, 0, 0);
+    commandList->EndRendering();
 #endif
 }
 

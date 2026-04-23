@@ -172,29 +172,12 @@ void Application::BeginFrame()
     m_SwapchainImage = m_Swapchain->GetImage(m_SwapchainImageIndex);
     m_SwapchainImageView = m_Swapchain->GetImageView(m_SwapchainImageIndex);
     m_CommandList = m_Device->BeginCommandList();
-
-    m_ResourceStateTracker.Transition(m_SwapchainImage, TextureState::RenderTarget);
-    m_ResourceStateTracker.FlushBarriers(m_CommandList);
-
-    ColorAttachmentInfo colorAttachment;
-    colorAttachment.m_View = m_SwapchainImageView;
-    colorAttachment.m_LoadOp = LoadOp::Clear;
-    colorAttachment.m_StoreOp = StoreOp::Store;
-    colorAttachment.m_ClearValue = {0.08f, 0.10f, 0.12f, 1.0f};
-
-    RenderingInfo renderingInfo;
-    renderingInfo.m_ColorAttachments = {colorAttachment};
-    renderingInfo.m_RenderArea = {0, 0, m_Swapchain->GetWidth(), m_Swapchain->GetHeight()};
-
-    m_CommandList->BeginRendering(renderingInfo);
 }
 
 void Application::EndFrame()
 {
     RTRLAB_ASSERT_MSG(m_Device && m_Swapchain, "Application RHI must remain valid until the frame ends.");
     RTRLAB_ASSERT_MSG(m_CommandList && m_FrameContext, "EndFrame requires an active frame and command list.");
-
-    m_CommandList->EndRendering();
 
     m_ResourceStateTracker.Transition(m_SwapchainImage, TextureState::Present);
     m_ResourceStateTracker.FlushBarriers(m_CommandList);
