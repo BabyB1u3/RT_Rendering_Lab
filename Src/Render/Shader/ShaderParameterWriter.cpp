@@ -4,8 +4,6 @@
 #include <string>
 #include <utility>
 
-#include <Eigen/Core>
-
 #include "Core/Diagnostics/Assert/Assert.h"
 
 namespace
@@ -61,16 +59,14 @@ void ShaderParameterWriter::SetFloat(ResourceSet& resourceSet, FieldHandle field
     SetConstantData(resourceSet, fieldHandle, &value, sizeof(value));
 }
 
-void ShaderParameterWriter::SetFloat4(ResourceSet& resourceSet,
-                                      FieldHandle fieldHandle,
-                                      const Eigen::Vector4f& value) const
+void ShaderParameterWriter::SetFloat4(ResourceSet& resourceSet, FieldHandle fieldHandle, const Math::Vec4& value) const
 {
     SetConstantData(resourceSet, fieldHandle, &value, sizeof(value));
 }
 
 void ShaderParameterWriter::SetMatrix4x4(ResourceSet& resourceSet,
                                          FieldHandle fieldHandle,
-                                         const Eigen::Matrix4f& value) const
+                                         const Math::Mat4& value) const
 {
     SetConstantData(resourceSet, fieldHandle, &value, sizeof(value));
 }
@@ -121,18 +117,14 @@ void ShaderParameterWriter::SetFloat(ResourceSet& resourceSet, std::string_view 
     SetFloat(resourceSet, fieldHandle, value);
 }
 
-void ShaderParameterWriter::SetFloat4(ResourceSet& resourceSet,
-                                      std::string_view path,
-                                      const Eigen::Vector4f& value) const
+void ShaderParameterWriter::SetFloat4(ResourceSet& resourceSet, std::string_view path, const Math::Vec4& value) const
 {
     const FieldHandle fieldHandle = ResolveField(path);
     RTRLAB_ASSERT_MSG(fieldHandle.IsValid(), "SetFloat4 requires a valid reflected constant-data field path.");
     SetFloat4(resourceSet, fieldHandle, value);
 }
 
-void ShaderParameterWriter::SetMatrix4x4(ResourceSet& resourceSet,
-                                         std::string_view path,
-                                         const Eigen::Matrix4f& value) const
+void ShaderParameterWriter::SetMatrix4x4(ResourceSet& resourceSet, std::string_view path, const Math::Mat4& value) const
 {
     const FieldHandle fieldHandle = ResolveField(path);
     RTRLAB_ASSERT_MSG(fieldHandle.IsValid(), "SetMatrix4x4 requires a valid reflected constant-data field path.");

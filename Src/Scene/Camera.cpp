@@ -44,7 +44,7 @@ void Camera::SetAspectRatio(float aspectRatio)
     RecalculateProjection();
 }
 
-void Camera::SetPosition(const Eigen::Vector3f& position)
+void Camera::SetPosition(const Math::Vec3& position)
 {
     m_Position = position;
     RecalculateView();
@@ -65,7 +65,7 @@ void Camera::SetRotation(float yawDegrees, float pitchDegrees)
 
 void Camera::RecalculateProjection()
 {
-    m_Projection = Math::Perspective(Math::Radians(m_VerticalFovDegrees), m_AspectRatio, m_NearClip, m_FarClip);
+    m_Projection = Math::PerspectiveRH_ZO(Math::Radians(m_VerticalFovDegrees), m_AspectRatio, m_NearClip, m_FarClip);
 }
 
 void Camera::RecalculateView()
@@ -77,7 +77,7 @@ void Camera::RecalculateBasis()
 {
     // Convert Euler angles (yaw, pitch) to a forward direction vector.
     // Yaw rotates around Y in the XZ plane; pitch tilts up/down.
-    Eigen::Vector3f forward;
+    Math::Vec3 forward;
     forward.x() = std::cos(Math::Radians(m_Yaw)) * std::cos(Math::Radians(m_Pitch));
     forward.y() = std::sin(Math::Radians(m_Pitch));
     forward.z() = std::sin(Math::Radians(m_Yaw)) * std::cos(Math::Radians(m_Pitch));
@@ -86,9 +86,9 @@ void Camera::RecalculateBasis()
 
     // When forward aligns with world-up, the usual cross product degenerates to
     // zero. Switch to a stable fallback axis so the basis stays well-defined.
-    Eigen::Vector3f referenceUp = m_WorldUp;
+    Math::Vec3 referenceUp = m_WorldUp;
     if (std::abs(m_Forward.dot(m_WorldUp)) > 0.999f)
-        referenceUp = Eigen::Vector3f(0.0f, 0.0f, 1.0f);
+        referenceUp = Math::Vec3(0.0f, 0.0f, 1.0f);
 
     m_Right = m_Forward.cross(referenceUp).normalized();
     m_Up = m_Right.cross(m_Forward).normalized();

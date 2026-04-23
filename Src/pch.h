@@ -13,7 +13,5 @@
 #include <utility>
 #include <vector>
 
-#include <Eigen/Core>
-#include <Eigen/Geometry>
-
+#include "Core/Util/Math.h"
 #include <spdlog/spdlog.h>

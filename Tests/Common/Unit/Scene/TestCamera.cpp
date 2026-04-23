@@ -2,11 +2,9 @@
 
 #include <cmath>
 
-#include <Eigen/Core>
-
 #include "Core/Util/Math.h"
-#include "Scene/Camera.h"
 #include "MathTestUtils.h"
+#include "Scene/Camera.h"
 
 TEST(CameraTests, DefaultBasisVectorsAreOrthogonalAndNormalized)
 {
@@ -25,9 +23,9 @@ TEST(CameraTests, DefaultConstructionBuildsConsistentViewAndProjection)
 {
     Camera camera;
 
-    Eigen::Matrix4f expectedView =
+    Math::Mat4 expectedView =
         Math::LookAt(camera.GetPosition(), camera.GetPosition() + camera.GetForward(), camera.GetUp());
-    Eigen::Matrix4f expectedProjection = Math::Perspective(Math::Radians(camera.GetVerticalFovDegrees()),
+    Math::Mat4 expectedProjection = Math::PerspectiveRH_ZO(Math::Radians(camera.GetVerticalFovDegrees()),
                                                            camera.GetAspectRatio(),
                                                            camera.GetNearClip(),
                                                            camera.GetFarClip());
@@ -59,7 +57,7 @@ TEST(CameraTests, SetViewportSizeWithZeroHeightKeepsProjectionStateUnchanged)
     Camera camera(45.0f, 16.0f / 9.0f, 0.1f, 100.0f);
 
     const float originalAspect = camera.GetAspectRatio();
-    const Eigen::Matrix4f originalProjection = camera.GetProjection();
+    const Math::Mat4 originalProjection = camera.GetProjection();
 
     camera.SetViewportSize(1920, 0);
 
@@ -101,6 +99,6 @@ TEST(CameraTests, ViewProjectionMatchesProjectionTimesView)
     camera.SetPosition({1.0f, 2.0f, 3.0f});
     camera.SetRotation(-90.0f, 0.0f);
 
-    Eigen::Matrix4f expected = camera.GetProjection() * camera.GetView();
+    Math::Mat4 expected = camera.GetProjection() * camera.GetView();
     ExpectMat4Near(camera.GetViewProjection(), expected);
 }

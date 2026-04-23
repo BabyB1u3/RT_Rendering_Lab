@@ -4,7 +4,5 @@
 #include <string>
 #include <vector>
 
-#include <Eigen/Core>
-#include <Eigen/Geometry>
-
+#include "Core/Util/Math.h"
 #include <gtest/gtest.h>

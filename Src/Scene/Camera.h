@@ -13,7 +13,7 @@
 ///
 /// Basis vectors (Forward, Right, Up) are derived from yaw/pitch via RecalculateBasis().
 
-#include <Eigen/Core>
+#include "Core/Util/Math.h"
 
 class Camera
 {
@@ -25,20 +25,20 @@ public:
     void SetViewportSize(uint32_t width, uint32_t height);
     void SetAspectRatio(float aspectRatio);
 
-    void SetPosition(const Eigen::Vector3f& position);
+    void SetPosition(const Math::Vec3& position);
     void SetRotation(float yawDegrees, float pitchDegrees);
 
-    const Eigen::Vector3f& GetPosition() const { return m_Position; }
+    const Math::Vec3& GetPosition() const { return m_Position; }
     float GetYaw() const { return m_Yaw; }
     float GetPitch() const { return m_Pitch; }
 
-    const Eigen::Vector3f& GetForward() const { return m_Forward; }
-    const Eigen::Vector3f& GetRight() const { return m_Right; }
-    const Eigen::Vector3f& GetUp() const { return m_Up; }
+    const Math::Vec3& GetForward() const { return m_Forward; }
+    const Math::Vec3& GetRight() const { return m_Right; }
+    const Math::Vec3& GetUp() const { return m_Up; }
 
-    const Eigen::Matrix4f& GetProjection() const { return m_Projection; }
-    const Eigen::Matrix4f& GetView() const { return m_View; }
-    Eigen::Matrix4f GetViewProjection() const { return m_Projection * m_View; }
+    const Math::Mat4& GetProjection() const { return m_Projection; }
+    const Math::Mat4& GetView() const { return m_View; }
+    Math::Mat4 GetViewProjection() const { return m_Projection * m_View; }
 
     float GetVerticalFovDegrees() const { return m_VerticalFovDegrees; }
     float GetAspectRatio() const { return m_AspectRatio; }
@@ -59,16 +59,16 @@ private:
     float m_FarClip = 100.0f;
 
     // Transform
-    Eigen::Vector3f m_Position{0.0f, 0.0f, 3.0f};
+    Math::Vec3 m_Position{0.0f, 0.0f, 3.0f};
     float m_Yaw = -90.0f;
     float m_Pitch = 0.0f;
 
     // Basis vectors
-    Eigen::Vector3f m_Forward{0.0f, 0.0f, -1.0f};
-    Eigen::Vector3f m_Right{1.0f, 0.0f, 0.0f};
-    Eigen::Vector3f m_Up{0.0f, 1.0f, 0.0f};
-    Eigen::Vector3f m_WorldUp{0.0f, 1.0f, 0.0f};
+    Math::Vec3 m_Forward{0.0f, 0.0f, -1.0f};
+    Math::Vec3 m_Right{1.0f, 0.0f, 0.0f};
+    Math::Vec3 m_Up{0.0f, 1.0f, 0.0f};
+    Math::Vec3 m_WorldUp{0.0f, 1.0f, 0.0f};
 
-    Eigen::Matrix4f m_Projection = Eigen::Matrix4f::Identity();
-    Eigen::Matrix4f m_View = Eigen::Matrix4f::Identity();
+    Math::Mat4 m_Projection = Math::Mat4::Identity();
+    Math::Mat4 m_View = Math::Mat4::Identity();
 };

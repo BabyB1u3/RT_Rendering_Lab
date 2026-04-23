@@ -17,8 +17,8 @@
 namespace Math
 {
 
-// Shorter project-local aliases for the Eigen types used across the codebase.
-// Prefer these in new code; Eigen::VectorXf / MatrixXf still work seamlessly.
+// Project-local math aliases used across the codebase.
+// Prefer these names at call sites so Eigen remains an implementation detail.
 using Vec2 = Eigen::Vector2f;
 using Vec3 = Eigen::Vector3f;
 using Vec4 = Eigen::Vector4f;

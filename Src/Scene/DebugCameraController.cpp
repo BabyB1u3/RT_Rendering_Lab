@@ -13,7 +13,7 @@ void DebugCameraController::MoveForward(double deltaTime)
 {
     if (!m_Camera)
         return;
-    Eigen::Vector3f position = m_Camera->GetPosition();
+    Math::Vec3 position = m_Camera->GetPosition();
     position += m_Camera->GetForward() * static_cast<float>(m_MoveSpeed * deltaTime);
     m_Camera->SetPosition(position);
 }
@@ -22,7 +22,7 @@ void DebugCameraController::MoveBackward(double deltaTime)
 {
     if (!m_Camera)
         return;
-    Eigen::Vector3f position = m_Camera->GetPosition();
+    Math::Vec3 position = m_Camera->GetPosition();
     position -= m_Camera->GetForward() * static_cast<float>(m_MoveSpeed * deltaTime);
     m_Camera->SetPosition(position);
 }
@@ -31,7 +31,7 @@ void DebugCameraController::MoveLeft(double deltaTime)
 {
     if (!m_Camera)
         return;
-    Eigen::Vector3f position = m_Camera->GetPosition();
+    Math::Vec3 position = m_Camera->GetPosition();
     position -= m_Camera->GetRight() * static_cast<float>(m_MoveSpeed * deltaTime);
     m_Camera->SetPosition(position);
 }
@@ -40,7 +40,7 @@ void DebugCameraController::MoveRight(double deltaTime)
 {
     if (!m_Camera)
         return;
-    Eigen::Vector3f position = m_Camera->GetPosition();
+    Math::Vec3 position = m_Camera->GetPosition();
     position += m_Camera->GetRight() * static_cast<float>(m_MoveSpeed * deltaTime);
     m_Camera->SetPosition(position);
 }
@@ -49,8 +49,8 @@ void DebugCameraController::MoveUp(double deltaTime)
 {
     if (!m_Camera)
         return;
-    Eigen::Vector3f position = m_Camera->GetPosition();
-    position += Eigen::Vector3f(0.0f, 1.0f, 0.0f) * static_cast<float>(m_MoveSpeed * deltaTime);
+    Math::Vec3 position = m_Camera->GetPosition();
+    position += Math::Vec3(0.0f, 1.0f, 0.0f) * static_cast<float>(m_MoveSpeed * deltaTime);
     m_Camera->SetPosition(position);
 }
 
@@ -58,8 +58,8 @@ void DebugCameraController::MoveDown(double deltaTime)
 {
     if (!m_Camera)
         return;
-    Eigen::Vector3f position = m_Camera->GetPosition();
-    position -= Eigen::Vector3f(0.0f, 1.0f, 0.0f) * static_cast<float>(m_MoveSpeed * deltaTime);
+    Math::Vec3 position = m_Camera->GetPosition();
+    position -= Math::Vec3(0.0f, 1.0f, 0.0f) * static_cast<float>(m_MoveSpeed * deltaTime);
     m_Camera->SetPosition(position);
 }
 

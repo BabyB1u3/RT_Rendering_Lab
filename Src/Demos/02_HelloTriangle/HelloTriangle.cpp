@@ -6,14 +6,12 @@
 #include <cstddef>
 #include <utility>
 
-#include <Eigen/Core>
-
 #include "Core/App/Application.h"
-#include "Core/Util/Math.h"
 #include "Core/Diagnostics/Assert/Assert.h"
 #include "Core/Diagnostics/Logging/LogCategories.h"
 #include "Core/Diagnostics/Logging/LogMacros.h"
 #include "Core/Resource/FileSystem.h"
+#include "Core/Util/Math.h"
 #include "Core/Util/Time.h"
 #include "Render/Shader/ShaderCompiler.h"
 #include "Render/Shader/ShaderParameterWriter.h"
@@ -23,8 +21,8 @@ namespace
 {
 struct TriangleVertex
 {
-    Eigen::Vector2f m_Position;
-    Eigen::Vector4f m_Color;
+    Math::Vec2 m_Position;
+    Math::Vec4 m_Color;
 };
 
 struct DemoViewport
@@ -201,8 +199,8 @@ void HelloTriangle::CreateTriangleResources()
 
     ShaderParameterWriter parameterWriter(m_ShaderProgram->GetReflection());
 
-    const Eigen::Matrix4f viewProj = Eigen::Matrix4f::Identity();
-    const Eigen::Vector4f baseColor = Eigen::Vector4f(1.0f, 0.95f, 0.85f, 1.0f);
+    const Math::Mat4 viewProj = Math::Mat4::Identity();
+    const Math::Vec4 baseColor = Math::Vec4(1.0f, 0.95f, 0.85f, 1.0f);
 
     parameterWriter.SetMatrix4x4(*m_FrameSet, "gFrame.viewProj", viewProj);
     parameterWriter.SetFloat4(*m_MaterialSet, "gMaterial.baseColor", baseColor);
@@ -238,11 +236,10 @@ void HelloTriangle::UpdateAnimatedParameters()
     const float verticalOffset = -0.04f + (pulse - 0.5f) * 0.10f;
     const float uniformScale = 0.88f + pulse * 0.10f;
 
-    const Eigen::Vector4f tint = Eigen::Vector4f(0.70f + 0.30f * pulse, 0.80f + 0.15f * pulse, 0.90f, 1.0f);
-    const Eigen::Vector4f baseColor = Eigen::Vector4f(1.0f, 0.70f + 0.25f * pulse, 0.70f + 0.20f * pulse, 1.0f);
-    const Eigen::Matrix4f model =
-        Math::Translate(Eigen::Matrix4f::Identity(), Eigen::Vector3f(0.0f, verticalOffset, 0.0f)) *
-        Math::Scale(Eigen::Matrix4f::Identity(), Eigen::Vector3f(uniformScale, uniformScale, 1.0f));
+    const Math::Vec4 tint = Math::Vec4(0.70f + 0.30f * pulse, 0.80f + 0.15f * pulse, 0.90f, 1.0f);
+    const Math::Vec4 baseColor = Math::Vec4(1.0f, 0.70f + 0.25f * pulse, 0.70f + 0.20f * pulse, 1.0f);
+    const Math::Mat4 model = Math::Translate(Math::Mat4::Identity(), Math::Vec3(0.0f, verticalOffset, 0.0f)) *
+                             Math::Scale(Math::Mat4::Identity(), Math::Vec3(uniformScale, uniformScale, 1.0f));
 
     ShaderParameterWriter parameterWriter(m_ShaderProgram->GetReflection());
     parameterWriter.SetFloat4(*m_FrameSet, "gFrame.tint", tint);

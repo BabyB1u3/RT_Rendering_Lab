@@ -7,31 +7,28 @@
 /// Rotation order is ZYX (roll, then yaw, then pitch) - standard for FPS-style objects.
 /// The matrix is recomputed on every call; caching can be added if profiling shows a need.
 
-#include <Eigen/Core>
-#include <Eigen/Geometry>
-
 #include "Core/Util/Math.h"
 
 struct Transform
 {
-    Eigen::Vector3f m_Position{0.0f, 0.0f, 0.0f};
-    Eigen::Vector3f m_RotationEulerDegrees{0.0f, 0.0f, 0.0f};
-    Eigen::Vector3f m_Scale{1.0f, 1.0f, 1.0f};
+    Math::Vec3 m_Position{0.0f, 0.0f, 0.0f};
+    Math::Vec3 m_RotationEulerDegrees{0.0f, 0.0f, 0.0f};
+    Math::Vec3 m_Scale{1.0f, 1.0f, 1.0f};
 
     /// Compute the TRS model matrix. Rotation order: Z * Y * X.
-    Eigen::Matrix4f GetMatrix() const
+    Math::Mat4 GetMatrix() const
     {
-        const Eigen::Matrix4f translation = Math::Translate(Eigen::Matrix4f::Identity(), m_Position);
+        const Math::Mat4 translation = Math::Translate(Math::Mat4::Identity(), m_Position);
 
-        const Eigen::Matrix4f rotationX = Math::Rotate(
-            Eigen::Matrix4f::Identity(), Math::Radians(m_RotationEulerDegrees.x()), Eigen::Vector3f(1.0f, 0.0f, 0.0f));
-        const Eigen::Matrix4f rotationY = Math::Rotate(
-            Eigen::Matrix4f::Identity(), Math::Radians(m_RotationEulerDegrees.y()), Eigen::Vector3f(0.0f, 1.0f, 0.0f));
-        const Eigen::Matrix4f rotationZ = Math::Rotate(
-            Eigen::Matrix4f::Identity(), Math::Radians(m_RotationEulerDegrees.z()), Eigen::Vector3f(0.0f, 0.0f, 1.0f));
+        const Math::Mat4 rotationX = Math::Rotate(
+            Math::Mat4::Identity(), Math::Radians(m_RotationEulerDegrees.x()), Math::Vec3(1.0f, 0.0f, 0.0f));
+        const Math::Mat4 rotationY = Math::Rotate(
+            Math::Mat4::Identity(), Math::Radians(m_RotationEulerDegrees.y()), Math::Vec3(0.0f, 1.0f, 0.0f));
+        const Math::Mat4 rotationZ = Math::Rotate(
+            Math::Mat4::Identity(), Math::Radians(m_RotationEulerDegrees.z()), Math::Vec3(0.0f, 0.0f, 1.0f));
 
-        const Eigen::Matrix4f rotation = rotationZ * rotationY * rotationX;
-        const Eigen::Matrix4f scale = Math::Scale(Eigen::Matrix4f::Identity(), m_Scale);
+        const Math::Mat4 rotation = rotationZ * rotationY * rotationX;
+        const Math::Mat4 scale = Math::Scale(Math::Mat4::Identity(), m_Scale);
 
         return translation * rotation * scale;
     }

@@ -1,7 +1,7 @@
 #pragma once
 
 /// @file BuiltinTraits.h
-/// @brief Built-in Serialize/Deserialize overloads for primitives, Eigen vector/matrix
+/// @brief Built-in Serialize/Deserialize overloads for primitives, engine math
 ///        types, enums (via magic_enum), and standard containers.
 
 #include "Core/Serialization/SerializationTraits.h"
@@ -9,7 +9,8 @@
 #include "Core/Diagnostics/Logging/LogMacros.h"
 #include "Core/Resource/Catalog/AssetPath.h"
 
-#include <Eigen/Core>
+#include "Core/Util/Math.h"
+
 #include <magic_enum.hpp>
 
 #include <optional>
@@ -184,16 +185,16 @@ bool Deserialize(const PropertyTree& tree, E& value)
 }
 
 // ---------------------------------------------------------------------
-// Eigen vector / matrix types
+// Engine math types
 // ---------------------------------------------------------------------
 
-// --- Eigen::Vector2f ---
-inline void Serialize(PropertyTree& tree, const Eigen::Vector2f& v)
+// --- Math::Vec2 ---
+inline void Serialize(PropertyTree& tree, const Math::Vec2& v)
 {
     tree = PropertyTree::Array{PropertyTree(v.x()), PropertyTree(v.y())};
 }
 
-inline bool Deserialize(const PropertyTree& tree, Eigen::Vector2f& v)
+inline bool Deserialize(const PropertyTree& tree, Math::Vec2& v)
 {
     if (!tree.IsArray() || tree.Size() != 2)
         return false;
@@ -202,13 +203,13 @@ inline bool Deserialize(const PropertyTree& tree, Eigen::Vector2f& v)
     return true;
 }
 
-// --- Eigen::Vector3f ---
-inline void Serialize(PropertyTree& tree, const Eigen::Vector3f& v)
+// --- Math::Vec3 ---
+inline void Serialize(PropertyTree& tree, const Math::Vec3& v)
 {
     tree = PropertyTree::Array{PropertyTree(v.x()), PropertyTree(v.y()), PropertyTree(v.z())};
 }
 
-inline bool Deserialize(const PropertyTree& tree, Eigen::Vector3f& v)
+inline bool Deserialize(const PropertyTree& tree, Math::Vec3& v)
 {
     if (!tree.IsArray() || tree.Size() != 3)
         return false;
@@ -218,13 +219,13 @@ inline bool Deserialize(const PropertyTree& tree, Eigen::Vector3f& v)
     return true;
 }
 
-// --- Eigen::Vector4f ---
-inline void Serialize(PropertyTree& tree, const Eigen::Vector4f& v)
+// --- Math::Vec4 ---
+inline void Serialize(PropertyTree& tree, const Math::Vec4& v)
 {
     tree = PropertyTree::Array{PropertyTree(v.x()), PropertyTree(v.y()), PropertyTree(v.z()), PropertyTree(v.w())};
 }
 
-inline bool Deserialize(const PropertyTree& tree, Eigen::Vector4f& v)
+inline bool Deserialize(const PropertyTree& tree, Math::Vec4& v)
 {
     if (!tree.IsArray() || tree.Size() != 4)
         return false;
@@ -235,8 +236,8 @@ inline bool Deserialize(const PropertyTree& tree, Eigen::Vector4f& v)
     return true;
 }
 
-// --- Eigen::Matrix4f (16 floats, column-major) ---
-inline void Serialize(PropertyTree& tree, const Eigen::Matrix4f& m)
+// --- Math::Mat4 (16 floats, column-major) ---
+inline void Serialize(PropertyTree& tree, const Math::Mat4& m)
 {
     PropertyTree::Array arr;
     arr.reserve(16);
@@ -246,7 +247,7 @@ inline void Serialize(PropertyTree& tree, const Eigen::Matrix4f& m)
     tree = std::move(arr);
 }
 
-inline bool Deserialize(const PropertyTree& tree, Eigen::Matrix4f& m)
+inline bool Deserialize(const PropertyTree& tree, Math::Mat4& m)
 {
     if (!tree.IsArray() || tree.Size() != 16)
         return false;

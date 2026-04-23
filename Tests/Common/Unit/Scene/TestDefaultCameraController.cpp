@@ -1,5 +1,4 @@
 #include <gtest/gtest.h>
-#include <Eigen/Core>
 
 #include "MathTestUtils.h"
 
@@ -64,12 +63,12 @@ TEST(DebugCameraControllerTests, MoveForwardMovesAlongCameraForward)
     DebugCameraController controller(&camera);
     controller.SetMoveSpeed(10.0f);
 
-    const Eigen::Vector3f start = camera.GetPosition();
-    const Eigen::Vector3f forward = camera.GetForward();
+    const Math::Vec3 start = camera.GetPosition();
+    const Math::Vec3 forward = camera.GetForward();
 
     controller.MoveForward(0.5f);
 
-    const Eigen::Vector3f expected = start + forward * 5.0f;
+    const Math::Vec3 expected = start + forward * 5.0f;
     ExpectVec3Near(camera.GetPosition(), expected);
 }
 
@@ -81,12 +80,12 @@ TEST(DebugCameraControllerTests, MoveBackwardMovesOppositeToCameraForward)
     DebugCameraController controller(&camera);
     controller.SetMoveSpeed(8.0f);
 
-    const Eigen::Vector3f start = camera.GetPosition();
-    const Eigen::Vector3f forward = camera.GetForward();
+    const Math::Vec3 start = camera.GetPosition();
+    const Math::Vec3 forward = camera.GetForward();
 
     controller.MoveBackward(0.25f);
 
-    const Eigen::Vector3f expected = start - forward * 2.0f;
+    const Math::Vec3 expected = start - forward * 2.0f;
     ExpectVec3Near(camera.GetPosition(), expected);
 }
 
@@ -98,12 +97,12 @@ TEST(DebugCameraControllerTests, MoveRightMovesAlongCameraRight)
     DebugCameraController controller(&camera);
     controller.SetMoveSpeed(6.0f);
 
-    const Eigen::Vector3f start = camera.GetPosition();
-    const Eigen::Vector3f right = camera.GetRight();
+    const Math::Vec3 start = camera.GetPosition();
+    const Math::Vec3 right = camera.GetRight();
 
     controller.MoveRight(0.5f);
 
-    const Eigen::Vector3f expected = start + right * 3.0f;
+    const Math::Vec3 expected = start + right * 3.0f;
     ExpectVec3Near(camera.GetPosition(), expected);
 }
 
@@ -115,12 +114,12 @@ TEST(DebugCameraControllerTests, MoveLeftMovesOppositeToCameraRight)
     DebugCameraController controller(&camera);
     controller.SetMoveSpeed(4.0f);
 
-    const Eigen::Vector3f start = camera.GetPosition();
-    const Eigen::Vector3f right = camera.GetRight();
+    const Math::Vec3 start = camera.GetPosition();
+    const Math::Vec3 right = camera.GetRight();
 
     controller.MoveLeft(0.75f);
 
-    const Eigen::Vector3f expected = start - right * 3.0f;
+    const Math::Vec3 expected = start - right * 3.0f;
     ExpectVec3Near(camera.GetPosition(), expected);
 }
 
@@ -133,11 +132,11 @@ TEST(DebugCameraControllerTests, MoveUpUsesWorldUpAxis)
     DebugCameraController controller(&camera);
     controller.SetMoveSpeed(5.0f);
 
-    const Eigen::Vector3f start = camera.GetPosition();
+    const Math::Vec3 start = camera.GetPosition();
 
     controller.MoveUp(0.4f);
 
-    const Eigen::Vector3f expected = start + Eigen::Vector3f(0.0f, 1.0f, 0.0f) * 2.0f;
+    const Math::Vec3 expected = start + Math::Vec3(0.0f, 1.0f, 0.0f) * 2.0f;
     ExpectVec3Near(camera.GetPosition(), expected);
 }
 
@@ -150,11 +149,11 @@ TEST(DebugCameraControllerTests, MoveDownUsesWorldUpAxis)
     DebugCameraController controller(&camera);
     controller.SetMoveSpeed(5.0f);
 
-    const Eigen::Vector3f start = camera.GetPosition();
+    const Math::Vec3 start = camera.GetPosition();
 
     controller.MoveDown(0.4f);
 
-    const Eigen::Vector3f expected = start - Eigen::Vector3f(0.0f, 1.0f, 0.0f) * 2.0f;
+    const Math::Vec3 expected = start - Math::Vec3(0.0f, 1.0f, 0.0f) * 2.0f;
     ExpectVec3Near(camera.GetPosition(), expected);
 }
 
