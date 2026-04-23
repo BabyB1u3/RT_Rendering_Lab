@@ -8,3 +8,6 @@
 	path = Vendor/imgui
 	url = https://github.com/ocornut/imgui.git
 	branch = docking
+[submodule "Vendor/eigen"]
+	path = Vendor/eigen
+	url = https://gitlab.com/libeigen/eigen.git

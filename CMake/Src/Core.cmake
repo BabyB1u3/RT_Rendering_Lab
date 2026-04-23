@@ -28,6 +28,7 @@ endif()
 target_link_libraries(RTRLabCore PUBLIC
     glfw
     glm
+    eigen
     imgui
     magic_enum
     nlohmann_json
