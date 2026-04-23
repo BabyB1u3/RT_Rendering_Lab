@@ -208,6 +208,9 @@ set(GLAB_RENDER_BACKEND_VULKAN_HEADERS
     Render/RHI/Backends/Vulkan/VulkanCommon.h
     Render/RHI/Backends/Vulkan/VulkanConversions.h
     Render/RHI/Backends/Vulkan/VulkanDevice.h
+    Render/RHI/Backends/Vulkan/VulkanCommandList.inl
+    Render/RHI/Backends/Vulkan/VulkanSwapchain.inl
+    Render/RHI/Backends/Vulkan/VulkanDeviceImpl.inl
 )
 
 set(GLAB_RENDER_BACKEND_METAL_SOURCES
@@ -216,6 +219,10 @@ set(GLAB_RENDER_BACKEND_METAL_SOURCES
 
 set(GLAB_RENDER_BACKEND_METAL_HEADERS
     Render/RHI/Backends/Metal/MetalDevice.h
+    Render/RHI/Backends/Metal/MetalInternals.inl
+    Render/RHI/Backends/Metal/MetalCommandList.inl
+    Render/RHI/Backends/Metal/MetalSwapchain.inl
+    Render/RHI/Backends/Metal/MetalDeviceImpl.inl
 )
 
 if(GLAB_BACKEND_VULKAN)
