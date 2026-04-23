@@ -164,6 +164,23 @@ bool ParseType(const Json& json, SlangReflectionType& outType, std::string* erro
             return false;
     }
 
+    if (json.contains("elementVarLayout"))
+    {
+        const Json& elementVarLayoutJson = json["elementVarLayout"];
+        if (!elementVarLayoutJson.is_object())
+        {
+            AssignSlangReflectionJsonError(errorMessage, "Slang reflection type.elementVarLayout must be an object.");
+            return false;
+        }
+
+        if (elementVarLayoutJson.contains("binding"))
+        {
+            outType.m_ElementVarBinding = ParseBinding(elementVarLayoutJson["binding"], errorMessage);
+            if (!outType.m_ElementVarBinding.has_value() && !elementVarLayoutJson["binding"].is_null())
+                return false;
+        }
+    }
+
     if (json.contains("fields"))
     {
         if (!json["fields"].is_array())

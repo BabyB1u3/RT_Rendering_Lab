@@ -4,6 +4,7 @@
 /// @brief Public RHI command-recording and render-pass description types.
 
 #include <cstdint>
+#include <span>
 #include <unordered_map>
 #include <vector>
 
@@ -67,6 +68,33 @@ struct RenderingInfo
     Rect2D m_RenderArea;
 };
 
+struct Offset3D
+{
+    uint32_t m_X = 0;
+    uint32_t m_Y = 0;
+    uint32_t m_Z = 0;
+};
+
+struct BufferCopyRegion
+{
+    uint64_t m_SourceOffset = 0;
+    uint64_t m_DestinationOffset = 0;
+    uint64_t m_Size = 0;
+};
+
+struct BufferTextureCopyRegion
+{
+    uint64_t m_BufferOffset = 0;
+    uint32_t m_BufferRowPitch = 0;
+    uint32_t m_BufferRowsPerImage = 0;
+    TextureAspect m_TextureAspect = TextureAspect::Color;
+    uint32_t m_MipLevel = 0;
+    uint32_t m_BaseArrayLayer = 0;
+    uint32_t m_LayerCount = 1;
+    Offset3D m_TextureOffset;
+    Extent3D m_TextureExtent;
+};
+
 enum class TextureState
 {
     Undefined,
@@ -115,6 +143,11 @@ public:
 
     virtual void Draw(uint32_t vertexCount, uint32_t firstVertex) = 0;
     virtual void DrawIndexed(uint32_t indexCount, uint32_t firstIndex, int32_t vertexOffset) = 0;
+    virtual void
+    CopyBuffer(Buffer* sourceBuffer, Buffer* destinationBuffer, std::span<const BufferCopyRegion> regions) = 0;
+    virtual void CopyBufferToTexture(Buffer* sourceBuffer,
+                                     Texture* destinationTexture,
+                                     std::span<const BufferTextureCopyRegion> regions) = 0;
 
     virtual void Dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ) = 0;
 
@@ -134,6 +167,8 @@ class ResourceStateTracker
 public:
     void Transition(Texture* texture, TextureState newState);
     void Transition(Buffer* buffer, BufferState newState);
+    void Forget(Texture* texture);
+    void Forget(Buffer* buffer);
     void FlushBarriers(CommandList* commandList);
     void Reset();
 

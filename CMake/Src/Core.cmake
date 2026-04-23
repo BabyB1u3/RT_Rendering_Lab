@@ -20,7 +20,7 @@ endif()
 
 if(APPLE AND GLAB_BACKEND_METAL)
     set_source_files_properties(
-        "${CMAKE_CURRENT_SOURCE_DIR}/Render/RHI/Backends/Metal/MetalDevice.mm"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Render/RHI/Backends/Metal/Device/MetalDevice.mm"
         PROPERTIES COMPILE_FLAGS "-fno-objc-arc"
     )
 endif()

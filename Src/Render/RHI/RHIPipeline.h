@@ -26,6 +26,7 @@ struct BindingInfo
     uint32_t m_SetIndex = 0;
     uint32_t m_Binding = 0;
     ResourceKind m_Kind = ResourceKind::UniformBuffer;
+    uint32_t m_ByteSize = 0;
     uint32_t m_ArrayCount = 1;
     ShaderStage m_StageMask = ShaderStage::None;
 };
@@ -103,6 +104,9 @@ enum class CullMode
 
 enum class FrontFace
 {
+    // Logical front-face selection in the project's public rasterization
+    // policy. Backends may translate this to native winding state if viewport
+    // transforms alter framebuffer-space winding.
     CW,
     CCW,
 };
@@ -116,6 +120,9 @@ enum class FillMode
 struct RasterState
 {
     CullMode m_CullMode = CullMode::Back;
+    // Public contract: this is evaluated in the project's logical clip-space
+    // policy, not as a promise that every backend will use the same native
+    // winding enum value.
     FrontFace m_FrontFace = FrontFace::CCW;
     FillMode m_FillMode = FillMode::Solid;
     bool m_DepthClampEnable = false;

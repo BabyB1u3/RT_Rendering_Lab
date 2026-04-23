@@ -4,10 +4,10 @@
 #include "Core/Diagnostics/Logging/LogCategories.h"
 #include "Core/Diagnostics/Logging/LogMacros.h"
 #if defined(GLAB_BACKEND_METAL)
-#include "Render/RHI/Backends/Metal/MetalDevice.h"
+#include "Render/RHI/Backends/Metal/Device/MetalDevice.h"
 #endif
 #if defined(GLAB_BACKEND_VULKAN)
-#include "Render/RHI/Backends/Vulkan/VulkanDevice.h"
+#include "Render/RHI/Backends/Vulkan/Device/VulkanDevice.h"
 #endif
 
 BackendType GetDefaultBackendType()

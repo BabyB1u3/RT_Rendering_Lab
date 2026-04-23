@@ -148,7 +148,10 @@ void Application::OnWindowResize(uint32_t width, uint32_t height)
     m_Minimized = false;
 
     if (m_Swapchain)
+    {
+        ForgetTrackedSwapchainImages();
         m_Swapchain->Resize(width, height);
+    }
 
     for (auto& layer : m_LayerStack)
         layer->OnResize(width, height);
@@ -165,32 +168,16 @@ void Application::BeginFrame()
 
     m_FrameContext = m_Device->BeginFrame();
     m_SwapchainImageIndex = m_Swapchain->AcquireNextImage();
+    RefreshTrackedSwapchainImages();
     m_SwapchainImage = m_Swapchain->GetImage(m_SwapchainImageIndex);
     m_SwapchainImageView = m_Swapchain->GetImageView(m_SwapchainImageIndex);
     m_CommandList = m_Device->BeginCommandList();
-
-    m_ResourceStateTracker.Transition(m_SwapchainImage, TextureState::RenderTarget);
-    m_ResourceStateTracker.FlushBarriers(m_CommandList);
-
-    ColorAttachmentInfo colorAttachment;
-    colorAttachment.m_View = m_SwapchainImageView;
-    colorAttachment.m_LoadOp = LoadOp::Clear;
-    colorAttachment.m_StoreOp = StoreOp::Store;
-    colorAttachment.m_ClearValue = {0.08f, 0.10f, 0.12f, 1.0f};
-
-    RenderingInfo renderingInfo;
-    renderingInfo.m_ColorAttachments = {colorAttachment};
-    renderingInfo.m_RenderArea = {0, 0, m_Swapchain->GetWidth(), m_Swapchain->GetHeight()};
-
-    m_CommandList->BeginRendering(renderingInfo);
 }
 
 void Application::EndFrame()
 {
     RTRLAB_ASSERT_MSG(m_Device && m_Swapchain, "Application RHI must remain valid until the frame ends.");
     RTRLAB_ASSERT_MSG(m_CommandList && m_FrameContext, "EndFrame requires an active frame and command list.");
-
-    m_CommandList->EndRendering();
 
     m_ResourceStateTracker.Transition(m_SwapchainImage, TextureState::Present);
     m_ResourceStateTracker.FlushBarriers(m_CommandList);
@@ -208,10 +195,34 @@ void Application::PresentFrame()
     RTRLAB_ASSERT_MSG(m_SwapchainImageView, "PresentFrame requires a valid swapchain image view from BeginFrame.");
 
     m_Swapchain->Present(m_SwapchainImageIndex);
-    m_ResourceStateTracker.Reset();
     m_SwapchainImageIndex = std::numeric_limits<uint32_t>::max();
     m_SwapchainImage = nullptr;
     m_SwapchainImageView = nullptr;
+}
+
+void Application::ForgetTrackedSwapchainImages()
+{
+    for (Texture* texture : m_TrackedSwapchainImages)
+        m_ResourceStateTracker.Forget(texture);
+
+    m_TrackedSwapchainImages.clear();
+}
+
+void Application::RefreshTrackedSwapchainImages()
+{
+    RTRLAB_ASSERT_MSG(m_Swapchain, "Swapchain must be valid before refreshing tracked swapchain images.");
+
+    std::vector<Texture*> currentImages;
+    const uint32_t imageCount = m_Swapchain->GetImageCount();
+    currentImages.reserve(imageCount);
+    for (uint32_t imageIndex = 0; imageIndex < imageCount; ++imageIndex)
+        currentImages.push_back(m_Swapchain->GetImage(imageIndex));
+
+    if (currentImages == m_TrackedSwapchainImages)
+        return;
+
+    ForgetTrackedSwapchainImages();
+    m_TrackedSwapchainImages = std::move(currentImages);
 }
 
 void Application::InitializeRHI()
@@ -226,4 +237,5 @@ void Application::InitializeRHI()
     swapchainDesc.m_Vsync = true;
 
     m_Swapchain = m_Device->CreateSwapchain(swapchainDesc, m_Window->GetNativeWindowHandle());
+    RefreshTrackedSwapchainImages();
 }

@@ -38,11 +38,11 @@ public:
 
     virtual Scope<GraphicsPipeline> CreateGraphicsPipeline(const GraphicsPipelineDesc& desc) = 0;
     virtual Scope<ComputePipeline> CreateComputePipeline(const ComputePipelineDesc& desc) = 0;
-    // TRANSITIONAL(M3): Minimal host upload hook used by the hello-triangle
-    // bring-up demos. This is intentionally a temporary demo-only path and
-    // will move behind a renderer-owned upload/staging API (for example
-    // Renderer::UploadBuffer backed by a staging ring) once resource
-    // initialization stops reaching into Device directly.
+    // TRANSITIONAL(M3): Compatibility host upload hook used by early demos.
+    // New renderer-facing upload paths should prefer explicit copy recording
+    // on CommandList plus staging resources instead of reaching into Device
+    // for direct writes. This remains only until renderer-owned upload
+    // scheduling replaces the demo path completely.
     virtual void WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size) = 0;
 
     virtual CommandList* BeginCommandList() = 0;

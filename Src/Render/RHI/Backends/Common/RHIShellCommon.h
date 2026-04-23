@@ -4,6 +4,7 @@
 /// @brief Shared implementation helpers for backend-private RHI skeleton objects.
 
 #include <unordered_map>
+#include <string_view>
 #include <vector>
 
 #include "Render/RHI/RHIDevice.h"
@@ -140,28 +141,33 @@ public:
     const ParameterBlockData& GetConstants() const override { return m_Constants; }
     void SetConstantDataRaw(uint32_t offset, const void* data, size_t size) override;
 
-    void SetBuffer(uint32_t binding, const BufferBinding& bufferBinding) override;
-    void SetTexture(uint32_t binding, const TextureBinding& textureBinding) override;
-    void SetSampler(uint32_t binding, const SamplerBinding& samplerBinding) override;
+    void SetBufferArray(uint32_t binding, std::span<const BufferBinding> bufferBindings) override;
+    void SetTextureArray(uint32_t binding, std::span<const TextureBinding> textureBindings) override;
+    void SetSamplerArray(uint32_t binding, std::span<const SamplerBinding> samplerBindings) override;
 
     uint32_t GetVersion() const override { return m_Version; }
 
 private:
     const BindingInfo& RequireBindingInfo(uint32_t binding, ResourceKind kind) const;
-    void ValidateConstantBindingExists() const;
+    const BindingInfo& ValidateBindingArrayCount(const BindingInfo& bindingInfo,
+                                                 size_t providedCount,
+                                                 std::string_view resourceKind) const;
+    const BindingInfo& ValidateConstantBindingExists() const;
 
     PipelineLayout* m_Layout = nullptr;
     uint32_t m_SetIndex = 0;
     ParameterBlockData m_Constants;
-    std::unordered_map<uint32_t, BufferBinding> m_BufferBindings;
-    std::unordered_map<uint32_t, TextureBinding> m_TextureBindings;
-    std::unordered_map<uint32_t, SamplerBinding> m_SamplerBindings;
+    std::unordered_map<uint32_t, std::vector<BufferBinding>> m_BufferBindings;
+    std::unordered_map<uint32_t, std::vector<TextureBinding>> m_TextureBindings;
+    std::unordered_map<uint32_t, std::vector<SamplerBinding>> m_SamplerBindings;
     uint32_t m_Version = 0;
 };
 
 class ShellCommandListBase : public CommandList
 {
 public:
+    void ResetState();
+
     void BeginRendering(const RenderingInfo& renderingInfo) override;
     void EndRendering() override;
 
@@ -181,6 +187,11 @@ public:
 
     void Draw(uint32_t vertexCount, uint32_t firstVertex) override;
     void DrawIndexed(uint32_t indexCount, uint32_t firstIndex, int32_t vertexOffset) override;
+    void
+    CopyBuffer(Buffer* sourceBuffer, Buffer* destinationBuffer, std::span<const BufferCopyRegion> regions) override;
+    void CopyBufferToTexture(Buffer* sourceBuffer,
+                             Texture* destinationTexture,
+                             std::span<const BufferTextureCopyRegion> regions) override;
 
     void Dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ) override;
 

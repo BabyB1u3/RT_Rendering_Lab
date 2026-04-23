@@ -17,7 +17,7 @@
 #include "Render/Shader/ShaderParameterWriter.h"
 
 #if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
-namespace
+namespace HelloTriangleDemo
 {
 struct TriangleVertex
 {
@@ -90,7 +90,7 @@ CompiledShaderProgramDesc BuildHelloTriangleShaderProgramDesc()
                    compileResult.m_ErrorMessage);
     return std::move(compileResult.m_Program);
 }
-} // namespace
+} // namespace HelloTriangleDemo
 #endif
 
 HelloTriangle::HelloTriangle(uint32_t width, uint32_t height) : m_ViewportWidth(width), m_ViewportHeight(height) {}
@@ -103,6 +103,7 @@ void HelloTriangle::OnAttach()
 
 void HelloTriangle::OnDetach()
 {
+    ForgetTrackedBuffers();
     m_GraphicsPipeline.reset();
     m_VertexInputLayout.reset();
     m_ObjectSet.reset();
@@ -110,8 +111,11 @@ void HelloTriangle::OnDetach()
     m_FrameSet.reset();
     m_PipelineLayout.reset();
     m_ShaderProgram.reset();
+    m_IndexUploadBuffer.reset();
+    m_VertexUploadBuffer.reset();
     m_IndexBuffer.reset();
     m_VertexBuffer.reset();
+    m_GeometryUploadPending = false;
     LOG_INFO_CAT(LogCategory::k_Demo, "HelloTriangle demo detached");
 }
 
@@ -121,12 +125,30 @@ void HelloTriangle::OnRender()
     if (!m_GraphicsPipeline || !m_VertexBuffer || !m_IndexBuffer)
         return;
 
-    CommandList* commandList = Application::Get().GetCurrentCommandList();
+    Application& app = Application::Get();
+    CommandList* commandList = app.GetCurrentCommandList();
     RTRLAB_ASSERT_MSG(commandList != nullptr, "HelloTriangle requires an active command list during OnRender.");
-    // NOTE: In the current demo contract, Application owns the outer
-    // BeginRendering/EndRendering scope and layers only record draw calls into
-    // that active pass. A future render-graph path will move pass ownership out
-    // of Application::RenderFrame and make it explicit at a higher level.
+    Texture* swapchainImage = app.GetCurrentSwapchainImage();
+    TextureView* swapchainImageView = app.GetCurrentSwapchainImageView();
+    RTRLAB_ASSERT_MSG(swapchainImage != nullptr && swapchainImageView != nullptr,
+                      "HelloTriangle requires the application to expose the active swapchain backbuffer.");
+
+    ResourceStateTracker& resourceStateTracker = app.GetResourceStateTracker();
+    UploadTriangleGeometry(*commandList, resourceStateTracker);
+
+    resourceStateTracker.Transition(swapchainImage, TextureState::RenderTarget);
+    resourceStateTracker.FlushBarriers(commandList);
+
+    ColorAttachmentInfo colorAttachment;
+    colorAttachment.m_View = swapchainImageView;
+    colorAttachment.m_LoadOp = LoadOp::Clear;
+    colorAttachment.m_StoreOp = StoreOp::Store;
+    colorAttachment.m_ClearValue = {0.08f, 0.10f, 0.12f, 1.0f};
+
+    RenderingInfo renderingInfo;
+    renderingInfo.m_ColorAttachments = {colorAttachment};
+    renderingInfo.m_RenderArea = {0, 0, m_ViewportWidth, m_ViewportHeight};
+    commandList->BeginRendering(renderingInfo);
 
     UpdateAnimatedParameters();
 
@@ -135,7 +157,8 @@ void HelloTriangle::OnRender()
     meshBinding.m_IndexBuffer = m_IndexBuffer.get();
     meshBinding.m_IndexType = IndexType::UInt16;
 
-    const DemoViewport viewport = ComputeAspectPreservingViewport(m_ViewportWidth, m_ViewportHeight);
+    const HelloTriangleDemo::DemoViewport viewport =
+        HelloTriangleDemo::ComputeAspectPreservingViewport(m_ViewportWidth, m_ViewportHeight);
     commandList->SetViewport(viewport.m_X, viewport.m_Y, viewport.m_Width, viewport.m_Height, 0.0f, 1.0f);
     commandList->SetScissor(0, 0, m_ViewportWidth, m_ViewportHeight);
     commandList->BindGraphicsPipeline(m_GraphicsPipeline.get());
@@ -144,6 +167,7 @@ void HelloTriangle::OnRender()
     commandList->BindResourceSet(m_ObjectSetIndex, m_ObjectSet.get());
     commandList->BindMesh(meshBinding);
     commandList->DrawIndexed(3, 0, 0);
+    commandList->EndRendering();
 #endif
 }
 
@@ -163,7 +187,7 @@ void HelloTriangle::CreateTriangleResources()
     Device& device = app.GetDevice();
 
     // Eigen vector constructors are not constexpr, so this array is only const.
-    static const std::array<TriangleVertex, 3> kVertices = {{
+    static const std::array<HelloTriangleDemo::TriangleVertex, 3> kVertices = {{
         {{0.0f, -0.65f}, {1.0f, 0.25f, 0.25f, 1.0f}},
         {{0.65f, 0.55f}, {0.25f, 1.0f, 0.35f, 1.0f}},
         {{-0.65f, 0.55f}, {0.25f, 0.45f, 1.0f, 1.0f}},
@@ -172,26 +196,41 @@ void HelloTriangle::CreateTriangleResources()
 
     BufferDesc vertexBufferDesc;
     vertexBufferDesc.m_Size = sizeof(kVertices);
-    vertexBufferDesc.m_UsageMask = BufferUsage::Vertex;
-    vertexBufferDesc.m_MemoryUsage = MemoryUsage::CpuToGpu;
+    vertexBufferDesc.m_UsageMask = BufferUsage::Vertex | BufferUsage::CopyDst;
+    vertexBufferDesc.m_MemoryUsage = MemoryUsage::GpuOnly;
     vertexBufferDesc.m_DebugName = "HelloTriangle.VertexBuffer";
     m_VertexBuffer = device.CreateBuffer(vertexBufferDesc);
-    device.WriteBuffer(m_VertexBuffer.get(), 0, kVertices.data(), sizeof(kVertices));
+
+    BufferDesc vertexUploadBufferDesc;
+    vertexUploadBufferDesc.m_Size = sizeof(kVertices);
+    vertexUploadBufferDesc.m_UsageMask = BufferUsage::CopySrc;
+    vertexUploadBufferDesc.m_MemoryUsage = MemoryUsage::CpuToGpu;
+    vertexUploadBufferDesc.m_DebugName = "HelloTriangle.VertexUploadBuffer";
+    m_VertexUploadBuffer = device.CreateBuffer(vertexUploadBufferDesc);
+    device.WriteBuffer(m_VertexUploadBuffer.get(), 0, kVertices.data(), sizeof(kVertices));
 
     BufferDesc indexBufferDesc;
     indexBufferDesc.m_Size = sizeof(kIndices);
-    indexBufferDesc.m_UsageMask = BufferUsage::Index;
-    indexBufferDesc.m_MemoryUsage = MemoryUsage::CpuToGpu;
+    indexBufferDesc.m_UsageMask = BufferUsage::Index | BufferUsage::CopyDst;
+    indexBufferDesc.m_MemoryUsage = MemoryUsage::GpuOnly;
     indexBufferDesc.m_DebugName = "HelloTriangle.IndexBuffer";
     m_IndexBuffer = device.CreateBuffer(indexBufferDesc);
-    device.WriteBuffer(m_IndexBuffer.get(), 0, kIndices.data(), sizeof(kIndices));
 
-    m_ShaderProgram = device.CreateShaderProgram(BuildHelloTriangleShaderProgramDesc());
+    BufferDesc indexUploadBufferDesc;
+    indexUploadBufferDesc.m_Size = sizeof(kIndices);
+    indexUploadBufferDesc.m_UsageMask = BufferUsage::CopySrc;
+    indexUploadBufferDesc.m_MemoryUsage = MemoryUsage::CpuToGpu;
+    indexUploadBufferDesc.m_DebugName = "HelloTriangle.IndexUploadBuffer";
+    m_IndexUploadBuffer = device.CreateBuffer(indexUploadBufferDesc);
+    device.WriteBuffer(m_IndexUploadBuffer.get(), 0, kIndices.data(), sizeof(kIndices));
+    m_GeometryUploadPending = true;
+
+    m_ShaderProgram = device.CreateShaderProgram(HelloTriangleDemo::BuildHelloTriangleShaderProgramDesc());
     m_PipelineLayout = device.CreatePipelineLayout(m_ShaderProgram->DerivePipelineLayoutDesc());
     const PipelineLayoutDesc& pipelineLayoutDesc = m_PipelineLayout->GetDesc();
-    m_FrameSetIndex = FindRequiredSetIndex(pipelineLayoutDesc, "gFrame");
-    m_MaterialSetIndex = FindRequiredSetIndex(pipelineLayoutDesc, "gMaterial");
-    m_ObjectSetIndex = FindRequiredSetIndex(pipelineLayoutDesc, "gObject");
+    m_FrameSetIndex = HelloTriangleDemo::FindRequiredSetIndex(pipelineLayoutDesc, "gFrame");
+    m_MaterialSetIndex = HelloTriangleDemo::FindRequiredSetIndex(pipelineLayoutDesc, "gMaterial");
+    m_ObjectSetIndex = HelloTriangleDemo::FindRequiredSetIndex(pipelineLayoutDesc, "gObject");
 
     m_FrameSet = device.CreateResourceSet(m_PipelineLayout.get(), m_FrameSetIndex);
     m_MaterialSet = device.CreateResourceSet(m_PipelineLayout.get(), m_MaterialSetIndex);
@@ -207,10 +246,10 @@ void HelloTriangle::CreateTriangleResources()
     UpdateAnimatedParameters();
 
     VertexInputLayoutDesc vertexInputLayoutDesc;
-    vertexInputLayoutDesc.m_Buffers = {{static_cast<uint32_t>(sizeof(TriangleVertex)), false}};
+    vertexInputLayoutDesc.m_Buffers = {{static_cast<uint32_t>(sizeof(HelloTriangleDemo::TriangleVertex)), false}};
     vertexInputLayoutDesc.m_Attributes = {
-        {0u, Format::RG32F, static_cast<uint32_t>(offsetof(TriangleVertex, m_Position)), 0u},
-        {1u, Format::RGBA32F, static_cast<uint32_t>(offsetof(TriangleVertex, m_Color)), 0u},
+        {0u, Format::RG32F, static_cast<uint32_t>(offsetof(HelloTriangleDemo::TriangleVertex, m_Position)), 0u},
+        {1u, Format::RGBA32F, static_cast<uint32_t>(offsetof(HelloTriangleDemo::TriangleVertex, m_Color)), 0u},
     };
     m_VertexInputLayout = device.CreateVertexInputLayout(vertexInputLayoutDesc);
 
@@ -221,6 +260,52 @@ void HelloTriangle::CreateTriangleResources()
     pipelineDesc.m_RasterState.m_CullMode = CullMode::None;
     pipelineDesc.m_ColorFormats = {app.GetSwapchain().GetFormat()};
     m_GraphicsPipeline = device.CreateGraphicsPipeline(pipelineDesc);
+#endif
+}
+
+void HelloTriangle::UploadTriangleGeometry(CommandList& commandList, ResourceStateTracker& resourceStateTracker)
+{
+#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+    if (!m_GeometryUploadPending)
+        return;
+
+    RTRLAB_ASSERT_MSG(m_VertexUploadBuffer != nullptr && m_VertexBuffer != nullptr,
+                      "HelloTriangle geometry upload requires both vertex staging and GPU buffers.");
+    RTRLAB_ASSERT_MSG(m_IndexUploadBuffer != nullptr && m_IndexBuffer != nullptr,
+                      "HelloTriangle geometry upload requires both index staging and GPU buffers.");
+
+    resourceStateTracker.Transition(m_VertexUploadBuffer.get(), BufferState::CopySource);
+    resourceStateTracker.Transition(m_VertexBuffer.get(), BufferState::CopyDest);
+    resourceStateTracker.Transition(m_IndexUploadBuffer.get(), BufferState::CopySource);
+    resourceStateTracker.Transition(m_IndexBuffer.get(), BufferState::CopyDest);
+    resourceStateTracker.FlushBarriers(&commandList);
+
+    const std::array<BufferCopyRegion, 1> vertexCopyRegions = {{
+        {0, 0, m_VertexBuffer->GetDesc().m_Size},
+    }};
+    commandList.CopyBuffer(m_VertexUploadBuffer.get(), m_VertexBuffer.get(), vertexCopyRegions);
+
+    const std::array<BufferCopyRegion, 1> indexCopyRegions = {{
+        {0, 0, m_IndexBuffer->GetDesc().m_Size},
+    }};
+    commandList.CopyBuffer(m_IndexUploadBuffer.get(), m_IndexBuffer.get(), indexCopyRegions);
+
+    resourceStateTracker.Transition(m_VertexBuffer.get(), BufferState::VertexIndex);
+    resourceStateTracker.Transition(m_IndexBuffer.get(), BufferState::VertexIndex);
+    resourceStateTracker.FlushBarriers(&commandList);
+
+    m_GeometryUploadPending = false;
+#endif
+}
+
+void HelloTriangle::ForgetTrackedBuffers()
+{
+#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+    ResourceStateTracker& resourceStateTracker = Application::Get().GetResourceStateTracker();
+    resourceStateTracker.Forget(m_IndexUploadBuffer.get());
+    resourceStateTracker.Forget(m_VertexUploadBuffer.get());
+    resourceStateTracker.Forget(m_IndexBuffer.get());
+    resourceStateTracker.Forget(m_VertexBuffer.get());
 #endif
 }
 

@@ -65,6 +65,7 @@ enum class ReflectedTypeKind
     Struct,
     ConstantData,
     Texture,
+    StorageTexture,
     Sampler,
     Buffer,
     ParameterBlock,

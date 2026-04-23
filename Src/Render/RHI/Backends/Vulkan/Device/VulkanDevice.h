@@ -1,94 +1,15 @@
 #pragma once
 
 /// @file VulkanDevice.h
-/// @brief Backend-private Vulkan RHI classes for early clear/present bring-up.
+/// @brief Backend-private Vulkan device wrapper for early clear/present bring-up.
 
 #include <array>
 #include <limits>
-#include <vector>
 
 #include "Render/RHI/Backends/Common/RHIShellCommon.h"
-#include "Render/RHI/Backends/Vulkan/VulkanCommon.h"
-
-class VulkanDevice;
-class VulkanSwapchainTexture;
-class VulkanSwapchainImageView;
-
-class VulkanCommandList final : public RHIInternal::ShellCommandListBase
-{
-public:
-    VulkanCommandList() = default;
-    ~VulkanCommandList();
-
-    VulkanCommandList(const VulkanCommandList&) = delete;
-    VulkanCommandList& operator=(const VulkanCommandList&) = delete;
-    VulkanCommandList(VulkanCommandList&&) = delete;
-    VulkanCommandList& operator=(VulkanCommandList&&) = delete;
-
-    void Initialize(VulkanDevice* ownerDevice, VkDevice device, VkCommandPool commandPool);
-    void Shutdown();
-    void BeginRendering(const RenderingInfo& renderingInfo) override;
-    void EndRendering() override;
-    void BindGraphicsPipeline(GraphicsPipeline* pipeline) override;
-    void BindResourceSet(uint32_t setIndex, ResourceSet* resourceSet) override;
-    void BindMesh(const MeshBinding& meshBinding, const uint64_t* vertexOffsets = nullptr) override;
-    void
-    BindVertexBuffers(uint32_t firstSlot, Buffer* const* buffers, uint32_t count, const uint64_t* offsets) override;
-    void BindIndexBuffer(Buffer* buffer, uint64_t offset, IndexType indexType) override;
-    void SetViewport(float x, float y, float w, float h, float zmin, float zmax) override;
-    void SetScissor(int32_t x, int32_t y, uint32_t w, uint32_t h) override;
-    void Draw(uint32_t vertexCount, uint32_t firstVertex) override;
-    void DrawIndexed(uint32_t indexCount, uint32_t firstIndex, int32_t vertexOffset) override;
-
-    VkCommandBuffer GetVkCommandBuffer() const { return m_CommandBuffer; }
-    bool IsRenderingActive() const { return m_IsRendering; }
-
-private:
-    VulkanDevice* m_OwnerDevice = nullptr;
-    VkDevice m_Device = VK_NULL_HANDLE;
-    VkCommandPool m_CommandPool = VK_NULL_HANDLE;
-    VkCommandBuffer m_CommandBuffer = VK_NULL_HANDLE;
-};
-
-class VulkanSwapchain final : public Swapchain
-{
-public:
-    VulkanSwapchain(VulkanDevice& device, const SwapchainDesc& desc, const NativeWindowHandle& nativeWindowHandle);
-    ~VulkanSwapchain() override;
-
-    VulkanSwapchain(const VulkanSwapchain&) = delete;
-    VulkanSwapchain& operator=(const VulkanSwapchain&) = delete;
-    VulkanSwapchain(VulkanSwapchain&&) = delete;
-    VulkanSwapchain& operator=(VulkanSwapchain&&) = delete;
-
-    uint32_t AcquireNextImage() override;
-    Texture* GetImage(uint32_t imageIndex) const override;
-    TextureView* GetImageView(uint32_t imageIndex) const override;
-    void Present(uint32_t imageIndex) override;
-    void Resize(uint32_t newWidth, uint32_t newHeight) override;
-    uint32_t GetWidth() const override { return m_Desc.m_Width; }
-    uint32_t GetHeight() const override { return m_Desc.m_Height; }
-    Format GetFormat() const override { return m_Desc.m_Format; }
-    uint32_t GetImageCount() const override { return static_cast<uint32_t>(m_Images.size()); }
-
-    VkSwapchainKHR GetVkSwapchain() const { return m_Swapchain; }
-    VkFormat GetVkFormat() const { return m_VkFormat; }
-
-private:
-    void RecreateSwapchain(VkSwapchainKHR oldSwapchain = VK_NULL_HANDLE);
-    void DestroySwapchain();
-    TextureDesc BuildSwapchainImageDesc() const;
-
-private:
-    // Now used by the real Vulkan swapchain ownership path.
-    VulkanDevice& m_Device;
-    SwapchainDesc m_Desc;
-    NativeWindowHandle m_NativeWindowHandle;
-    VkSwapchainKHR m_Swapchain = VK_NULL_HANDLE;
-    VkFormat m_VkFormat = VK_FORMAT_B8G8R8A8_UNORM;
-    std::vector<Scope<VulkanSwapchainTexture>> m_Images;
-    std::vector<Scope<VulkanSwapchainImageView>> m_ImageViews;
-};
+#include "Render/RHI/Backends/Vulkan/Command/VulkanCommandList.h"
+#include "Render/RHI/Backends/Vulkan/Common/VulkanCommon.h"
+#include "Render/RHI/NativeWindowHandle.h"
 
 class VulkanDevice final : public RHIInternal::ShellDeviceBase
 {
@@ -106,6 +27,7 @@ public:
     Scope<ResourceSet> CreateResourceSet(PipelineLayout* layout, uint32_t setIndex) override;
     Scope<VertexInputLayout> CreateVertexInputLayout(const VertexInputLayoutDesc& desc) override;
     Scope<GraphicsPipeline> CreateGraphicsPipeline(const GraphicsPipelineDesc& desc) override;
+    Scope<ComputePipeline> CreateComputePipeline(const ComputePipelineDesc& desc) override;
     void WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size) override;
 
     CommandList* BeginCommandList() override;
@@ -165,7 +87,6 @@ private:
     void InitializePresentationObjects(const NativeWindowHandle& nativeWindowHandle);
     void ShutdownPresentationObjects();
 
-private:
     VkInstance m_Instance = VK_NULL_HANDLE;
     VkSurfaceKHR m_Surface = VK_NULL_HANDLE;
     VkPhysicalDevice m_PhysicalDevice = VK_NULL_HANDLE;

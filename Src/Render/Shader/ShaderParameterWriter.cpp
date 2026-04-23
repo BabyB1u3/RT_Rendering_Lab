@@ -75,12 +75,68 @@ void ShaderParameterWriter::SetTexture(ResourceSet& resourceSet, BindingHandle b
 {
     const BindingInfo& bindingInfo = GetBindingInfo(bindingHandle);
     ValidateResourceSetSetIndex(resourceSet, bindingInfo.m_SetIndex, "resource binding");
-    RTRLAB_ASSERT_MSG(bindingInfo.m_TypeKind == ReflectedTypeKind::Texture,
+    RTRLAB_ASSERT_MSG(bindingInfo.m_TypeKind == ReflectedTypeKind::Texture ||
+                          bindingInfo.m_TypeKind == ReflectedTypeKind::StorageTexture,
                       "BindingHandle must resolve to a texture field for SetTexture.");
+    ValidateNonArrayBinding(bindingInfo, "SetTexture");
 
     TextureBinding textureBinding;
     textureBinding.m_Texture = texture;
     resourceSet.SetTexture(bindingInfo.m_Binding, textureBinding);
+}
+
+void ShaderParameterWriter::SetTextureArray(ResourceSet& resourceSet,
+                                            BindingHandle bindingHandle,
+                                            std::span<Texture* const> textures) const
+{
+    const BindingInfo& bindingInfo = GetBindingInfo(bindingHandle);
+    ValidateResourceSetSetIndex(resourceSet, bindingInfo.m_SetIndex, "resource binding");
+    RTRLAB_ASSERT_MSG(bindingInfo.m_TypeKind == ReflectedTypeKind::Texture ||
+                          bindingInfo.m_TypeKind == ReflectedTypeKind::StorageTexture,
+                      "BindingHandle must resolve to a texture field for SetTextureArray.");
+    ValidateArrayBindingCount(bindingInfo, textures.size(), "SetTextureArray");
+
+    std::vector<TextureBinding> textureBindings(textures.size());
+    for (size_t index = 0; index < textures.size(); ++index)
+        textureBindings[index].m_Texture = textures[index];
+    resourceSet.SetTextureArray(bindingInfo.m_Binding, textureBindings);
+}
+
+void ShaderParameterWriter::SetTextureView(ResourceSet& resourceSet,
+                                           BindingHandle bindingHandle,
+                                           TextureView* textureView) const
+{
+    const BindingInfo& bindingInfo = GetBindingInfo(bindingHandle);
+    ValidateResourceSetSetIndex(resourceSet, bindingInfo.m_SetIndex, "resource binding");
+    RTRLAB_ASSERT_MSG(bindingInfo.m_TypeKind == ReflectedTypeKind::Texture ||
+                          bindingInfo.m_TypeKind == ReflectedTypeKind::StorageTexture,
+                      "BindingHandle must resolve to a texture field for SetTextureView.");
+    ValidateNonArrayBinding(bindingInfo, "SetTextureView");
+
+    TextureBinding textureBinding;
+    textureBinding.m_Texture = textureView != nullptr ? textureView->GetTexture() : nullptr;
+    textureBinding.m_View = textureView;
+    resourceSet.SetTexture(bindingInfo.m_Binding, textureBinding);
+}
+
+void ShaderParameterWriter::SetTextureViewArray(ResourceSet& resourceSet,
+                                                BindingHandle bindingHandle,
+                                                std::span<TextureView* const> textureViews) const
+{
+    const BindingInfo& bindingInfo = GetBindingInfo(bindingHandle);
+    ValidateResourceSetSetIndex(resourceSet, bindingInfo.m_SetIndex, "resource binding");
+    RTRLAB_ASSERT_MSG(bindingInfo.m_TypeKind == ReflectedTypeKind::Texture ||
+                          bindingInfo.m_TypeKind == ReflectedTypeKind::StorageTexture,
+                      "BindingHandle must resolve to a texture field for SetTextureViewArray.");
+    ValidateArrayBindingCount(bindingInfo, textureViews.size(), "SetTextureViewArray");
+
+    std::vector<TextureBinding> textureBindings(textureViews.size());
+    for (size_t index = 0; index < textureViews.size(); ++index)
+    {
+        textureBindings[index].m_View = textureViews[index];
+        textureBindings[index].m_Texture = textureViews[index] != nullptr ? textureViews[index]->GetTexture() : nullptr;
+    }
+    resourceSet.SetTextureArray(bindingInfo.m_Binding, textureBindings);
 }
 
 void ShaderParameterWriter::SetSampler(ResourceSet& resourceSet, BindingHandle bindingHandle, Sampler* sampler) const
@@ -89,10 +145,27 @@ void ShaderParameterWriter::SetSampler(ResourceSet& resourceSet, BindingHandle b
     ValidateResourceSetSetIndex(resourceSet, bindingInfo.m_SetIndex, "resource binding");
     RTRLAB_ASSERT_MSG(bindingInfo.m_TypeKind == ReflectedTypeKind::Sampler,
                       "BindingHandle must resolve to a sampler field for SetSampler.");
+    ValidateNonArrayBinding(bindingInfo, "SetSampler");
 
     SamplerBinding samplerBinding;
     samplerBinding.m_Sampler = sampler;
     resourceSet.SetSampler(bindingInfo.m_Binding, samplerBinding);
+}
+
+void ShaderParameterWriter::SetSamplerArray(ResourceSet& resourceSet,
+                                            BindingHandle bindingHandle,
+                                            std::span<Sampler* const> samplers) const
+{
+    const BindingInfo& bindingInfo = GetBindingInfo(bindingHandle);
+    ValidateResourceSetSetIndex(resourceSet, bindingInfo.m_SetIndex, "resource binding");
+    RTRLAB_ASSERT_MSG(bindingInfo.m_TypeKind == ReflectedTypeKind::Sampler,
+                      "BindingHandle must resolve to a sampler field for SetSamplerArray.");
+    ValidateArrayBindingCount(bindingInfo, samplers.size(), "SetSamplerArray");
+
+    std::vector<SamplerBinding> samplerBindings(samplers.size());
+    for (size_t index = 0; index < samplers.size(); ++index)
+        samplerBindings[index].m_Sampler = samplers[index];
+    resourceSet.SetSamplerArray(bindingInfo.m_Binding, samplerBindings);
 }
 
 void ShaderParameterWriter::SetBuffer(
@@ -102,12 +175,26 @@ void ShaderParameterWriter::SetBuffer(
     ValidateResourceSetSetIndex(resourceSet, bindingInfo.m_SetIndex, "resource binding");
     RTRLAB_ASSERT_MSG(bindingInfo.m_TypeKind == ReflectedTypeKind::Buffer,
                       "BindingHandle must resolve to a buffer field for SetBuffer.");
+    ValidateNonArrayBinding(bindingInfo, "SetBuffer");
 
     BufferBinding bufferBinding;
     bufferBinding.m_Buffer = buffer;
     bufferBinding.m_Offset = offset;
     bufferBinding.m_Size = size;
     resourceSet.SetBuffer(bindingInfo.m_Binding, bufferBinding);
+}
+
+void ShaderParameterWriter::SetBufferArray(ResourceSet& resourceSet,
+                                           BindingHandle bindingHandle,
+                                           std::span<const BufferBinding> bufferBindings) const
+{
+    const BindingInfo& bindingInfo = GetBindingInfo(bindingHandle);
+    ValidateResourceSetSetIndex(resourceSet, bindingInfo.m_SetIndex, "resource binding");
+    RTRLAB_ASSERT_MSG(bindingInfo.m_TypeKind == ReflectedTypeKind::Buffer,
+                      "BindingHandle must resolve to a buffer field for SetBufferArray.");
+    ValidateArrayBindingCount(bindingInfo, bufferBindings.size(), "SetBufferArray");
+
+    resourceSet.SetBufferArray(bindingInfo.m_Binding, bufferBindings);
 }
 
 void ShaderParameterWriter::SetFloat(ResourceSet& resourceSet, std::string_view path, float value) const
@@ -138,11 +225,47 @@ void ShaderParameterWriter::SetTexture(ResourceSet& resourceSet, std::string_vie
     SetTexture(resourceSet, bindingHandle, texture);
 }
 
+void ShaderParameterWriter::SetTextureArray(ResourceSet& resourceSet,
+                                            std::string_view path,
+                                            std::span<Texture* const> textures) const
+{
+    const BindingHandle bindingHandle = ResolveBinding(path);
+    RTRLAB_ASSERT_MSG(bindingHandle.IsValid(), "SetTextureArray requires a valid reflected texture-binding path.");
+    SetTextureArray(resourceSet, bindingHandle, textures);
+}
+
+void ShaderParameterWriter::SetTextureView(ResourceSet& resourceSet,
+                                           std::string_view path,
+                                           TextureView* textureView) const
+{
+    const BindingHandle bindingHandle = ResolveBinding(path);
+    RTRLAB_ASSERT_MSG(bindingHandle.IsValid(), "SetTextureView requires a valid reflected texture-binding path.");
+    SetTextureView(resourceSet, bindingHandle, textureView);
+}
+
+void ShaderParameterWriter::SetTextureViewArray(ResourceSet& resourceSet,
+                                                std::string_view path,
+                                                std::span<TextureView* const> textureViews) const
+{
+    const BindingHandle bindingHandle = ResolveBinding(path);
+    RTRLAB_ASSERT_MSG(bindingHandle.IsValid(), "SetTextureViewArray requires a valid reflected texture-binding path.");
+    SetTextureViewArray(resourceSet, bindingHandle, textureViews);
+}
+
 void ShaderParameterWriter::SetSampler(ResourceSet& resourceSet, std::string_view path, Sampler* sampler) const
 {
     const BindingHandle bindingHandle = ResolveBinding(path);
     RTRLAB_ASSERT_MSG(bindingHandle.IsValid(), "SetSampler requires a valid reflected sampler-binding path.");
     SetSampler(resourceSet, bindingHandle, sampler);
+}
+
+void ShaderParameterWriter::SetSamplerArray(ResourceSet& resourceSet,
+                                            std::string_view path,
+                                            std::span<Sampler* const> samplers) const
+{
+    const BindingHandle bindingHandle = ResolveBinding(path);
+    RTRLAB_ASSERT_MSG(bindingHandle.IsValid(), "SetSamplerArray requires a valid reflected sampler-binding path.");
+    SetSamplerArray(resourceSet, bindingHandle, samplers);
 }
 
 void ShaderParameterWriter::SetBuffer(
@@ -151,6 +274,15 @@ void ShaderParameterWriter::SetBuffer(
     const BindingHandle bindingHandle = ResolveBinding(path);
     RTRLAB_ASSERT_MSG(bindingHandle.IsValid(), "SetBuffer requires a valid reflected buffer-binding path.");
     SetBuffer(resourceSet, bindingHandle, buffer, offset, size);
+}
+
+void ShaderParameterWriter::SetBufferArray(ResourceSet& resourceSet,
+                                           std::string_view path,
+                                           std::span<const BufferBinding> bufferBindings) const
+{
+    const BindingHandle bindingHandle = ResolveBinding(path);
+    RTRLAB_ASSERT_MSG(bindingHandle.IsValid(), "SetBufferArray requires a valid reflected buffer-binding path.");
+    SetBufferArray(resourceSet, bindingHandle, bufferBindings);
 }
 
 const ShaderParameterWriter::FieldInfo& ShaderParameterWriter::GetFieldInfo(FieldHandle fieldHandle) const
@@ -246,6 +378,26 @@ void ShaderParameterWriter::SetConstantData(ResourceSet& resourceSet,
     RTRLAB_ASSERT_MSG(size <= fieldInfo.m_Size, "SetConstantData payload exceeds the reflected field size.");
 
     resourceSet.SetConstantDataRaw(fieldInfo.m_Offset, data, size);
+}
+
+void ShaderParameterWriter::ValidateNonArrayBinding(const BindingInfo& bindingInfo,
+                                                    std::string_view operationName) const
+{
+    RTRLAB_ASSERTF(bindingInfo.m_ArrayCount == 1,
+                   "{} requires a non-array binding, but the reflected binding has {} elements.",
+                   operationName,
+                   bindingInfo.m_ArrayCount);
+}
+
+void ShaderParameterWriter::ValidateArrayBindingCount(const BindingInfo& bindingInfo,
+                                                      size_t providedCount,
+                                                      std::string_view operationName) const
+{
+    RTRLAB_ASSERTF(providedCount == bindingInfo.m_ArrayCount,
+                   "{} requires exactly {} element(s), but received {}.",
+                   operationName,
+                   bindingInfo.m_ArrayCount,
+                   providedCount);
 }
 
 void ShaderParameterWriter::ValidateResourceSetSetIndex(const ResourceSet& resourceSet,
