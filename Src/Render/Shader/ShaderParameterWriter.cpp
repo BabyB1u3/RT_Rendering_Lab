@@ -75,7 +75,8 @@ void ShaderParameterWriter::SetTexture(ResourceSet& resourceSet, BindingHandle b
 {
     const BindingInfo& bindingInfo = GetBindingInfo(bindingHandle);
     ValidateResourceSetSetIndex(resourceSet, bindingInfo.m_SetIndex, "resource binding");
-    RTRLAB_ASSERT_MSG(bindingInfo.m_TypeKind == ReflectedTypeKind::Texture,
+    RTRLAB_ASSERT_MSG(bindingInfo.m_TypeKind == ReflectedTypeKind::Texture ||
+                          bindingInfo.m_TypeKind == ReflectedTypeKind::StorageTexture,
                       "BindingHandle must resolve to a texture field for SetTexture.");
 
     TextureBinding textureBinding;
@@ -89,7 +90,8 @@ void ShaderParameterWriter::SetTextureView(ResourceSet& resourceSet,
 {
     const BindingInfo& bindingInfo = GetBindingInfo(bindingHandle);
     ValidateResourceSetSetIndex(resourceSet, bindingInfo.m_SetIndex, "resource binding");
-    RTRLAB_ASSERT_MSG(bindingInfo.m_TypeKind == ReflectedTypeKind::Texture,
+    RTRLAB_ASSERT_MSG(bindingInfo.m_TypeKind == ReflectedTypeKind::Texture ||
+                          bindingInfo.m_TypeKind == ReflectedTypeKind::StorageTexture,
                       "BindingHandle must resolve to a texture field for SetTextureView.");
 
     TextureBinding textureBinding;

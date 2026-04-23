@@ -345,7 +345,15 @@ public:
 
     void SetTexture(uint32_t binding, const TextureBinding& textureBinding) override
     {
-        const BindingInfo& bindingInfo = RequireBindingInfo(binding, ResourceKind::SampledTexture);
+        const BindingInfo* bindingInfo =
+            RHIInternal::FindBindingInfo(m_Layout->GetDesc(), m_SetIndex, binding, ResourceKind::SampledTexture);
+        if (bindingInfo == nullptr)
+            bindingInfo =
+                RHIInternal::FindBindingInfo(m_Layout->GetDesc(), m_SetIndex, binding, ResourceKind::StorageTexture);
+        RTRLAB_ASSERTF(bindingInfo != nullptr,
+                       "Vulkan ResourceSet set {} has no texture binding {} in its PipelineLayout.",
+                       m_SetIndex,
+                       binding);
         TextureBinding resolvedBinding = textureBinding;
         if (resolvedBinding.m_View == nullptr && resolvedBinding.m_Texture != nullptr)
             resolvedBinding.m_View = ResolveAutoTextureView(binding, resolvedBinding.m_Texture);
@@ -356,7 +364,7 @@ public:
             resolvedBinding.m_Texture = resolvedBinding.m_View->GetTexture();
 
         m_TextureBindings[binding] = resolvedBinding;
-        WriteTextureDescriptor(bindingInfo, resolvedBinding);
+        WriteTextureDescriptor(*bindingInfo, resolvedBinding);
         ++m_Version;
     }
 
@@ -515,7 +523,9 @@ private:
         imageInfo.imageView = textureBinding.m_View != nullptr ? GetVkImageViewFromTextureView(textureBinding.m_View)
                                                                : GetVkImageViewFromTextureView(ResolveAutoTextureView(
                                                                      bindingInfo.m_Binding, textureBinding.m_Texture));
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfo.imageLayout = bindingInfo.m_Kind == ResourceKind::StorageTexture
+                                    ? VK_IMAGE_LAYOUT_GENERAL
+                                    : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
         VkWriteDescriptorSet write{};
         write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;

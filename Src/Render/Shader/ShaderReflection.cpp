@@ -29,11 +29,13 @@ uint32_t GetFieldSortPriority(const ReflectedField& field)
             return 3;
         case ReflectedTypeKind::Texture:
             return 4;
-        case ReflectedTypeKind::Sampler:
+        case ReflectedTypeKind::StorageTexture:
             return 5;
+        case ReflectedTypeKind::Sampler:
+            return 6;
     }
 
-    return 6;
+    return 7;
 }
 
 bool CompareReflectedFields(const ReflectedField& lhs, const ReflectedField& rhs)
@@ -150,8 +152,8 @@ bool ValidateReflectedField(const ReflectedField& field,
 
 bool IsBindableReflectedType(ReflectedTypeKind typeKind)
 {
-    return typeKind == ReflectedTypeKind::Texture || typeKind == ReflectedTypeKind::Sampler ||
-           typeKind == ReflectedTypeKind::Buffer;
+    return typeKind == ReflectedTypeKind::Texture || typeKind == ReflectedTypeKind::StorageTexture ||
+           typeKind == ReflectedTypeKind::Sampler || typeKind == ReflectedTypeKind::Buffer;
 }
 
 bool IsStructLikeReflectedType(ReflectedTypeKind typeKind)

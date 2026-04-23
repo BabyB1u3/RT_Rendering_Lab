@@ -16,6 +16,8 @@ ResourceKind MapReflectedResourceKind(ReflectedTypeKind typeKind)
             return ResourceKind::StorageBuffer;
         case ReflectedTypeKind::Texture:
             return ResourceKind::SampledTexture;
+        case ReflectedTypeKind::StorageTexture:
+            return ResourceKind::StorageTexture;
         case ReflectedTypeKind::Sampler:
             return ResourceKind::Sampler;
         case ReflectedTypeKind::ConstantData:
@@ -231,7 +233,14 @@ void ShellResourceSet::SetBuffer(uint32_t binding, const BufferBinding& bufferBi
 
 void ShellResourceSet::SetTexture(uint32_t binding, const TextureBinding& textureBinding)
 {
-    (void)RequireBindingInfo(binding, ResourceKind::SampledTexture);
+    const BindingInfo* bindingInfo =
+        FindBindingInfo(m_Layout->GetDesc(), m_SetIndex, binding, ResourceKind::SampledTexture);
+    if (bindingInfo == nullptr)
+        bindingInfo = FindBindingInfo(m_Layout->GetDesc(), m_SetIndex, binding, ResourceKind::StorageTexture);
+    RTRLAB_ASSERTF(bindingInfo != nullptr,
+                   "ResourceSet set {} has no texture binding {} in its PipelineLayout.",
+                   m_SetIndex,
+                   binding);
     m_TextureBindings[binding] = textureBinding;
     ++m_Version;
 }

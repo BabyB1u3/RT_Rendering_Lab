@@ -68,11 +68,32 @@ bool IsLeafConstantType(const SlangReflectionType& type)
     return kind == "scalar" || kind == "vector" || kind == "matrix";
 }
 
+const SlangReflectionType& ResolveBindableType(const SlangReflectionType& type)
+{
+    if (type.m_Kind == "array" && type.m_ElementType != nullptr)
+        return ResolveBindableType(*type.m_ElementType);
+    return type;
+}
+
+uint32_t GetBindableArrayCount(const SlangReflectionType& type)
+{
+    if (type.m_Kind == "array")
+    {
+        const uint32_t elementCount = std::max(type.m_ElementCount, 1u);
+        if (type.m_ElementType != nullptr)
+            return elementCount * GetBindableArrayCount(*type.m_ElementType);
+        return elementCount;
+    }
+
+    return 1;
+}
+
 ReflectedTypeKind MapResourceTypeKind(const SlangReflectionType& type, const SlangReflectionBinding& binding)
 {
     const std::string_view bindingKind = binding.m_Kind;
-    const std::string_view typeKind = type.m_Kind;
-    const std::string_view typeName = type.m_Name;
+    const SlangReflectionType& bindableType = ResolveBindableType(type);
+    const std::string_view typeKind = bindableType.m_Kind;
+    const std::string_view typeName = bindableType.m_Name;
 
     if (bindingKind == "samplerState" || typeKind == "samplerState")
         return ReflectedTypeKind::Sampler;
@@ -87,6 +108,9 @@ ReflectedTypeKind MapResourceTypeKind(const SlangReflectionType& type, const Sla
         {
             return ReflectedTypeKind::Buffer;
         }
+
+        if (bindingKind == "unorderedAccess")
+            return ReflectedTypeKind::StorageTexture;
 
         return ReflectedTypeKind::Texture;
     }
@@ -124,7 +148,7 @@ bool ConvertStructuredField(const SlangReflectionField& field,
         outField.m_TypeKind = ReflectedTypeKind::ParameterBlock;
         outField.m_SetIndex = binding.m_Space;
         outField.m_Binding = binding.m_Index;
-        outField.m_ArrayCount = 1;
+        outField.m_ArrayCount = GetBindableArrayCount(*field.m_Type);
         return ConvertFieldChildren(
             *ResolveStructuredElementType(*field.m_Type), stageMask, outField.m_Children, errorMessage);
     }
@@ -134,7 +158,7 @@ bool ConvertStructuredField(const SlangReflectionField& field,
         outField.m_TypeKind = ReflectedTypeKind::ParameterBlock;
         outField.m_SetIndex = binding.m_Space;
         outField.m_Binding = binding.m_Index;
-        outField.m_ArrayCount = 1;
+        outField.m_ArrayCount = GetBindableArrayCount(*field.m_Type);
         return ConvertFieldChildren(
             *ResolveStructuredElementType(*field.m_Type), stageMask, outField.m_Children, errorMessage);
     }
@@ -152,7 +176,7 @@ bool ConvertStructuredField(const SlangReflectionField& field,
         outField.m_TypeKind = MapResourceTypeKind(*field.m_Type, binding);
         outField.m_SetIndex = binding.m_Space;
         outField.m_Binding = binding.m_Index;
-        outField.m_ArrayCount = 1;
+        outField.m_ArrayCount = GetBindableArrayCount(*field.m_Type);
         return true;
     }
 
@@ -204,7 +228,7 @@ bool ConvertParameter(const SlangReflectionParameter& parameter,
         outField.m_TypeKind = ReflectedTypeKind::ParameterBlock;
         outField.m_SetIndex = binding.m_Space;
         outField.m_Binding = binding.m_Index;
-        outField.m_ArrayCount = 1;
+        outField.m_ArrayCount = GetBindableArrayCount(parameter.m_Type);
         return ConvertFieldChildren(
             *ResolveStructuredElementType(parameter.m_Type), stageMask, outField.m_Children, errorMessage);
     }
@@ -214,7 +238,7 @@ bool ConvertParameter(const SlangReflectionParameter& parameter,
         outField.m_TypeKind = MapResourceTypeKind(parameter.m_Type, binding);
         outField.m_SetIndex = binding.m_Space;
         outField.m_Binding = binding.m_Index;
-        outField.m_ArrayCount = 1;
+        outField.m_ArrayCount = GetBindableArrayCount(parameter.m_Type);
         return true;
     }
 
