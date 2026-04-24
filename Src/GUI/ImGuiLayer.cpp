@@ -3,9 +3,9 @@
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #if defined(GLAB_BACKEND_METAL)
-// #include "GUI/Backends/Metal/MetalImGuiBridge.h"
+#include "GUI/Backends/Metal/MetalImGuiBridge.h"
 #elif defined(GLAB_BACKEND_VULKAN)
-// Vulkan renderer backend integration will be wired in once the RHI path lands.
+#include "GUI/Backends/Vulkan/VulkanImGuiBridge.h"
 #else
 #error Unsupported graphics backend
 #endif
@@ -40,19 +40,19 @@ void ImGuiLayer::OnAttach()
     GLFWwindow* window = Application::Get().GetWindow().GetNativeHandle();
 #if defined(GLAB_BACKEND_METAL)
     ImGui_ImplGlfw_InitForOther(window, true);
-    // auto *metalDevice = static_cast<MetalGraphicsDevice *>(GetDevice().get());
-    // MetalImGuiBridge::Init(metalDevice->GetMTLDevice());
+    MetalImGuiBridge::Init(Application::Get().GetDevice());
 #elif defined(GLAB_BACKEND_VULKAN)
     ImGui_ImplGlfw_InitForOther(window, true);
+    VulkanImGuiBridge::Init(Application::Get().GetDevice(), Application::Get().GetSwapchain());
 #endif
 }
 
 void ImGuiLayer::OnDetach()
 {
 #if defined(GLAB_BACKEND_METAL)
-    // MetalImGuiBridge::Shutdown();
+    MetalImGuiBridge::Shutdown();
 #elif defined(GLAB_BACKEND_VULKAN)
-    // Vulkan renderer backend shutdown will be added with the Vulkan renderer path.
+    VulkanImGuiBridge::Shutdown();
 #endif
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
@@ -61,10 +61,9 @@ void ImGuiLayer::OnDetach()
 void ImGuiLayer::Begin()
 {
 #if defined(GLAB_BACKEND_METAL)
-    // auto *metalDevice = static_cast<MetalGraphicsDevice *>(GetDevice().get());
-    // metalDevice->GetMetalRenderCommand()->BeginImGuiFrame();
+    MetalImGuiBridge::NewFrame(Application::Get().GetCurrentSwapchainImage());
 #elif defined(GLAB_BACKEND_VULKAN)
-    // Vulkan renderer backend frame setup will be added with the Vulkan renderer path.
+    VulkanImGuiBridge::NewFrame();
 #endif
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
@@ -79,10 +78,19 @@ void ImGuiLayer::Begin()
 void ImGuiLayer::End()
 {
     ImGui::Render();
+
+    auto& app = Application::Get();
+    Texture* swapchainImage = app.GetCurrentSwapchainImage();
+    CommandList* commandList = app.GetCurrentCommandList();
+    RTRLAB_ASSERT_MSG(swapchainImage != nullptr, "ImGui rendering requires an acquired swapchain image.");
+    RTRLAB_ASSERT_MSG(commandList != nullptr, "ImGui rendering requires an active command list.");
+
+    app.GetResourceStateTracker().Transition(swapchainImage, TextureState::RenderTarget);
+    app.GetResourceStateTracker().FlushBarriers(commandList);
+
 #if defined(GLAB_BACKEND_METAL)
-    // auto *metalDevice = static_cast<MetalGraphicsDevice *>(GetDevice().get());
-    // metalDevice->GetMetalRenderCommand()->RenderImGui(ImGui::GetDrawData());
+    MetalImGuiBridge::RenderDrawData(ImGui::GetDrawData(), app.GetDevice(), swapchainImage);
 #elif defined(GLAB_BACKEND_VULKAN)
-    // Vulkan renderer backend draw submission will be added with the Vulkan renderer path.
+    VulkanImGuiBridge::RenderDrawData(ImGui::GetDrawData(), commandList, app.GetCurrentSwapchainImageView());
 #endif
 }

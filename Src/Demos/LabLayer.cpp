@@ -26,11 +26,11 @@ void LabLayer::OnAttach()
     if (!m_ActiveDemo)
     {
         // Default demo
-        m_SelectedDemoIndex = 3;
-        LOG_INFO_CAT(LogCategory::k_Demo, "Loading default demo: 04 - Hello Offscreen");
-        auto defaultDemo = DemoRegistry::Create("04 - Hello Offscreen");
-        RTRLAB_ASSERT_MSG(defaultDemo, "Failed to create default demo: 04 - Hello Offscreen");
-        SetActiveDemo(std::move(defaultDemo), "04 - Hello Offscreen");
+        m_SelectedDemoIndex = 0;
+        LOG_INFO_CAT(LogCategory::k_Demo, "Loading default demo: 01 - Hello Window");
+        auto defaultDemo = DemoRegistry::Create("01 - Hello Window");
+        RTRLAB_ASSERT_MSG(defaultDemo, "Failed to create default demo: 01 - Hello Window");
+        SetActiveDemo(std::move(defaultDemo), "01 - Hello Window");
     }
 
     if (m_ActiveDemo)
@@ -45,6 +45,8 @@ void LabLayer::OnDetach()
 
 void LabLayer::OnUpdate(double dt)
 {
+    ApplyPendingDemoSwitch();
+
     if (m_ActiveDemo)
         m_ActiveDemo->OnUpdate(dt);
 }
@@ -57,26 +59,17 @@ void LabLayer::OnRender()
 
 void LabLayer::OnImGuiRender()
 {
-    // When DemoSelectorPanel returns true, the user picked a different demo.
-    // SetActiveDemo detaches the old demo; we then attach the new one.
-    // const auto &names = DemoRegistry::GetNames();
-    // if (m_DemoSelectorPanel.OnImGuiRender(names, m_SelectedDemoIndex))
-    // {
-    //     const auto &name = names[m_SelectedDemoIndex];
-    //     auto demo = DemoRegistry::Create(name);
-    //     if (!demo)
-    //     {
-    //         LOG_ERROR_CAT(LogCategory::k_Demo, "Failed to create demo: {}", name);
-    //         return;
-    //     }
+    // Queue the switch so the old demo survives until this frame's command buffer
+    // has finished recording and submission.
+    const auto& names = DemoRegistry::GetNames();
+    if (m_DemoSelectorPanel.OnImGuiRender(names, m_SelectedDemoIndex))
+    {
+        const auto& name = names[m_SelectedDemoIndex];
+        QueueDemoSwitch(m_SelectedDemoIndex, name);
+    }
 
-    //     SetActiveDemo(std::move(demo), name);
-    //     if (m_ActiveDemo)
-    //         m_ActiveDemo->OnAttach();
-    // }
-
-    // m_DebugPanel.OnImGuiRender();
-    // m_ConsolePanel.OnImGuiRender();
+    m_DebugPanel.OnImGuiRender();
+    m_ConsolePanel.OnImGuiRender();
 
     if (m_ActiveDemo)
         m_ActiveDemo->OnImGuiRender();
@@ -119,6 +112,36 @@ void LabLayer::RegisterBuiltInDemos()
                            });
 
     m_DemosRegistered = true;
+}
+
+void LabLayer::QueueDemoSwitch(int demoIndex, const std::string& name)
+{
+    m_PendingDemoIndex = demoIndex;
+    m_PendingDemoName = name;
+    m_HasPendingDemoSwitch = true;
+}
+
+void LabLayer::ApplyPendingDemoSwitch()
+{
+    if (!m_HasPendingDemoSwitch)
+        return;
+
+    const int demoIndex = m_PendingDemoIndex;
+    const std::string name = m_PendingDemoName;
+    m_HasPendingDemoSwitch = false;
+    m_PendingDemoName.clear();
+
+    auto demo = DemoRegistry::Create(name);
+    if (!demo)
+    {
+        LOG_ERROR_CAT(LogCategory::k_Demo, "Failed to create demo: {}", name);
+        return;
+    }
+
+    m_SelectedDemoIndex = demoIndex;
+    SetActiveDemo(std::move(demo), name);
+    if (m_ActiveDemo)
+        m_ActiveDemo->OnAttach();
 }
 
 void LabLayer::SetActiveDemo(Scope<DemoBase> demo, const std::string& name)

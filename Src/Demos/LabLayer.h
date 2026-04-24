@@ -38,13 +38,18 @@ public:
 
 private:
     void RegisterBuiltInDemos();
+    void QueueDemoSwitch(int demoIndex, const std::string& name);
+    void ApplyPendingDemoSwitch();
     void SetActiveDemo(Scope<DemoBase> demo, const std::string& name);
 
 private:
     bool m_DemosRegistered = false;
+    bool m_HasPendingDemoSwitch = false;
 
     int m_SelectedDemoIndex = 0;
+    int m_PendingDemoIndex = 0;
     std::string m_ActiveDemoName;
+    std::string m_PendingDemoName;
     Scope<DemoBase> m_ActiveDemo;
 
     ConsolePanel m_ConsolePanel;

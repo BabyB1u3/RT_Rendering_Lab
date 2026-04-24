@@ -103,8 +103,7 @@ std::optional<SlangReflectionBinding> SelectPreferredBinding(const Json& json, s
 
     if (preferredBinding.has_value())
     {
-        if (preferredBinding->m_Kind == "descriptorTableSlot" && !preferredBinding->m_HasExplicitSpace &&
-            inferredRegisterSpace.has_value())
+        if (!preferredBinding->m_HasExplicitSpace && inferredRegisterSpace.has_value())
         {
             preferredBinding->m_Space = *inferredRegisterSpace;
         }

@@ -26,6 +26,7 @@ Application::Application(const ApplicationSpecification& spec)
     LOG_INFO_CAT(LogCategory::k_Core, "Starting application: {}", spec.m_Name);
 
     RTRLAB_ASSERT_MSG(!s_Instance, "Application already exists.");
+    s_Instance = this;
 
     WindowProps props;
     props.m_Title = spec.m_Name;
@@ -53,11 +54,9 @@ Application::Application(const ApplicationSpecification& spec)
     Time::Reset();
     InitializeRHI();
 
-    s_Instance = this;
-
-    // auto imguiLayer = CreateScope<ImGuiLayer>();
-    // m_ImGuiLayer = imguiLayer.get();
-    // PushOverlay(std::move(imguiLayer));
+    auto imguiLayer = CreateScope<ImGuiLayer>();
+    m_ImGuiLayer = imguiLayer.get();
+    PushOverlay(std::move(imguiLayer));
 
     LOG_INFO_CAT(LogCategory::k_Core, "Application initialized");
 }
@@ -67,7 +66,7 @@ Application::~Application()
     LOG_INFO_CAT(LogCategory::k_Core, "Application shutting down");
 
     m_LayerStack.Clear();
-    // m_ImGuiLayer = nullptr;
+    m_ImGuiLayer = nullptr;
     m_Swapchain.reset();
     m_Device.reset();
     m_Window.reset();
@@ -92,10 +91,10 @@ void Application::RenderFrame()
 
     // Phase 3: ImGui pass - Begin/End bracket all OnImGuiRender() calls
     // so that ImGui's NewFrame/Render are issued exactly once per frame.
-    // m_ImGuiLayer->Begin();
-    // for (auto& layer : m_LayerStack)
-    //     layer->OnImGuiRender();
-    // m_ImGuiLayer->End();
+    m_ImGuiLayer->Begin();
+    for (auto& layer : m_LayerStack)
+        layer->OnImGuiRender();
+    m_ImGuiLayer->End();
 
     EndFrame();
     PresentFrame();
