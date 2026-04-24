@@ -282,21 +282,27 @@ endif()
 
 set(GLAB_DEMO_SOURCES
     Demos/DemoRegistry.cpp
+    Demos/DemoRenderUtils.cpp
     Demos/LabLayer.cpp
-    Demos/01_HelloWindow/HelloWindow.cpp
-    Demos/02_HelloTriangle/HelloTriangle.cpp
-    Demos/03_HelloTexture/HelloTexture.cpp
-    Demos/04_HelloOffscreen/HelloOffscreen.cpp
+    Demos/01_ClearColor/ClearColorDemo.cpp
+    Demos/02_Triangle/TriangleDemo.cpp
+    Demos/03_Quad/QuadDemo.cpp
+    Demos/04_TexturedQuad/TexturedQuadDemo.cpp
+    Demos/05_RotatingCube/RotatingCubeDemo.cpp
+    Demos/06_TexturedRotatingCube/TexturedRotatingCubeDemo.cpp
 )
 
 set(GLAB_DEMO_HEADERS
     Demos/DemoBase.h
     Demos/DemoRegistry.h
+    Demos/DemoRenderUtils.h
     Demos/LabLayer.h
-    Demos/01_HelloWindow/HelloWindow.h
-    Demos/02_HelloTriangle/HelloTriangle.h
-    Demos/03_HelloTexture/HelloTexture.h
-    Demos/04_HelloOffscreen/HelloOffscreen.h
+    Demos/01_ClearColor/ClearColorDemo.h
+    Demos/02_Triangle/TriangleDemo.h
+    Demos/03_Quad/QuadDemo.h
+    Demos/04_TexturedQuad/TexturedQuadDemo.h
+    Demos/05_RotatingCube/RotatingCubeDemo.h
+    Demos/06_TexturedRotatingCube/TexturedRotatingCubeDemo.h
 )
 
 set(GLAB_GUI_SOURCES

@@ -1,4 +1,4 @@
-#include "HelloWindow.h"
+#include "ClearColorDemo.h"
 
 #include <imgui.h>
 
@@ -7,28 +7,28 @@
 #include "Core/Diagnostics/Logging/LogCategories.h"
 #include "Core/Diagnostics/Logging/LogMacros.h"
 
-HelloWindow::HelloWindow(uint32_t width, uint32_t height) : m_ViewportWidth(width), m_ViewportHeight(height) {}
+ClearColorDemo::ClearColorDemo(uint32_t width, uint32_t height) : m_ViewportWidth(width), m_ViewportHeight(height) {}
 
-void HelloWindow::OnAttach()
+void ClearColorDemo::OnAttach()
 {
-    LOG_INFO_CAT(LogCategory::k_Demo, "HelloWindow demo attached");
+    LOG_INFO_CAT(LogCategory::k_Demo, "ClearColorDemo demo attached");
 }
 
-void HelloWindow::OnDetach()
+void ClearColorDemo::OnDetach()
 {
     m_BackBuffer.reset();
-    LOG_INFO_CAT(LogCategory::k_Demo, "HelloWindow demo detached");
+    LOG_INFO_CAT(LogCategory::k_Demo, "ClearColorDemo demo detached");
 }
 
-void HelloWindow::OnRender()
+void ClearColorDemo::OnRender()
 {
     Application& app = Application::Get();
     CommandList* commandList = app.GetCurrentCommandList();
     Texture* swapchainImage = app.GetCurrentSwapchainImage();
     TextureView* swapchainImageView = app.GetCurrentSwapchainImageView();
-    RTRLAB_ASSERT_MSG(commandList != nullptr, "HelloWindow requires an active command list during OnRender.");
+    RTRLAB_ASSERT_MSG(commandList != nullptr, "ClearColorDemo requires an active command list during OnRender.");
     RTRLAB_ASSERT_MSG(swapchainImage != nullptr && swapchainImageView != nullptr,
-                      "HelloWindow requires the application to expose the active swapchain backbuffer.");
+                      "ClearColorDemo requires the application to expose the active swapchain backbuffer.");
 
     ResourceStateTracker& resourceStateTracker = app.GetResourceStateTracker();
     resourceStateTracker.Transition(swapchainImage, TextureState::RenderTarget);
@@ -48,14 +48,14 @@ void HelloWindow::OnRender()
     commandList->EndRendering();
 }
 
-void HelloWindow::OnImGuiRender()
+void ClearColorDemo::OnImGuiRender()
 {
-    ImGui::Begin("Hello Window");
+    ImGui::Begin("Clear Color");
     ImGui::ColorEdit3("Clear Color", m_ClearColor.data());
     ImGui::End();
 }
 
-void HelloWindow::OnResize(uint32_t width, uint32_t height)
+void ClearColorDemo::OnResize(uint32_t width, uint32_t height)
 {
     if (width == 0 || height == 0)
         return;

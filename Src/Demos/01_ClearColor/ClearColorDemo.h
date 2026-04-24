@@ -1,6 +1,6 @@
 #pragma once
 
-/// @file HelloWindow.h
+/// @file ClearColorDemo.h
 /// @brief Tutorial 01: clear the screen to a user-chosen color.
 ///
 /// Validates the most basic RHI path: window creation, back buffer render
@@ -15,10 +15,10 @@
 
 class RenderTarget;
 
-class HelloWindow : public DemoBase
+class ClearColorDemo : public DemoBase
 {
 public:
-    HelloWindow(uint32_t width, uint32_t height);
+    ClearColorDemo(uint32_t width, uint32_t height);
 
     void OnAttach() override;
     void OnDetach() override;

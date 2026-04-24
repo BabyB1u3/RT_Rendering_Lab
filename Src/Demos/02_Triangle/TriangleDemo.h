@@ -1,7 +1,7 @@
 #pragma once
 
-/// @file HelloTriangle.h
-/// @brief Tutorial 02: validate the first indexed draw path on Vulkan.
+/// @file TriangleDemo.h
+/// @brief Tutorial 02: draw one static triangle.
 
 #include <cstdint>
 
@@ -9,10 +9,10 @@
 #include "Demos/DemoBase.h"
 #include "Render/RHI/RHI.h"
 
-class HelloTriangle : public DemoBase
+class TriangleDemo : public DemoBase
 {
 public:
-    HelloTriangle(uint32_t width, uint32_t height);
+    TriangleDemo(uint32_t width, uint32_t height);
 
     void OnAttach() override;
     void OnDetach() override;
@@ -23,7 +23,6 @@ private:
     void CreateTriangleResources();
     void UploadTriangleGeometry(CommandList& commandList, ResourceStateTracker& resourceStateTracker);
     void ForgetTrackedBuffers();
-    void UpdateAnimatedParameters();
 
     uint32_t m_ViewportWidth = 0;
     uint32_t m_ViewportHeight = 0;
