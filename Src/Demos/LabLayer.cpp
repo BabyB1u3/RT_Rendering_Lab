@@ -10,10 +10,12 @@
 #include "Core/Diagnostics/Logging/LogMacros.h"
 #include "DemoBase.h"
 #include "DemoRegistry.h"
-#include "Demos/01_HelloWindow/HelloWindow.h"
-#include "Demos/02_HelloTriangle/HelloTriangle.h"
-#include "Demos/03_HelloTexture/HelloTexture.h"
-#include "Demos/04_HelloOffscreen/HelloOffscreen.h"
+#include "Demos/01_ClearColor/ClearColorDemo.h"
+#include "Demos/02_Triangle/TriangleDemo.h"
+#include "Demos/03_Quad/QuadDemo.h"
+#include "Demos/04_TexturedQuad/TexturedQuadDemo.h"
+#include "Demos/05_RotatingCube/RotatingCubeDemo.h"
+#include "Demos/06_TexturedRotatingCube/TexturedRotatingCubeDemo.h"
 
 LabLayer::LabLayer() : Layer("LabLayer") {}
 
@@ -27,10 +29,10 @@ void LabLayer::OnAttach()
     {
         // Default demo
         m_SelectedDemoIndex = 0;
-        LOG_INFO_CAT(LogCategory::k_Demo, "Loading default demo: 01 - Hello Window");
-        auto defaultDemo = DemoRegistry::Create("01 - Hello Window");
-        RTRLAB_ASSERT_MSG(defaultDemo, "Failed to create default demo: 01 - Hello Window");
-        SetActiveDemo(std::move(defaultDemo), "01 - Hello Window");
+        LOG_INFO_CAT(LogCategory::k_Demo, "Loading default demo: 01 - Clear Color");
+        auto defaultDemo = DemoRegistry::Create("01 - Clear Color");
+        RTRLAB_ASSERT_MSG(defaultDemo, "Failed to create default demo: 01 - Clear Color");
+        SetActiveDemo(std::move(defaultDemo), "01 - Clear Color");
     }
 
     if (m_ActiveDemo)
@@ -86,29 +88,41 @@ void LabLayer::RegisterBuiltInDemos()
     if (m_DemosRegistered)
         return;
     // --- Demos ---
-    DemoRegistry::Register("01 - Hello Window",
+    DemoRegistry::Register("01 - Clear Color",
                            []()
                            {
                                const auto& window = Application::Get().GetWindow();
-                               return CreateScope<HelloWindow>(window.GetWidth(), window.GetHeight());
+                               return CreateScope<ClearColorDemo>(window.GetWidth(), window.GetHeight());
                            });
-    DemoRegistry::Register("02 - Hello Triangle",
+    DemoRegistry::Register("02 - Triangle",
                            []()
                            {
                                const auto& window = Application::Get().GetWindow();
-                               return CreateScope<HelloTriangle>(window.GetWidth(), window.GetHeight());
+                               return CreateScope<TriangleDemo>(window.GetWidth(), window.GetHeight());
                            });
-    DemoRegistry::Register("03 - Hello Texture",
+    DemoRegistry::Register("03 - Quad",
                            []()
                            {
                                const auto& window = Application::Get().GetWindow();
-                               return CreateScope<HelloTexture>(window.GetWidth(), window.GetHeight());
+                               return CreateScope<QuadDemo>(window.GetWidth(), window.GetHeight());
                            });
-    DemoRegistry::Register("04 - Hello Offscreen",
+    DemoRegistry::Register("04 - Textured Quad",
                            []()
                            {
                                const auto& window = Application::Get().GetWindow();
-                               return CreateScope<HelloOffscreen>(window.GetWidth(), window.GetHeight());
+                               return CreateScope<TexturedQuadDemo>(window.GetWidth(), window.GetHeight());
+                           });
+    DemoRegistry::Register("05 - Rotating Cube",
+                           []()
+                           {
+                               const auto& window = Application::Get().GetWindow();
+                               return CreateScope<RotatingCubeDemo>(window.GetWidth(), window.GetHeight());
+                           });
+    DemoRegistry::Register("06 - Textured Rotating Cube",
+                           []()
+                           {
+                               const auto& window = Application::Get().GetWindow();
+                               return CreateScope<TexturedRotatingCubeDemo>(window.GetWidth(), window.GetHeight());
                            });
 
     m_DemosRegistered = true;
