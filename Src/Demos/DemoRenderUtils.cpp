@@ -10,6 +10,16 @@
 
 namespace DemoRenderUtils
 {
+Math::Mat4 BuildOrbitViewProjection(uint32_t framebufferWidth, uint32_t framebufferHeight)
+{
+    const float aspect =
+        framebufferHeight == 0 ? 1.0f : static_cast<float>(framebufferWidth) / static_cast<float>(framebufferHeight);
+    const Math::Mat4 projection = Math::PerspectiveRH_ZO(Math::Radians(55.0f), aspect, 0.1f, 100.0f);
+    const Math::Mat4 view =
+        Math::LookAt(Math::Vec3(0.0f, 0.0f, 3.1f), Math::Vec3(0.0f, 0.0f, 0.0f), Math::Vec3(0.0f, 1.0f, 0.0f));
+    return projection * view;
+}
+
 DemoViewport ComputeCenteredSquareViewport(uint32_t framebufferWidth, uint32_t framebufferHeight)
 {
     RTRLAB_ASSERT_MSG(framebufferWidth > 0 && framebufferHeight > 0,

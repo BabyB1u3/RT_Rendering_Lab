@@ -13,23 +13,6 @@
 #include "Demos/DemoRenderUtils.h"
 #include "Render/Shader/ShaderParameterWriter.h"
 
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
-namespace
-{
-struct TexturedVertex
-{
-    Math::Vec4 m_Position;
-    Math::Vec2 m_UV;
-};
-
-ShaderCompileRequest BuildShaderCompileRequest()
-{
-    return DemoRenderUtils::BuildGraphicsShaderCompileRequest(FileSystem::GetRootPath() / "Project" / "Shaders" /
-                                                              "DemoTextured.slang");
-}
-} // namespace
-#endif
-
 TexturedQuadDemo::TexturedQuadDemo(uint32_t width, uint32_t height) : m_ViewportWidth(width), m_ViewportHeight(height)
 {
 }
@@ -128,6 +111,7 @@ void TexturedQuadDemo::CreateTexturedQuadResources()
     Application& app = Application::Get();
     Device& device = app.GetDevice();
 
+    using DemoRenderUtils::TexturedVertex;
     static const std::array<TexturedVertex, 4> kVertices = {{
         {{-0.78f, -0.78f, 0.0f, 1.0f}, {0.0f, 1.0f}},
         {{0.78f, -0.78f, 0.0f, 1.0f}, {1.0f, 1.0f}},
@@ -195,8 +179,10 @@ void TexturedQuadDemo::CreateTexturedQuadResources()
                        static_cast<uint64_t>(loadedImage.m_Pixels.size()));
     m_TextureUploadPending = true;
 
-    m_ShaderProgram = device.CreateShaderProgram(
-        DemoRenderUtils::CompileShaderProgramDesc(BuildShaderCompileRequest(), "TexturedQuadDemo"));
+    m_ShaderProgram = device.CreateShaderProgram(DemoRenderUtils::CompileShaderProgramDesc(
+        DemoRenderUtils::BuildGraphicsShaderCompileRequest(FileSystem::GetRootPath() / "Project" / "Shaders" /
+                                                           "DemoTextured.slang"),
+        "TexturedQuadDemo"));
     m_PipelineLayout = device.CreatePipelineLayout(m_ShaderProgram->DerivePipelineLayoutDesc());
     const PipelineLayoutDesc& pipelineLayoutDesc = m_PipelineLayout->GetDesc();
     m_FrameSetIndex = DemoRenderUtils::FindRequiredSetIndex(pipelineLayoutDesc, "gFrame", "TexturedQuadDemo");

@@ -13,32 +13,6 @@
 #include "Demos/DemoRenderUtils.h"
 #include "Render/Shader/ShaderParameterWriter.h"
 
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
-namespace
-{
-struct ColoredVertex
-{
-    Math::Vec4 m_Position;
-    Math::Vec4 m_Color;
-};
-
-ShaderCompileRequest BuildShaderCompileRequest()
-{
-    return DemoRenderUtils::BuildGraphicsShaderCompileRequest(FileSystem::GetRootPath() / "Project" / "Shaders" /
-                                                              "DemoColored.slang");
-}
-
-Math::Mat4 BuildViewProjection(uint32_t width, uint32_t height)
-{
-    const float aspect = height == 0 ? 1.0f : static_cast<float>(width) / static_cast<float>(height);
-    const Math::Mat4 projection = Math::PerspectiveRH_ZO(Math::Radians(55.0f), aspect, 0.1f, 100.0f);
-    const Math::Mat4 view =
-        Math::LookAt(Math::Vec3(0.0f, 0.0f, 3.1f), Math::Vec3(0.0f, 0.0f, 0.0f), Math::Vec3(0.0f, 1.0f, 0.0f));
-    return projection * view;
-}
-} // namespace
-#endif
-
 RotatingCubeDemo::RotatingCubeDemo(uint32_t width, uint32_t height) : m_ViewportWidth(width), m_ViewportHeight(height)
 {
 }
@@ -144,8 +118,9 @@ void RotatingCubeDemo::OnResize(uint32_t width, uint32_t height)
     if (m_FrameSet != nullptr)
     {
         ShaderParameterWriter parameterWriter(m_ShaderProgram->GetReflection());
-        parameterWriter.SetMatrix4x4(
-            *m_FrameSet, "gFrame.viewProj", BuildViewProjection(m_ViewportWidth, m_ViewportHeight));
+        parameterWriter.SetMatrix4x4(*m_FrameSet,
+                                     "gFrame.viewProj",
+                                     DemoRenderUtils::BuildOrbitViewProjection(m_ViewportWidth, m_ViewportHeight));
     }
 
     if (m_DepthTexture != nullptr)
@@ -159,6 +134,7 @@ void RotatingCubeDemo::CreateCubeResources()
     Application& app = Application::Get();
     Device& device = app.GetDevice();
 
+    using DemoRenderUtils::ColoredVertex;
     static const std::array<ColoredVertex, 24> kVertices = {{
         {{-0.6f, -0.6f, 0.6f, 1.0f}, {1.0f, 0.25f, 0.25f, 1.0f}},
         {{0.6f, -0.6f, 0.6f, 1.0f}, {1.0f, 0.25f, 0.25f, 1.0f}},
@@ -214,8 +190,10 @@ void RotatingCubeDemo::CreateCubeResources()
     m_GeometryUploadPending = true;
     CreateDepthResources();
 
-    m_ShaderProgram = device.CreateShaderProgram(
-        DemoRenderUtils::CompileShaderProgramDesc(BuildShaderCompileRequest(), "RotatingCube"));
+    m_ShaderProgram = device.CreateShaderProgram(DemoRenderUtils::CompileShaderProgramDesc(
+        DemoRenderUtils::BuildGraphicsShaderCompileRequest(FileSystem::GetRootPath() / "Project" / "Shaders" /
+                                                           "DemoColored.slang"),
+        "RotatingCube"));
     m_PipelineLayout = device.CreatePipelineLayout(m_ShaderProgram->DerivePipelineLayoutDesc());
     const PipelineLayoutDesc& pipelineLayoutDesc = m_PipelineLayout->GetDesc();
     m_FrameSetIndex = DemoRenderUtils::FindRequiredSetIndex(pipelineLayoutDesc, "gFrame", "RotatingCube");
@@ -313,7 +291,7 @@ void RotatingCubeDemo::UpdateShaderParameters()
 
     ShaderParameterWriter parameterWriter(m_ShaderProgram->GetReflection());
     parameterWriter.SetMatrix4x4(
-        *m_FrameSet, "gFrame.viewProj", BuildViewProjection(m_ViewportWidth, m_ViewportHeight));
+        *m_FrameSet, "gFrame.viewProj", DemoRenderUtils::BuildOrbitViewProjection(m_ViewportWidth, m_ViewportHeight));
     parameterWriter.SetFloat4(*m_FrameSet, "gFrame.tint", Math::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
     parameterWriter.SetFloat(*m_FrameSet, "gFrame.time", m_RotationSeconds);
     parameterWriter.SetFloat4(*m_MaterialSet, "gMaterial.baseColor", Math::Vec4(1.0f, 1.0f, 1.0f, 1.0f));

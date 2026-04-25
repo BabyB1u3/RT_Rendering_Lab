@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "Core/Util/Base.h"
+#include "Core/Util/Math.h"
 #include "Render/RHI/RHI.h"
 #include "Render/Shader/ShaderCompiler.h"
 
@@ -29,6 +30,20 @@ struct LoadedImage
     uint32_t m_Height = 0;
     std::vector<uint8_t> m_Pixels;
 };
+
+struct ColoredVertex
+{
+    Math::Vec4 m_Position;
+    Math::Vec4 m_Color;
+};
+
+struct TexturedVertex
+{
+    Math::Vec4 m_Position;
+    Math::Vec2 m_UV;
+};
+
+Math::Mat4 BuildOrbitViewProjection(uint32_t framebufferWidth, uint32_t framebufferHeight);
 
 DemoViewport ComputeCenteredSquareViewport(uint32_t framebufferWidth, uint32_t framebufferHeight);
 uint32_t
