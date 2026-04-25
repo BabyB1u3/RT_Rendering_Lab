@@ -384,6 +384,7 @@ endif()
 if(GLAB_BACKEND_VULKAN)
     list(APPEND GLAB_CORE_SKIP_UNITY_SOURCES
         ${GLAB_RENDER_BACKEND_VULKAN_SOURCES}
+        GUI/Backends/Vulkan/VulkanImGuiBridge.cpp
     )
 endif()
 
