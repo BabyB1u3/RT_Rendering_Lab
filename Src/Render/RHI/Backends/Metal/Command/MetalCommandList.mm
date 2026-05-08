@@ -297,6 +297,33 @@ void MetalCommandList::Dispatch(uint32_t, uint32_t, uint32_t)
                       "compute path.");
 }
 
+void MetalCommandList::TextureBarrier(
+    Texture* texture, TextureState oldState, TextureState newState, ShaderStage srcStage, ShaderStage dstStage)
+{
+    (void)srcStage;
+    (void)dstStage;
+
+    if (texture == nullptr || oldState == newState)
+        return;
+
+    // Metal has no Vulkan-style image layout transitions in this v1 path. The
+    // ordering between blit/render encoders inside the command buffer carries
+    // the current resource-usage dependency.
+}
+
+void MetalCommandList::BufferBarrier(
+    Buffer* buffer, BufferState oldState, BufferState newState, ShaderStage srcStage, ShaderStage dstStage)
+{
+    (void)srcStage;
+    (void)dstStage;
+
+    if (buffer == nullptr || oldState == newState)
+        return;
+
+    // See TextureBarrier: current Metal resource transitions are represented by
+    // encoder/command-buffer ordering rather than an explicit barrier command.
+}
+
 void MetalCommandList::DrawIndexed(uint32_t indexCount, uint32_t firstIndex, int32_t vertexOffset)
 {
     ShellCommandListBase::DrawIndexed(indexCount, firstIndex, vertexOffset);

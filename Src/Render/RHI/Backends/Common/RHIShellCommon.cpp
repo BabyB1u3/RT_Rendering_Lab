@@ -463,9 +463,33 @@ void ShellCommandListBase::Dispatch(uint32_t groupX, uint32_t groupY, uint32_t g
                       "Use a backend with a real compute path before dispatching work.");
 }
 
-void ShellCommandListBase::TextureBarrier(Texture*, TextureState, TextureState, ShaderStage, ShaderStage) {}
+void ShellCommandListBase::TextureBarrier(
+    Texture* texture, TextureState oldState, TextureState newState, ShaderStage srcStage, ShaderStage dstStage)
+{
+    (void)srcStage;
+    (void)dstStage;
 
-void ShellCommandListBase::BufferBarrier(Buffer*, BufferState, BufferState, ShaderStage, ShaderStage) {}
+    if (texture == nullptr || oldState == newState)
+        return;
+
+    RTRLAB_ASSERT_MSG(false,
+                      "TextureBarrier is not implemented for the shell backend. "
+                      "Use a backend with real resource-transition support before flushing texture barriers.");
+}
+
+void ShellCommandListBase::BufferBarrier(
+    Buffer* buffer, BufferState oldState, BufferState newState, ShaderStage srcStage, ShaderStage dstStage)
+{
+    (void)srcStage;
+    (void)dstStage;
+
+    if (buffer == nullptr || oldState == newState)
+        return;
+
+    RTRLAB_ASSERT_MSG(false,
+                      "BufferBarrier is not implemented for the shell backend. "
+                      "Use a backend with real resource-transition support before flushing buffer barriers.");
+}
 
 ShellSwapchainBase::ShellSwapchainBase(const SwapchainDesc& desc, const NativeWindowHandle& nativeWindowHandle)
     : m_Desc(SanitizeSwapchainDesc(desc)), m_NativeWindowHandle(nativeWindowHandle)
