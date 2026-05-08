@@ -2,8 +2,6 @@
 #include "Render/Shader/ShaderReflection.h"
 
 #include <algorithm>
-#include <cstring>
-
 #include "Core/Diagnostics/Assert/Assert.h"
 
 namespace
@@ -345,7 +343,6 @@ void ShellCommandListBase::ResetState()
     m_Viewport[3] = 0.0f;
     m_Viewport[4] = 0.0f;
     m_Viewport[5] = 1.0f;
-    m_PushConstants.clear();
 }
 
 void ShellCommandListBase::BindGraphicsPipeline(GraphicsPipeline* pipeline)
@@ -366,15 +363,18 @@ void ShellCommandListBase::BindResourceSet(uint32_t setIndex, ResourceSet* resou
     m_ResourceSets[setIndex] = resourceSet;
 }
 
-void ShellCommandListBase::PushConstants(ShaderStage, uint32_t offset, uint32_t size, const void* data)
+void ShellCommandListBase::PushConstants(ShaderStage stageMask, uint32_t offset, uint32_t size, const void* data)
 {
-    if (size == 0 || data == nullptr)
+    (void)stageMask;
+    (void)offset;
+    (void)data;
+
+    if (size == 0)
         return;
 
-    if (offset + size > m_PushConstants.size())
-        m_PushConstants.resize(offset + size);
-
-    std::memcpy(m_PushConstants.data() + offset, data, size);
+    RTRLAB_ASSERT_MSG(false,
+                      "PushConstants is not implemented for the shell backend. "
+                      "Use a backend with real push-constant support before recording push constants.");
 }
 
 void ShellCommandListBase::BindMesh(const MeshBinding& meshBinding, const uint64_t* vertexOffsets)

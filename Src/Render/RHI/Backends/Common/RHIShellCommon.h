@@ -207,7 +207,6 @@ protected:
     IndexType m_IndexType = IndexType::UInt32;
     Rect2D m_Scissor;
     float m_Viewport[6] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
-    std::vector<uint8_t> m_PushConstants;
     uint32_t m_LastDrawVertexCount = 0;
     uint32_t m_LastDrawFirstVertex = 0;
     uint32_t m_LastDrawIndexedCount = 0;
