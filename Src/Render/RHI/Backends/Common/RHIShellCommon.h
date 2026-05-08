@@ -119,17 +119,6 @@ private:
     GraphicsPipelineDesc m_Desc;
 };
 
-class ShellComputePipeline final : public ComputePipeline
-{
-public:
-    explicit ShellComputePipeline(const ComputePipelineDesc& desc) : m_Desc(desc) {}
-
-    const ComputePipelineDesc& GetDesc() const override { return m_Desc; }
-
-private:
-    ComputePipelineDesc m_Desc;
-};
-
 class ShellResourceSet final : public ResourceSet
 {
 public:
@@ -210,7 +199,6 @@ protected:
     RenderingInfo m_RenderingInfo;
     bool m_IsRendering = false;
     GraphicsPipeline* m_GraphicsPipeline = nullptr;
-    ComputePipeline* m_ComputePipeline = nullptr;
     std::unordered_map<uint32_t, ResourceSet*> m_ResourceSets;
     MeshBinding m_MeshBinding;
     std::vector<uint64_t> m_VertexOffsets;
@@ -225,9 +213,6 @@ protected:
     uint32_t m_LastDrawIndexedCount = 0;
     uint32_t m_LastDrawFirstIndex = 0;
     int32_t m_LastDrawVertexOffset = 0;
-    uint32_t m_LastDispatchX = 0;
-    uint32_t m_LastDispatchY = 0;
-    uint32_t m_LastDispatchZ = 0;
 };
 
 class ShellSwapchainBase : public Swapchain

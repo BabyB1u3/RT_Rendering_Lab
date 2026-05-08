@@ -332,7 +332,6 @@ void ShellCommandListBase::ResetState()
     m_RenderingInfo = {};
     m_IsRendering = false;
     m_GraphicsPipeline = nullptr;
-    m_ComputePipeline = nullptr;
     m_ResourceSets.clear();
     m_MeshBinding = {};
     m_VertexOffsets.clear();
@@ -356,7 +355,10 @@ void ShellCommandListBase::BindGraphicsPipeline(GraphicsPipeline* pipeline)
 
 void ShellCommandListBase::BindComputePipeline(ComputePipeline* pipeline)
 {
-    m_ComputePipeline = pipeline;
+    (void)pipeline;
+    RTRLAB_ASSERT_MSG(false,
+                      "Compute pipelines are not implemented for the shell backend. "
+                      "Use a backend with a real compute path before binding compute work.");
 }
 
 void ShellCommandListBase::BindResourceSet(uint32_t setIndex, ResourceSet* resourceSet)
@@ -453,9 +455,12 @@ void ShellCommandListBase::CopyBufferToTexture(Buffer*, Texture*, std::span<cons
 
 void ShellCommandListBase::Dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ)
 {
-    m_LastDispatchX = groupX;
-    m_LastDispatchY = groupY;
-    m_LastDispatchZ = groupZ;
+    (void)groupX;
+    (void)groupY;
+    (void)groupZ;
+    RTRLAB_ASSERT_MSG(false,
+                      "Dispatch is not implemented for the shell backend. "
+                      "Use a backend with a real compute path before dispatching work.");
 }
 
 void ShellCommandListBase::TextureBarrier(Texture*, TextureState, TextureState, ShaderStage, ShaderStage) {}
@@ -586,7 +591,11 @@ Scope<GraphicsPipeline> ShellDeviceBase::CreateGraphicsPipeline(const GraphicsPi
 
 Scope<ComputePipeline> ShellDeviceBase::CreateComputePipeline(const ComputePipelineDesc& desc)
 {
-    return CreateScope<ShellComputePipeline>(desc);
+    (void)desc;
+    RTRLAB_ASSERT_MSG(false,
+                      "Compute pipelines are not implemented for the shell backend. "
+                      "This backend no longer creates shell compute-pipeline placeholders.");
+    return nullptr;
 }
 
 void ShellDeviceBase::WriteBuffer(Buffer*, uint64_t, const void*, uint64_t)
