@@ -9,6 +9,21 @@
 
 using namespace VulkanRHI;
 
+namespace
+{
+void ValidateTextureBinding(const TextureBinding& textureBinding)
+{
+    RTRLAB_ASSERT_MSG(textureBinding.m_Texture != nullptr || textureBinding.m_View != nullptr,
+                      "Vulkan texture bindings require a Texture or TextureView.");
+
+    if (textureBinding.m_Texture != nullptr && textureBinding.m_View != nullptr)
+    {
+        RTRLAB_ASSERT_MSG(textureBinding.m_View->GetTexture() == textureBinding.m_Texture,
+                          "Vulkan TextureBinding Texture and TextureView must reference the same texture.");
+    }
+}
+} // namespace
+
 VulkanResourceSet::VulkanResourceSet(VkDevice device,
                                      PipelineLayout* layout,
                                      uint32_t setIndex,
@@ -72,6 +87,8 @@ void VulkanResourceSet::SetTextureArray(uint32_t binding, std::span<const Textur
     ValidateBindingArrayCount(*bindingInfo, textureBindings.size(), "texture");
 
     std::vector<TextureBinding> resolvedBindings(textureBindings.begin(), textureBindings.end());
+    for (const TextureBinding& textureBinding : resolvedBindings)
+        ValidateTextureBinding(textureBinding);
     ResolveAutoTextureViews(binding, resolvedBindings);
 
     m_TextureBindings[binding] = std::move(resolvedBindings);
@@ -232,8 +249,8 @@ void VulkanResourceSet::WriteTextureDescriptor(const BindingInfo& bindingInfo,
     for (size_t index = 0; index < textureBindings.size(); ++index)
     {
         const TextureBinding& textureBinding = textureBindings[index];
-        RTRLAB_ASSERT_MSG(textureBinding.m_View != nullptr || textureBinding.m_Texture != nullptr,
-                          "Vulkan ResourceSet texture descriptor writes require valid Textures or TextureViews.");
+        RTRLAB_ASSERT_MSG(textureBinding.m_View != nullptr,
+                          "Vulkan ResourceSet texture descriptor writes require resolved TextureViews.");
 
         VkDescriptorImageInfo& imageInfo = imageInfos[index];
         imageInfo.imageView = GetVkImageViewFromTextureView(textureBinding.m_View);

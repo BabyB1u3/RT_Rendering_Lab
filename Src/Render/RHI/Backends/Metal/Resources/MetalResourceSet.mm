@@ -10,6 +10,21 @@
 
 using namespace MetalRHI;
 
+namespace
+{
+void ValidateTextureBinding(const TextureBinding& textureBinding)
+{
+    RTRLAB_ASSERT_MSG(textureBinding.m_Texture != nullptr || textureBinding.m_View != nullptr,
+                      "Metal texture bindings require a Texture or TextureView.");
+
+    if (textureBinding.m_Texture != nullptr && textureBinding.m_View != nullptr)
+    {
+        RTRLAB_ASSERT_MSG(textureBinding.m_View->GetTexture() == textureBinding.m_Texture,
+                          "Metal TextureBinding Texture and TextureView must reference the same texture.");
+    }
+}
+} // namespace
+
 MetalResourceSet::MetalResourceSet(id<MTLDevice> device, PipelineLayout* layout, uint32_t setIndex)
     : m_Device([device retain]), m_Layout(layout), m_SetIndex(setIndex)
 {
@@ -86,6 +101,8 @@ void MetalResourceSet::SetTextureArray(uint32_t binding, std::span<const Texture
                    m_SetIndex,
                    binding);
     ValidateBindingArrayCount(*bindingInfo, textureBindings.size(), "texture");
+    for (const TextureBinding& textureBinding : textureBindings)
+        ValidateTextureBinding(textureBinding);
     m_TextureBindings[binding] = std::vector<TextureBinding>(textureBindings.begin(), textureBindings.end());
     ++m_Version;
 }

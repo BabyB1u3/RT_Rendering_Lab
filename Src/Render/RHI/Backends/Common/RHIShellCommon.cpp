@@ -84,6 +84,18 @@ void CollectPipelineBindings(const ReflectedField& field,
     for (const ReflectedField& child : field.m_Children)
         CollectPipelineBindings(child, childSetIndex, childHasSetIndex, bindings);
 }
+
+void ValidateTextureBinding(const TextureBinding& textureBinding)
+{
+    RTRLAB_ASSERT_MSG(textureBinding.m_Texture != nullptr || textureBinding.m_View != nullptr,
+                      "Texture bindings require a Texture or TextureView.");
+
+    if (textureBinding.m_Texture != nullptr && textureBinding.m_View != nullptr)
+    {
+        RTRLAB_ASSERT_MSG(textureBinding.m_View->GetTexture() == textureBinding.m_Texture,
+                          "TextureBinding Texture and TextureView must reference the same texture.");
+    }
+}
 } // namespace
 
 namespace RHIInternal
@@ -253,6 +265,8 @@ void ShellResourceSet::SetTextureArray(uint32_t binding, std::span<const Texture
                    m_SetIndex,
                    binding);
     (void)ValidateBindingArrayCount(*bindingInfo, textureBindings.size(), "texture");
+    for (const TextureBinding& textureBinding : textureBindings)
+        ValidateTextureBinding(textureBinding);
     m_TextureBindings[binding] = std::vector<TextureBinding>(textureBindings.begin(), textureBindings.end());
     ++m_Version;
 }
