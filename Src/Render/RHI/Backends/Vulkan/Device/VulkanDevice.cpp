@@ -206,6 +206,7 @@ Scope<ShaderProgram> VulkanDevice::CreateShaderProgram(const CompiledShaderProgr
 Scope<PipelineLayout> VulkanDevice::CreatePipelineLayout(const PipelineLayoutDesc& desc)
 {
     InitializeDeviceObjects();
+    RHIInternal::ValidatePipelineLayoutDesc(desc);
 
     std::vector<VkDescriptorSetLayout> descriptorSetLayouts = CreateVkDescriptorSetLayouts(m_Device, desc);
     VkPipelineLayout pipelineLayout = CreateVkPipelineLayout(m_Device, desc, descriptorSetLayouts);

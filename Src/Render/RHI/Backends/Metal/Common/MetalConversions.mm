@@ -877,7 +877,7 @@ std::vector<MetalSetBindingPlan> BuildMetalSetBindingPlans(const PipelineLayoutD
             for (MetalBindingPlanEntry& entry : stagePlan.m_Entries)
             {
                 entry.m_ArgumentIndex = nextArgumentIndex;
-                nextArgumentIndex += std::max(entry.m_ArrayCount, 1u);
+                nextArgumentIndex += entry.m_ArrayCount;
             }
         }
     }

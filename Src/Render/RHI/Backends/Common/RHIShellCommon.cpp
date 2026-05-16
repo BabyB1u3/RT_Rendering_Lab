@@ -204,6 +204,30 @@ TextureDesc SanitizeTextureDesc(const TextureDesc& desc)
     return sanitized;
 }
 
+void ValidatePipelineLayoutDesc(const PipelineLayoutDesc& desc)
+{
+    for (const BindingInfo& binding : desc.m_Bindings)
+    {
+        RTRLAB_ASSERTF(binding.m_ArrayCount > 0,
+                       "PipelineLayout binding '{}' at set {} binding {} requires ArrayCount >= 1.",
+                       binding.m_Name,
+                       binding.m_SetIndex,
+                       binding.m_Binding);
+        RTRLAB_ASSERTF(binding.m_StageMask != ShaderStage::None,
+                       "PipelineLayout binding '{}' at set {} binding {} requires at least one shader stage.",
+                       binding.m_Name,
+                       binding.m_SetIndex,
+                       binding.m_Binding);
+    }
+
+    for (const PushConstantRangeDesc& pushConstant : desc.m_PushConstants)
+    {
+        RTRLAB_ASSERT_MSG(pushConstant.m_Size > 0, "PipelineLayout push constant ranges require a non-zero size.");
+        RTRLAB_ASSERT_MSG(pushConstant.m_StageMask != ShaderStage::None,
+                          "PipelineLayout push constant ranges require at least one shader stage.");
+    }
+}
+
 PipelineLayoutDesc BuildPipelineLayoutDescFromReflection(const ShaderReflectionData& reflection)
 {
     std::string validationError;
@@ -228,6 +252,7 @@ PipelineLayoutDesc BuildPipelineLayoutDescFromReflection(const ShaderReflectionD
               });
 
     layoutDesc.m_PushConstants = reflection.m_PushConstants;
+    ValidatePipelineLayoutDesc(layoutDesc);
     return layoutDesc;
 }
 
@@ -631,6 +656,7 @@ Scope<ShaderProgram> ShellDeviceBase::CreateShaderProgram(const CompiledShaderPr
 
 Scope<PipelineLayout> ShellDeviceBase::CreatePipelineLayout(const PipelineLayoutDesc& desc)
 {
+    ValidatePipelineLayoutDesc(desc);
     return CreateScope<ShellPipelineLayout>(desc);
 }
 

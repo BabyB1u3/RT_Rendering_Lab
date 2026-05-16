@@ -272,6 +272,7 @@ Scope<ShaderProgram> MetalDevice::CreateShaderProgram(const CompiledShaderProgra
 
 Scope<PipelineLayout> MetalDevice::CreatePipelineLayout(const PipelineLayoutDesc& desc)
 {
+    RHIInternal::ValidatePipelineLayoutDesc(desc);
     return CreateScope<MetalPipelineLayout>(desc);
 }
 
