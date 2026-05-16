@@ -228,6 +228,17 @@ void ValidatePipelineLayoutDesc(const PipelineLayoutDesc& desc)
     }
 }
 
+void ValidateResourceSetDesc(PipelineLayout* layout, uint32_t setIndex)
+{
+    RTRLAB_ASSERT_MSG(layout != nullptr, "ResourceSet creation requires a valid PipelineLayout.");
+    ValidatePipelineLayoutDesc(layout->GetDesc());
+
+    const std::vector<const BindingInfo*> setBindings = CollectBindingInfosForSet(layout->GetDesc(), setIndex);
+    RTRLAB_ASSERTF(!setBindings.empty(),
+                   "ResourceSet creation requires set {} to exist in the provided PipelineLayout.",
+                   setIndex);
+}
+
 PipelineLayoutDesc BuildPipelineLayoutDescFromReflection(const ShaderReflectionData& reflection)
 {
     std::string validationError;
@@ -263,11 +274,7 @@ PipelineLayoutDesc ShellShaderProgram::DerivePipelineLayoutDesc() const
 
 ShellResourceSet::ShellResourceSet(PipelineLayout* layout, uint32_t setIndex) : m_Layout(layout), m_SetIndex(setIndex)
 {
-    RTRLAB_ASSERT_MSG(m_Layout != nullptr, "ResourceSet creation requires a valid PipelineLayout.");
-
-    const std::vector<const BindingInfo*> setBindings = CollectBindingInfosForSet(m_Layout->GetDesc(), m_SetIndex);
-    RTRLAB_ASSERTF(
-        !setBindings.empty(), "ResourceSet set {} does not exist in the provided PipelineLayout.", m_SetIndex);
+    ValidateResourceSetDesc(m_Layout, m_SetIndex);
 
     if (const BindingInfo* constantBindingInfo =
             FindFirstBindingInfoForSet(m_Layout->GetDesc(), m_SetIndex, ResourceKind::UniformBuffer);
@@ -662,6 +669,7 @@ Scope<PipelineLayout> ShellDeviceBase::CreatePipelineLayout(const PipelineLayout
 
 Scope<ResourceSet> ShellDeviceBase::CreateResourceSet(PipelineLayout* layout, uint32_t setIndex)
 {
+    ValidateResourceSetDesc(layout, setIndex);
     return CreateScope<ShellResourceSet>(layout, setIndex);
 }
 

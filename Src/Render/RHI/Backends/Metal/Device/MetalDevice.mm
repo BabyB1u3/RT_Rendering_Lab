@@ -280,6 +280,7 @@ Scope<ResourceSet> MetalDevice::CreateResourceSet(PipelineLayout* layout, uint32
 {
     RTRLAB_ASSERT_MSG(m_Data != nullptr && m_Data->m_Device != nil,
                       "Metal device must be initialized before CreateResourceSet.");
+    RHIInternal::ValidateResourceSetDesc(layout, setIndex);
     return CreateScope<MetalResourceSet>(m_Data->m_Device, layout, setIndex);
 }
 

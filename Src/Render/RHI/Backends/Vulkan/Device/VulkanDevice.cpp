@@ -216,12 +216,9 @@ Scope<PipelineLayout> VulkanDevice::CreatePipelineLayout(const PipelineLayoutDes
 Scope<ResourceSet> VulkanDevice::CreateResourceSet(PipelineLayout* layout, uint32_t setIndex)
 {
     InitializeDeviceObjects();
+    RHIInternal::ValidateResourceSetDesc(layout, setIndex);
 
     VulkanPipelineLayout& pipelineLayout = GetVulkanPipelineLayout(layout);
-    const std::vector<const BindingInfo*> setBindings =
-        RHIInternal::CollectBindingInfosForSet(pipelineLayout.GetDesc(), setIndex);
-    RTRLAB_ASSERTF(
-        !setBindings.empty(), "Vulkan CreateResourceSet requires a valid set {} in the PipelineLayout.", setIndex);
 
     VkDescriptorPool descriptorPool = CreateVkDescriptorPoolForSet(m_Device, pipelineLayout.GetDesc(), setIndex);
     VkDescriptorSet descriptorSet = AllocateVkDescriptorSet(m_Device, descriptorPool, pipelineLayout, setIndex);
