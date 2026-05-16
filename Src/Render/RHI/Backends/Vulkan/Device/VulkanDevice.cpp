@@ -402,20 +402,13 @@ Scope<ComputePipeline> VulkanDevice::CreateComputePipeline(const ComputePipeline
 void VulkanDevice::WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size)
 {
     // TRANSITIONAL(M3): Demo-only direct host upload path for early bring-up.
+    if (!RHIInternal::ValidateBufferWriteRequest(buffer, offset, data, size))
+        return;
+
     InitializeDeviceObjects();
     RTRLAB_ASSERT_MSG(m_Allocator != nullptr, "Vulkan WriteBuffer requires an initialized VMA allocator.");
 
-    if (size == 0)
-        return;
-
-    RTRLAB_ASSERT_MSG(buffer != nullptr, "Vulkan WriteBuffer requires a valid buffer.");
-    RTRLAB_ASSERT_MSG(data != nullptr, "Vulkan WriteBuffer requires non-null source data.");
-
     VulkanBuffer& vulkanBuffer = GetVulkanBuffer(buffer);
-    const BufferDesc& desc = vulkanBuffer.GetDesc();
-    RTRLAB_ASSERT_MSG(desc.m_MemoryUsage == MemoryUsage::CpuToGpu,
-                      "Vulkan WriteBuffer currently requires a CpuToGpu buffer.");
-    RTRLAB_ASSERT_MSG(offset + size <= desc.m_Size, "Vulkan WriteBuffer range exceeds the buffer size.");
 
     void* mappedData = nullptr;
     CheckVk(vmaMapMemory(m_Allocator, vulkanBuffer.GetVmaAllocation(), &mappedData), "vmaMapMemory");

@@ -17,6 +17,7 @@ SwapchainDesc SanitizeSwapchainDesc(const SwapchainDesc& desc);
 TextureDesc SanitizeTextureDesc(const TextureDesc& desc);
 void ValidatePipelineLayoutDesc(const PipelineLayoutDesc& desc);
 void ValidateResourceSetDesc(PipelineLayout* layout, uint32_t setIndex);
+bool ValidateBufferWriteRequest(Buffer* buffer, uint64_t offset, const void* data, uint64_t size);
 PipelineLayoutDesc BuildPipelineLayoutDescFromReflection(const ShaderReflectionData& reflection);
 std::vector<const BindingInfo*> CollectBindingInfosForSet(const PipelineLayoutDesc& desc, uint32_t setIndex);
 const BindingInfo*

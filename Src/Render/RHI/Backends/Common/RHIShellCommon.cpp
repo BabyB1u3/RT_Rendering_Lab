@@ -239,6 +239,21 @@ void ValidateResourceSetDesc(PipelineLayout* layout, uint32_t setIndex)
                    setIndex);
 }
 
+bool ValidateBufferWriteRequest(Buffer* buffer, uint64_t offset, const void* data, uint64_t size)
+{
+    if (size == 0)
+        return false;
+
+    RTRLAB_ASSERT_MSG(buffer != nullptr, "WriteBuffer requires a valid Buffer.");
+    RTRLAB_ASSERT_MSG(data != nullptr, "WriteBuffer requires non-null source data.");
+
+    const BufferDesc& desc = buffer->GetDesc();
+    RTRLAB_ASSERT_MSG(desc.m_MemoryUsage == MemoryUsage::CpuToGpu, "WriteBuffer requires a CpuToGpu Buffer.");
+    RTRLAB_ASSERT_MSG(offset <= desc.m_Size, "WriteBuffer offset exceeds the Buffer size.");
+    RTRLAB_ASSERT_MSG(size <= desc.m_Size - offset, "WriteBuffer range exceeds the Buffer size.");
+    return true;
+}
+
 PipelineLayoutDesc BuildPipelineLayoutDescFromReflection(const ShaderReflectionData& reflection)
 {
     std::string validationError;
@@ -692,8 +707,11 @@ Scope<ComputePipeline> ShellDeviceBase::CreateComputePipeline(const ComputePipel
     return nullptr;
 }
 
-void ShellDeviceBase::WriteBuffer(Buffer*, uint64_t, const void*, uint64_t)
+void ShellDeviceBase::WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size)
 {
+    if (!ValidateBufferWriteRequest(buffer, offset, data, size))
+        return;
+
     RTRLAB_ASSERT_MSG(
         false, "WriteBuffer is not implemented for this backend. Use a backend with an explicit M3 upload path.");
 }
