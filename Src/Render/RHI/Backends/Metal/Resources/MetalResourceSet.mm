@@ -23,6 +23,24 @@ void ValidateTextureBinding(const TextureBinding& textureBinding)
                           "Metal TextureBinding Texture and TextureView must reference the same texture.");
     }
 }
+
+void ValidateBufferBinding(const BufferBinding& bufferBinding)
+{
+    RTRLAB_ASSERT_MSG(bufferBinding.m_Buffer != nullptr, "Metal buffer bindings require a Buffer.");
+
+    const BufferDesc& desc = bufferBinding.m_Buffer->GetDesc();
+    RTRLAB_ASSERT_MSG(bufferBinding.m_Offset <= desc.m_Size, "Metal BufferBinding offset exceeds the Buffer size.");
+    if (bufferBinding.m_Size != 0)
+    {
+        RTRLAB_ASSERT_MSG(bufferBinding.m_Size <= desc.m_Size - bufferBinding.m_Offset,
+                          "Metal BufferBinding range exceeds the Buffer size.");
+    }
+}
+
+void ValidateSamplerBinding(const SamplerBinding& samplerBinding)
+{
+    RTRLAB_ASSERT_MSG(samplerBinding.m_Sampler != nullptr, "Metal sampler bindings require a Sampler.");
+}
 } // namespace
 
 MetalResourceSet::MetalResourceSet(id<MTLDevice> device, PipelineLayout* layout, uint32_t setIndex)
@@ -85,6 +103,8 @@ void MetalResourceSet::SetBufferArray(uint32_t binding, std::span<const BufferBi
 {
     const BindingInfo& bindingInfo = RequireBindingInfo(binding, ResourceKind::StorageBuffer);
     ValidateBindingArrayCount(bindingInfo, bufferBindings.size(), "buffer");
+    for (const BufferBinding& bufferBinding : bufferBindings)
+        ValidateBufferBinding(bufferBinding);
     m_BufferBindings[binding] = std::vector<BufferBinding>(bufferBindings.begin(), bufferBindings.end());
     ++m_Version;
 }
@@ -111,6 +131,8 @@ void MetalResourceSet::SetSamplerArray(uint32_t binding, std::span<const Sampler
 {
     const BindingInfo& bindingInfo = RequireBindingInfo(binding, ResourceKind::Sampler);
     ValidateBindingArrayCount(bindingInfo, samplerBindings.size(), "sampler");
+    for (const SamplerBinding& samplerBinding : samplerBindings)
+        ValidateSamplerBinding(samplerBinding);
     m_SamplerBindings[binding] = std::vector<SamplerBinding>(samplerBindings.begin(), samplerBindings.end());
     ++m_Version;
 }

@@ -96,6 +96,24 @@ void ValidateTextureBinding(const TextureBinding& textureBinding)
                           "TextureBinding Texture and TextureView must reference the same texture.");
     }
 }
+
+void ValidateBufferBinding(const BufferBinding& bufferBinding)
+{
+    RTRLAB_ASSERT_MSG(bufferBinding.m_Buffer != nullptr, "Buffer bindings require a Buffer.");
+
+    const BufferDesc& desc = bufferBinding.m_Buffer->GetDesc();
+    RTRLAB_ASSERT_MSG(bufferBinding.m_Offset <= desc.m_Size, "BufferBinding offset exceeds the Buffer size.");
+    if (bufferBinding.m_Size != 0)
+    {
+        RTRLAB_ASSERT_MSG(bufferBinding.m_Size <= desc.m_Size - bufferBinding.m_Offset,
+                          "BufferBinding range exceeds the Buffer size.");
+    }
+}
+
+void ValidateSamplerBinding(const SamplerBinding& samplerBinding)
+{
+    RTRLAB_ASSERT_MSG(samplerBinding.m_Sampler != nullptr, "Sampler bindings require a Sampler.");
+}
 } // namespace
 
 namespace RHIInternal
@@ -250,6 +268,8 @@ void ShellResourceSet::SetBufferArray(uint32_t binding, std::span<const BufferBi
 {
     const BindingInfo& bindingInfo = RequireBindingInfo(binding, ResourceKind::StorageBuffer);
     (void)ValidateBindingArrayCount(bindingInfo, bufferBindings.size(), "buffer");
+    for (const BufferBinding& bufferBinding : bufferBindings)
+        ValidateBufferBinding(bufferBinding);
     m_BufferBindings[binding] = std::vector<BufferBinding>(bufferBindings.begin(), bufferBindings.end());
     ++m_Version;
 }
@@ -275,6 +295,8 @@ void ShellResourceSet::SetSamplerArray(uint32_t binding, std::span<const Sampler
 {
     const BindingInfo& bindingInfo = RequireBindingInfo(binding, ResourceKind::Sampler);
     (void)ValidateBindingArrayCount(bindingInfo, samplerBindings.size(), "sampler");
+    for (const SamplerBinding& samplerBinding : samplerBindings)
+        ValidateSamplerBinding(samplerBinding);
     m_SamplerBindings[binding] = std::vector<SamplerBinding>(samplerBindings.begin(), samplerBindings.end());
     ++m_Version;
 }

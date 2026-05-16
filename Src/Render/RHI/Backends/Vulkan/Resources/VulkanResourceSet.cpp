@@ -22,6 +22,24 @@ void ValidateTextureBinding(const TextureBinding& textureBinding)
                           "Vulkan TextureBinding Texture and TextureView must reference the same texture.");
     }
 }
+
+void ValidateBufferBinding(const BufferBinding& bufferBinding)
+{
+    RTRLAB_ASSERT_MSG(bufferBinding.m_Buffer != nullptr, "Vulkan buffer bindings require a Buffer.");
+
+    const BufferDesc& desc = bufferBinding.m_Buffer->GetDesc();
+    RTRLAB_ASSERT_MSG(bufferBinding.m_Offset <= desc.m_Size, "Vulkan BufferBinding offset exceeds the Buffer size.");
+    if (bufferBinding.m_Size != 0)
+    {
+        RTRLAB_ASSERT_MSG(bufferBinding.m_Size <= desc.m_Size - bufferBinding.m_Offset,
+                          "Vulkan BufferBinding range exceeds the Buffer size.");
+    }
+}
+
+void ValidateSamplerBinding(const SamplerBinding& samplerBinding)
+{
+    RTRLAB_ASSERT_MSG(samplerBinding.m_Sampler != nullptr, "Vulkan sampler bindings require a Sampler.");
+}
 } // namespace
 
 VulkanResourceSet::VulkanResourceSet(VkDevice device,
@@ -68,6 +86,8 @@ void VulkanResourceSet::SetBufferArray(uint32_t binding, std::span<const BufferB
 {
     const BindingInfo& bindingInfo = RequireBindingInfo(binding, ResourceKind::StorageBuffer);
     ValidateBindingArrayCount(bindingInfo, bufferBindings.size(), "buffer");
+    for (const BufferBinding& bufferBinding : bufferBindings)
+        ValidateBufferBinding(bufferBinding);
     m_BufferBindings[binding] = std::vector<BufferBinding>(bufferBindings.begin(), bufferBindings.end());
     WriteBufferDescriptor(bindingInfo, m_BufferBindings[binding]);
     ++m_Version;
@@ -100,6 +120,8 @@ void VulkanResourceSet::SetSamplerArray(uint32_t binding, std::span<const Sample
 {
     const BindingInfo& bindingInfo = RequireBindingInfo(binding, ResourceKind::Sampler);
     ValidateBindingArrayCount(bindingInfo, samplerBindings.size(), "sampler");
+    for (const SamplerBinding& samplerBinding : samplerBindings)
+        ValidateSamplerBinding(samplerBinding);
     m_SamplerBindings[binding] = std::vector<SamplerBinding>(samplerBindings.begin(), samplerBindings.end());
     WriteSamplerDescriptor(bindingInfo, m_SamplerBindings[binding]);
     ++m_Version;
@@ -222,7 +244,7 @@ void VulkanResourceSet::WriteBufferDescriptor(const BindingInfo& bindingInfo,
     {
         const BufferBinding& bufferBinding = bufferBindings[index];
         RTRLAB_ASSERT_MSG(bufferBinding.m_Buffer != nullptr,
-                          "Vulkan ResourceSet buffer descriptor writes require valid Buffers.");
+                          "Vulkan ResourceSet buffer descriptor writes require validated Buffers.");
         VulkanBuffer& vulkanBuffer = GetVulkanBuffer(bufferBinding.m_Buffer);
 
         VkDescriptorBufferInfo& bufferInfo = bufferInfos[index];
@@ -278,7 +300,7 @@ void VulkanResourceSet::WriteSamplerDescriptor(const BindingInfo& bindingInfo,
     {
         const SamplerBinding& samplerBinding = samplerBindings[index];
         RTRLAB_ASSERT_MSG(samplerBinding.m_Sampler != nullptr,
-                          "Vulkan ResourceSet sampler descriptor writes require valid Samplers.");
+                          "Vulkan ResourceSet sampler descriptor writes require validated Samplers.");
         VulkanSampler& vulkanSampler = GetVulkanSampler(samplerBinding.m_Sampler);
 
         VkDescriptorImageInfo& imageInfo = imageInfos[index];
