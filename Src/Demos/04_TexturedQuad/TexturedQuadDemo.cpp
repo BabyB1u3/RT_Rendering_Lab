@@ -121,22 +121,22 @@ void TexturedQuadDemo::CreateTexturedQuadResources()
     }};
     static constexpr std::array<uint16_t, 6> kIndices = {0, 1, 2, 0, 2, 3};
 
-    DemoRenderUtils::CreateStaticBufferPair(device,
-                                            kVertices.data(),
-                                            sizeof(kVertices),
-                                            BufferUsage::Vertex,
-                                            "TexturedQuadDemo.VertexBuffer",
-                                            "TexturedQuadDemo.VertexUploadBuffer",
-                                            m_VertexBuffer,
-                                            m_VertexUploadBuffer);
-    DemoRenderUtils::CreateStaticBufferPair(device,
-                                            kIndices.data(),
-                                            sizeof(kIndices),
-                                            BufferUsage::Index,
-                                            "TexturedQuadDemo.IndexBuffer",
-                                            "TexturedQuadDemo.IndexUploadBuffer",
-                                            m_IndexBuffer,
-                                            m_IndexUploadBuffer);
+    RHIUpload::CreateStaticBufferPair(device,
+                                      kVertices.data(),
+                                      sizeof(kVertices),
+                                      BufferUsage::Vertex,
+                                      "TexturedQuadDemo.VertexBuffer",
+                                      "TexturedQuadDemo.VertexUploadBuffer",
+                                      m_VertexBuffer,
+                                      m_VertexUploadBuffer);
+    RHIUpload::CreateStaticBufferPair(device,
+                                      kIndices.data(),
+                                      sizeof(kIndices),
+                                      BufferUsage::Index,
+                                      "TexturedQuadDemo.IndexBuffer",
+                                      "TexturedQuadDemo.IndexUploadBuffer",
+                                      m_IndexBuffer,
+                                      m_IndexUploadBuffer);
     m_GeometryUploadPending = true;
 
     const std::filesystem::path texturePath = FileSystem::GetRootPath() / "Project" / "Textures" / "Grassy_Square.jpg";
@@ -220,18 +220,18 @@ void TexturedQuadDemo::UploadPendingResources(CommandList& commandList, Resource
 #if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
     if (m_GeometryUploadPending)
     {
-        DemoRenderUtils::UploadStaticBufferPair(commandList,
-                                                resourceStateTracker,
-                                                m_VertexUploadBuffer.get(),
-                                                m_VertexBuffer.get(),
-                                                m_VertexBuffer->GetDesc().m_Size,
-                                                BufferState::VertexIndex);
-        DemoRenderUtils::UploadStaticBufferPair(commandList,
-                                                resourceStateTracker,
-                                                m_IndexUploadBuffer.get(),
-                                                m_IndexBuffer.get(),
-                                                m_IndexBuffer->GetDesc().m_Size,
-                                                BufferState::VertexIndex);
+        RHIUpload::UploadStaticBufferPair(commandList,
+                                          resourceStateTracker,
+                                          m_VertexUploadBuffer.get(),
+                                          m_VertexBuffer.get(),
+                                          m_VertexBuffer->GetDesc().m_Size,
+                                          BufferState::VertexIndex);
+        RHIUpload::UploadStaticBufferPair(commandList,
+                                          resourceStateTracker,
+                                          m_IndexUploadBuffer.get(),
+                                          m_IndexBuffer.get(),
+                                          m_IndexBuffer->GetDesc().m_Size,
+                                          BufferState::VertexIndex);
         m_GeometryUploadPending = false;
     }
 

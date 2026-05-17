@@ -166,22 +166,22 @@ void TexturedRotatingCubeDemo::CreateCubeResources()
         12, 13, 14, 12, 14, 15, 16, 17, 18, 16, 18, 19, 20, 21, 22, 20, 22, 23,
     };
 
-    DemoRenderUtils::CreateStaticBufferPair(device,
-                                            kVertices.data(),
-                                            sizeof(kVertices),
-                                            BufferUsage::Vertex,
-                                            "TexturedRotatingCube.VertexBuffer",
-                                            "TexturedRotatingCube.VertexUploadBuffer",
-                                            m_VertexBuffer,
-                                            m_VertexUploadBuffer);
-    DemoRenderUtils::CreateStaticBufferPair(device,
-                                            kIndices.data(),
-                                            sizeof(kIndices),
-                                            BufferUsage::Index,
-                                            "TexturedRotatingCube.IndexBuffer",
-                                            "TexturedRotatingCube.IndexUploadBuffer",
-                                            m_IndexBuffer,
-                                            m_IndexUploadBuffer);
+    RHIUpload::CreateStaticBufferPair(device,
+                                      kVertices.data(),
+                                      sizeof(kVertices),
+                                      BufferUsage::Vertex,
+                                      "TexturedRotatingCube.VertexBuffer",
+                                      "TexturedRotatingCube.VertexUploadBuffer",
+                                      m_VertexBuffer,
+                                      m_VertexUploadBuffer);
+    RHIUpload::CreateStaticBufferPair(device,
+                                      kIndices.data(),
+                                      sizeof(kIndices),
+                                      BufferUsage::Index,
+                                      "TexturedRotatingCube.IndexBuffer",
+                                      "TexturedRotatingCube.IndexUploadBuffer",
+                                      m_IndexBuffer,
+                                      m_IndexUploadBuffer);
     m_GeometryUploadPending = true;
     CreateDepthResources();
 
@@ -296,18 +296,18 @@ void TexturedRotatingCubeDemo::UploadPendingResources(CommandList& commandList,
 #if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
     if (m_GeometryUploadPending)
     {
-        DemoRenderUtils::UploadStaticBufferPair(commandList,
-                                                resourceStateTracker,
-                                                m_VertexUploadBuffer.get(),
-                                                m_VertexBuffer.get(),
-                                                m_VertexBuffer->GetDesc().m_Size,
-                                                BufferState::VertexIndex);
-        DemoRenderUtils::UploadStaticBufferPair(commandList,
-                                                resourceStateTracker,
-                                                m_IndexUploadBuffer.get(),
-                                                m_IndexBuffer.get(),
-                                                m_IndexBuffer->GetDesc().m_Size,
-                                                BufferState::VertexIndex);
+        RHIUpload::UploadStaticBufferPair(commandList,
+                                          resourceStateTracker,
+                                          m_VertexUploadBuffer.get(),
+                                          m_VertexBuffer.get(),
+                                          m_VertexBuffer->GetDesc().m_Size,
+                                          BufferState::VertexIndex);
+        RHIUpload::UploadStaticBufferPair(commandList,
+                                          resourceStateTracker,
+                                          m_IndexUploadBuffer.get(),
+                                          m_IndexBuffer.get(),
+                                          m_IndexBuffer->GetDesc().m_Size,
+                                          BufferState::VertexIndex);
         m_GeometryUploadPending = false;
     }
 

@@ -11,6 +11,7 @@
 #include "Core/Resource/FileSystem.h"
 #include "Core/Util/Math.h"
 #include "Demos/DemoRenderUtils.h"
+#include "Render/RHI/RHIUpload.h"
 #include "Render/Shader/ShaderParameterWriter.h"
 
 QuadDemo::QuadDemo(uint32_t width, uint32_t height) : m_ViewportWidth(width), m_ViewportHeight(height) {}
@@ -113,22 +114,22 @@ void QuadDemo::CreateQuadResources()
     }};
     static constexpr std::array<uint16_t, 6> kIndices = {0, 1, 2, 0, 2, 3};
 
-    DemoRenderUtils::CreateStaticBufferPair(device,
-                                            kVertices.data(),
-                                            sizeof(kVertices),
-                                            BufferUsage::Vertex,
-                                            "QuadDemo.VertexBuffer",
-                                            "QuadDemo.VertexUploadBuffer",
-                                            m_VertexBuffer,
-                                            m_VertexUploadBuffer);
-    DemoRenderUtils::CreateStaticBufferPair(device,
-                                            kIndices.data(),
-                                            sizeof(kIndices),
-                                            BufferUsage::Index,
-                                            "QuadDemo.IndexBuffer",
-                                            "QuadDemo.IndexUploadBuffer",
-                                            m_IndexBuffer,
-                                            m_IndexUploadBuffer);
+    RHIUpload::CreateStaticBufferPair(device,
+                                      kVertices.data(),
+                                      sizeof(kVertices),
+                                      BufferUsage::Vertex,
+                                      "QuadDemo.VertexBuffer",
+                                      "QuadDemo.VertexUploadBuffer",
+                                      m_VertexBuffer,
+                                      m_VertexUploadBuffer);
+    RHIUpload::CreateStaticBufferPair(device,
+                                      kIndices.data(),
+                                      sizeof(kIndices),
+                                      BufferUsage::Index,
+                                      "QuadDemo.IndexBuffer",
+                                      "QuadDemo.IndexUploadBuffer",
+                                      m_IndexBuffer,
+                                      m_IndexUploadBuffer);
     m_GeometryUploadPending = true;
 
     m_ShaderProgram = device.CreateShaderProgram(DemoRenderUtils::CompileShaderProgramDesc(
@@ -176,18 +177,18 @@ void QuadDemo::UploadQuadGeometry(CommandList& commandList, ResourceStateTracker
     if (!m_GeometryUploadPending)
         return;
 
-    DemoRenderUtils::UploadStaticBufferPair(commandList,
-                                            resourceStateTracker,
-                                            m_VertexUploadBuffer.get(),
-                                            m_VertexBuffer.get(),
-                                            m_VertexBuffer->GetDesc().m_Size,
-                                            BufferState::VertexIndex);
-    DemoRenderUtils::UploadStaticBufferPair(commandList,
-                                            resourceStateTracker,
-                                            m_IndexUploadBuffer.get(),
-                                            m_IndexBuffer.get(),
-                                            m_IndexBuffer->GetDesc().m_Size,
-                                            BufferState::VertexIndex);
+    RHIUpload::UploadStaticBufferPair(commandList,
+                                      resourceStateTracker,
+                                      m_VertexUploadBuffer.get(),
+                                      m_VertexBuffer.get(),
+                                      m_VertexBuffer->GetDesc().m_Size,
+                                      BufferState::VertexIndex);
+    RHIUpload::UploadStaticBufferPair(commandList,
+                                      resourceStateTracker,
+                                      m_IndexUploadBuffer.get(),
+                                      m_IndexBuffer.get(),
+                                      m_IndexBuffer->GetDesc().m_Size,
+                                      BufferState::VertexIndex);
     m_GeometryUploadPending = false;
 #endif
 }
