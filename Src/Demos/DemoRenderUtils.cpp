@@ -125,4 +125,18 @@ void CreateRGBA8Texture2DWithView(Device& device,
     textureViewDesc.m_Aspect = TextureAspect::Color;
     textureView = device.CreateTextureView(texture.get(), textureViewDesc);
 }
+
+Scope<Sampler> CreateLinearRepeatSampler(Device& device, const char* debugName)
+{
+    (void)debugName;
+
+    SamplerDesc samplerDesc;
+    samplerDesc.m_MinFilter = FilterMode::Linear;
+    samplerDesc.m_MagFilter = FilterMode::Linear;
+    samplerDesc.m_MipFilter = MipFilterMode::Linear;
+    samplerDesc.m_AddressU = AddressMode::Repeat;
+    samplerDesc.m_AddressV = AddressMode::Repeat;
+    samplerDesc.m_AddressW = AddressMode::Repeat;
+    return device.CreateSampler(samplerDesc);
+}
 } // namespace DemoRenderUtils

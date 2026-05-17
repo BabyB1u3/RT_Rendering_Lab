@@ -151,14 +151,7 @@ void TexturedQuadDemo::CreateTexturedQuadResources()
                                                   m_Texture,
                                                   m_TextureView);
 
-    SamplerDesc samplerDesc;
-    samplerDesc.m_MinFilter = FilterMode::Linear;
-    samplerDesc.m_MagFilter = FilterMode::Linear;
-    samplerDesc.m_MipFilter = MipFilterMode::Linear;
-    samplerDesc.m_AddressU = AddressMode::Repeat;
-    samplerDesc.m_AddressV = AddressMode::Repeat;
-    samplerDesc.m_AddressW = AddressMode::Repeat;
-    m_Sampler = device.CreateSampler(samplerDesc);
+    m_Sampler = DemoRenderUtils::CreateLinearRepeatSampler(device, "TexturedQuadDemo.LinearRepeatSampler");
 
     m_TextureUploadBuffer = RHIUpload::CreateUploadBuffer(device,
                                                           loadedImage.m_Pixels.data(),

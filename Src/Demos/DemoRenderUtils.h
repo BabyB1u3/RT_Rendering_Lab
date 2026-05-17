@@ -61,4 +61,5 @@ void CreateRGBA8Texture2DWithView(Device& device,
                                   const char* viewDebugName,
                                   Scope<Texture>& texture,
                                   Scope<TextureView>& textureView);
+Scope<Sampler> CreateLinearRepeatSampler(Device& device, const char* debugName);
 } // namespace DemoRenderUtils
