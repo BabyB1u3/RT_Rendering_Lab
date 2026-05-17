@@ -10,6 +10,8 @@
 
 namespace RHIUpload
 {
+Scope<Buffer> CreateUploadBuffer(Device& device, const void* data, uint64_t size, const char* debugName);
+
 void CreateStaticBufferPair(Device& device,
                             const void* data,
                             uint64_t size,

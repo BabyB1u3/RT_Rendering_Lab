@@ -6,6 +6,21 @@
 
 namespace RHIUpload
 {
+Scope<Buffer> CreateUploadBuffer(Device& device, const void* data, uint64_t size, const char* debugName)
+{
+    RTRLAB_ASSERT_MSG(data != nullptr, "Upload buffer creation requires non-null source data.");
+    RTRLAB_ASSERT_MSG(size > 0, "Upload buffer creation requires a non-zero byte size.");
+
+    BufferDesc uploadDesc;
+    uploadDesc.m_Size = size;
+    uploadDesc.m_UsageMask = BufferUsage::CopySrc;
+    uploadDesc.m_MemoryUsage = MemoryUsage::CpuToGpu;
+    uploadDesc.m_DebugName = debugName;
+    Scope<Buffer> uploadBuffer = device.CreateBuffer(uploadDesc);
+    device.WriteBuffer(uploadBuffer.get(), 0, data, size);
+    return uploadBuffer;
+}
+
 void CreateStaticBufferPair(Device& device,
                             const void* data,
                             uint64_t size,
@@ -25,13 +40,7 @@ void CreateStaticBufferPair(Device& device,
     targetDesc.m_DebugName = targetDebugName;
     targetBuffer = device.CreateBuffer(targetDesc);
 
-    BufferDesc uploadDesc;
-    uploadDesc.m_Size = size;
-    uploadDesc.m_UsageMask = BufferUsage::CopySrc;
-    uploadDesc.m_MemoryUsage = MemoryUsage::CpuToGpu;
-    uploadDesc.m_DebugName = uploadDebugName;
-    uploadBuffer = device.CreateBuffer(uploadDesc);
-    device.WriteBuffer(uploadBuffer.get(), 0, data, size);
+    uploadBuffer = CreateUploadBuffer(device, data, size, uploadDebugName);
 }
 
 void UploadStaticBufferPair(CommandList& commandList,

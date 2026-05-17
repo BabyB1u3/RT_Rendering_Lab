@@ -214,16 +214,10 @@ void TexturedRotatingCubeDemo::CreateCubeResources()
     samplerDesc.m_AddressW = AddressMode::Repeat;
     m_Sampler = device.CreateSampler(samplerDesc);
 
-    BufferDesc textureUploadBufferDesc;
-    textureUploadBufferDesc.m_Size = static_cast<uint64_t>(loadedImage.m_Pixels.size());
-    textureUploadBufferDesc.m_UsageMask = BufferUsage::CopySrc;
-    textureUploadBufferDesc.m_MemoryUsage = MemoryUsage::CpuToGpu;
-    textureUploadBufferDesc.m_DebugName = "TexturedRotatingCube.TextureUploadBuffer";
-    m_TextureUploadBuffer = device.CreateBuffer(textureUploadBufferDesc);
-    device.WriteBuffer(m_TextureUploadBuffer.get(),
-                       0,
-                       loadedImage.m_Pixels.data(),
-                       static_cast<uint64_t>(loadedImage.m_Pixels.size()));
+    m_TextureUploadBuffer = RHIUpload::CreateUploadBuffer(device,
+                                                          loadedImage.m_Pixels.data(),
+                                                          static_cast<uint64_t>(loadedImage.m_Pixels.size()),
+                                                          "TexturedRotatingCube.TextureUploadBuffer");
     m_TextureUploadPending = true;
 
     m_ShaderProgram = device.CreateShaderProgram(DemoRenderUtils::CompileShaderProgramDesc(
