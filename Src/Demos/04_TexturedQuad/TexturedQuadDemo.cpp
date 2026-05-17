@@ -111,6 +111,7 @@ void TexturedQuadDemo::CreateTexturedQuadResources()
 #if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
     Application& app = Application::Get();
     Device& device = app.GetDevice();
+    const std::filesystem::path rootPath = FileSystem::GetRootPath();
 
     using DemoRenderUtils::TexturedVertex;
     static const std::array<TexturedVertex, 4> kVertices = {{
@@ -139,13 +140,13 @@ void TexturedQuadDemo::CreateTexturedQuadResources()
                                       m_IndexUploadBuffer);
     m_GeometryUploadPending = true;
 
-    const std::filesystem::path texturePath = FileSystem::GetRootPath() / "Project" / "Textures" / "Grassy_Square.jpg";
-    const DemoRenderUtils::LoadedImage loadedImage =
+    const std::filesystem::path texturePath = rootPath / "Project" / "Textures" / "Grassy_Square.jpg";
+    const DemoRenderUtils::LoadedImage textureImage =
         DemoRenderUtils::LoadTextureFileRGBA8(texturePath, "TexturedQuadDemo");
 
     DemoRenderUtils::CreateRGBA8Texture2DWithView(device,
-                                                  loadedImage.m_Width,
-                                                  loadedImage.m_Height,
+                                                  textureImage.m_Width,
+                                                  textureImage.m_Height,
                                                   "TexturedQuadDemo.ColorTexture",
                                                   "TexturedQuadDemo.ColorTextureView",
                                                   m_Texture,
@@ -154,15 +155,14 @@ void TexturedQuadDemo::CreateTexturedQuadResources()
     m_Sampler = DemoRenderUtils::CreateLinearRepeatSampler(device, "TexturedQuadDemo.LinearRepeatSampler");
 
     m_TextureUploadBuffer = RHIUpload::CreateUploadBuffer(device,
-                                                          loadedImage.m_Pixels.data(),
-                                                          static_cast<uint64_t>(loadedImage.m_Pixels.size()),
+                                                          textureImage.m_Pixels.data(),
+                                                          static_cast<uint64_t>(textureImage.m_Pixels.size()),
                                                           "TexturedQuadDemo.TextureUploadBuffer");
     m_TextureUploadPending = true;
 
+    const std::filesystem::path shaderPath = rootPath / "Project" / "Shaders" / "DemoTextured.slang";
     m_ShaderProgram = device.CreateShaderProgram(DemoRenderUtils::CompileShaderProgramDesc(
-        DemoRenderUtils::BuildGraphicsShaderCompileRequest(FileSystem::GetRootPath() / "Project" / "Shaders" /
-                                                           "DemoTextured.slang"),
-        "TexturedQuadDemo"));
+        DemoRenderUtils::BuildGraphicsShaderCompileRequest(shaderPath), "TexturedQuadDemo"));
     m_PipelineLayout = device.CreatePipelineLayout(m_ShaderProgram->DerivePipelineLayoutDesc());
     const PipelineLayoutDesc& pipelineLayoutDesc = m_PipelineLayout->GetDesc();
     m_FrameSetIndex = DemoRenderUtils::FindRequiredSetIndex(pipelineLayoutDesc, "gFrame", "TexturedQuadDemo");
