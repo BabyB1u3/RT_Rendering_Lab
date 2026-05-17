@@ -171,6 +171,7 @@ set(GLAB_SCENE_HEADERS
 
 set(GLAB_RENDER_SOURCES
     Render/RHI/RHIFactory.cpp
+    Render/RHI/RHIUpload.cpp
     Render/RHI/ResourceStateTracker.cpp
     Render/RHI/Backends/Common/RHIShellCommon.cpp
     Render/Shader/ShaderCompiler.cpp
@@ -189,6 +190,7 @@ set(GLAB_RENDER_HEADERS
     Render/RHI/RHIPipeline.h
     Render/RHI/RHICommandList.h
     Render/RHI/RHIDevice.h
+    Render/RHI/RHIUpload.h
     Render/RHI/Backends/Common/RHIShellCommon.h
     Render/Shader/ShaderCompiler.h
     Render/Shader/ShaderReflection.h

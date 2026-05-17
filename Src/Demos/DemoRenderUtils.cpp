@@ -7,6 +7,7 @@
 #include "Core/App/Application.h"
 #include "Core/Diagnostics/Assert/Assert.h"
 #include "Core/Resource/FileSystem.h"
+#include "Render/RHI/RHIUpload.h"
 
 namespace DemoRenderUtils
 {
@@ -86,23 +87,8 @@ void CreateStaticBufferPair(Device& device,
                             Scope<Buffer>& targetBuffer,
                             Scope<Buffer>& uploadBuffer)
 {
-    RTRLAB_ASSERT_MSG(data != nullptr, "Static demo buffer creation requires non-null source data.");
-    RTRLAB_ASSERT_MSG(size > 0, "Static demo buffer creation requires a non-zero byte size.");
-
-    BufferDesc targetDesc;
-    targetDesc.m_Size = size;
-    targetDesc.m_UsageMask = targetUsage | BufferUsage::CopyDst;
-    targetDesc.m_MemoryUsage = MemoryUsage::GpuOnly;
-    targetDesc.m_DebugName = targetDebugName;
-    targetBuffer = device.CreateBuffer(targetDesc);
-
-    BufferDesc uploadDesc;
-    uploadDesc.m_Size = size;
-    uploadDesc.m_UsageMask = BufferUsage::CopySrc;
-    uploadDesc.m_MemoryUsage = MemoryUsage::CpuToGpu;
-    uploadDesc.m_DebugName = uploadDebugName;
-    uploadBuffer = device.CreateBuffer(uploadDesc);
-    device.WriteBuffer(uploadBuffer.get(), 0, data, size);
+    RHIUpload::CreateStaticBufferPair(
+        device, data, size, targetUsage, targetDebugName, uploadDebugName, targetBuffer, uploadBuffer);
 }
 
 void UploadStaticBufferPair(CommandList& commandList,
@@ -112,19 +98,7 @@ void UploadStaticBufferPair(CommandList& commandList,
                             uint64_t size,
                             BufferState finalState)
 {
-    RTRLAB_ASSERT_MSG(uploadBuffer != nullptr && targetBuffer != nullptr,
-                      "Static demo buffer upload requires both upload and target buffers.");
-    RTRLAB_ASSERT_MSG(size > 0, "Static demo buffer upload requires a non-zero byte size.");
-
-    resourceStateTracker.Transition(uploadBuffer, BufferState::CopySource);
-    resourceStateTracker.Transition(targetBuffer, BufferState::CopyDest);
-    resourceStateTracker.FlushBarriers(&commandList);
-
-    const BufferCopyRegion copyRegion{0, 0, size};
-    commandList.CopyBuffer(uploadBuffer, targetBuffer, std::span<const BufferCopyRegion>(&copyRegion, 1));
-
-    resourceStateTracker.Transition(targetBuffer, finalState);
-    resourceStateTracker.FlushBarriers(&commandList);
+    RHIUpload::UploadStaticBufferPair(commandList, resourceStateTracker, uploadBuffer, targetBuffer, size, finalState);
 }
 
 LoadedImage LoadTextureFileRGBA8(const std::filesystem::path& texturePath, std::string_view debugOwner)
