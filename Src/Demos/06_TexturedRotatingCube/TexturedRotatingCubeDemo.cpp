@@ -189,21 +189,13 @@ void TexturedRotatingCubeDemo::CreateCubeResources()
     const DemoRenderUtils::LoadedImage loadedImage =
         DemoRenderUtils::LoadTextureFileRGBA8(texturePath, "TexturedRotatingCube");
 
-    TextureDesc textureDesc;
-    textureDesc.m_Type = TextureType::Tex2D;
-    textureDesc.m_Format = Format::RGBA8_UNORM;
-    textureDesc.m_Extent = {loadedImage.m_Width, loadedImage.m_Height, 1};
-    textureDesc.m_MipLevels = 1;
-    textureDesc.m_ArrayLayers = 1;
-    textureDesc.m_UsageMask = TextureUsage::Sampled | TextureUsage::CopyDst;
-    textureDesc.m_DebugName = "TexturedRotatingCube.ColorTexture";
-    m_Texture = device.CreateTexture(textureDesc);
-
-    TextureViewDesc textureViewDesc;
-    textureViewDesc.m_Type = TextureType::Tex2D;
-    textureViewDesc.m_Format = textureDesc.m_Format;
-    textureViewDesc.m_Aspect = TextureAspect::Color;
-    m_TextureView = device.CreateTextureView(m_Texture.get(), textureViewDesc);
+    DemoRenderUtils::CreateRGBA8Texture2DWithView(device,
+                                                  loadedImage.m_Width,
+                                                  loadedImage.m_Height,
+                                                  "TexturedRotatingCube.ColorTexture",
+                                                  "TexturedRotatingCube.ColorTextureView",
+                                                  m_Texture,
+                                                  m_TextureView);
 
     SamplerDesc samplerDesc;
     samplerDesc.m_MinFilter = FilterMode::Linear;
