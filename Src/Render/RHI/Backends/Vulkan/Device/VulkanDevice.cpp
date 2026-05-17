@@ -206,6 +206,7 @@ Scope<ShaderProgram> VulkanDevice::CreateShaderProgram(const CompiledShaderProgr
 Scope<PipelineLayout> VulkanDevice::CreatePipelineLayout(const PipelineLayoutDesc& desc)
 {
     InitializeDeviceObjects();
+    RHIInternal::ValidatePipelineLayoutDesc(desc);
 
     std::vector<VkDescriptorSetLayout> descriptorSetLayouts = CreateVkDescriptorSetLayouts(m_Device, desc);
     VkPipelineLayout pipelineLayout = CreateVkPipelineLayout(m_Device, desc, descriptorSetLayouts);
@@ -215,12 +216,9 @@ Scope<PipelineLayout> VulkanDevice::CreatePipelineLayout(const PipelineLayoutDes
 Scope<ResourceSet> VulkanDevice::CreateResourceSet(PipelineLayout* layout, uint32_t setIndex)
 {
     InitializeDeviceObjects();
+    RHIInternal::ValidateResourceSetDesc(layout, setIndex);
 
     VulkanPipelineLayout& pipelineLayout = GetVulkanPipelineLayout(layout);
-    const std::vector<const BindingInfo*> setBindings =
-        RHIInternal::CollectBindingInfosForSet(pipelineLayout.GetDesc(), setIndex);
-    RTRLAB_ASSERTF(
-        !setBindings.empty(), "Vulkan CreateResourceSet requires a valid set {} in the PipelineLayout.", setIndex);
 
     VkDescriptorPool descriptorPool = CreateVkDescriptorPoolForSet(m_Device, pipelineLayout.GetDesc(), setIndex);
     VkDescriptorSet descriptorSet = AllocateVkDescriptorSet(m_Device, descriptorPool, pipelineLayout, setIndex);
@@ -404,20 +402,13 @@ Scope<ComputePipeline> VulkanDevice::CreateComputePipeline(const ComputePipeline
 void VulkanDevice::WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size)
 {
     // TRANSITIONAL(M3): Demo-only direct host upload path for early bring-up.
+    if (!RHIInternal::ValidateBufferWriteRequest(buffer, offset, data, size))
+        return;
+
     InitializeDeviceObjects();
     RTRLAB_ASSERT_MSG(m_Allocator != nullptr, "Vulkan WriteBuffer requires an initialized VMA allocator.");
 
-    if (size == 0)
-        return;
-
-    RTRLAB_ASSERT_MSG(buffer != nullptr, "Vulkan WriteBuffer requires a valid buffer.");
-    RTRLAB_ASSERT_MSG(data != nullptr, "Vulkan WriteBuffer requires non-null source data.");
-
     VulkanBuffer& vulkanBuffer = GetVulkanBuffer(buffer);
-    const BufferDesc& desc = vulkanBuffer.GetDesc();
-    RTRLAB_ASSERT_MSG(desc.m_MemoryUsage == MemoryUsage::CpuToGpu,
-                      "Vulkan WriteBuffer currently requires a CpuToGpu buffer.");
-    RTRLAB_ASSERT_MSG(offset + size <= desc.m_Size, "Vulkan WriteBuffer range exceeds the buffer size.");
 
     void* mappedData = nullptr;
     CheckVk(vmaMapMemory(m_Allocator, vulkanBuffer.GetVmaAllocation(), &mappedData), "vmaMapMemory");

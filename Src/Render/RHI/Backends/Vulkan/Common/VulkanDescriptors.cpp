@@ -27,7 +27,7 @@ std::vector<VkDescriptorSetLayout> CreateVkDescriptorSetLayouts(VkDevice device,
         VkDescriptorSetLayoutBinding vkBinding{};
         vkBinding.binding = binding.m_Binding;
         vkBinding.descriptorType = ToVkDescriptorType(binding.m_Kind);
-        vkBinding.descriptorCount = std::max(binding.m_ArrayCount, 1u);
+        vkBinding.descriptorCount = binding.m_ArrayCount;
         vkBinding.stageFlags = ToVkShaderStageFlags(binding.m_StageMask);
         bindingsPerSet[binding.m_SetIndex].push_back(vkBinding);
     }
@@ -53,7 +53,7 @@ VkDescriptorPool CreateVkDescriptorPoolForSet(VkDevice device, const PipelineLay
     for (const BindingInfo* bindingInfo : RHIInternal::CollectBindingInfosForSet(desc, setIndex))
     {
         const VkDescriptorType descriptorType = ToVkDescriptorType(bindingInfo->m_Kind);
-        const uint32_t descriptorCount = std::max(bindingInfo->m_ArrayCount, 1u);
+        const uint32_t descriptorCount = bindingInfo->m_ArrayCount;
 
         auto it = std::find_if(poolSizes.begin(),
                                poolSizes.end(),

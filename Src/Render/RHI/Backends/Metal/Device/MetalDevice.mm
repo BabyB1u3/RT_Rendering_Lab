@@ -272,6 +272,7 @@ Scope<ShaderProgram> MetalDevice::CreateShaderProgram(const CompiledShaderProgra
 
 Scope<PipelineLayout> MetalDevice::CreatePipelineLayout(const PipelineLayoutDesc& desc)
 {
+    RHIInternal::ValidatePipelineLayoutDesc(desc);
     return CreateScope<MetalPipelineLayout>(desc);
 }
 
@@ -279,6 +280,7 @@ Scope<ResourceSet> MetalDevice::CreateResourceSet(PipelineLayout* layout, uint32
 {
     RTRLAB_ASSERT_MSG(m_Data != nullptr && m_Data->m_Device != nil,
                       "Metal device must be initialized before CreateResourceSet.");
+    RHIInternal::ValidateResourceSetDesc(layout, setIndex);
     return CreateScope<MetalResourceSet>(m_Data->m_Device, layout, setIndex);
 }
 
@@ -410,17 +412,10 @@ Scope<ComputePipeline> MetalDevice::CreateComputePipeline(const ComputePipelineD
 void MetalDevice::WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size)
 {
     // TRANSITIONAL(M3): Demo-only direct host upload path for early bring-up.
-    if (size == 0)
+    if (!RHIInternal::ValidateBufferWriteRequest(buffer, offset, data, size))
         return;
 
-    RTRLAB_ASSERT_MSG(buffer != nullptr, "Metal WriteBuffer requires a valid buffer.");
-    RTRLAB_ASSERT_MSG(data != nullptr, "Metal WriteBuffer requires non-null source data.");
-
     MetalBuffer& metalBuffer = GetMetalBuffer(buffer);
-    RTRLAB_ASSERT_MSG(metalBuffer.GetDesc().m_MemoryUsage == MemoryUsage::CpuToGpu,
-                      "Metal WriteBuffer currently requires a CpuToGpu buffer.");
-    RTRLAB_ASSERT_MSG(offset + size <= metalBuffer.GetDesc().m_Size,
-                      "Metal WriteBuffer range exceeds the buffer size.");
 
     std::memcpy(
         static_cast<uint8_t*>([metalBuffer.GetMetalBuffer() contents]) + offset, data, static_cast<size_t>(size));

@@ -2,8 +2,6 @@
 #include "Render/Shader/ShaderReflection.h"
 
 #include <algorithm>
-#include <cstring>
-
 #include "Core/Diagnostics/Assert/Assert.h"
 
 namespace
@@ -85,6 +83,36 @@ void CollectPipelineBindings(const ReflectedField& field,
 
     for (const ReflectedField& child : field.m_Children)
         CollectPipelineBindings(child, childSetIndex, childHasSetIndex, bindings);
+}
+
+void ValidateTextureBinding(const TextureBinding& textureBinding)
+{
+    RTRLAB_ASSERT_MSG(textureBinding.m_Texture != nullptr || textureBinding.m_View != nullptr,
+                      "Texture bindings require a Texture or TextureView.");
+
+    if (textureBinding.m_Texture != nullptr && textureBinding.m_View != nullptr)
+    {
+        RTRLAB_ASSERT_MSG(textureBinding.m_View->GetTexture() == textureBinding.m_Texture,
+                          "TextureBinding Texture and TextureView must reference the same texture.");
+    }
+}
+
+void ValidateBufferBinding(const BufferBinding& bufferBinding)
+{
+    RTRLAB_ASSERT_MSG(bufferBinding.m_Buffer != nullptr, "Buffer bindings require a Buffer.");
+
+    const BufferDesc& desc = bufferBinding.m_Buffer->GetDesc();
+    RTRLAB_ASSERT_MSG(bufferBinding.m_Offset <= desc.m_Size, "BufferBinding offset exceeds the Buffer size.");
+    if (bufferBinding.m_Size != 0)
+    {
+        RTRLAB_ASSERT_MSG(bufferBinding.m_Size <= desc.m_Size - bufferBinding.m_Offset,
+                          "BufferBinding range exceeds the Buffer size.");
+    }
+}
+
+void ValidateSamplerBinding(const SamplerBinding& samplerBinding)
+{
+    RTRLAB_ASSERT_MSG(samplerBinding.m_Sampler != nullptr, "Sampler bindings require a Sampler.");
 }
 } // namespace
 
@@ -176,6 +204,56 @@ TextureDesc SanitizeTextureDesc(const TextureDesc& desc)
     return sanitized;
 }
 
+void ValidatePipelineLayoutDesc(const PipelineLayoutDesc& desc)
+{
+    for (const BindingInfo& binding : desc.m_Bindings)
+    {
+        RTRLAB_ASSERTF(binding.m_ArrayCount > 0,
+                       "PipelineLayout binding '{}' at set {} binding {} requires ArrayCount >= 1.",
+                       binding.m_Name,
+                       binding.m_SetIndex,
+                       binding.m_Binding);
+        RTRLAB_ASSERTF(binding.m_StageMask != ShaderStage::None,
+                       "PipelineLayout binding '{}' at set {} binding {} requires at least one shader stage.",
+                       binding.m_Name,
+                       binding.m_SetIndex,
+                       binding.m_Binding);
+    }
+
+    for (const PushConstantRangeDesc& pushConstant : desc.m_PushConstants)
+    {
+        RTRLAB_ASSERT_MSG(pushConstant.m_Size > 0, "PipelineLayout push constant ranges require a non-zero size.");
+        RTRLAB_ASSERT_MSG(pushConstant.m_StageMask != ShaderStage::None,
+                          "PipelineLayout push constant ranges require at least one shader stage.");
+    }
+}
+
+void ValidateResourceSetDesc(PipelineLayout* layout, uint32_t setIndex)
+{
+    RTRLAB_ASSERT_MSG(layout != nullptr, "ResourceSet creation requires a valid PipelineLayout.");
+    ValidatePipelineLayoutDesc(layout->GetDesc());
+
+    const std::vector<const BindingInfo*> setBindings = CollectBindingInfosForSet(layout->GetDesc(), setIndex);
+    RTRLAB_ASSERTF(!setBindings.empty(),
+                   "ResourceSet creation requires set {} to exist in the provided PipelineLayout.",
+                   setIndex);
+}
+
+bool ValidateBufferWriteRequest(Buffer* buffer, uint64_t offset, const void* data, uint64_t size)
+{
+    if (size == 0)
+        return false;
+
+    RTRLAB_ASSERT_MSG(buffer != nullptr, "WriteBuffer requires a valid Buffer.");
+    RTRLAB_ASSERT_MSG(data != nullptr, "WriteBuffer requires non-null source data.");
+
+    const BufferDesc& desc = buffer->GetDesc();
+    RTRLAB_ASSERT_MSG(desc.m_MemoryUsage == MemoryUsage::CpuToGpu, "WriteBuffer requires a CpuToGpu Buffer.");
+    RTRLAB_ASSERT_MSG(offset <= desc.m_Size, "WriteBuffer offset exceeds the Buffer size.");
+    RTRLAB_ASSERT_MSG(size <= desc.m_Size - offset, "WriteBuffer range exceeds the Buffer size.");
+    return true;
+}
+
 PipelineLayoutDesc BuildPipelineLayoutDescFromReflection(const ShaderReflectionData& reflection)
 {
     std::string validationError;
@@ -200,6 +278,7 @@ PipelineLayoutDesc BuildPipelineLayoutDescFromReflection(const ShaderReflectionD
               });
 
     layoutDesc.m_PushConstants = reflection.m_PushConstants;
+    ValidatePipelineLayoutDesc(layoutDesc);
     return layoutDesc;
 }
 
@@ -210,11 +289,7 @@ PipelineLayoutDesc ShellShaderProgram::DerivePipelineLayoutDesc() const
 
 ShellResourceSet::ShellResourceSet(PipelineLayout* layout, uint32_t setIndex) : m_Layout(layout), m_SetIndex(setIndex)
 {
-    RTRLAB_ASSERT_MSG(m_Layout != nullptr, "ResourceSet creation requires a valid PipelineLayout.");
-
-    const std::vector<const BindingInfo*> setBindings = CollectBindingInfosForSet(m_Layout->GetDesc(), m_SetIndex);
-    RTRLAB_ASSERTF(
-        !setBindings.empty(), "ResourceSet set {} does not exist in the provided PipelineLayout.", m_SetIndex);
+    ValidateResourceSetDesc(m_Layout, m_SetIndex);
 
     if (const BindingInfo* constantBindingInfo =
             FindFirstBindingInfoForSet(m_Layout->GetDesc(), m_SetIndex, ResourceKind::UniformBuffer);
@@ -240,6 +315,8 @@ void ShellResourceSet::SetBufferArray(uint32_t binding, std::span<const BufferBi
 {
     const BindingInfo& bindingInfo = RequireBindingInfo(binding, ResourceKind::StorageBuffer);
     (void)ValidateBindingArrayCount(bindingInfo, bufferBindings.size(), "buffer");
+    for (const BufferBinding& bufferBinding : bufferBindings)
+        ValidateBufferBinding(bufferBinding);
     m_BufferBindings[binding] = std::vector<BufferBinding>(bufferBindings.begin(), bufferBindings.end());
     ++m_Version;
 }
@@ -255,6 +332,8 @@ void ShellResourceSet::SetTextureArray(uint32_t binding, std::span<const Texture
                    m_SetIndex,
                    binding);
     (void)ValidateBindingArrayCount(*bindingInfo, textureBindings.size(), "texture");
+    for (const TextureBinding& textureBinding : textureBindings)
+        ValidateTextureBinding(textureBinding);
     m_TextureBindings[binding] = std::vector<TextureBinding>(textureBindings.begin(), textureBindings.end());
     ++m_Version;
 }
@@ -263,6 +342,8 @@ void ShellResourceSet::SetSamplerArray(uint32_t binding, std::span<const Sampler
 {
     const BindingInfo& bindingInfo = RequireBindingInfo(binding, ResourceKind::Sampler);
     (void)ValidateBindingArrayCount(bindingInfo, samplerBindings.size(), "sampler");
+    for (const SamplerBinding& samplerBinding : samplerBindings)
+        ValidateSamplerBinding(samplerBinding);
     m_SamplerBindings[binding] = std::vector<SamplerBinding>(samplerBindings.begin(), samplerBindings.end());
     ++m_Version;
 }
@@ -332,7 +413,6 @@ void ShellCommandListBase::ResetState()
     m_RenderingInfo = {};
     m_IsRendering = false;
     m_GraphicsPipeline = nullptr;
-    m_ComputePipeline = nullptr;
     m_ResourceSets.clear();
     m_MeshBinding = {};
     m_VertexOffsets.clear();
@@ -346,7 +426,6 @@ void ShellCommandListBase::ResetState()
     m_Viewport[3] = 0.0f;
     m_Viewport[4] = 0.0f;
     m_Viewport[5] = 1.0f;
-    m_PushConstants.clear();
 }
 
 void ShellCommandListBase::BindGraphicsPipeline(GraphicsPipeline* pipeline)
@@ -356,7 +435,10 @@ void ShellCommandListBase::BindGraphicsPipeline(GraphicsPipeline* pipeline)
 
 void ShellCommandListBase::BindComputePipeline(ComputePipeline* pipeline)
 {
-    m_ComputePipeline = pipeline;
+    (void)pipeline;
+    RTRLAB_ASSERT_MSG(false,
+                      "Compute pipelines are not implemented for the shell backend. "
+                      "Use a backend with a real compute path before binding compute work.");
 }
 
 void ShellCommandListBase::BindResourceSet(uint32_t setIndex, ResourceSet* resourceSet)
@@ -364,15 +446,18 @@ void ShellCommandListBase::BindResourceSet(uint32_t setIndex, ResourceSet* resou
     m_ResourceSets[setIndex] = resourceSet;
 }
 
-void ShellCommandListBase::PushConstants(ShaderStage, uint32_t offset, uint32_t size, const void* data)
+void ShellCommandListBase::PushConstants(ShaderStage stageMask, uint32_t offset, uint32_t size, const void* data)
 {
-    if (size == 0 || data == nullptr)
+    (void)stageMask;
+    (void)offset;
+    (void)data;
+
+    if (size == 0)
         return;
 
-    if (offset + size > m_PushConstants.size())
-        m_PushConstants.resize(offset + size);
-
-    std::memcpy(m_PushConstants.data() + offset, data, size);
+    RTRLAB_ASSERT_MSG(false,
+                      "PushConstants is not implemented for the shell backend. "
+                      "Use a backend with real push-constant support before recording push constants.");
 }
 
 void ShellCommandListBase::BindMesh(const MeshBinding& meshBinding, const uint64_t* vertexOffsets)
@@ -453,14 +538,41 @@ void ShellCommandListBase::CopyBufferToTexture(Buffer*, Texture*, std::span<cons
 
 void ShellCommandListBase::Dispatch(uint32_t groupX, uint32_t groupY, uint32_t groupZ)
 {
-    m_LastDispatchX = groupX;
-    m_LastDispatchY = groupY;
-    m_LastDispatchZ = groupZ;
+    (void)groupX;
+    (void)groupY;
+    (void)groupZ;
+    RTRLAB_ASSERT_MSG(false,
+                      "Dispatch is not implemented for the shell backend. "
+                      "Use a backend with a real compute path before dispatching work.");
 }
 
-void ShellCommandListBase::TextureBarrier(Texture*, TextureState, TextureState, ShaderStage, ShaderStage) {}
+void ShellCommandListBase::TextureBarrier(
+    Texture* texture, TextureState oldState, TextureState newState, ShaderStage srcStage, ShaderStage dstStage)
+{
+    (void)srcStage;
+    (void)dstStage;
 
-void ShellCommandListBase::BufferBarrier(Buffer*, BufferState, BufferState, ShaderStage, ShaderStage) {}
+    if (texture == nullptr || oldState == newState)
+        return;
+
+    RTRLAB_ASSERT_MSG(false,
+                      "TextureBarrier is not implemented for the shell backend. "
+                      "Use a backend with real resource-transition support before flushing texture barriers.");
+}
+
+void ShellCommandListBase::BufferBarrier(
+    Buffer* buffer, BufferState oldState, BufferState newState, ShaderStage srcStage, ShaderStage dstStage)
+{
+    (void)srcStage;
+    (void)dstStage;
+
+    if (buffer == nullptr || oldState == newState)
+        return;
+
+    RTRLAB_ASSERT_MSG(false,
+                      "BufferBarrier is not implemented for the shell backend. "
+                      "Use a backend with real resource-transition support before flushing buffer barriers.");
+}
 
 ShellSwapchainBase::ShellSwapchainBase(const SwapchainDesc& desc, const NativeWindowHandle& nativeWindowHandle)
     : m_Desc(SanitizeSwapchainDesc(desc)), m_NativeWindowHandle(nativeWindowHandle)
@@ -566,11 +678,13 @@ Scope<ShaderProgram> ShellDeviceBase::CreateShaderProgram(const CompiledShaderPr
 
 Scope<PipelineLayout> ShellDeviceBase::CreatePipelineLayout(const PipelineLayoutDesc& desc)
 {
+    ValidatePipelineLayoutDesc(desc);
     return CreateScope<ShellPipelineLayout>(desc);
 }
 
 Scope<ResourceSet> ShellDeviceBase::CreateResourceSet(PipelineLayout* layout, uint32_t setIndex)
 {
+    ValidateResourceSetDesc(layout, setIndex);
     return CreateScope<ShellResourceSet>(layout, setIndex);
 }
 
@@ -586,11 +700,18 @@ Scope<GraphicsPipeline> ShellDeviceBase::CreateGraphicsPipeline(const GraphicsPi
 
 Scope<ComputePipeline> ShellDeviceBase::CreateComputePipeline(const ComputePipelineDesc& desc)
 {
-    return CreateScope<ShellComputePipeline>(desc);
+    (void)desc;
+    RTRLAB_ASSERT_MSG(false,
+                      "Compute pipelines are not implemented for the shell backend. "
+                      "This backend no longer creates shell compute-pipeline placeholders.");
+    return nullptr;
 }
 
-void ShellDeviceBase::WriteBuffer(Buffer*, uint64_t, const void*, uint64_t)
+void ShellDeviceBase::WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size)
 {
+    if (!ValidateBufferWriteRequest(buffer, offset, data, size))
+        return;
+
     RTRLAB_ASSERT_MSG(
         false, "WriteBuffer is not implemented for this backend. Use a backend with an explicit M3 upload path.");
 }

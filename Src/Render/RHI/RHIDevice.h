@@ -43,6 +43,8 @@ public:
     // on CommandList plus staging resources instead of reaching into Device
     // for direct writes. This remains only until renderer-owned upload
     // scheduling replaces the demo path completely.
+    // Contract while it exists: size==0 is a no-op; non-zero writes require
+    // a CpuToGpu Buffer, non-null data, and a fully in-range byte span.
     virtual void WriteBuffer(Buffer* buffer, uint64_t offset, const void* data, uint64_t size) = 0;
 
     virtual CommandList* BeginCommandList() = 0;

@@ -15,6 +15,9 @@ bool IsNativeWindowHandleValid(const NativeWindowHandle& nativeWindowHandle);
 BufferDesc SanitizeBufferDesc(const BufferDesc& desc);
 SwapchainDesc SanitizeSwapchainDesc(const SwapchainDesc& desc);
 TextureDesc SanitizeTextureDesc(const TextureDesc& desc);
+void ValidatePipelineLayoutDesc(const PipelineLayoutDesc& desc);
+void ValidateResourceSetDesc(PipelineLayout* layout, uint32_t setIndex);
+bool ValidateBufferWriteRequest(Buffer* buffer, uint64_t offset, const void* data, uint64_t size);
 PipelineLayoutDesc BuildPipelineLayoutDescFromReflection(const ShaderReflectionData& reflection);
 std::vector<const BindingInfo*> CollectBindingInfosForSet(const PipelineLayoutDesc& desc, uint32_t setIndex);
 const BindingInfo*
@@ -119,17 +122,6 @@ private:
     GraphicsPipelineDesc m_Desc;
 };
 
-class ShellComputePipeline final : public ComputePipeline
-{
-public:
-    explicit ShellComputePipeline(const ComputePipelineDesc& desc) : m_Desc(desc) {}
-
-    const ComputePipelineDesc& GetDesc() const override { return m_Desc; }
-
-private:
-    ComputePipelineDesc m_Desc;
-};
-
 class ShellResourceSet final : public ResourceSet
 {
 public:
@@ -210,7 +202,6 @@ protected:
     RenderingInfo m_RenderingInfo;
     bool m_IsRendering = false;
     GraphicsPipeline* m_GraphicsPipeline = nullptr;
-    ComputePipeline* m_ComputePipeline = nullptr;
     std::unordered_map<uint32_t, ResourceSet*> m_ResourceSets;
     MeshBinding m_MeshBinding;
     std::vector<uint64_t> m_VertexOffsets;
@@ -219,15 +210,11 @@ protected:
     IndexType m_IndexType = IndexType::UInt32;
     Rect2D m_Scissor;
     float m_Viewport[6] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
-    std::vector<uint8_t> m_PushConstants;
     uint32_t m_LastDrawVertexCount = 0;
     uint32_t m_LastDrawFirstVertex = 0;
     uint32_t m_LastDrawIndexedCount = 0;
     uint32_t m_LastDrawFirstIndex = 0;
     int32_t m_LastDrawVertexOffset = 0;
-    uint32_t m_LastDispatchX = 0;
-    uint32_t m_LastDispatchY = 0;
-    uint32_t m_LastDispatchZ = 0;
 };
 
 class ShellSwapchainBase : public Swapchain
