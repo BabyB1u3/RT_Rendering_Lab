@@ -7,7 +7,6 @@
 #include "Core/App/Application.h"
 #include "Core/Diagnostics/Assert/Assert.h"
 #include "Core/Resource/FileSystem.h"
-#include "Render/RHI/RHIUpload.h"
 
 namespace DemoRenderUtils
 {
@@ -76,29 +75,6 @@ CompiledShaderProgramDesc CompileShaderProgramDesc(const ShaderCompileRequest& r
                    debugOwner,
                    compileResult.m_ErrorMessage);
     return std::move(compileResult.m_Program);
-}
-
-void CreateStaticBufferPair(Device& device,
-                            const void* data,
-                            uint64_t size,
-                            BufferUsage targetUsage,
-                            const char* targetDebugName,
-                            const char* uploadDebugName,
-                            Scope<Buffer>& targetBuffer,
-                            Scope<Buffer>& uploadBuffer)
-{
-    RHIUpload::CreateStaticBufferPair(
-        device, data, size, targetUsage, targetDebugName, uploadDebugName, targetBuffer, uploadBuffer);
-}
-
-void UploadStaticBufferPair(CommandList& commandList,
-                            ResourceStateTracker& resourceStateTracker,
-                            Buffer* uploadBuffer,
-                            Buffer* targetBuffer,
-                            uint64_t size,
-                            BufferState finalState)
-{
-    RHIUpload::UploadStaticBufferPair(commandList, resourceStateTracker, uploadBuffer, targetBuffer, size, finalState);
 }
 
 LoadedImage LoadTextureFileRGBA8(const std::filesystem::path& texturePath, std::string_view debugOwner)

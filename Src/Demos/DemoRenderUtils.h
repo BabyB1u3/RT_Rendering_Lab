@@ -52,21 +52,5 @@ FindRequiredSetIndex(const PipelineLayoutDesc& layoutDesc, std::string_view bind
 ShaderCompileRequest BuildGraphicsShaderCompileRequest(const std::filesystem::path& shaderPath);
 CompiledShaderProgramDesc CompileShaderProgramDesc(const ShaderCompileRequest& request, std::string_view debugOwner);
 
-void CreateStaticBufferPair(Device& device,
-                            const void* data,
-                            uint64_t size,
-                            BufferUsage targetUsage,
-                            const char* targetDebugName,
-                            const char* uploadDebugName,
-                            Scope<Buffer>& targetBuffer,
-                            Scope<Buffer>& uploadBuffer);
-
-void UploadStaticBufferPair(CommandList& commandList,
-                            ResourceStateTracker& resourceStateTracker,
-                            Buffer* uploadBuffer,
-                            Buffer* targetBuffer,
-                            uint64_t size,
-                            BufferState finalState);
-
 LoadedImage LoadTextureFileRGBA8(const std::filesystem::path& texturePath, std::string_view debugOwner);
 } // namespace DemoRenderUtils
