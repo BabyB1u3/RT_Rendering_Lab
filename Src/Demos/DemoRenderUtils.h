@@ -53,4 +53,13 @@ ShaderCompileRequest BuildGraphicsShaderCompileRequest(const std::filesystem::pa
 CompiledShaderProgramDesc CompileShaderProgramDesc(const ShaderCompileRequest& request, std::string_view debugOwner);
 
 LoadedImage LoadTextureFileRGBA8(const std::filesystem::path& texturePath, std::string_view debugOwner);
+
+void CreateRGBA8Texture2DWithView(Device& device,
+                                  uint32_t width,
+                                  uint32_t height,
+                                  const char* textureDebugName,
+                                  const char* viewDebugName,
+                                  Scope<Texture>& texture,
+                                  Scope<TextureView>& textureView);
+Scope<Sampler> CreateLinearRepeatSampler(Device& device, const char* debugName);
 } // namespace DemoRenderUtils

@@ -111,6 +111,7 @@ void TexturedQuadDemo::CreateTexturedQuadResources()
 #if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
     Application& app = Application::Get();
     Device& device = app.GetDevice();
+    const std::filesystem::path rootPath = FileSystem::GetRootPath();
 
     using DemoRenderUtils::TexturedVertex;
     static const std::array<TexturedVertex, 4> kVertices = {{
@@ -139,45 +140,29 @@ void TexturedQuadDemo::CreateTexturedQuadResources()
                                       m_IndexUploadBuffer);
     m_GeometryUploadPending = true;
 
-    const std::filesystem::path texturePath = FileSystem::GetRootPath() / "Project" / "Textures" / "Grassy_Square.jpg";
-    const DemoRenderUtils::LoadedImage loadedImage =
+    const std::filesystem::path texturePath = rootPath / "Project" / "Textures" / "Grassy_Square.jpg";
+    const DemoRenderUtils::LoadedImage textureImage =
         DemoRenderUtils::LoadTextureFileRGBA8(texturePath, "TexturedQuadDemo");
 
-    TextureDesc textureDesc;
-    textureDesc.m_Type = TextureType::Tex2D;
-    textureDesc.m_Format = Format::RGBA8_UNORM;
-    textureDesc.m_Extent = {loadedImage.m_Width, loadedImage.m_Height, 1};
-    textureDesc.m_MipLevels = 1;
-    textureDesc.m_ArrayLayers = 1;
-    textureDesc.m_UsageMask = TextureUsage::Sampled | TextureUsage::CopyDst;
-    textureDesc.m_DebugName = "TexturedQuadDemo.ColorTexture";
-    m_Texture = device.CreateTexture(textureDesc);
+    DemoRenderUtils::CreateRGBA8Texture2DWithView(device,
+                                                  textureImage.m_Width,
+                                                  textureImage.m_Height,
+                                                  "TexturedQuadDemo.ColorTexture",
+                                                  "TexturedQuadDemo.ColorTextureView",
+                                                  m_Texture,
+                                                  m_TextureView);
 
-    TextureViewDesc textureViewDesc;
-    textureViewDesc.m_Type = TextureType::Tex2D;
-    textureViewDesc.m_Format = textureDesc.m_Format;
-    textureViewDesc.m_Aspect = TextureAspect::Color;
-    m_TextureView = device.CreateTextureView(m_Texture.get(), textureViewDesc);
-
-    SamplerDesc samplerDesc;
-    samplerDesc.m_MinFilter = FilterMode::Linear;
-    samplerDesc.m_MagFilter = FilterMode::Linear;
-    samplerDesc.m_MipFilter = MipFilterMode::Linear;
-    samplerDesc.m_AddressU = AddressMode::Repeat;
-    samplerDesc.m_AddressV = AddressMode::Repeat;
-    samplerDesc.m_AddressW = AddressMode::Repeat;
-    m_Sampler = device.CreateSampler(samplerDesc);
+    m_Sampler = DemoRenderUtils::CreateLinearRepeatSampler(device, "TexturedQuadDemo.LinearRepeatSampler");
 
     m_TextureUploadBuffer = RHIUpload::CreateUploadBuffer(device,
-                                                          loadedImage.m_Pixels.data(),
-                                                          static_cast<uint64_t>(loadedImage.m_Pixels.size()),
+                                                          textureImage.m_Pixels.data(),
+                                                          static_cast<uint64_t>(textureImage.m_Pixels.size()),
                                                           "TexturedQuadDemo.TextureUploadBuffer");
     m_TextureUploadPending = true;
 
+    const std::filesystem::path shaderPath = rootPath / "Project" / "Shaders" / "DemoTextured.slang";
     m_ShaderProgram = device.CreateShaderProgram(DemoRenderUtils::CompileShaderProgramDesc(
-        DemoRenderUtils::BuildGraphicsShaderCompileRequest(FileSystem::GetRootPath() / "Project" / "Shaders" /
-                                                           "DemoTextured.slang"),
-        "TexturedQuadDemo"));
+        DemoRenderUtils::BuildGraphicsShaderCompileRequest(shaderPath), "TexturedQuadDemo"));
     m_PipelineLayout = device.CreatePipelineLayout(m_ShaderProgram->DerivePipelineLayoutDesc());
     const PipelineLayoutDesc& pipelineLayoutDesc = m_PipelineLayout->GetDesc();
     m_FrameSetIndex = DemoRenderUtils::FindRequiredSetIndex(pipelineLayoutDesc, "gFrame", "TexturedQuadDemo");

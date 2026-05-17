@@ -98,4 +98,45 @@ LoadedImage LoadTextureFileRGBA8(const std::filesystem::path& texturePath, std::
     stbi_image_free(pixels);
     return image;
 }
+
+void CreateRGBA8Texture2DWithView(Device& device,
+                                  uint32_t width,
+                                  uint32_t height,
+                                  const char* textureDebugName,
+                                  const char* viewDebugName,
+                                  Scope<Texture>& texture,
+                                  Scope<TextureView>& textureView)
+{
+    (void)viewDebugName;
+
+    TextureDesc textureDesc;
+    textureDesc.m_Type = TextureType::Tex2D;
+    textureDesc.m_Format = Format::RGBA8_UNORM;
+    textureDesc.m_Extent = {width, height, 1};
+    textureDesc.m_MipLevels = 1;
+    textureDesc.m_ArrayLayers = 1;
+    textureDesc.m_UsageMask = TextureUsage::Sampled | TextureUsage::CopyDst;
+    textureDesc.m_DebugName = textureDebugName;
+    texture = device.CreateTexture(textureDesc);
+
+    TextureViewDesc textureViewDesc;
+    textureViewDesc.m_Type = TextureType::Tex2D;
+    textureViewDesc.m_Format = textureDesc.m_Format;
+    textureViewDesc.m_Aspect = TextureAspect::Color;
+    textureView = device.CreateTextureView(texture.get(), textureViewDesc);
+}
+
+Scope<Sampler> CreateLinearRepeatSampler(Device& device, const char* debugName)
+{
+    (void)debugName;
+
+    SamplerDesc samplerDesc;
+    samplerDesc.m_MinFilter = FilterMode::Linear;
+    samplerDesc.m_MagFilter = FilterMode::Linear;
+    samplerDesc.m_MipFilter = MipFilterMode::Linear;
+    samplerDesc.m_AddressU = AddressMode::Repeat;
+    samplerDesc.m_AddressV = AddressMode::Repeat;
+    samplerDesc.m_AddressW = AddressMode::Repeat;
+    return device.CreateSampler(samplerDesc);
+}
 } // namespace DemoRenderUtils
