@@ -11,6 +11,7 @@
 #include "Core/Resource/FileSystem.h"
 #include "Core/Util/Math.h"
 #include "Demos/DemoRenderUtils.h"
+#include "Render/RHI/RHIUpload.h"
 #include "Render/Shader/ShaderParameterWriter.h"
 
 RotatingCubeDemo::RotatingCubeDemo(uint32_t width, uint32_t height) : m_ViewportWidth(width), m_ViewportHeight(height)
@@ -171,22 +172,22 @@ void RotatingCubeDemo::CreateCubeResources()
         12, 13, 14, 12, 14, 15, 16, 17, 18, 16, 18, 19, 20, 21, 22, 20, 22, 23,
     };
 
-    DemoRenderUtils::CreateStaticBufferPair(device,
-                                            kVertices.data(),
-                                            sizeof(kVertices),
-                                            BufferUsage::Vertex,
-                                            "RotatingCube.VertexBuffer",
-                                            "RotatingCube.VertexUploadBuffer",
-                                            m_VertexBuffer,
-                                            m_VertexUploadBuffer);
-    DemoRenderUtils::CreateStaticBufferPair(device,
-                                            kIndices.data(),
-                                            sizeof(kIndices),
-                                            BufferUsage::Index,
-                                            "RotatingCube.IndexBuffer",
-                                            "RotatingCube.IndexUploadBuffer",
-                                            m_IndexBuffer,
-                                            m_IndexUploadBuffer);
+    RHIUpload::CreateStaticBufferPair(device,
+                                      kVertices.data(),
+                                      sizeof(kVertices),
+                                      BufferUsage::Vertex,
+                                      "RotatingCube.VertexBuffer",
+                                      "RotatingCube.VertexUploadBuffer",
+                                      m_VertexBuffer,
+                                      m_VertexUploadBuffer);
+    RHIUpload::CreateStaticBufferPair(device,
+                                      kIndices.data(),
+                                      sizeof(kIndices),
+                                      BufferUsage::Index,
+                                      "RotatingCube.IndexBuffer",
+                                      "RotatingCube.IndexUploadBuffer",
+                                      m_IndexBuffer,
+                                      m_IndexUploadBuffer);
     m_GeometryUploadPending = true;
     CreateDepthResources();
 
@@ -262,18 +263,18 @@ void RotatingCubeDemo::UploadCubeGeometry(CommandList& commandList, ResourceStat
     if (!m_GeometryUploadPending)
         return;
 
-    DemoRenderUtils::UploadStaticBufferPair(commandList,
-                                            resourceStateTracker,
-                                            m_VertexUploadBuffer.get(),
-                                            m_VertexBuffer.get(),
-                                            m_VertexBuffer->GetDesc().m_Size,
-                                            BufferState::VertexIndex);
-    DemoRenderUtils::UploadStaticBufferPair(commandList,
-                                            resourceStateTracker,
-                                            m_IndexUploadBuffer.get(),
-                                            m_IndexBuffer.get(),
-                                            m_IndexBuffer->GetDesc().m_Size,
-                                            BufferState::VertexIndex);
+    RHIUpload::UploadStaticBufferPair(commandList,
+                                      resourceStateTracker,
+                                      m_VertexUploadBuffer.get(),
+                                      m_VertexBuffer.get(),
+                                      m_VertexBuffer->GetDesc().m_Size,
+                                      BufferState::VertexIndex);
+    RHIUpload::UploadStaticBufferPair(commandList,
+                                      resourceStateTracker,
+                                      m_IndexUploadBuffer.get(),
+                                      m_IndexBuffer.get(),
+                                      m_IndexBuffer->GetDesc().m_Size,
+                                      BufferState::VertexIndex);
     m_GeometryUploadPending = false;
 #endif
 }

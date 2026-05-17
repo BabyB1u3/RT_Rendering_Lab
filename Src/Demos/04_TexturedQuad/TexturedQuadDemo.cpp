@@ -11,6 +11,7 @@
 #include "Core/Resource/FileSystem.h"
 #include "Core/Util/Math.h"
 #include "Demos/DemoRenderUtils.h"
+#include "Render/RHI/RHIUpload.h"
 #include "Render/Shader/ShaderParameterWriter.h"
 
 TexturedQuadDemo::TexturedQuadDemo(uint32_t width, uint32_t height) : m_ViewportWidth(width), m_ViewportHeight(height)
@@ -120,22 +121,22 @@ void TexturedQuadDemo::CreateTexturedQuadResources()
     }};
     static constexpr std::array<uint16_t, 6> kIndices = {0, 1, 2, 0, 2, 3};
 
-    DemoRenderUtils::CreateStaticBufferPair(device,
-                                            kVertices.data(),
-                                            sizeof(kVertices),
-                                            BufferUsage::Vertex,
-                                            "TexturedQuadDemo.VertexBuffer",
-                                            "TexturedQuadDemo.VertexUploadBuffer",
-                                            m_VertexBuffer,
-                                            m_VertexUploadBuffer);
-    DemoRenderUtils::CreateStaticBufferPair(device,
-                                            kIndices.data(),
-                                            sizeof(kIndices),
-                                            BufferUsage::Index,
-                                            "TexturedQuadDemo.IndexBuffer",
-                                            "TexturedQuadDemo.IndexUploadBuffer",
-                                            m_IndexBuffer,
-                                            m_IndexUploadBuffer);
+    RHIUpload::CreateStaticBufferPair(device,
+                                      kVertices.data(),
+                                      sizeof(kVertices),
+                                      BufferUsage::Vertex,
+                                      "TexturedQuadDemo.VertexBuffer",
+                                      "TexturedQuadDemo.VertexUploadBuffer",
+                                      m_VertexBuffer,
+                                      m_VertexUploadBuffer);
+    RHIUpload::CreateStaticBufferPair(device,
+                                      kIndices.data(),
+                                      sizeof(kIndices),
+                                      BufferUsage::Index,
+                                      "TexturedQuadDemo.IndexBuffer",
+                                      "TexturedQuadDemo.IndexUploadBuffer",
+                                      m_IndexBuffer,
+                                      m_IndexUploadBuffer);
     m_GeometryUploadPending = true;
 
     const std::filesystem::path texturePath = FileSystem::GetRootPath() / "Project" / "Textures" / "Grassy_Square.jpg";
@@ -167,16 +168,10 @@ void TexturedQuadDemo::CreateTexturedQuadResources()
     samplerDesc.m_AddressW = AddressMode::Repeat;
     m_Sampler = device.CreateSampler(samplerDesc);
 
-    BufferDesc textureUploadBufferDesc;
-    textureUploadBufferDesc.m_Size = static_cast<uint64_t>(loadedImage.m_Pixels.size());
-    textureUploadBufferDesc.m_UsageMask = BufferUsage::CopySrc;
-    textureUploadBufferDesc.m_MemoryUsage = MemoryUsage::CpuToGpu;
-    textureUploadBufferDesc.m_DebugName = "TexturedQuadDemo.TextureUploadBuffer";
-    m_TextureUploadBuffer = device.CreateBuffer(textureUploadBufferDesc);
-    device.WriteBuffer(m_TextureUploadBuffer.get(),
-                       0,
-                       loadedImage.m_Pixels.data(),
-                       static_cast<uint64_t>(loadedImage.m_Pixels.size()));
+    m_TextureUploadBuffer = RHIUpload::CreateUploadBuffer(device,
+                                                          loadedImage.m_Pixels.data(),
+                                                          static_cast<uint64_t>(loadedImage.m_Pixels.size()),
+                                                          "TexturedQuadDemo.TextureUploadBuffer");
     m_TextureUploadPending = true;
 
     m_ShaderProgram = device.CreateShaderProgram(DemoRenderUtils::CompileShaderProgramDesc(
@@ -225,44 +220,29 @@ void TexturedQuadDemo::UploadPendingResources(CommandList& commandList, Resource
 #if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
     if (m_GeometryUploadPending)
     {
-        DemoRenderUtils::UploadStaticBufferPair(commandList,
-                                                resourceStateTracker,
-                                                m_VertexUploadBuffer.get(),
-                                                m_VertexBuffer.get(),
-                                                m_VertexBuffer->GetDesc().m_Size,
-                                                BufferState::VertexIndex);
-        DemoRenderUtils::UploadStaticBufferPair(commandList,
-                                                resourceStateTracker,
-                                                m_IndexUploadBuffer.get(),
-                                                m_IndexBuffer.get(),
-                                                m_IndexBuffer->GetDesc().m_Size,
-                                                BufferState::VertexIndex);
+        RHIUpload::UploadStaticBufferPair(commandList,
+                                          resourceStateTracker,
+                                          m_VertexUploadBuffer.get(),
+                                          m_VertexBuffer.get(),
+                                          m_VertexBuffer->GetDesc().m_Size,
+                                          BufferState::VertexIndex);
+        RHIUpload::UploadStaticBufferPair(commandList,
+                                          resourceStateTracker,
+                                          m_IndexUploadBuffer.get(),
+                                          m_IndexBuffer.get(),
+                                          m_IndexBuffer->GetDesc().m_Size,
+                                          BufferState::VertexIndex);
         m_GeometryUploadPending = false;
     }
 
     if (m_TextureUploadPending)
     {
-        resourceStateTracker.Transition(m_TextureUploadBuffer.get(), BufferState::CopySource);
-        resourceStateTracker.Transition(m_Texture.get(), TextureState::CopyDest);
-        resourceStateTracker.FlushBarriers(&commandList);
-
-        const TextureDesc& textureDesc = m_Texture->GetDesc();
-        const BufferTextureCopyRegion copyRegion{
-            0,
-            textureDesc.m_Extent.m_Width * 4u,
-            textureDesc.m_Extent.m_Height,
-            TextureAspect::Color,
-            0,
-            0,
-            1,
-            {},
-            textureDesc.m_Extent,
-        };
-        commandList.CopyBufferToTexture(
-            m_TextureUploadBuffer.get(), m_Texture.get(), std::span<const BufferTextureCopyRegion>(&copyRegion, 1));
-
-        resourceStateTracker.Transition(m_Texture.get(), TextureState::ShaderRead);
-        resourceStateTracker.FlushBarriers(&commandList);
+        RHIUpload::UploadFullTexture(commandList,
+                                     resourceStateTracker,
+                                     m_TextureUploadBuffer.get(),
+                                     m_Texture.get(),
+                                     4u,
+                                     TextureState::ShaderRead);
         m_TextureUploadPending = false;
     }
 #endif
