@@ -25,4 +25,11 @@ void UploadStaticBufferPair(CommandList& commandList,
                             Buffer* targetBuffer,
                             uint64_t size,
                             BufferState finalState);
+
+void UploadFullTexture(CommandList& commandList,
+                       ResourceStateTracker& resourceStateTracker,
+                       Buffer* uploadBuffer,
+                       Texture* targetTexture,
+                       uint32_t bytesPerPixel,
+                       TextureState finalState);
 } // namespace RHIUpload

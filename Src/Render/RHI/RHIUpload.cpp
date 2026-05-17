@@ -55,4 +55,42 @@ void UploadStaticBufferPair(CommandList& commandList,
     resourceStateTracker.Transition(targetBuffer, finalState);
     resourceStateTracker.FlushBarriers(&commandList);
 }
+
+void UploadFullTexture(CommandList& commandList,
+                       ResourceStateTracker& resourceStateTracker,
+                       Buffer* uploadBuffer,
+                       Texture* targetTexture,
+                       uint32_t bytesPerPixel,
+                       TextureState finalState)
+{
+    RTRLAB_ASSERT_MSG(uploadBuffer != nullptr && targetTexture != nullptr,
+                      "Texture upload requires both upload buffer and target texture.");
+    RTRLAB_ASSERT_MSG(bytesPerPixel > 0, "Texture upload requires a non-zero byte stride per pixel.");
+
+    const TextureDesc& textureDesc = targetTexture->GetDesc();
+    RTRLAB_ASSERT_MSG(textureDesc.m_Extent.m_Width > 0 && textureDesc.m_Extent.m_Height > 0 &&
+                          textureDesc.m_Extent.m_Depth > 0,
+                      "Texture upload requires a non-zero target texture extent.");
+
+    resourceStateTracker.Transition(uploadBuffer, BufferState::CopySource);
+    resourceStateTracker.Transition(targetTexture, TextureState::CopyDest);
+    resourceStateTracker.FlushBarriers(&commandList);
+
+    const BufferTextureCopyRegion copyRegion{
+        0,
+        textureDesc.m_Extent.m_Width * bytesPerPixel,
+        textureDesc.m_Extent.m_Height,
+        TextureAspect::Color,
+        0,
+        0,
+        1,
+        {},
+        textureDesc.m_Extent,
+    };
+    commandList.CopyBufferToTexture(
+        uploadBuffer, targetTexture, std::span<const BufferTextureCopyRegion>(&copyRegion, 1));
+
+    resourceStateTracker.Transition(targetTexture, finalState);
+    resourceStateTracker.FlushBarriers(&commandList);
+}
 } // namespace RHIUpload

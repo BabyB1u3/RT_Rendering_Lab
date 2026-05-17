@@ -11,6 +11,7 @@
 #include "Core/Resource/FileSystem.h"
 #include "Core/Util/Math.h"
 #include "Demos/DemoRenderUtils.h"
+#include "Render/RHI/RHIUpload.h"
 #include "Render/Shader/ShaderParameterWriter.h"
 
 TexturedRotatingCubeDemo::TexturedRotatingCubeDemo(uint32_t width, uint32_t height)
@@ -318,27 +319,12 @@ void TexturedRotatingCubeDemo::UploadPendingResources(CommandList& commandList,
 
     if (m_TextureUploadPending)
     {
-        resourceStateTracker.Transition(m_TextureUploadBuffer.get(), BufferState::CopySource);
-        resourceStateTracker.Transition(m_Texture.get(), TextureState::CopyDest);
-        resourceStateTracker.FlushBarriers(&commandList);
-
-        const TextureDesc& textureDesc = m_Texture->GetDesc();
-        const BufferTextureCopyRegion copyRegion{
-            0,
-            textureDesc.m_Extent.m_Width * 4u,
-            textureDesc.m_Extent.m_Height,
-            TextureAspect::Color,
-            0,
-            0,
-            1,
-            {},
-            textureDesc.m_Extent,
-        };
-        commandList.CopyBufferToTexture(
-            m_TextureUploadBuffer.get(), m_Texture.get(), std::span<const BufferTextureCopyRegion>(&copyRegion, 1));
-
-        resourceStateTracker.Transition(m_Texture.get(), TextureState::ShaderRead);
-        resourceStateTracker.FlushBarriers(&commandList);
+        RHIUpload::UploadFullTexture(commandList,
+                                     resourceStateTracker,
+                                     m_TextureUploadBuffer.get(),
+                                     m_Texture.get(),
+                                     4u,
+                                     TextureState::ShaderRead);
         m_TextureUploadPending = false;
     }
 #endif
