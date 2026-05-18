@@ -16,6 +16,7 @@
 #include "Demos/04_TexturedQuad/TexturedQuadDemo.h"
 #include "Demos/05_RotatingCube/RotatingCubeDemo.h"
 #include "Demos/06_TexturedRotatingCube/TexturedRotatingCubeDemo.h"
+#include "Demos/07_MultiObjectTexturedScene/MultiObjectTexturedSceneDemo.h"
 
 LabLayer::LabLayer() : Layer("LabLayer") {}
 
@@ -123,6 +124,12 @@ void LabLayer::RegisterBuiltInDemos()
                            {
                                const auto& window = Application::Get().GetWindow();
                                return CreateScope<TexturedRotatingCubeDemo>(window.GetWidth(), window.GetHeight());
+                           });
+    DemoRegistry::Register("07 - Multi Object Textured Scene",
+                           []()
+                           {
+                               const auto& window = Application::Get().GetWindow();
+                               return CreateScope<MultiObjectTexturedSceneDemo>(window.GetWidth(), window.GetHeight());
                            });
 
     m_DemosRegistered = true;
