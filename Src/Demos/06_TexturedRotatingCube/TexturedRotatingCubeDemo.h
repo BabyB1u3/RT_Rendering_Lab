@@ -8,6 +8,7 @@
 #include "Core/Util/Base.h"
 #include "Demos/DemoBase.h"
 #include "Render/RHI/RHI.h"
+#include "Render/Renderer/ForwardRenderer.h"
 
 class TexturedRotatingCubeDemo : public DemoBase
 {
@@ -45,14 +46,10 @@ private:
     Scope<Texture> m_DepthTexture;
     Scope<TextureView> m_DepthView;
 
-    Scope<ShaderProgram> m_ShaderProgram;
-    Scope<PipelineLayout> m_PipelineLayout;
-    Scope<ResourceSet> m_FrameSet;
-    uint32_t m_FrameSetIndex = 0;
+    Renderer::ForwardRenderer m_Renderer;
+    Renderer::Mesh m_Mesh;
+    Renderer::Material m_Material;
+    Renderer::RenderObject m_RenderObject;
     Scope<ResourceSet> m_MaterialSet;
-    uint32_t m_MaterialSetIndex = 1;
     Scope<ResourceSet> m_ObjectSet;
-    uint32_t m_ObjectSetIndex = 2;
-    Scope<VertexInputLayout> m_VertexInputLayout;
-    Scope<GraphicsPipeline> m_GraphicsPipeline;
 };

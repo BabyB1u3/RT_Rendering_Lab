@@ -174,6 +174,7 @@ set(GLAB_RENDER_SOURCES
     Render/RHI/RHIUpload.cpp
     Render/RHI/ResourceStateTracker.cpp
     Render/RHI/Backends/Common/RHIShellCommon.cpp
+    Render/Renderer/ForwardRenderer.cpp
     Render/Shader/ShaderCompiler.cpp
     Render/Shader/ShaderReflection.cpp
     Render/Shader/SlangCompiler.cpp
@@ -192,6 +193,11 @@ set(GLAB_RENDER_HEADERS
     Render/RHI/RHIDevice.h
     Render/RHI/RHIUpload.h
     Render/RHI/Backends/Common/RHIShellCommon.h
+    Render/Renderer/ForwardRenderer.h
+    Render/Renderer/FrameGlobals.h
+    Render/Renderer/Material.h
+    Render/Renderer/Mesh.h
+    Render/Renderer/RenderObject.h
     Render/Shader/ShaderCompiler.h
     Render/Shader/ShaderReflection.h
     Render/Shader/SlangCompiler.h
