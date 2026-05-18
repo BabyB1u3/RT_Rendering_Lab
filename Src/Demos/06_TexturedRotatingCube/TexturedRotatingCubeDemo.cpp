@@ -12,7 +12,6 @@
 #include "Core/Util/Math.h"
 #include "Demos/DemoRenderUtils.h"
 #include "Render/RHI/RHIUpload.h"
-#include "Render/Shader/ShaderParameterWriter.h"
 
 TexturedRotatingCubeDemo::TexturedRotatingCubeDemo(uint32_t width, uint32_t height)
     : m_ViewportWidth(width), m_ViewportHeight(height)
@@ -28,13 +27,12 @@ void TexturedRotatingCubeDemo::OnAttach()
 void TexturedRotatingCubeDemo::OnDetach()
 {
     ForgetTrackedResources();
-    m_GraphicsPipeline.reset();
-    m_VertexInputLayout.reset();
     m_ObjectSet.reset();
     m_MaterialSet.reset();
-    m_FrameSet.reset();
-    m_PipelineLayout.reset();
-    m_ShaderProgram.reset();
+    m_Renderer.Reset();
+    m_RenderObject = {};
+    m_Material = {};
+    m_Mesh = {};
     m_DepthView.reset();
     m_DepthTexture.reset();
     m_Sampler.reset();
@@ -58,7 +56,8 @@ void TexturedRotatingCubeDemo::OnUpdate(double dt)
 void TexturedRotatingCubeDemo::OnRender()
 {
 #if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
-    if (!m_GraphicsPipeline || !m_VertexBuffer || !m_IndexBuffer || !m_DepthView || !m_MaterialSet)
+    if (!m_Renderer.IsInitialized() || !m_VertexBuffer || !m_IndexBuffer || !m_DepthView ||
+        m_RenderObject.m_Mesh == nullptr || m_RenderObject.m_Material == nullptr)
         return;
 
     Application& app = Application::Get();
@@ -98,17 +97,7 @@ void TexturedRotatingCubeDemo::OnRender()
     commandList->SetViewport(
         0.0f, 0.0f, static_cast<float>(m_ViewportWidth), static_cast<float>(m_ViewportHeight), 0.0f, 1.0f);
     commandList->SetScissor(0, 0, m_ViewportWidth, m_ViewportHeight);
-    commandList->BindGraphicsPipeline(m_GraphicsPipeline.get());
-    commandList->BindResourceSet(m_FrameSetIndex, m_FrameSet.get());
-    commandList->BindResourceSet(m_MaterialSetIndex, m_MaterialSet.get());
-    commandList->BindResourceSet(m_ObjectSetIndex, m_ObjectSet.get());
-
-    MeshBinding meshBinding;
-    meshBinding.m_VertexBuffers = {m_VertexBuffer.get()};
-    meshBinding.m_IndexBuffer = m_IndexBuffer.get();
-    meshBinding.m_IndexType = IndexType::UInt16;
-    commandList->BindMesh(meshBinding);
-    commandList->DrawIndexed(36, 0, 0);
+    m_Renderer.DrawObject(*commandList, m_RenderObject);
     commandList->EndRendering();
 #endif
 }
@@ -122,12 +111,9 @@ void TexturedRotatingCubeDemo::OnResize(uint32_t width, uint32_t height)
     m_ViewportHeight = height;
 
 #if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
-    if (m_FrameSet != nullptr)
+    if (m_Renderer.GetFrameSet() != nullptr)
     {
-        ShaderParameterWriter parameterWriter(m_ShaderProgram->GetReflection());
-        parameterWriter.SetMatrix4x4(*m_FrameSet,
-                                     "gFrame.viewProj",
-                                     DemoRenderUtils::BuildOrbitViewProjection(m_ViewportWidth, m_ViewportHeight));
+        UpdateShaderParameters();
     }
 
     if (m_DepthTexture != nullptr)
@@ -208,42 +194,33 @@ void TexturedRotatingCubeDemo::CreateCubeResources()
     CreateDepthResources();
 
     const std::filesystem::path shaderPath = rootPath / "Project" / "Shaders" / "DemoTextured.slang";
-    m_ShaderProgram = device.CreateShaderProgram(DemoRenderUtils::CompileShaderProgramDesc(
-        DemoRenderUtils::BuildGraphicsShaderCompileRequest(shaderPath), "TexturedRotatingCube"));
-    m_PipelineLayout = device.CreatePipelineLayout(m_ShaderProgram->DerivePipelineLayoutDesc());
-    const PipelineLayoutDesc& pipelineLayoutDesc = m_PipelineLayout->GetDesc();
-    m_FrameSetIndex = DemoRenderUtils::FindRequiredSetIndex(pipelineLayoutDesc, "gFrame", "TexturedRotatingCube");
-    m_MaterialSetIndex = DemoRenderUtils::FindRequiredSetIndex(pipelineLayoutDesc, "gMaterial", "TexturedRotatingCube");
-    m_ObjectSetIndex = DemoRenderUtils::FindRequiredSetIndex(pipelineLayoutDesc, "gObject", "TexturedRotatingCube");
+    Renderer::ForwardRendererDesc rendererDesc;
+    rendererDesc.m_ShaderPath = shaderPath;
+    rendererDesc.m_ColorFormat = app.GetSwapchain().GetFormat();
+    rendererDesc.m_DepthFormat = Format::D32_SFLOAT;
+    rendererDesc.m_VertexStride = static_cast<uint32_t>(sizeof(TexturedVertex));
+    rendererDesc.m_PositionOffset = static_cast<uint32_t>(offsetof(TexturedVertex, m_Position));
+    rendererDesc.m_UVOffset = static_cast<uint32_t>(offsetof(TexturedVertex, m_UV));
+    rendererDesc.m_DebugName = "TexturedRotatingCube";
+    m_Renderer.Initialize(device, rendererDesc);
 
-    m_FrameSet = device.CreateResourceSet(m_PipelineLayout.get(), m_FrameSetIndex);
-    m_MaterialSet = device.CreateResourceSet(m_PipelineLayout.get(), m_MaterialSetIndex);
-    m_ObjectSet = device.CreateResourceSet(m_PipelineLayout.get(), m_ObjectSetIndex);
+    m_MaterialSet = m_Renderer.CreateMaterialSet(device);
+    m_ObjectSet = m_Renderer.CreateObjectSet(device);
+
+    m_Mesh.m_VertexBuffer = m_VertexBuffer.get();
+    m_Mesh.m_IndexBuffer = m_IndexBuffer.get();
+    m_Mesh.m_IndexType = IndexType::UInt16;
+    m_Mesh.m_IndexCount = 36;
+
+    m_Material.m_BaseColor = Math::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    m_Material.m_AlbedoTextureView = m_TextureView.get();
+    m_Material.m_AlbedoSampler = m_Sampler.get();
+    m_Material.m_ResourceSet = m_MaterialSet.get();
+
+    m_RenderObject.m_Mesh = &m_Mesh;
+    m_RenderObject.m_Material = &m_Material;
+    m_RenderObject.m_ObjectSet = m_ObjectSet.get();
     UpdateShaderParameters();
-
-    ShaderParameterWriter parameterWriter(m_ShaderProgram->GetReflection());
-    parameterWriter.SetTextureView(*m_MaterialSet, "gAlbedoTexture", m_TextureView.get());
-    parameterWriter.SetSampler(*m_MaterialSet, "gAlbedoSampler", m_Sampler.get());
-
-    VertexInputLayoutDesc vertexInputLayoutDesc;
-    vertexInputLayoutDesc.m_Buffers = {{static_cast<uint32_t>(sizeof(TexturedVertex)), false}};
-    vertexInputLayoutDesc.m_Attributes = {
-        {0u, Format::RGBA32F, static_cast<uint32_t>(offsetof(TexturedVertex, m_Position)), 0u},
-        {1u, Format::RG32F, static_cast<uint32_t>(offsetof(TexturedVertex, m_UV)), 0u},
-    };
-    m_VertexInputLayout = device.CreateVertexInputLayout(vertexInputLayoutDesc);
-
-    GraphicsPipelineDesc pipelineDesc;
-    pipelineDesc.m_PipelineLayout = m_PipelineLayout.get();
-    pipelineDesc.m_ShaderProgram = m_ShaderProgram.get();
-    pipelineDesc.m_VertexInput = m_VertexInputLayout.get();
-    pipelineDesc.m_RasterState.m_CullMode = CullMode::None;
-    pipelineDesc.m_DepthStencilState.m_DepthTestEnable = true;
-    pipelineDesc.m_DepthStencilState.m_DepthWriteEnable = true;
-    pipelineDesc.m_DepthStencilState.m_DepthCompareOp = CompareOp::Less;
-    pipelineDesc.m_ColorFormats = {app.GetSwapchain().GetFormat()};
-    pipelineDesc.m_DepthFormat = Format::D32_SFLOAT;
-    m_GraphicsPipeline = device.CreateGraphicsPipeline(pipelineDesc);
 #endif
 }
 
@@ -313,21 +290,23 @@ void TexturedRotatingCubeDemo::UploadPendingResources(CommandList& commandList,
 void TexturedRotatingCubeDemo::UpdateShaderParameters()
 {
 #if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
-    RTRLAB_ASSERT_MSG(m_ShaderProgram != nullptr && m_FrameSet != nullptr && m_MaterialSet != nullptr &&
-                          m_ObjectSet != nullptr,
+    RTRLAB_ASSERT_MSG(m_Renderer.IsInitialized() && m_RenderObject.m_Mesh != nullptr &&
+                          m_RenderObject.m_Material != nullptr && m_RenderObject.m_ObjectSet != nullptr,
                       "TexturedRotatingCube parameter updates require initialized shader resources.");
 
     const Math::Mat4 model =
         Math::Rotate(Math::Mat4::Identity(), m_RotationSeconds * 1.15f, Math::Vec3(0.0f, 1.0f, 0.0f)) *
         Math::Rotate(Math::Mat4::Identity(), m_RotationSeconds * 0.70f, Math::Vec3(1.0f, 0.0f, 0.0f));
 
-    ShaderParameterWriter parameterWriter(m_ShaderProgram->GetReflection());
-    parameterWriter.SetMatrix4x4(
-        *m_FrameSet, "gFrame.viewProj", DemoRenderUtils::BuildOrbitViewProjection(m_ViewportWidth, m_ViewportHeight));
-    parameterWriter.SetFloat4(*m_FrameSet, "gFrame.tint", Math::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
-    parameterWriter.SetFloat(*m_FrameSet, "gFrame.time", m_RotationSeconds);
-    parameterWriter.SetFloat4(*m_MaterialSet, "gMaterial.baseColor", Math::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
-    parameterWriter.SetMatrix4x4(*m_ObjectSet, "gObject.model", model);
+    Renderer::FrameGlobals frameGlobals;
+    frameGlobals.m_ViewProjection = DemoRenderUtils::BuildOrbitViewProjection(m_ViewportWidth, m_ViewportHeight);
+    frameGlobals.m_Tint = Math::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+    frameGlobals.m_Time = m_RotationSeconds;
+
+    m_RenderObject.m_Model = model;
+    m_Renderer.UpdateFrameGlobals(frameGlobals);
+    m_Renderer.UpdateMaterial(m_Material);
+    m_Renderer.UpdateRenderObject(m_RenderObject);
 #endif
 }
 

@@ -6,6 +6,7 @@
 
 #include "Core/Diagnostics/Assert/Assert.h"
 #include "Render/Shader/ShaderCompiler.h"
+#include "Render/Shader/ShaderParameterWriter.h"
 
 namespace Renderer
 {
@@ -101,6 +102,72 @@ bool ForwardRenderer::IsInitialized() const
 {
     return m_ShaderProgram != nullptr && m_PipelineLayout != nullptr && m_FrameSet != nullptr &&
            m_VertexInputLayout != nullptr && m_GraphicsPipeline != nullptr;
+}
+
+Scope<ResourceSet> ForwardRenderer::CreateMaterialSet(Device& device) const
+{
+    RTRLAB_ASSERT_MSG(m_PipelineLayout != nullptr, "ForwardRenderer material set creation requires a PipelineLayout.");
+    return device.CreateResourceSet(m_PipelineLayout.get(), m_SetIndices.m_MaterialSet);
+}
+
+Scope<ResourceSet> ForwardRenderer::CreateObjectSet(Device& device) const
+{
+    RTRLAB_ASSERT_MSG(m_PipelineLayout != nullptr, "ForwardRenderer object set creation requires a PipelineLayout.");
+    return device.CreateResourceSet(m_PipelineLayout.get(), m_SetIndices.m_ObjectSet);
+}
+
+void ForwardRenderer::UpdateFrameGlobals(const FrameGlobals& frameGlobals) const
+{
+    RTRLAB_ASSERT_MSG(m_ShaderProgram != nullptr && m_FrameSet != nullptr,
+                      "ForwardRenderer frame updates require initialized shader resources.");
+
+    ShaderParameterWriter parameterWriter(m_ShaderProgram->GetReflection());
+    parameterWriter.SetMatrix4x4(*m_FrameSet, "gFrame.viewProj", frameGlobals.m_ViewProjection);
+    parameterWriter.SetFloat4(*m_FrameSet, "gFrame.tint", frameGlobals.m_Tint);
+    parameterWriter.SetFloat(*m_FrameSet, "gFrame.time", frameGlobals.m_Time);
+}
+
+void ForwardRenderer::UpdateMaterial(const Material& material) const
+{
+    RTRLAB_ASSERT_MSG(m_ShaderProgram != nullptr && material.m_ResourceSet != nullptr,
+                      "ForwardRenderer material updates require initialized shader resources.");
+
+    ShaderParameterWriter parameterWriter(m_ShaderProgram->GetReflection());
+    parameterWriter.SetFloat4(*material.m_ResourceSet, "gMaterial.baseColor", material.m_BaseColor);
+    parameterWriter.SetTextureView(*material.m_ResourceSet, "gAlbedoTexture", material.m_AlbedoTextureView);
+    parameterWriter.SetSampler(*material.m_ResourceSet, "gAlbedoSampler", material.m_AlbedoSampler);
+}
+
+void ForwardRenderer::UpdateRenderObject(const RenderObject& object) const
+{
+    RTRLAB_ASSERT_MSG(m_ShaderProgram != nullptr && object.m_ObjectSet != nullptr,
+                      "ForwardRenderer object updates require initialized shader resources.");
+
+    ShaderParameterWriter parameterWriter(m_ShaderProgram->GetReflection());
+    parameterWriter.SetMatrix4x4(*object.m_ObjectSet, "gObject.model", object.m_Model);
+}
+
+void ForwardRenderer::DrawObject(CommandList& commandList, const RenderObject& object) const
+{
+    RTRLAB_ASSERT_MSG(IsInitialized(), "ForwardRenderer draw requires initialized pipeline resources.");
+    RTRLAB_ASSERT_MSG(object.m_Mesh != nullptr && object.m_Material != nullptr,
+                      "ForwardRenderer draw requires a mesh and material.");
+    RTRLAB_ASSERT_MSG(object.m_Material->m_ResourceSet != nullptr && object.m_ObjectSet != nullptr,
+                      "ForwardRenderer draw requires material and object resource sets.");
+    RTRLAB_ASSERT_MSG(object.m_Mesh->m_VertexBuffer != nullptr && object.m_Mesh->m_IndexBuffer != nullptr,
+                      "ForwardRenderer draw requires vertex and index buffers.");
+
+    commandList.BindGraphicsPipeline(m_GraphicsPipeline.get());
+    commandList.BindResourceSet(m_SetIndices.m_FrameSet, m_FrameSet.get());
+    commandList.BindResourceSet(m_SetIndices.m_MaterialSet, object.m_Material->m_ResourceSet);
+    commandList.BindResourceSet(m_SetIndices.m_ObjectSet, object.m_ObjectSet);
+
+    MeshBinding meshBinding;
+    meshBinding.m_VertexBuffers = {object.m_Mesh->m_VertexBuffer};
+    meshBinding.m_IndexBuffer = object.m_Mesh->m_IndexBuffer;
+    meshBinding.m_IndexType = object.m_Mesh->m_IndexType;
+    commandList.BindMesh(meshBinding);
+    commandList.DrawIndexed(object.m_Mesh->m_IndexCount, object.m_Mesh->m_FirstIndex, object.m_Mesh->m_VertexOffset);
 }
 
 void ForwardRenderer::Reset()

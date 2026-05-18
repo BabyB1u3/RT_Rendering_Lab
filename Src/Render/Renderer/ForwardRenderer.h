@@ -9,6 +9,9 @@
 
 #include "Core/Util/Base.h"
 #include "Render/RHI/RHI.h"
+#include "Render/Renderer/FrameGlobals.h"
+#include "Render/Renderer/Material.h"
+#include "Render/Renderer/RenderObject.h"
 
 namespace Renderer
 {
@@ -37,6 +40,13 @@ public:
 
     bool IsInitialized() const;
     void Reset();
+
+    Scope<ResourceSet> CreateMaterialSet(Device& device) const;
+    Scope<ResourceSet> CreateObjectSet(Device& device) const;
+    void UpdateFrameGlobals(const FrameGlobals& frameGlobals) const;
+    void UpdateMaterial(const Material& material) const;
+    void UpdateRenderObject(const RenderObject& object) const;
+    void DrawObject(CommandList& commandList, const RenderObject& object) const;
 
     ShaderProgram* GetShaderProgram() const { return m_ShaderProgram.get(); }
     PipelineLayout* GetPipelineLayout() const { return m_PipelineLayout.get(); }
