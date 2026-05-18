@@ -192,6 +192,10 @@ set(GLAB_RENDER_HEADERS
     Render/RHI/RHIDevice.h
     Render/RHI/RHIUpload.h
     Render/RHI/Backends/Common/RHIShellCommon.h
+    Render/Renderer/FrameGlobals.h
+    Render/Renderer/Material.h
+    Render/Renderer/Mesh.h
+    Render/Renderer/RenderObject.h
     Render/Shader/ShaderCompiler.h
     Render/Shader/ShaderReflection.h
     Render/Shader/SlangCompiler.h
