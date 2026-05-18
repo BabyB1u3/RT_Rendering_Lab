@@ -28,24 +28,29 @@ void MultiObjectTexturedSceneDemo::OnAttach()
 void MultiObjectTexturedSceneDemo::OnDetach()
 {
     ForgetTrackedResources();
-    m_ObjectSet.reset();
-    m_MaterialSet.reset();
+    for (Scope<ResourceSet>& objectSet : m_ObjectSets)
+        objectSet.reset();
+    for (Scope<ResourceSet>& materialSet : m_MaterialSets)
+        materialSet.reset();
     m_Renderer.Reset();
-    m_RenderObject = {};
-    m_Material = {};
+    m_RenderObjects = {};
+    m_Materials = {};
     m_Mesh = {};
     m_DepthView.reset();
     m_DepthTexture.reset();
     m_Sampler.reset();
-    m_TextureView.reset();
-    m_Texture.reset();
-    m_TextureUploadBuffer.reset();
+    for (Scope<TextureView>& textureView : m_TextureViews)
+        textureView.reset();
+    for (Scope<Texture>& texture : m_Textures)
+        texture.reset();
+    for (Scope<Buffer>& textureUploadBuffer : m_TextureUploadBuffers)
+        textureUploadBuffer.reset();
     m_IndexUploadBuffer.reset();
     m_VertexUploadBuffer.reset();
     m_IndexBuffer.reset();
     m_VertexBuffer.reset();
     m_GeometryUploadPending = false;
-    m_TextureUploadPending = false;
+    m_TextureUploadPending = {};
     LOG_INFO_CAT(LogCategory::k_Demo, "MultiObjectTexturedScene demo detached");
 }
 
@@ -58,7 +63,7 @@ void MultiObjectTexturedSceneDemo::OnRender()
 {
 #if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
     if (!m_Renderer.IsInitialized() || !m_VertexBuffer || !m_IndexBuffer || !m_DepthView ||
-        m_RenderObject.m_Mesh == nullptr || m_RenderObject.m_Material == nullptr)
+        m_RenderObjects.front().m_Mesh == nullptr || m_RenderObjects.front().m_Material == nullptr)
         return;
 
     Application& app = Application::Get();
@@ -99,7 +104,8 @@ void MultiObjectTexturedSceneDemo::OnRender()
     commandList->SetViewport(
         0.0f, 0.0f, static_cast<float>(m_ViewportWidth), static_cast<float>(m_ViewportHeight), 0.0f, 1.0f);
     commandList->SetScissor(0, 0, m_ViewportWidth, m_ViewportHeight);
-    m_Renderer.DrawObject(*commandList, m_RenderObject);
+    for (const Renderer::RenderObject& object : m_RenderObjects)
+        m_Renderer.DrawObject(*commandList, object);
     commandList->EndRendering();
 #endif
 }
@@ -171,25 +177,45 @@ void MultiObjectTexturedSceneDemo::CreateSceneResources()
                                       m_IndexUploadBuffer);
     m_GeometryUploadPending = true;
 
-    const std::filesystem::path texturePath = rootPath / "Project" / "Textures" / "Grassy_Square.jpg";
-    const DemoRenderUtils::LoadedImage textureImage =
-        DemoRenderUtils::LoadTextureFileRGBA8(texturePath, "MultiObjectTexturedScene");
+    const std::array<std::filesystem::path, kMaterialCount> texturePaths = {
+        rootPath / "Project" / "Textures" / "Grassy_Square.jpg",
+        rootPath / "Project" / "Textures" / "Metal_Square.jpg",
+    };
+    static const std::array<const char*, kMaterialCount> kTextureDebugNames = {
+        "MultiObjectTexturedScene.GrassTexture",
+        "MultiObjectTexturedScene.MetalTexture",
+    };
+    static const std::array<const char*, kMaterialCount> kTextureViewDebugNames = {
+        "MultiObjectTexturedScene.GrassTextureView",
+        "MultiObjectTexturedScene.MetalTextureView",
+    };
+    static const std::array<const char*, kMaterialCount> kTextureUploadDebugNames = {
+        "MultiObjectTexturedScene.GrassTextureUploadBuffer",
+        "MultiObjectTexturedScene.MetalTextureUploadBuffer",
+    };
 
-    DemoRenderUtils::CreateRGBA8Texture2DWithView(device,
-                                                  textureImage.m_Width,
-                                                  textureImage.m_Height,
-                                                  "MultiObjectTexturedScene.ColorTexture",
-                                                  "MultiObjectTexturedScene.ColorTextureView",
-                                                  m_Texture,
-                                                  m_TextureView);
+    for (uint32_t materialIndex = 0; materialIndex < kMaterialCount; ++materialIndex)
+    {
+        const DemoRenderUtils::LoadedImage textureImage =
+            DemoRenderUtils::LoadTextureFileRGBA8(texturePaths[materialIndex], "MultiObjectTexturedScene");
+
+        DemoRenderUtils::CreateRGBA8Texture2DWithView(device,
+                                                      textureImage.m_Width,
+                                                      textureImage.m_Height,
+                                                      kTextureDebugNames[materialIndex],
+                                                      kTextureViewDebugNames[materialIndex],
+                                                      m_Textures[materialIndex],
+                                                      m_TextureViews[materialIndex]);
+
+        m_TextureUploadBuffers[materialIndex] =
+            RHIUpload::CreateUploadBuffer(device,
+                                          textureImage.m_Pixels.data(),
+                                          static_cast<uint64_t>(textureImage.m_Pixels.size()),
+                                          kTextureUploadDebugNames[materialIndex]);
+        m_TextureUploadPending[materialIndex] = true;
+    }
 
     m_Sampler = DemoRenderUtils::CreateLinearRepeatSampler(device, "MultiObjectTexturedScene.LinearRepeatSampler");
-
-    m_TextureUploadBuffer = RHIUpload::CreateUploadBuffer(device,
-                                                          textureImage.m_Pixels.data(),
-                                                          static_cast<uint64_t>(textureImage.m_Pixels.size()),
-                                                          "MultiObjectTexturedScene.TextureUploadBuffer");
-    m_TextureUploadPending = true;
 
     CreateDepthResources();
 
@@ -203,22 +229,36 @@ void MultiObjectTexturedSceneDemo::CreateSceneResources()
     rendererDesc.m_DebugName = "MultiObjectTexturedScene";
     m_Renderer.Initialize(device, rendererDesc);
 
-    m_MaterialSet = m_Renderer.CreateMaterialSet(device);
-    m_ObjectSet = m_Renderer.CreateObjectSet(device);
+    for (Scope<ResourceSet>& materialSet : m_MaterialSets)
+        materialSet = m_Renderer.CreateMaterialSet(device);
+    for (Scope<ResourceSet>& objectSet : m_ObjectSets)
+        objectSet = m_Renderer.CreateObjectSet(device);
 
     m_Mesh.m_VertexBuffer = m_VertexBuffer.get();
     m_Mesh.m_IndexBuffer = m_IndexBuffer.get();
     m_Mesh.m_IndexType = IndexType::UInt16;
     m_Mesh.m_IndexCount = 36;
 
-    m_Material.m_BaseColor = Math::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
-    m_Material.m_AlbedoTextureView = m_TextureView.get();
-    m_Material.m_AlbedoSampler = m_Sampler.get();
-    m_Material.m_ResourceSet = m_MaterialSet.get();
+    static const std::array<Math::Vec4, kMaterialCount> kMaterialBaseColors = {
+        Math::Vec4(1.0f, 1.0f, 1.0f, 1.0f),
+        Math::Vec4(0.90f, 0.95f, 1.0f, 1.0f),
+    };
+    for (uint32_t materialIndex = 0; materialIndex < kMaterialCount; ++materialIndex)
+    {
+        m_Materials[materialIndex].m_BaseColor = kMaterialBaseColors[materialIndex];
+        m_Materials[materialIndex].m_AlbedoTextureView = m_TextureViews[materialIndex].get();
+        m_Materials[materialIndex].m_AlbedoSampler = m_Sampler.get();
+        m_Materials[materialIndex].m_ResourceSet = m_MaterialSets[materialIndex].get();
+    }
 
-    m_RenderObject.m_Mesh = &m_Mesh;
-    m_RenderObject.m_Material = &m_Material;
-    m_RenderObject.m_ObjectSet = m_ObjectSet.get();
+    static const std::array<uint32_t, kObjectCount> kObjectMaterialIndices = {0, 1, 0};
+
+    for (uint32_t objectIndex = 0; objectIndex < kObjectCount; ++objectIndex)
+    {
+        m_RenderObjects[objectIndex].m_Mesh = &m_Mesh;
+        m_RenderObjects[objectIndex].m_Material = &m_Materials[kObjectMaterialIndices[objectIndex]];
+        m_RenderObjects[objectIndex].m_ObjectSet = m_ObjectSets[objectIndex].get();
+    }
     UpdateSceneParameters();
 #endif
 }
@@ -273,15 +313,18 @@ void MultiObjectTexturedSceneDemo::UploadPendingResources(CommandList& commandLi
         m_GeometryUploadPending = false;
     }
 
-    if (m_TextureUploadPending)
+    for (uint32_t materialIndex = 0; materialIndex < kMaterialCount; ++materialIndex)
     {
+        if (!m_TextureUploadPending[materialIndex])
+            continue;
+
         RHIUpload::UploadFullTexture(commandList,
                                      resourceStateTracker,
-                                     m_TextureUploadBuffer.get(),
-                                     m_Texture.get(),
+                                     m_TextureUploadBuffers[materialIndex].get(),
+                                     m_Textures[materialIndex].get(),
                                      4u,
                                      TextureState::ShaderRead);
-        m_TextureUploadPending = false;
+        m_TextureUploadPending[materialIndex] = false;
     }
 #endif
 }
@@ -289,8 +332,9 @@ void MultiObjectTexturedSceneDemo::UploadPendingResources(CommandList& commandLi
 void MultiObjectTexturedSceneDemo::UpdateSceneParameters()
 {
 #if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
-    RTRLAB_ASSERT_MSG(m_Renderer.IsInitialized() && m_RenderObject.m_Mesh != nullptr &&
-                          m_RenderObject.m_Material != nullptr && m_RenderObject.m_ObjectSet != nullptr,
+    RTRLAB_ASSERT_MSG(m_Renderer.IsInitialized() && m_RenderObjects.front().m_Mesh != nullptr &&
+                          m_RenderObjects.front().m_Material != nullptr &&
+                          m_RenderObjects.front().m_ObjectSet != nullptr,
                       "MultiObjectTexturedScene parameter updates require initialized shader resources.");
 
     Renderer::FrameGlobals frameGlobals;
@@ -298,13 +342,26 @@ void MultiObjectTexturedSceneDemo::UpdateSceneParameters()
     frameGlobals.m_Tint = Math::Vec4(1.0f, 1.0f, 1.0f, 1.0f);
     frameGlobals.m_Time = m_ElapsedSeconds;
 
-    m_RenderObject.m_Model =
-        Math::Rotate(Math::Mat4::Identity(), m_ElapsedSeconds * 0.70f, Math::Vec3(0.0f, 1.0f, 0.0f)) *
-        Math::Rotate(Math::Mat4::Identity(), m_ElapsedSeconds * 0.45f, Math::Vec3(1.0f, 0.0f, 0.0f));
+    static const std::array<Math::Vec3, kObjectCount> kObjectPositions = {
+        Math::Vec3(-1.25f, -0.15f, 0.0f),
+        Math::Vec3(0.0f, 0.25f, -0.55f),
+        Math::Vec3(1.25f, -0.20f, 0.2f),
+    };
+    static const std::array<float, kObjectCount> kRotationSpeeds = {0.55f, 0.85f, -0.65f};
 
     m_Renderer.UpdateFrameGlobals(frameGlobals);
-    m_Renderer.UpdateMaterial(m_Material);
-    m_Renderer.UpdateRenderObject(m_RenderObject);
+    for (const Renderer::Material& material : m_Materials)
+        m_Renderer.UpdateMaterial(material);
+
+    for (uint32_t objectIndex = 0; objectIndex < kObjectCount; ++objectIndex)
+    {
+        Renderer::RenderObject& object = m_RenderObjects[objectIndex];
+        const float rotation = m_ElapsedSeconds * kRotationSpeeds[objectIndex];
+        object.m_Model = Math::Translate(Math::Mat4::Identity(), kObjectPositions[objectIndex]) *
+                         Math::Rotate(Math::Mat4::Identity(), rotation, Math::Vec3(0.0f, 1.0f, 0.0f)) *
+                         Math::Rotate(Math::Mat4::Identity(), rotation * 0.6f, Math::Vec3(1.0f, 0.0f, 0.0f));
+        m_Renderer.UpdateRenderObject(object);
+    }
 #endif
 }
 
@@ -313,8 +370,10 @@ void MultiObjectTexturedSceneDemo::ForgetTrackedResources()
 #if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
     ResourceStateTracker& resourceStateTracker = Application::Get().GetResourceStateTracker();
     resourceStateTracker.Forget(m_DepthTexture.get());
-    resourceStateTracker.Forget(m_Texture.get());
-    resourceStateTracker.Forget(m_TextureUploadBuffer.get());
+    for (const Scope<Texture>& texture : m_Textures)
+        resourceStateTracker.Forget(texture.get());
+    for (const Scope<Buffer>& textureUploadBuffer : m_TextureUploadBuffers)
+        resourceStateTracker.Forget(textureUploadBuffer.get());
     resourceStateTracker.Forget(m_IndexUploadBuffer.get());
     resourceStateTracker.Forget(m_VertexUploadBuffer.get());
     resourceStateTracker.Forget(m_IndexBuffer.get());
