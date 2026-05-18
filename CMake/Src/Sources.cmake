@@ -298,6 +298,7 @@ set(GLAB_DEMO_SOURCES
     Demos/04_TexturedQuad/TexturedQuadDemo.cpp
     Demos/05_RotatingCube/RotatingCubeDemo.cpp
     Demos/06_TexturedRotatingCube/TexturedRotatingCubeDemo.cpp
+    Demos/07_MultiObjectTexturedScene/MultiObjectTexturedSceneDemo.cpp
 )
 
 set(GLAB_DEMO_HEADERS
@@ -311,6 +312,7 @@ set(GLAB_DEMO_HEADERS
     Demos/04_TexturedQuad/TexturedQuadDemo.h
     Demos/05_RotatingCube/RotatingCubeDemo.h
     Demos/06_TexturedRotatingCube/TexturedRotatingCubeDemo.h
+    Demos/07_MultiObjectTexturedScene/MultiObjectTexturedSceneDemo.h
 )
 
 set(GLAB_GUI_SOURCES
