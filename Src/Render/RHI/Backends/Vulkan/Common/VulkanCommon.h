@@ -13,6 +13,10 @@
 #ifndef VK_USE_PLATFORM_WIN32_KHR
 #define VK_USE_PLATFORM_WIN32_KHR
 #endif
+#elif defined(__APPLE__)
+#ifndef VK_USE_PLATFORM_METAL_EXT
+#define VK_USE_PLATFORM_METAL_EXT
+#endif
 #elif defined(__linux__)
 #if defined(GLAB_GLFW_X11_NATIVE)
 #ifndef VK_USE_PLATFORM_XLIB_KHR

@@ -25,6 +25,11 @@
 
 namespace VulkanRHI
 {
+namespace
+{
+constexpr const char* kPortabilitySubsetExtensionName = "VK_KHR_portability_subset";
+} // namespace
+
 std::vector<const char*> GetPlatformInstanceExtensionCandidates()
 {
     std::vector<const char*> extensions = {VK_KHR_SURFACE_EXTENSION_NAME, VK_EXT_DEBUG_UTILS_EXTENSION_NAME};
@@ -32,7 +37,8 @@ std::vector<const char*> GetPlatformInstanceExtensionCandidates()
 #if defined(_WIN32)
     extensions.push_back("VK_KHR_win32_surface");
 #elif defined(__APPLE__)
-    extensions.push_back("VK_EXT_metal_surface");
+    extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+    extensions.push_back(VK_EXT_METAL_SURFACE_EXTENSION_NAME);
 #elif defined(__linux__)
 #if defined(VK_USE_PLATFORM_XLIB_KHR)
     extensions.push_back("VK_KHR_xlib_surface");
@@ -99,8 +105,19 @@ VkSurfaceKHR CreateSurface(VkInstance instance, const NativeWindowHandle& native
             break;
         }
         case NativeWindowSystem::Cocoa:
-            RTRLAB_ASSERT_MSG(false, "Cocoa Vulkan surface creation is not compiled in this backend build.");
+        {
+#if defined(VK_USE_PLATFORM_METAL_EXT)
+            RTRLAB_ASSERT_MSG(nativeWindowHandle.m_Layer != nullptr,
+                              "Cocoa Vulkan surface creation requires a CAMetalLayer native handle.");
+            VkMetalSurfaceCreateInfoEXT createInfo =
+                MakeVkStruct<VkMetalSurfaceCreateInfoEXT, VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT>();
+            createInfo.pLayer = nativeWindowHandle.m_Layer;
+            CheckVk(vkCreateMetalSurfaceEXT(instance, &createInfo, nullptr, &surface), "vkCreateMetalSurfaceEXT");
+#else
+            RTRLAB_ASSERT_MSG(false, "Cocoa Vulkan surface creation is unavailable in this build.");
+#endif
             break;
+        }
         case NativeWindowSystem::Xlib:
         {
 #if defined(VK_USE_PLATFORM_XLIB_KHR)
@@ -145,13 +162,40 @@ bool SupportsRequiredDeviceExtensions(VkPhysicalDevice physicalDevice)
     CheckVk(vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, extensions.data()),
             "vkEnumerateDeviceExtensionProperties(list)");
 
+    bool hasSwapchain = false;
     for (const VkExtensionProperties& extension : extensions)
     {
         if (std::strcmp(extension.extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0)
-            return true;
+            hasSwapchain = true;
     }
 
-    return false;
+    return hasSwapchain;
+}
+
+std::vector<const char*> GetRequiredDeviceExtensions(VkPhysicalDevice physicalDevice)
+{
+    uint32_t extensionCount = 0;
+    CheckVk(vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr),
+            "vkEnumerateDeviceExtensionProperties(count)");
+
+    std::vector<VkExtensionProperties> extensions(extensionCount);
+    CheckVk(vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, extensions.data()),
+            "vkEnumerateDeviceExtensionProperties(list)");
+
+    std::vector<const char*> requiredExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+
+    const auto hasExtension = [&extensions](const char* extensionName)
+    {
+        return std::find_if(extensions.begin(),
+                            extensions.end(),
+                            [extensionName](const VkExtensionProperties& extension)
+                            { return std::strcmp(extension.extensionName, extensionName) == 0; }) != extensions.end();
+    };
+
+    if (hasExtension(kPortabilitySubsetExtensionName))
+        requiredExtensions.push_back(kPortabilitySubsetExtensionName);
+
+    return requiredExtensions;
 }
 
 bool SupportsPresentOnQueueFamily(VkPhysicalDevice physicalDevice, uint32_t queueFamily, VkSurfaceKHR surface)

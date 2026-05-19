@@ -682,6 +682,16 @@ void VulkanDevice::InitializeInstance()
     createInfo.pApplicationInfo = &appInfo;
     createInfo.enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size());
     createInfo.ppEnabledExtensionNames = instanceExtensions.data();
+#if defined(__APPLE__)
+    const bool hasPortabilityEnumeration =
+        std::find_if(instanceExtensions.begin(),
+                     instanceExtensions.end(),
+                     [](const char* extensionName)
+                     { return std::strcmp(extensionName, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME) == 0; }) !=
+        instanceExtensions.end();
+    if (hasPortabilityEnumeration)
+        createInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#endif
 
     CheckVk(vkCreateInstance(&createInfo, nullptr, &m_Instance), "vkCreateInstance");
     volkLoadInstance(m_Instance);
@@ -706,7 +716,7 @@ void VulkanDevice::InitializeDeviceObjects()
     graphicsQueueCreateInfo.queueCount = 1;
     graphicsQueueCreateInfo.pQueuePriorities = &queuePriority;
 
-    const std::array<const char*, 1> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    const std::vector<const char*> deviceExtensions = GetRequiredDeviceExtensions(m_PhysicalDevice);
     VkPhysicalDeviceVulkan13Features vulkan13Features =
         MakeVkStruct<VkPhysicalDeviceVulkan13Features, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES>();
     vulkan13Features.dynamicRendering = VK_TRUE;
@@ -784,7 +794,7 @@ void VulkanDevice::InitializeDeviceObjectsForSurface(VkSurfaceKHR surface)
         queueCreateInfos.push_back(presentQueueCreateInfo);
     }
 
-    const std::array<const char*, 1> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    const std::vector<const char*> deviceExtensions = GetRequiredDeviceExtensions(m_PhysicalDevice);
     VkPhysicalDeviceVulkan13Features vulkan13Features =
         MakeVkStruct<VkPhysicalDeviceVulkan13Features, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES>();
     vulkan13Features.dynamicRendering = VK_TRUE;
