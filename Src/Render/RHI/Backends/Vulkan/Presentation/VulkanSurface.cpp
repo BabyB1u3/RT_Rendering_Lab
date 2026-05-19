@@ -112,7 +112,11 @@ VkSurfaceKHR CreateSurface(VkInstance instance, const NativeWindowHandle& native
             VkMetalSurfaceCreateInfoEXT createInfo =
                 MakeVkStruct<VkMetalSurfaceCreateInfoEXT, VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT>();
             createInfo.pLayer = nativeWindowHandle.m_Layer;
-            CheckVk(vkCreateMetalSurfaceEXT(instance, &createInfo, nullptr, &surface), "vkCreateMetalSurfaceEXT");
+            const auto createMetalSurface = reinterpret_cast<PFN_vkCreateMetalSurfaceEXT>(
+                vkGetInstanceProcAddr(instance, "vkCreateMetalSurfaceEXT"));
+            RTRLAB_ASSERT_MSG(createMetalSurface != nullptr,
+                              "Vulkan instance does not expose vkCreateMetalSurfaceEXT.");
+            CheckVk(createMetalSurface(instance, &createInfo, nullptr, &surface), "vkCreateMetalSurfaceEXT");
 #else
             RTRLAB_ASSERT_MSG(false, "Cocoa Vulkan surface creation is unavailable in this build.");
 #endif
