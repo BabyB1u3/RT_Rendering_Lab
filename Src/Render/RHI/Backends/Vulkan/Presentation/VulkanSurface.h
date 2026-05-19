@@ -31,6 +31,7 @@ std::vector<const char*> GetSupportedInstanceExtensions();
 VkSurfaceKHR CreateSurface(VkInstance instance, const NativeWindowHandle& nativeWindowHandle);
 
 bool SupportsRequiredDeviceExtensions(VkPhysicalDevice physicalDevice);
+std::vector<const char*> GetRequiredDeviceExtensions(VkPhysicalDevice physicalDevice);
 bool SupportsPresentOnQueueFamily(VkPhysicalDevice physicalDevice, uint32_t queueFamily, VkSurfaceKHR surface);
 QueueFamilySelection FindQueueFamilies(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);
 uint32_t FindGraphicsQueueFamily(VkPhysicalDevice physicalDevice);

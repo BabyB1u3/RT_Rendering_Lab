@@ -8,8 +8,7 @@
       "binaryDir": "${sourceDir}/build/windows-debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/windows-debug",
-        "GLAB_GRAPHICS_BACKEND": "Vulkan"
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/windows-debug"
       }
     },
     {
@@ -19,8 +18,7 @@
       "binaryDir": "${sourceDir}/build/windows-relwithdebinfo",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/windows-relwithdebinfo",
-        "GLAB_GRAPHICS_BACKEND": "Vulkan"
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/windows-relwithdebinfo"
       }
     },
     {
@@ -31,7 +29,6 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/windows-release",
-        "GLAB_GRAPHICS_BACKEND": "Vulkan",
         "GLAB_BUILD_TESTS": "OFF",
         "GLAB_ENABLE_UNITY_BUILD": "ON"
       }
@@ -55,7 +52,6 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-windows-debug",
-        "GLAB_GRAPHICS_BACKEND": "Vulkan",
         "GLAB_BUILD_TESTS": "ON"
       }
     },
@@ -67,7 +63,6 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/install/ci-windows-release",
-        "GLAB_GRAPHICS_BACKEND": "Vulkan",
         "GLAB_BUILD_TESTS": "ON",
         "GLAB_ENABLE_UNITY_BUILD": "ON"
       }

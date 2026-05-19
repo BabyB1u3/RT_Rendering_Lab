@@ -42,7 +42,7 @@ void QuadDemo::OnDetach()
 
 void QuadDemo::OnRender()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     if (!m_GraphicsPipeline || !m_VertexBuffer || !m_IndexBuffer)
         return;
 
@@ -101,7 +101,7 @@ void QuadDemo::OnResize(uint32_t width, uint32_t height)
 
 void QuadDemo::CreateQuadResources()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     Application& app = Application::Get();
     Device& device = app.GetDevice();
 
@@ -173,7 +173,7 @@ void QuadDemo::CreateQuadResources()
 
 void QuadDemo::UploadQuadGeometry(CommandList& commandList, ResourceStateTracker& resourceStateTracker)
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     if (!m_GeometryUploadPending)
         return;
 
@@ -195,7 +195,7 @@ void QuadDemo::UploadQuadGeometry(CommandList& commandList, ResourceStateTracker
 
 void QuadDemo::ForgetTrackedBuffers()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     ResourceStateTracker& resourceStateTracker = Application::Get().GetResourceStateTracker();
     resourceStateTracker.Forget(m_IndexUploadBuffer.get());
     resourceStateTracker.Forget(m_VertexUploadBuffer.get());

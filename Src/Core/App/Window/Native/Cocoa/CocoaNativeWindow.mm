@@ -112,7 +112,6 @@ NativeWindowHandle CreateCocoaNativeWindowHandle(GLFWwindow* window)
 
     nativeWindowHandle.m_Window = reinterpret_cast<uintptr_t>((__bridge void*)nsWindow);
 
-#if defined(GLAB_BACKEND_METAL) || defined(GLAB_BACKEND_VULKAN)
     // Layer creation is best-effort here. If GLFW/Cocoa does not currently expose
     // a valid NSView, the returned layer may remain null and the RHI consumer must
     // validate the handle before attempting swapchain creation.
@@ -143,7 +142,6 @@ NativeWindowHandle CreateCocoaNativeWindowHandle(GLFWwindow* window)
     }
 
     nativeWindowHandle.m_Layer = (__bridge void*)layer;
-#endif
 
     return nativeWindowHandle;
 }

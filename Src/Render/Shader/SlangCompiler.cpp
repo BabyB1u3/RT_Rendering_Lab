@@ -61,8 +61,6 @@ std::string GetSlangTarget(const BackendType backend)
     {
         case BackendType::Vulkan:
             return "spirv";
-        case BackendType::Metal:
-            return "metal";
     }
 
     return {};
@@ -73,7 +71,6 @@ std::string GetSlangProfile(const BackendType backend)
     switch (backend)
     {
         case BackendType::Vulkan:
-        case BackendType::Metal:
             return {};
     }
 
@@ -101,8 +98,6 @@ std::string GetBackendNameForArtifacts(const BackendType backend)
     {
         case BackendType::Vulkan:
             return "vulkan";
-        case BackendType::Metal:
-            return "metal";
     }
 
     return "unknown";
@@ -114,8 +109,6 @@ std::string GetOutputExtension(const SlangCompileJob& job)
     {
         case BackendType::Vulkan:
             return ".spv";
-        case BackendType::Metal:
-            return job.m_MetalCodeFormat == MetalCodeFormat::Metallib ? ".metallib" : ".metal";
     }
 
     return ".bin";
@@ -129,8 +122,6 @@ std::string GetBackendEntryPointName(const SlangCompileJob& job)
             // Slang emits SPIR-V entry points with the exported name "main"
             // even when the source entry function has a different identifier.
             return "main";
-        case BackendType::Metal:
-            return job.m_EntryPoint;
     }
 
     return job.m_EntryPoint;
@@ -529,8 +520,7 @@ bool AppendJobArguments(const ShaderCompileTargetDesc& target,
     outJob->m_Target = GetSlangTarget(target.m_Backend);
     outJob->m_Profile = GetSlangProfile(target.m_Backend);
     outJob->m_EmitReflectionJson = config.m_EmitReflectionJson;
-    outJob->m_EmitsBinaryCode = target.m_Backend == BackendType::Vulkan;
-    outJob->m_MetalCodeFormat = target.m_MetalCodeFormat;
+    outJob->m_EmitsBinaryCode = true;
 
     if (outJob->m_Target.empty())
     {
@@ -555,11 +545,8 @@ bool AppendJobArguments(const ShaderCompileTargetDesc& target,
         outJob->m_Arguments.push_back(outJob->m_Profile);
     }
 
-    if (target.m_Backend == BackendType::Vulkan)
-    {
-        outJob->m_Arguments.push_back("-emit-spirv-directly");
-        AppendVulkanBindingShiftArguments(outJob);
-    }
+    outJob->m_Arguments.push_back("-emit-spirv-directly");
+    AppendVulkanBindingShiftArguments(outJob);
 
     if (config.m_UseColumnMajorMatrices)
         outJob->m_Arguments.push_back("-matrix-layout-column-major");
@@ -741,13 +728,6 @@ ShaderCompileResult SlangCompiler::CompileProgramImpl(const ShaderCompileRequest
     for (size_t jobIndex = 0; jobIndex < plan.m_Jobs.size(); ++jobIndex)
     {
         const SlangCompileJob& job = plan.m_Jobs[jobIndex];
-        if (job.m_Backend == BackendType::Metal && job.m_MetalCodeFormat == MetalCodeFormat::Metallib)
-        {
-            AssignSlangCompilerPlanningError(&result.m_ErrorMessage,
-                                             "SlangCompiler execution does not support Metallib output yet.");
-            return failWithSession(result.m_ErrorMessage);
-        }
-
         const std::string stem = MakeJobStem(job, jobIndex);
         const std::filesystem::path outputPath = sessionDir / (stem + GetOutputExtension(job));
         const std::filesystem::path reflectionPath = sessionDir / (stem + ".reflect.json");
@@ -770,7 +750,6 @@ ShaderCompileResult SlangCompiler::CompileProgramImpl(const ShaderCompileRequest
         blob.m_Backend = job.m_Backend;
         blob.m_Stage = job.m_Stage;
         blob.m_EntryPoint = GetBackendEntryPointName(job);
-        blob.m_MetalCodeFormat = job.m_MetalCodeFormat;
         blob.m_Code = std::move(*codeBytes);
         result.m_Program.m_Blobs.push_back(std::move(blob));
 

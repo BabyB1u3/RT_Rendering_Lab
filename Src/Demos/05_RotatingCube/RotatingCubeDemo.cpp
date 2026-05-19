@@ -51,7 +51,7 @@ void RotatingCubeDemo::OnUpdate(double dt)
 
 void RotatingCubeDemo::OnRender()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     if (!m_GraphicsPipeline || !m_VertexBuffer || !m_IndexBuffer || !m_DepthView)
         return;
 
@@ -115,7 +115,7 @@ void RotatingCubeDemo::OnResize(uint32_t width, uint32_t height)
     m_ViewportWidth = width;
     m_ViewportHeight = height;
 
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     if (m_FrameSet != nullptr)
     {
         ShaderParameterWriter parameterWriter(m_ShaderProgram->GetReflection());
@@ -131,7 +131,7 @@ void RotatingCubeDemo::OnResize(uint32_t width, uint32_t height)
 
 void RotatingCubeDemo::CreateCubeResources()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     Application& app = Application::Get();
     Device& device = app.GetDevice();
 
@@ -230,7 +230,7 @@ void RotatingCubeDemo::CreateCubeResources()
 
 void RotatingCubeDemo::CreateDepthResources()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     if (m_DepthTexture != nullptr)
         Application::Get().GetResourceStateTracker().Forget(m_DepthTexture.get());
 
@@ -259,7 +259,7 @@ void RotatingCubeDemo::CreateDepthResources()
 
 void RotatingCubeDemo::UploadCubeGeometry(CommandList& commandList, ResourceStateTracker& resourceStateTracker)
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     if (!m_GeometryUploadPending)
         return;
 
@@ -281,7 +281,7 @@ void RotatingCubeDemo::UploadCubeGeometry(CommandList& commandList, ResourceStat
 
 void RotatingCubeDemo::UpdateShaderParameters()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     RTRLAB_ASSERT_MSG(m_ShaderProgram != nullptr && m_FrameSet != nullptr && m_MaterialSet != nullptr &&
                           m_ObjectSet != nullptr,
                       "RotatingCube parameter updates require initialized shader resources.");
@@ -302,7 +302,7 @@ void RotatingCubeDemo::UpdateShaderParameters()
 
 void RotatingCubeDemo::ForgetTrackedResources()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     ResourceStateTracker& resourceStateTracker = Application::Get().GetResourceStateTracker();
     resourceStateTracker.Forget(m_DepthTexture.get());
     resourceStateTracker.Forget(m_IndexUploadBuffer.get());

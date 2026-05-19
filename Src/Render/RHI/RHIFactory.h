@@ -11,11 +11,11 @@ BackendType GetDefaultBackendType();
 /// Human-readable backend name used for diagnostics and logging.
 const char* GetBackendName(BackendType backend);
 
-/// Create a backend-specific RHI device shell for the requested backend.
-Scope<Device> CreateDevice(BackendType backend);
+/// Create the Vulkan RHI device shell used by the mainline renderer.
+Scope<Device> CreateDevice();
 
-/// Convenience wrapper that creates the device matching the active build backend.
+/// Convenience wrapper kept for call sites that spell out the default intent.
 inline Scope<Device> CreateDefaultDevice()
 {
-    return CreateDevice(GetDefaultBackendType());
+    return CreateDevice();
 }

@@ -61,7 +61,7 @@ void MultiObjectTexturedSceneDemo::OnUpdate(double dt)
 
 void MultiObjectTexturedSceneDemo::OnRender()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     if (!m_Renderer.IsInitialized() || !m_VertexBuffer || !m_IndexBuffer || !m_DepthView ||
         m_RenderObjects.front().m_Mesh == nullptr || m_RenderObjects.front().m_Material == nullptr)
         return;
@@ -118,7 +118,7 @@ void MultiObjectTexturedSceneDemo::OnResize(uint32_t width, uint32_t height)
     m_ViewportWidth = width;
     m_ViewportHeight = height;
 
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     if (m_Renderer.GetFrameSet() != nullptr)
         UpdateSceneParameters();
 
@@ -129,7 +129,7 @@ void MultiObjectTexturedSceneDemo::OnResize(uint32_t width, uint32_t height)
 
 void MultiObjectTexturedSceneDemo::CreateSceneResources()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     Application& app = Application::Get();
     Device& device = app.GetDevice();
     const std::filesystem::path rootPath = FileSystem::GetRootPath();
@@ -265,7 +265,7 @@ void MultiObjectTexturedSceneDemo::CreateSceneResources()
 
 void MultiObjectTexturedSceneDemo::CreateDepthResources()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     if (m_DepthTexture != nullptr)
         Application::Get().GetResourceStateTracker().Forget(m_DepthTexture.get());
 
@@ -295,7 +295,7 @@ void MultiObjectTexturedSceneDemo::CreateDepthResources()
 void MultiObjectTexturedSceneDemo::UploadPendingResources(CommandList& commandList,
                                                           ResourceStateTracker& resourceStateTracker)
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     if (m_GeometryUploadPending)
     {
         RHIUpload::UploadStaticBufferPair(commandList,
@@ -331,7 +331,7 @@ void MultiObjectTexturedSceneDemo::UploadPendingResources(CommandList& commandLi
 
 void MultiObjectTexturedSceneDemo::UpdateSceneParameters()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     RTRLAB_ASSERT_MSG(m_Renderer.IsInitialized() && m_RenderObjects.front().m_Mesh != nullptr &&
                           m_RenderObjects.front().m_Material != nullptr &&
                           m_RenderObjects.front().m_ObjectSet != nullptr,
@@ -367,7 +367,7 @@ void MultiObjectTexturedSceneDemo::UpdateSceneParameters()
 
 void MultiObjectTexturedSceneDemo::ForgetTrackedResources()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     ResourceStateTracker& resourceStateTracker = Application::Get().GetResourceStateTracker();
     resourceStateTracker.Forget(m_DepthTexture.get());
     for (const Scope<Texture>& texture : m_Textures)

@@ -13,7 +13,6 @@
 struct ShaderCompileTargetDesc
 {
     BackendType m_Backend = BackendType::Vulkan;
-    MetalCodeFormat m_MetalCodeFormat = MetalCodeFormat::MslSource;
 };
 
 struct ShaderCompileRequest

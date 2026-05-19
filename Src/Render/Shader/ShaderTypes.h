@@ -13,7 +13,6 @@
 enum class BackendType
 {
     Vulkan,
-    Metal,
 };
 
 enum class ShaderStage : uint32_t
@@ -52,12 +51,6 @@ struct ShaderSourceDesc
 {
     std::vector<ShaderEntryPointDesc> m_Entries;
     std::vector<std::string> m_Defines;
-};
-
-enum class MetalCodeFormat
-{
-    MslSource,
-    Metallib,
 };
 
 enum class ReflectedTypeKind
@@ -117,7 +110,6 @@ struct CompiledShaderBlob
     ShaderStage m_Stage = ShaderStage::None;
     std::string m_EntryPoint;
     std::vector<uint8_t> m_Code;
-    MetalCodeFormat m_MetalCodeFormat = MetalCodeFormat::MslSource;
 };
 
 struct CompiledShaderProgramDesc

@@ -52,11 +52,7 @@ ShaderCompileRequest BuildGraphicsShaderCompileRequest(const std::filesystem::pa
 {
     ShaderCompileRequest request;
 
-#if defined(GLAB_BACKEND_VULKAN)
-    request.m_Targets.push_back({BackendType::Vulkan, MetalCodeFormat::MslSource});
-#elif defined(GLAB_BACKEND_METAL)
-    request.m_Targets.push_back({BackendType::Metal, MetalCodeFormat::MslSource});
-#endif
+    request.m_Targets.push_back({BackendType::Vulkan});
 
     const std::string shaderModule = shaderPath.generic_string();
     request.m_Source.m_Entries.push_back({shaderModule, "main_vertex", ShaderStage::Vertex});
