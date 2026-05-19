@@ -49,7 +49,7 @@ void TexturedQuadDemo::OnDetach()
 
 void TexturedQuadDemo::OnRender()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     if (!m_GraphicsPipeline || !m_VertexBuffer || !m_IndexBuffer || !m_MaterialSet)
         return;
 
@@ -108,7 +108,7 @@ void TexturedQuadDemo::OnResize(uint32_t width, uint32_t height)
 
 void TexturedQuadDemo::CreateTexturedQuadResources()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     Application& app = Application::Get();
     Device& device = app.GetDevice();
     const std::filesystem::path rootPath = FileSystem::GetRootPath();
@@ -202,7 +202,7 @@ void TexturedQuadDemo::CreateTexturedQuadResources()
 
 void TexturedQuadDemo::UploadPendingResources(CommandList& commandList, ResourceStateTracker& resourceStateTracker)
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     if (m_GeometryUploadPending)
     {
         RHIUpload::UploadStaticBufferPair(commandList,
@@ -235,7 +235,7 @@ void TexturedQuadDemo::UploadPendingResources(CommandList& commandList, Resource
 
 void TexturedQuadDemo::ForgetTrackedResources()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     ResourceStateTracker& resourceStateTracker = Application::Get().GetResourceStateTracker();
     resourceStateTracker.Forget(m_Texture.get());
     resourceStateTracker.Forget(m_TextureUploadBuffer.get());

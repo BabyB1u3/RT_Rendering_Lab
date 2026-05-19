@@ -51,11 +51,7 @@ void Window::Init(const WindowProps& props)
         g_GlfwInitialized = true;
     }
 
-#if defined(GLAB_BACKEND_METAL) || defined(GLAB_BACKEND_VULKAN)
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-#else
-#error Unsupported graphics backend
-#endif
 
     m_Handle = glfwCreateWindow(
         static_cast<int>(props.m_Width), static_cast<int>(props.m_Height), props.m_Title.c_str(), nullptr, nullptr);

@@ -42,7 +42,7 @@ void TriangleDemo::OnDetach()
 
 void TriangleDemo::OnRender()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     if (!m_GraphicsPipeline || !m_VertexBuffer || !m_IndexBuffer)
         return;
 
@@ -101,7 +101,7 @@ void TriangleDemo::OnResize(uint32_t width, uint32_t height)
 
 void TriangleDemo::CreateTriangleResources()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     Application& app = Application::Get();
     Device& device = app.GetDevice();
 
@@ -172,7 +172,7 @@ void TriangleDemo::CreateTriangleResources()
 
 void TriangleDemo::UploadTriangleGeometry(CommandList& commandList, ResourceStateTracker& resourceStateTracker)
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     if (!m_GeometryUploadPending)
         return;
 
@@ -194,7 +194,7 @@ void TriangleDemo::UploadTriangleGeometry(CommandList& commandList, ResourceStat
 
 void TriangleDemo::ForgetTrackedBuffers()
 {
-#if defined(GLAB_BACKEND_VULKAN) || defined(GLAB_BACKEND_METAL)
+#if defined(GLAB_BACKEND_VULKAN)
     ResourceStateTracker& resourceStateTracker = Application::Get().GetResourceStateTracker();
     resourceStateTracker.Forget(m_IndexUploadBuffer.get());
     resourceStateTracker.Forget(m_VertexUploadBuffer.get());
