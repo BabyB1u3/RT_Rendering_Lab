@@ -238,55 +238,13 @@ set(GLAB_RENDER_BACKEND_VULKAN_HEADERS
 
 )
 
-set(GLAB_RENDER_BACKEND_METAL_SOURCES
-    Render/RHI/Backends/Metal/Resources/MetalBuffer.mm
-    Render/RHI/Backends/Metal/Command/MetalCommandList.mm
-    Render/RHI/Backends/Metal/Common/MetalConversions.mm
-    Render/RHI/Backends/Metal/Device/MetalDevice.mm
-    Render/RHI/Backends/Metal/Pipeline/MetalGraphicsPipeline.mm
-    Render/RHI/Backends/Metal/Pipeline/MetalPipelineLayout.mm
-    Render/RHI/Backends/Metal/Resources/MetalResourceSet.mm
-    Render/RHI/Backends/Metal/Resources/MetalSampler.mm
-    Render/RHI/Backends/Metal/Pipeline/MetalShaderProgram.mm
-    Render/RHI/Backends/Metal/Presentation/MetalSwapchain.mm
-    Render/RHI/Backends/Metal/Resources/MetalTexture.mm
+list(APPEND GLAB_RENDER_SOURCES
+    ${GLAB_RENDER_BACKEND_VULKAN_SOURCES}
 )
 
-set(GLAB_RENDER_BACKEND_METAL_HEADERS
-    Render/RHI/Backends/Metal/Resources/MetalBuffer.h
-    Render/RHI/Backends/Metal/Command/MetalCommandList.h
-    Render/RHI/Backends/Metal/Common/MetalCommon.h
-    Render/RHI/Backends/Metal/Common/MetalConversions.h
-    Render/RHI/Backends/Metal/Device/MetalDevice.h
-    Render/RHI/Backends/Metal/Pipeline/MetalGraphicsPipeline.h
-    Render/RHI/Backends/Metal/Pipeline/MetalPipelineLayout.h
-    Render/RHI/Backends/Metal/Resources/MetalResourceSet.h
-    Render/RHI/Backends/Metal/Resources/MetalSampler.h
-    Render/RHI/Backends/Metal/Pipeline/MetalShaderProgram.h
-    Render/RHI/Backends/Metal/Presentation/MetalSwapchain.h
-    Render/RHI/Backends/Metal/Resources/MetalTexture.h
-
+list(APPEND GLAB_RENDER_HEADERS
+    ${GLAB_RENDER_BACKEND_VULKAN_HEADERS}
 )
-
-if(GLAB_BACKEND_VULKAN)
-    list(APPEND GLAB_RENDER_SOURCES
-        ${GLAB_RENDER_BACKEND_VULKAN_SOURCES}
-    )
-
-    list(APPEND GLAB_RENDER_HEADERS
-        ${GLAB_RENDER_BACKEND_VULKAN_HEADERS}
-    )
-endif()
-
-if(GLAB_BACKEND_METAL)
-    list(APPEND GLAB_RENDER_SOURCES
-        ${GLAB_RENDER_BACKEND_METAL_SOURCES}
-    )
-
-    list(APPEND GLAB_RENDER_HEADERS
-        ${GLAB_RENDER_BACKEND_METAL_HEADERS}
-    )
-endif()
 
 set(GLAB_DEMO_SOURCES
     Demos/DemoRegistry.cpp
@@ -329,25 +287,13 @@ set(GLAB_GUI_HEADERS
     GUI/Panels/DemoSelectorPanel.h
 )
 
-if(GLAB_BACKEND_METAL)
-    list(APPEND GLAB_GUI_SOURCES
-        GUI/Backends/Metal/MetalImGuiBridge.mm
-    )
+list(APPEND GLAB_GUI_SOURCES
+    GUI/Backends/Vulkan/VulkanImGuiBridge.cpp
+)
 
-    list(APPEND GLAB_GUI_HEADERS
-        GUI/Backends/Metal/MetalImGuiBridge.h
-    )
-endif()
-
-if(GLAB_BACKEND_VULKAN)
-    list(APPEND GLAB_GUI_SOURCES
-        GUI/Backends/Vulkan/VulkanImGuiBridge.cpp
-    )
-
-    list(APPEND GLAB_GUI_HEADERS
-        GUI/Backends/Vulkan/VulkanImGuiBridge.h
-    )
-endif()
+list(APPEND GLAB_GUI_HEADERS
+    GUI/Backends/Vulkan/VulkanImGuiBridge.h
+)
 
 set(GLAB_PLATFORM_SOURCES)
 if(WIN32)
@@ -384,19 +330,10 @@ if(UNIX AND NOT APPLE)
     )
 endif()
 
-if(GLAB_BACKEND_METAL)
-    list(APPEND GLAB_CORE_SKIP_UNITY_SOURCES
-        ${GLAB_RENDER_BACKEND_METAL_SOURCES}
-        GUI/Backends/Metal/MetalImGuiBridge.mm
-    )
-endif()
-
-if(GLAB_BACKEND_VULKAN)
-    list(APPEND GLAB_CORE_SKIP_UNITY_SOURCES
-        ${GLAB_RENDER_BACKEND_VULKAN_SOURCES}
-        GUI/Backends/Vulkan/VulkanImGuiBridge.cpp
-    )
-endif()
+list(APPEND GLAB_CORE_SKIP_UNITY_SOURCES
+    ${GLAB_RENDER_BACKEND_VULKAN_SOURCES}
+    GUI/Backends/Vulkan/VulkanImGuiBridge.cpp
+)
 
 set(GLAB_CORE_SOURCES
     ${GLAB_APP_SOURCES}

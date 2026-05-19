@@ -18,13 +18,6 @@ if(GLAB_CORE_SKIP_UNITY_SOURCES)
     )
 endif()
 
-if(APPLE AND GLAB_BACKEND_METAL)
-    set_source_files_properties(
-        "${CMAKE_CURRENT_SOURCE_DIR}/Render/RHI/Backends/Metal/Device/MetalDevice.mm"
-        PROPERTIES COMPILE_FLAGS "-fno-objc-arc"
-    )
-endif()
-
 target_link_libraries(RTRLabCore PUBLIC
     glfw
     eigen
@@ -54,30 +47,18 @@ if(APPLE)
     )
 endif()
 
-if(GLAB_BACKEND_METAL)
-    target_link_libraries(RTRLabCore PUBLIC
-        "-framework Metal"
-    )
+target_include_directories(RTRLabCore PUBLIC
+    ${CMAKE_SOURCE_DIR}/Vendor/volk
+)
 
-    target_compile_definitions(RTRLabCore PUBLIC
-        GLAB_BACKEND_METAL
-    )
-endif()
+target_link_libraries(RTRLabCore PUBLIC
+    volk
+    vma
+)
 
-if(GLAB_BACKEND_VULKAN)
-    target_include_directories(RTRLabCore PUBLIC
-        ${CMAKE_SOURCE_DIR}/Vendor/volk
-    )
-
-    target_link_libraries(RTRLabCore PUBLIC
-        volk
-        vma
-    )
-
-    target_compile_definitions(RTRLabCore PUBLIC
-        GLAB_BACKEND_VULKAN
-    )
-endif()
+target_compile_definitions(RTRLabCore PUBLIC
+    GLAB_BACKEND_VULKAN
+)
 
 if(UNIX AND NOT APPLE)
     if(GLFW_BUILD_WAYLAND)
