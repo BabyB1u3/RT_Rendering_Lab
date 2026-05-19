@@ -28,7 +28,6 @@ struct SlangCompileJob
     std::vector<std::string> m_Arguments;
     bool m_EmitReflectionJson = false;
     bool m_EmitsBinaryCode = false;
-    MetalCodeFormat m_MetalCodeFormat = MetalCodeFormat::MslSource;
 };
 
 struct SlangCompilePlan
